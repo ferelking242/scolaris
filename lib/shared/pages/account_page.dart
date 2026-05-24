@@ -163,57 +163,63 @@ class _CoverSection extends StatelessWidget {
         ]),
       ),
 
-      // Avatar (bottom left of cover)
+      // Avatar (bottom left of cover — FB style, moitié dans la bannière)
       Positioned(
-        bottom: -48, left: 20,
+        bottom: -52, left: 20,
         child: Container(
-          width: 88, height: 88,
+          width: 104, height: 104,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_terra, _orange],
+              colors: [Color(0xFF1A0A00), _terra, _orange],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             shape: BoxShape.circle,
             border: Border.all(color: _white, width: 4),
-            boxShadow: [BoxShadow(
-                color: _terra.withOpacity(.3),
-                blurRadius: 14, offset: const Offset(0, 5))],
+            boxShadow: [
+              BoxShadow(color: _terra.withOpacity(.35),
+                  blurRadius: 20, offset: const Offset(0, 6)),
+              BoxShadow(color: Colors.black.withOpacity(.12),
+                  blurRadius: 6, offset: const Offset(0, 2)),
+            ],
           ),
           child: Center(child: Text(initials, style: const TextStyle(
-              color: _white, fontSize: 26, fontWeight: FontWeight.w900))),
+              color: _white, fontSize: 32, fontWeight: FontWeight.w900))),
         ),
       ),
 
-      // Name + badge (right of avatar area)
+      // Name + badge (right of avatar, anchored to cover bottom)
       Positioned(
-        bottom: -44, left: 122,
+        bottom: -48, left: 140,
+        right: 16,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text(name, style: const TextStyle(
-                color: _ink, fontSize: 17, fontWeight: FontWeight.w900)),
+            Flexible(child: Text(name, style: const TextStyle(
+                color: _ink, fontSize: 18, fontWeight: FontWeight.w900,
+                letterSpacing: -.2),
+                maxLines: 1, overflow: TextOverflow.ellipsis)),
             if (isPrivileged) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.verified_rounded, color: _gold, size: 16),
+              const SizedBox(width: 5),
+              const Icon(Icons.verified_rounded, color: _gold, size: 18),
             ],
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: _terra.withOpacity(.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _terra.withOpacity(.3)),
+              border: Border.all(color: _terra.withOpacity(.25)),
             ),
             child: Text(role.toUpperCase(), style: const TextStyle(
-                color: _terra, fontSize: 9,
-                fontWeight: FontWeight.w800, letterSpacing: 1)),
+                color: _terra, fontSize: 9.5,
+                fontWeight: FontWeight.w800, letterSpacing: 1.2)),
           ),
         ]),
       ),
 
-      // spacer
-      const SizedBox(height: 254),
+      // Spacer — taille totale du Stack (cover + avatar overflow)
+      const SizedBox(height: 290),
     ]);
   }
 }
@@ -223,7 +229,7 @@ class _StatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 60),
+      margin: const EdgeInsets.only(top: 72),
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         color: _white,
