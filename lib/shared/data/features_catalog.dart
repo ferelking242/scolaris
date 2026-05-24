@@ -221,7 +221,7 @@ class FeaturesCatalog {
       color: Color(0xFFD4540A),
       category: FeatureCategory.academic,
       roles: {UserRole.staff, UserRole.teacher, UserRole.student},
-      status: FeatureStatus.planned,
+      status: FeatureStatus.available,
       levels: _allStudentLevels,
     ),
 
@@ -245,7 +245,7 @@ class FeaturesCatalog {
       color: Color(0xFFC17F24),
       category: FeatureCategory.academic,
       roles: {UserRole.staff, UserRole.teacher, UserRole.student, UserRole.parent},
-      status: FeatureStatus.planned,
+      status: FeatureStatus.available,
       levels: {SchoolLevel.college, SchoolLevel.lycee},
     ),
 
@@ -459,7 +459,7 @@ class FeaturesCatalog {
       color: Color(0xFF8B1A00),
       category: FeatureCategory.academic,
       roles: _staffTeacher,
-      status: FeatureStatus.planned,
+      status: FeatureStatus.available,
     ),
 
     AppFeature(
@@ -494,7 +494,7 @@ class FeaturesCatalog {
       color: Color(0xFF8B1A00),
       category: FeatureCategory.communication,
       roles: _allRoles,
-      status: FeatureStatus.planned,
+      status: FeatureStatus.available,
     ),
 
     AppFeature(
@@ -644,7 +644,7 @@ class FeaturesCatalog {
       color: Color(0xFF2D6A4F),
       category: FeatureCategory.admin,
       roles: _staffOnly,
-      status: FeatureStatus.planned,
+      status: FeatureStatus.available,
     ),
 
     AppFeature(
