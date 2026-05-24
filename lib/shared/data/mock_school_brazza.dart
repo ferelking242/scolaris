@@ -276,7 +276,7 @@ class MockNoteBrazza {
   });
 }
 
-const kNotesPrimaire = [
+final kNotesPrimaire = [
   MockNoteBrazza(matiere: 'Calcul', semestre: 'S2', note: 15.5,
       enseignant: 'M. Loukia Aristide', date: DateTime(2026, 4, 15)),
   MockNoteBrazza(matiere: 'Lecture-Écriture', semestre: 'S2', note: 14.0,
@@ -291,7 +291,7 @@ const kNotesPrimaire = [
       enseignant: 'M. Ondamba Pierre', date: DateTime(2026, 3, 22)),
 ];
 
-const kNotesCollege = [
+final kNotesCollege = [
   MockNoteBrazza(matiere: 'Mathématiques', semestre: 'S2', note: 14.5,
       enseignant: 'M. Mouyabi Rodrigue', date: DateTime(2026, 4, 18)),
   MockNoteBrazza(matiere: 'Français', semestre: 'S2', note: 13.0,
@@ -308,7 +308,7 @@ const kNotesCollege = [
       enseignant: 'M. Mabika Jean-Claude', date: DateTime(2026, 3, 22)),
 ];
 
-const kNotesLycee = [
+final kNotesLycee = [
   MockNoteBrazza(matiere: 'Mathématiques', semestre: 'S2', note: 16.5,
       enseignant: 'M. Ngakosso Jean-Pierre', date: DateTime(2026, 4, 20)),
   MockNoteBrazza(matiere: 'Sciences Physiques', semestre: 'S2', note: 15.0,
@@ -343,7 +343,7 @@ class MockInvoiceBrazza {
   });
 }
 
-const kInvoices = [
+final kInvoices = [
   MockInvoiceBrazza(numero: 'FAC-2026-001', eleve: 'Junior Mafoua',
       description: 'Frais de scolarité — Semestre 2',
       montant: 85000, echeance: DateTime(2026, 5, 31), statut: 'payé'),
