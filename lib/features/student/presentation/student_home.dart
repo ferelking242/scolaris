@@ -7,10 +7,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
+import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
+import 'pages/bulletin_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
+import 'pages/homework_student_page.dart';
 import 'pages/schedule_page.dart';
 
 const _terra   = ScolarisPalette.terracotta;
@@ -44,8 +47,16 @@ class StudentHome extends StatelessWidget {
           RoleNavEntry(icon: Icons.calendar_month_outlined,
               activeIcon: Icons.calendar_month_rounded,
               labelKey: 'nav.schedule', page: SchedulePage()),
+          RoleNavEntry(icon: Icons.assignment_outlined,
+              activeIcon: Icons.assignment_rounded,
+              labelKey: 'nav.homework', page: HomeworkStudentPage()),
+          RoleNavEntry(icon: Icons.receipt_long_outlined,
+              activeIcon: Icons.receipt_long_rounded,
+              labelKey: 'nav.bulletin', page: BulletinPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
+          RoleNavEntry(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded,
+              labelKey: 'nav.messages', page: MessagingPage()),
           RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
               labelKey: 'nav.features', page: FeaturesHubPage()),
         ]),
