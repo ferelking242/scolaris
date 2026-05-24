@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../shared/pages/features_hub_page.dart';
+import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/qr_panel.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/attendance_today_page.dart';
+import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
+import 'pages/homework_page.dart';
 
 class TeacherHome extends StatelessWidget {
   const TeacherHome({super.key});
@@ -46,8 +49,23 @@ class TeacherHome extends StatelessWidget {
               activeIcon: Icons.qr_code_2_rounded,
               labelKey: 'nav.qr',
               page: QrPanel()),
+          RoleNavEntry(
+              icon: Icons.assignment_outlined,
+              activeIcon: Icons.assignment_rounded,
+              labelKey: 'nav.homework',
+              page: HomeworkPage()),
+          RoleNavEntry(
+              icon: Icons.bar_chart_outlined,
+              activeIcon: Icons.bar_chart_rounded,
+              labelKey: 'nav.class_stats',
+              page: ClassStatsPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
+          RoleNavEntry(
+              icon: Icons.chat_outlined,
+              activeIcon: Icons.chat_rounded,
+              labelKey: 'nav.messages',
+              page: MessagingPage()),
           RoleNavEntry(
               icon: Icons.apps_outlined,
               activeIcon: Icons.apps_rounded,
