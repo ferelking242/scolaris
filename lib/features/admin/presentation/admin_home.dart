@@ -6,6 +6,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/notification_center_page.dart';
+import 'pages/timetable_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -47,6 +48,8 @@ class AdminHome extends StatelessWidget {
               labelKey: 'nav.billing', page: AdminBillingPage()),
           RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
               labelKey: 'nav.reports', page: AdminReportsPage()),
+          RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
+              labelKey: 'nav.timetable', page: TimetablePage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(icon: Icons.campaign_outlined, activeIcon: Icons.campaign_rounded,
