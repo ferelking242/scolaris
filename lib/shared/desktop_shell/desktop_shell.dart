@@ -10,6 +10,8 @@ import '../../core/config/app_config.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../pages/notifications_page.dart';
+import '../pages/settings_page.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg      = Color(0xFFF5EEE6);
@@ -27,8 +29,8 @@ const _sh2     = Color(0xFF3E1A00);
 const _shTxt   = Color(0xFFE8DDD0);
 const _shMuted = Color(0xFFB89880);
 
-// ── 3 sidebar modes ───────────────────────────────────────────────────────────
-enum _SideMode { full, icons, hidden }
+// ── 2 sidebar modes (hidden supprimé) ────────────────────────────────────────
+enum _SideMode { full, icons }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public data classes
@@ -77,60 +79,47 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   List<DesktopNavItem> get _flatItems =>
       [for (final g in widget.groups) ...g.items];
 
-  void _cycle() => setState(() {
-    _mode = switch (_mode) {
-      _SideMode.full   => _SideMode.icons,
-      _SideMode.icons  => _SideMode.hidden,
-      _SideMode.hidden => _SideMode.full,
-    };
+  void _toggle() => setState(() {
+    _mode = _mode == _SideMode.full ? _SideMode.icons : _SideMode.full;
   });
 
-  double get _sideW => switch (_mode) {
-    _SideMode.full   => 220.0,
-    _SideMode.icons  => 64.0,
-    _SideMode.hidden => 0.0,
-  };
+  double get _sideW => _mode == _SideMode.full ? 220.0 : 56.0;
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authSessionProvider);
-
     return Scaffold(
-      backgroundColor: _sh1, // dark bg peeks through rounded corners
+      backgroundColor: _sh1,
       body: SafeArea(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Animated sidebar ─────────────────────────────────────────────
             AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 230),
               curve: Curves.easeInOut,
               width: _sideW,
-              child: _sideW == 0
-                  ? const SizedBox.shrink()
-                  : Stack(children: [
-                      Positioned.fill(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [_sh1, _sh2],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                          ),
-                        ),
+              child: Stack(children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_sh1, _sh2],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-                      Positioned.fill(
-                        child: CustomPaint(painter: _HexPainter()),
-                      ),
-                      _Sidebar(
-                        groups: widget.groups,
-                        user: user,
-                        collapsed: _mode == _SideMode.icons,
-                        currentIndex: _flatIndex,
-                        onSelect: (i) => setState(() => _flatIndex = i),
-                      ),
-                    ]),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(painter: _HexPainter()),
+                ),
+                _Sidebar(
+                  groups: widget.groups,
+                  collapsed: _mode == _SideMode.icons,
+                  currentIndex: _flatIndex,
+                  onSelect: (i) => setState(() => _flatIndex = i),
+                ),
+              ]),
             ),
 
             // ── Main column: header + content ────────────────────────────────
@@ -138,28 +127,20 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header — same dark background as sidebar
                   _Header(
                     title: widget.title,
                     mode: _mode,
                     selectedSchool: _selectedSchool,
-                    onCycleMode: _cycle,
+                    onToggle: _toggle,
                     onSchoolChange: (s) => setState(() => _selectedSchool = s),
                   ),
-                  // Content — cream bg with rounded top-left corner
                   Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeInOut,
-                      child: ClipRRect(
-                        borderRadius: _sideW > 0
-                            ? const BorderRadius.only(
-                                topLeft: Radius.circular(22))
-                            : BorderRadius.zero,
-                        child: Container(
-                          color: _bg,
-                          child: _flatItems[_flatIndex].page,
-                        ),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(22)),
+                      child: Container(
+                        color: _bg,
+                        child: _flatItems[_flatIndex].page,
                       ),
                     ),
                   ),
@@ -174,93 +155,173 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sidebar  (nav items only — brand/school/toggle live in header)
+// Sidebar  — logo en haut + nav items avec sections repliables
 // ─────────────────────────────────────────────────────────────────────────────
-class _Sidebar extends ConsumerWidget {
+class _Sidebar extends StatefulWidget {
   final List<DesktopNavGroup> groups;
-  final AppUser? user;
   final bool collapsed;
   final int currentIndex;
   final ValueChanged<int> onSelect;
 
   const _Sidebar({
     required this.groups,
-    required this.user,
     required this.collapsed,
     required this.currentIndex,
     required this.onSelect,
   });
 
+  @override
+  State<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<_Sidebar> {
+  final Set<int> _closedGroups = {};
+
   int _flat(int gIdx, int iIdx) {
     int f = 0;
-    for (var i = 0; i < gIdx; i++) f += groups[i].items.length;
+    for (var i = 0; i < gIdx; i++) f += widget.groups[i].items.length;
     return f + iIdx;
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        // spacer so nav starts just below header height
-        const SizedBox(height: 56),
+        // ── Logo Scolaris ──────────────────────────────────────────────────
+        SizedBox(
+          height: 56,
+          child: Center(
+            child: widget.collapsed
+                ? Image.asset(
+                    'assets/images/logo_transparent.png',
+                    width: 30, height: 30,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 30, height: 30,
+                      decoration: BoxDecoration(
+                        color: _terra,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(child: Text('S',
+                          style: TextStyle(color: _white,
+                              fontWeight: FontWeight.w900, fontSize: 14))),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/logo_transparent.png',
+                        width: 26, height: 26,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 26, height: 26,
+                          decoration: BoxDecoration(
+                            color: _terra,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: const Center(child: Text('S',
+                              style: TextStyle(color: _white,
+                                  fontWeight: FontWeight.w900, fontSize: 13))),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('Scolaris',
+                          style: TextStyle(
+                            color: _shTxt,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                          )),
+                    ],
+                  ),
+          ),
+        ),
+        Container(height: 1, color: _white.withOpacity(.07)),
+
+        // ── Nav groups ────────────────────────────────────────────────────
         Expanded(
           child: ListView(
             padding: EdgeInsets.symmetric(
-                horizontal: collapsed ? 6 : 8, vertical: 6),
+                horizontal: widget.collapsed ? 6 : 8, vertical: 6),
             children: [
-              for (var g = 0; g < groups.length; g++) ...[
-                if (!collapsed)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 14, 10, 6),
-                    child: Text(
-                      groups[g].labelKey.tr().toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 9,
-                        letterSpacing: 1.2,
-                        color: _gold.withOpacity(.65),
-                        fontWeight: FontWeight.w800,
-                      ),
+              for (var g = 0; g < widget.groups.length; g++) ...[
+                // Group header (repliable)
+                if (!widget.collapsed)
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      if (_closedGroups.contains(g)) {
+                        _closedGroups.remove(g);
+                      } else {
+                        _closedGroups.add(g);
+                      }
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 14, 8, 6),
+                      child: Row(children: [
+                        Expanded(
+                          child: Text(
+                            widget.groups[g].labelKey.tr().toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              letterSpacing: 1.2,
+                              color: _gold.withOpacity(.65),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          _closedGroups.contains(g)
+                              ? Icons.expand_more_rounded
+                              : Icons.expand_less_rounded,
+                          size: 13,
+                          color: _gold.withOpacity(.5),
+                        ),
+                      ]),
                     ),
                   )
                 else
                   const SizedBox(height: 10),
-                ...List.generate(groups[g].items.length, (i) {
-                  final idx = _flat(g, i);
-                  final it = groups[g].items[i];
-                  return _SideItem(
-                    icon: it.icon,
-                    labelKey: it.labelKey,
-                    selected: idx == currentIndex,
-                    collapsed: collapsed,
-                    onTap: () => onSelect(idx),
-                  );
-                }),
+
+                // Items (shown unless group collapsed)
+                if (widget.collapsed || !_closedGroups.contains(g))
+                  ...List.generate(widget.groups[g].items.length, (i) {
+                    final idx = _flat(g, i);
+                    final it = widget.groups[g].items[i];
+                    return _SideItem(
+                      icon: it.icon,
+                      labelKey: it.labelKey,
+                      selected: idx == widget.currentIndex,
+                      collapsed: widget.collapsed,
+                      onTap: () => widget.onSelect(idx),
+                    );
+                  }),
               ],
             ],
           ),
         ),
+
+        // ── Footer ────────────────────────────────────────────────────────
         Container(height: 1, color: _white.withOpacity(.07)),
-        _FooterBlock(collapsed: collapsed, user: user),
+        _FooterBlock(collapsed: widget.collapsed),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header — dark, same palette as sidebar
+// Header — dark, même fond que sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 class _Header extends ConsumerStatefulWidget {
   final String title;
   final _SideMode mode;
   final String selectedSchool;
-  final VoidCallback onCycleMode;
+  final VoidCallback onToggle;
   final ValueChanged<String> onSchoolChange;
 
   const _Header({
     required this.title,
     required this.mode,
     required this.selectedSchool,
-    required this.onCycleMode,
+    required this.onToggle,
     required this.onSchoolChange,
   });
 
@@ -305,124 +366,23 @@ class _HeaderState extends ConsumerState<_Header> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // ── Collapse/mode button ───────────────────────────────────────────
+          // ── Toggle sidebar button ──────────────────────────────────────
           _DarkBtn(
-            icon: switch (widget.mode) {
-              _SideMode.full   => Icons.menu_open_rounded,
-              _SideMode.icons  => Icons.menu_rounded,
-              _SideMode.hidden => Icons.menu_rounded,
-            },
-            tooltip: switch (widget.mode) {
-              _SideMode.full   => 'Réduire',
-              _SideMode.icons  => 'Masquer',
-              _SideMode.hidden => 'Ouvrir',
-            },
-            onTap: widget.onCycleMode,
+            icon: widget.mode == _SideMode.full
+                ? Icons.menu_open_rounded
+                : Icons.menu_rounded,
+            tooltip: widget.mode == _SideMode.full ? 'Réduire' : 'Étendre',
+            onTap: widget.onToggle,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
 
-          // ── Logo (transparent, no bg) ──────────────────────────────────────
-          Image.asset(
-            'assets/images/logo_transparent.png',
-            width: 28,
-            height: 28,
-            errorBuilder: (_, __, ___) => Container(
-              width: 28, height: 28,
-              decoration: BoxDecoration(
-                color: _terra,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: const Center(
-                child: Text('S', style: TextStyle(
-                    color: _white, fontWeight: FontWeight.w900, fontSize: 14)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // ── Vertical divider ───────────────────────────────────────────────
           Container(width: 1, height: 20, color: _white.withOpacity(.12)),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
 
-          // ── School selector ────────────────────────────────────────────────
+          // ── School selector ────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: Container(
-              width: 180,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A1200),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _white.withOpacity(.1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                    child: Text(
-                      'SÉLECTIONNER LE CENTRE',
-                      style: TextStyle(
-                        fontSize: 9,
-                        letterSpacing: 1.2,
-                        color: _gold.withOpacity(.7),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  ..._schools.map((s) {
-                    final sel = s == widget.selectedSchool;
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          widget.onSchoolChange(s);
-                          Navigator.of(context, rootNavigator: true).pop();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6, height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: sel ? _gold : _shMuted.withOpacity(.4),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  s,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: sel ? _gold : _shTxt,
-                                    fontWeight: sel
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              if (sel)
-                                const Icon(Icons.check_rounded,
-                                    size: 14, color: _gold),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 6),
-                ],
-              ),
-            ),
+            content: _buildSchoolPopup(context),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
@@ -458,7 +418,7 @@ class _HeaderState extends ConsumerState<_Header> {
           Container(width: 1, height: 20, color: _white.withOpacity(.12)),
           const SizedBox(width: 14),
 
-          // ── Search bar ─────────────────────────────────────────────────────
+          // ── Search bar ─────────────────────────────────────────────────
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: _searchActive ? 280 : 220,
@@ -486,8 +446,7 @@ class _HeaderState extends ConsumerState<_Header> {
                       _searchFocus.unfocus();
                       setState(() => _searchActive = false);
                     },
-                    style: const TextStyle(
-                        fontSize: 12.5, color: _shTxt),
+                    style: const TextStyle(fontSize: 12.5, color: _shTxt),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: 'Rechercher élèves, classes…',
@@ -536,11 +495,19 @@ class _HeaderState extends ConsumerState<_Header> {
 
           const Spacer(),
 
-          // ── Notification icon ──────────────────────────────────────────────
+          // ── Notification icon ──────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _NotifPanel(),
-            child: _DarkBadgeBtn(
+            content: _NotifPanel(
+              onViewAll: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: NotificationsPage(),
+                    )),
+              ),
+            ),
+            child: const _DarkBadgeBtn(
               icon: Icons.notifications_outlined,
               badge: true,
               tooltip: 'Notifications',
@@ -548,11 +515,11 @@ class _HeaderState extends ConsumerState<_Header> {
           ),
           const SizedBox(width: 4),
 
-          // ── Help icon ──────────────────────────────────────────────────────
+          // ── Help icon ──────────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _HelpPanel(),
-            child: _DarkBadgeBtn(
+            content: const _HelpPanel(),
+            child: const _DarkBadgeBtn(
               icon: Icons.help_outline_rounded,
               tooltip: 'Aide',
             ),
@@ -561,10 +528,24 @@ class _HeaderState extends ConsumerState<_Header> {
           Container(width: 1, height: 20, color: _white.withOpacity(.12)),
           const SizedBox(width: 12),
 
-          // ── Account popup ──────────────────────────────────────────────────
+          // ── Account popup ──────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _AccountPanel(user: user),
+            content: _AccountPanel(
+              user: user,
+              onSettings: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const Scaffold(body: SettingsPage())),
+              ),
+              onNotifs: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: NotificationsPage(),
+                    )),
+              ),
+            ),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Row(
@@ -582,14 +563,93 @@ class _HeaderState extends ConsumerState<_Header> {
       ),
     );
   }
+
+  Widget _buildSchoolPopup(BuildContext context) {
+    return Container(
+      width: 200,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1200),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.5),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'SÉLECTIONNER LE CENTRE',
+                style: TextStyle(
+                  fontSize: 9,
+                  letterSpacing: 1.2,
+                  color: _gold.withOpacity(.7),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          ..._schools.map((s) {
+            final sel = s == widget.selectedSchool;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  widget.onSchoolChange(s);
+                  Navigator.of(context, rootNavigator: true).pop();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 6, height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: sel ? _gold : _shMuted.withOpacity(.4),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(s,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: sel ? _gold : _shTxt,
+                            fontWeight:
+                                sel ? FontWeight.w700 : FontWeight.w500,
+                          )),
+                    ),
+                    if (sel)
+                      const Icon(Icons.check_rounded,
+                          size: 14, color: _gold),
+                  ]),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Account panel popup
+// Account panel popup — bannière + avatar 3D bien visible
 // ─────────────────────────────────────────────────────────────────────────────
 class _AccountPanel extends ConsumerWidget {
   final AppUser? user;
-  const _AccountPanel({required this.user});
+  final VoidCallback? onSettings;
+  final VoidCallback? onNotifs;
+
+  const _AccountPanel({required this.user, this.onSettings, this.onNotifs});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -602,15 +662,14 @@ class _AccountPanel extends ConsumerWidget {
     };
 
     return Container(
-      width: 280,
+      width: 290,
       decoration: BoxDecoration(
         color: const Color(0xFF1E0C00),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _white.withOpacity(.09)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.5),
-            blurRadius: 24,
+            color: Colors.black.withOpacity(.55),
+            blurRadius: 28,
             offset: const Offset(0, 8),
           ),
         ],
@@ -618,34 +677,69 @@ class _AccountPanel extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Banner
-          Container(
-            height: 70,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_terra, _orange],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // ── Bannière terracotta ──────────────────────────────────────────
+          ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Container(
+              height: 80,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6B1200), _terra, _orange],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(painter: _HexPainter(opacity: 0.08)),
-                ),
-                Positioned(
-                  bottom: -22,
-                  left: 16,
-                  child: _Avatar3D(user: user, size: 46),
-                ),
-              ],
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(painter: _HexPainter(opacity: 0.1)),
+                  ),
+                  // Avatar positionné sur le bas de la bannière
+                  Positioned(
+                    bottom: -24,
+                    left: 16,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: const Color(0xFF1E0C00), width: 3),
+                      ),
+                      child: _Avatar3D(user: user, size: 48),
+                    ),
+                  ),
+                  // Badge rôle en haut à droite
+                  Positioned(
+                    top: 12, right: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(.35),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _white.withOpacity(.2)),
+                      ),
+                      child: Text(
+                        roleName.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: _white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 28),
-          // Name + role
+
+          // ── Nom + email (avec offset pour l'avatar) ──────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 32, 16, 12),
             child: Row(
               children: [
                 Expanded(
@@ -655,7 +749,7 @@ class _AccountPanel extends ConsumerWidget {
                       Text(
                         user?.fullName ?? '—',
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: _shTxt,
                         ),
@@ -665,89 +759,74 @@ class _AccountPanel extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         user?.email ?? '',
-                        style: TextStyle(fontSize: 11, color: _shMuted),
+                        style:
+                            TextStyle(fontSize: 11.5, color: _shMuted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _terra.withOpacity(.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: _terra.withOpacity(.3)),
-                  ),
-                  child: Text(
-                    roleName,
-                    style: const TextStyle(
-                        fontSize: 10.5,
-                        color: _orange,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+
           Container(height: 1, color: _white.withOpacity(.07)),
-          // Menu items
-          ..._menuItems(context, ref),
+
+          // ── Menu items ───────────────────────────────────────────────────
+          _PanelItem(
+            icon: Icons.notifications_outlined,
+            label: 'Notifications',
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: _terra,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text('3',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: _white,
+                      fontWeight: FontWeight.w700)),
+            ),
+            onTap: () {
+              Navigator.of(context, rootNavigator: true).pop();
+              onNotifs?.call();
+            },
+          ),
+          _PanelItem(
+            icon: Icons.settings_outlined,
+            label: 'Paramètres',
+            onTap: () {
+              Navigator.of(context, rootNavigator: true).pop();
+              onSettings?.call();
+            },
+          ),
+          _PanelItem(
+            icon: Icons.brightness_6_outlined,
+            label: 'Changer le thème',
+            onTap: () {
+              ref.read(themeControllerProvider.notifier).toggleBrightness();
+            },
+          ),
+          Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              color: _white.withOpacity(.07)),
+          _PanelItem(
+            icon: Icons.logout_rounded,
+            label: 'Se déconnecter',
+            danger: true,
+            onTap: () => ref.read(signOutUseCaseProvider)(),
+          ),
           const SizedBox(height: 4),
         ],
       ),
     );
   }
-
-  List<Widget> _menuItems(BuildContext context, WidgetRef ref) {
-    return [
-      _PanelItem(
-        icon: Icons.notifications_outlined,
-        label: 'Notifications',
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: _terra,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Text('3',
-              style: TextStyle(
-                  fontSize: 10,
-                  color: _white,
-                  fontWeight: FontWeight.w700)),
-        ),
-        onTap: () {},
-      ),
-      _PanelItem(
-        icon: Icons.settings_outlined,
-        label: 'Paramètres',
-        onTap: () {},
-      ),
-      _PanelItem(
-        icon: Icons.brightness_6_outlined,
-        label: 'Changer le thème',
-        onTap: () {
-          ref.read(themeControllerProvider.notifier).toggleBrightness();
-        },
-      ),
-      Container(
-          height: 1,
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          color: _white.withOpacity(.07)),
-      _PanelItem(
-        icon: Icons.logout_rounded,
-        label: 'Se déconnecter',
-        danger: true,
-        onTap: () => ref.read(signOutUseCaseProvider)(),
-      ),
-    ];
-  }
 }
 
-class _PanelItem extends StatelessWidget {
+class _PanelItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final Widget? trailing;
@@ -763,30 +842,46 @@ class _PanelItem extends StatelessWidget {
   });
 
   @override
+  State<_PanelItem> createState() => _PanelItemState();
+}
+
+class _PanelItemState extends State<_PanelItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = danger ? const Color(0xFFFF6B6B) : _shTxt;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: color.withOpacity(.8)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: color,
-                    fontWeight: FontWeight.w500,
+    final color = widget.danger ? const Color(0xFFFF6B6B) : _shTxt;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 110),
+        color: _hover
+            ? _white.withOpacity(.05)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 11),
+            child: Row(
+              children: [
+                Icon(widget.icon,
+                    size: 17, color: color.withOpacity(.8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              if (trailing != null) trailing!,
-            ],
+                if (widget.trailing != null) widget.trailing!,
+              ],
+            ),
           ),
         ),
       ),
@@ -798,26 +893,30 @@ class _PanelItem extends StatelessWidget {
 // Notification panel
 // ─────────────────────────────────────────────────────────────────────────────
 class _NotifPanel extends StatelessWidget {
+  final VoidCallback? onViewAll;
+
   static const _notifs = [
-    ('Nouvelle inscription', 'Amara Diallo – Terminale A', '2 min', Icons.person_add_outlined),
-    ('Résultats publiés', 'Semestre 1 – Classe 4ème B', '1 h', Icons.grade_outlined),
-    ('Paiement reçu', '85 000 XAF – Frais scolaires', '3 h', Icons.payments_outlined),
+    ('Nouvelle inscription', 'Amara Diallo – Terminale A', '2 min',
+        Icons.person_add_outlined),
+    ('Résultats publiés', 'Semestre 1 – Classe 4ème B', '1 h',
+        Icons.grade_outlined),
+    ('Paiement reçu', '85 000 XAF – Frais scolaires', '3 h',
+        Icons.payments_outlined),
   ];
 
-  const _NotifPanel();
+  const _NotifPanel({this.onViewAll});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
+      width: 310,
       decoration: BoxDecoration(
         color: const Color(0xFF1E0C00),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _white.withOpacity(.09)),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.4),
-            blurRadius: 20,
+            color: Colors.black.withOpacity(.5),
+            blurRadius: 24,
             offset: const Offset(0, 6),
           ),
         ],
@@ -826,12 +925,12 @@ class _NotifPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
             child: Row(
               children: [
                 const Text('Notifications',
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: _shTxt)),
                 const Spacer(),
@@ -859,14 +958,34 @@ class _NotifPanel extends StatelessWidget {
                 time: n.$3,
               )),
           Container(height: 1, color: _white.withOpacity(.07)),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text(
-              'Voir toutes les notifications',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: _gold.withOpacity(.8),
-                  fontWeight: FontWeight.w600),
+          // Bouton "Voir toutes" fonctionnel
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context, rootNavigator: true).pop();
+                onViewAll?.call();
+              },
+              borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Voir toutes les notifications',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: _gold,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded,
+                        size: 13, color: _gold),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -891,18 +1010,18 @@ class _NotifItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32, height: 32,
+            width: 34, height: 34,
             decoration: BoxDecoration(
               color: _terra.withOpacity(.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(9),
             ),
             child: Center(
-              child: Icon(icon, size: 15, color: _orange),
+              child: Icon(icon, size: 16, color: _orange),
             ),
           ),
           const SizedBox(width: 10),
@@ -953,10 +1072,9 @@ class _HelpPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E0C00),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _white.withOpacity(.09)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.4),
+            color: Colors.black.withOpacity(.5),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -966,12 +1084,12 @@ class _HelpPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 10),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text('Centre d\'aide',
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: _shTxt)),
             ),
@@ -983,14 +1101,14 @@ class _HelpPanel extends StatelessWidget {
                   onTap: () {},
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: 14, vertical: 11),
                     child: Row(
                       children: [
-                        Icon(t.$1, size: 15, color: _shMuted),
+                        Icon(t.$1, size: 16, color: _shMuted),
                         const SizedBox(width: 10),
                         Text(t.$2,
                             style: const TextStyle(
-                                fontSize: 12.5, color: _shTxt)),
+                                fontSize: 13, color: _shTxt)),
                       ],
                     ),
                   ),
@@ -1004,7 +1122,7 @@ class _HelpPanel extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3D avatar widget  — DiceBear bottts-neutral
+// 3D avatar widget — DiceBear bottts-neutral
 // ─────────────────────────────────────────────────────────────────────────────
 class _Avatar3D extends StatelessWidget {
   final AppUser? user;
@@ -1128,10 +1246,8 @@ class _SideItemState extends State<_SideItem> {
                     : MainAxisAlignment.start,
                 children: [
                   Icon(widget.icon,
-                      size: 17,
-                      color: active
-                          ? _white
-                          : _shMuted),
+                      size: widget.collapsed ? 20 : 17,
+                      color: active ? _white : _shMuted),
                   if (!widget.collapsed) ...[
                     const SizedBox(width: 10),
                     Expanded(
@@ -1150,8 +1266,7 @@ class _SideItemState extends State<_SideItem> {
                     ),
                     if (active)
                       Container(
-                        width: 5,
-                        height: 5,
+                        width: 5, height: 5,
                         decoration: const BoxDecoration(
                           color: _gold,
                           shape: BoxShape.circle,
@@ -1173,8 +1288,7 @@ class _SideItemState extends State<_SideItem> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _FooterBlock extends StatelessWidget {
   final bool collapsed;
-  final AppUser? user;
-  const _FooterBlock({required this.collapsed, required this.user});
+  const _FooterBlock({required this.collapsed});
 
   @override
   Widget build(BuildContext context) {
@@ -1259,8 +1373,7 @@ class _DarkBtnState extends State<_DarkBtn> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
               color: _hover
                   ? _white.withOpacity(.1)
@@ -1301,8 +1414,7 @@ class _DarkBadgeBtnState extends State<_DarkBadgeBtn> {
         onExit: (_) => setState(() => _hover = false),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          width: 38,
-          height: 38,
+          width: 38, height: 38,
           decoration: BoxDecoration(
             color: _hover
                 ? _white.withOpacity(.1)
@@ -1316,11 +1428,9 @@ class _DarkBadgeBtnState extends State<_DarkBadgeBtn> {
               Icon(widget.icon, size: 22, color: _shTxt),
               if (widget.badge)
                 Positioned(
-                  top: 5,
-                  right: 5,
+                  top: 6, right: 6,
                   child: Container(
-                    width: 8,
-                    height: 8,
+                    width: 8, height: 8,
                     decoration: const BoxDecoration(
                       color: _terra,
                       shape: BoxShape.circle,
@@ -1336,7 +1446,7 @@ class _DarkBadgeBtnState extends State<_DarkBadgeBtn> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hex pattern painter (reused in sidebar + banner)
+// Hex pattern painter
 // ─────────────────────────────────────────────────────────────────────────────
 class _HexPainter extends CustomPainter {
   final double opacity;
