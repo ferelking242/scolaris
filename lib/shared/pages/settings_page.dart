@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/localization/locales.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
+import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import 'account_page.dart';
 
