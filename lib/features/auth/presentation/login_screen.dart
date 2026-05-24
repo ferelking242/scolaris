@@ -43,7 +43,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _loading  = false;
   bool _obscure  = true;
   String? _error;
-  String _selectedRole = 'student';
+  String _selectedRole    = 'student';
+  String? _selectedSubtype = 'lycee';
   bool _showQrScanner  = false;
 
   late final TabController _tabCtrl;
@@ -56,6 +57,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ('finance',      Icons.payments_outlined,             'Finance'),
     ('admin',        Icons.admin_panel_settings_outlined, 'Admin'),
   ];
+
+  static const _subTypeMap =
+      <String, List<(String, String, IconData)>>{
+    'student': [
+      ('primaire',   'Primaire',     Icons.child_care_outlined),
+      ('college',    'Collège',      Icons.school_outlined),
+      ('lycee',      'Lycée',        Icons.account_balance_outlined),
+      ('univ',       'Université',   Icons.science_outlined),
+    ],
+    'teacher': [
+      ('primaire',   'Primaire',     Icons.child_care_outlined),
+      ('secondaire', 'Secondaire',   Icons.school_outlined),
+      ('univ',       'Université',   Icons.science_outlined),
+    ],
+    'parent': [
+      ('primaire',   'Enf. Primaire',Icons.child_care_outlined),
+      ('college',    'Enf. Collège', Icons.school_outlined),
+      ('lycee',      'Enf. Lycée',   Icons.account_balance_outlined),
+    ],
+    'admin': [
+      ('directeur',  'Directeur',    Icons.badge_outlined),
+      ('secretaire', 'Secrétariat',  Icons.person_outlined),
+      ('dg',         'Dir. Général', Icons.workspace_premium_outlined),
+    ],
+    'finance': [
+      ('comptable',  'Comptable',    Icons.calculate_outlined),
+      ('caissier',   'Caissier',     Icons.point_of_sale_outlined),
+    ],
+    'surveillance': [
+      ('sg',         'Surv. Gén.',   Icons.security_outlined),
+      ('aux',        'Auxiliaire',   Icons.shield_outlined),
+    ],
+  };
 
   static const _slides = [
     _Slide(
@@ -90,10 +124,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _selectRole(String role) {
+    final subs = _subTypeMap[role];
+    final firstSub = subs?.isNotEmpty == true ? subs!.first.$1 : null;
     setState(() {
       _selectedRole    = role;
-      _emailCtrl.text  = '$role@scolaris.app';
+      _selectedSubtype = firstSub;
+      _emailCtrl.text  = firstSub != null
+          ? '${role}_${firstSub}@scolaris.app'
+          : '$role@scolaris.app';
       _passCtrl.text   = 'demo1234';
+      _error           = null;
+    });
+  }
+
+  void _selectSubtype(String sub) {
+    setState(() {
+      _selectedSubtype = sub;
+      _emailCtrl.text  = '${_selectedRole}_${sub}@scolaris.app';
       _error           = null;
     });
   }
@@ -235,7 +282,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
+
+              // ── Sous-profil ───────────────────────────────────────────────
+              if (_subTypeMap.containsKey(_selectedRole)) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  const Icon(Icons.subdirectory_arrow_right_rounded,
+                      size: 13, color: Color(0xFFB08060)),
+                  const SizedBox(width: 4),
+                  Text('Sous-profil',
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w700,
+                          color: Color(0xFFB08060))),
+                ]),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6, runSpacing: 6,
+                  children: [
+                    for (final s in _subTypeMap[_selectedRole]!)
+                      _SubTypeChip(
+                        label: s.$2, icon: s.$3,
+                        selected: _selectedSubtype == s.$1,
+                        onTap: () => _selectSubtype(s.$1),
+                      ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 8),
               Center(
                 child: Text('Mot de passe universel : demo1234',
                     style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
@@ -1134,6 +1208,41 @@ class _RoleChip extends StatelessWidget {
           Text(label, style: TextStyle(
               color: selected ? _white : _ink,
               fontSize: 12.5, fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SubTypeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SubTypeChip({required this.label, required this.icon,
+      required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF3E1A00) : const Color(0xFFF0E8DF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: selected ? const Color(0xFF3E1A00) : _border),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 12,
+              color: selected ? _gold : const Color(0xFFB08060)),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(
+              color: selected ? _gold : _ink,
+              fontSize: 11.5, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
