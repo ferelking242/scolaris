@@ -118,6 +118,12 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   collapsed: _mode == _SideMode.icons,
                   currentIndex: _flatIndex,
                   onSelect: (i) => setState(() => _flatIndex = i),
+                  onSettings: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const Scaffold(body: SettingsPage()))),
+                  onHelp: () => showDialog(
+                    context: context,
+                    builder: (_) => const _HelpDialog(),
+                  ),
                 ),
               ]),
             ),
@@ -162,12 +168,16 @@ class _Sidebar extends StatefulWidget {
   final bool collapsed;
   final int currentIndex;
   final ValueChanged<int> onSelect;
+  final VoidCallback? onSettings;
+  final VoidCallback? onHelp;
 
   const _Sidebar({
     required this.groups,
     required this.collapsed,
     required this.currentIndex,
     required this.onSelect,
+    this.onSettings,
+    this.onHelp,
   });
 
   @override
@@ -189,21 +199,27 @@ class _SidebarState extends State<_Sidebar> {
       children: [
         // ── Logo Scolaris ──────────────────────────────────────────────────
         SizedBox(
-          height: 56,
+          height: 72,
           child: Center(
             child: widget.collapsed
                 ? Image.asset(
                     'assets/images/logo_transparent.png',
-                    width: 30, height: 30,
+                    width: 38, height: 38,
                     errorBuilder: (_, __, ___) => Container(
-                      width: 30, height: 30,
+                      width: 38, height: 38,
                       decoration: BoxDecoration(
-                        color: _terra,
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: const LinearGradient(
+                          colors: [_terra, Color(0xFFD4540A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [BoxShadow(color: _terra.withOpacity(.4),
+                            blurRadius: 8, offset: const Offset(0, 3))],
                       ),
                       child: const Center(child: Text('S',
                           style: TextStyle(color: _white,
-                              fontWeight: FontWeight.w900, fontSize: 14))),
+                              fontWeight: FontWeight.w900, fontSize: 18))),
                     ),
                   )
                 : Row(
@@ -211,25 +227,31 @@ class _SidebarState extends State<_Sidebar> {
                     children: [
                       Image.asset(
                         'assets/images/logo_transparent.png',
-                        width: 26, height: 26,
+                        width: 36, height: 36,
                         errorBuilder: (_, __, ___) => Container(
-                          width: 26, height: 26,
+                          width: 36, height: 36,
                           decoration: BoxDecoration(
-                            color: _terra,
-                            borderRadius: BorderRadius.circular(7),
+                            gradient: const LinearGradient(
+                              colors: [_terra, Color(0xFFD4540A)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [BoxShadow(color: _terra.withOpacity(.35),
+                                blurRadius: 8, offset: const Offset(0, 3))],
                           ),
                           child: const Center(child: Text('S',
                               style: TextStyle(color: _white,
-                                  fontWeight: FontWeight.w900, fontSize: 13))),
+                                  fontWeight: FontWeight.w900, fontSize: 17))),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       const Text('Scolaris',
                           style: TextStyle(
                             color: _shTxt,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.3,
                           )),
                     ],
                   ),
@@ -299,9 +321,13 @@ class _SidebarState extends State<_Sidebar> {
           ),
         ),
 
-        // ── Footer ────────────────────────────────────────────────────────
+        // ── Footer (Settings + Help) ──────────────────────────────────────
         Container(height: 1, color: _white.withOpacity(.07)),
-        _FooterBlock(collapsed: widget.collapsed),
+        _SidebarFooter(
+          collapsed: widget.collapsed,
+          onSettings: widget.onSettings,
+          onHelp: widget.onHelp,
+        ),
       ],
     );
   }
@@ -382,7 +408,8 @@ class _HeaderState extends ConsumerState<_Header> {
           // ── School selector ────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _buildSchoolPopup(context),
+            content: Material(type: MaterialType.transparency,
+                child: _buildSchoolPopup(context)),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
@@ -498,13 +525,16 @@ class _HeaderState extends ConsumerState<_Header> {
           // ── Notification icon ──────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _NotifPanel(
-              onViewAll: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: NotificationsPage(),
-                    )),
+            content: Material(
+              type: MaterialType.transparency,
+              child: _NotifPanel(
+                onViewAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const Scaffold(
+                        body: NotificationsPage(),
+                      )),
+                ),
               ),
             ),
             child: const _DarkBadgeBtn(
@@ -518,7 +548,9 @@ class _HeaderState extends ConsumerState<_Header> {
           // ── Help icon ──────────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: const _HelpPanel(),
+            content: Material(
+                type: MaterialType.transparency,
+                child: const _HelpPanel()),
             child: const _DarkBadgeBtn(
               icon: Icons.help_outline_rounded,
               tooltip: 'Aide',
@@ -531,7 +563,9 @@ class _HeaderState extends ConsumerState<_Header> {
           // ── Account popup ──────────────────────────────────────────────
           CustomPopup(
             barrierColor: Colors.transparent,
-            content: _AccountPanel(
+            content: Material(
+              type: MaterialType.transparency,
+              child: _AccountPanel(
               user: user,
               onSettings: () => Navigator.push(
                 context,
@@ -545,7 +579,7 @@ class _HeaderState extends ConsumerState<_Header> {
                       body: NotificationsPage(),
                     )),
               ),
-            ),
+            )),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Row(
@@ -1284,63 +1318,119 @@ class _SideItemState extends State<_SideItem> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Footer block
+// Sidebar footer — Paramètres + Aide
 // ─────────────────────────────────────────────────────────────────────────────
-class _FooterBlock extends StatelessWidget {
+class _SidebarFooter extends StatelessWidget {
   final bool collapsed;
-  const _FooterBlock({required this.collapsed});
+  final VoidCallback? onSettings;
+  final VoidCallback? onHelp;
+  const _SidebarFooter({
+    required this.collapsed,
+    this.onSettings,
+    this.onHelp,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (collapsed) return const SizedBox(height: 52);
+    if (collapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(children: [
+          _FooterIconBtn(icon: Icons.settings_outlined,
+              tooltip: 'Paramètres', onTap: onSettings),
+          const SizedBox(height: 4),
+          _FooterIconBtn(icon: Icons.help_outline_rounded,
+              tooltip: 'Aide & Support', onTap: onHelp),
+        ]),
+      );
+    }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 7, height: 7,
-              decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50), shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Année 2025–26',
-              style: TextStyle(
-                  fontSize: 11,
-                  color: _shTxt.withOpacity(.8),
-                  fontWeight: FontWeight.w600),
-            ),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
+      child: Column(children: [
+        _FooterRow(icon: Icons.settings_outlined,
+            label: 'Paramètres', onTap: onSettings),
+        const SizedBox(height: 4),
+        _FooterRow(icon: Icons.help_outline_rounded,
+            label: 'Aide & Support', onTap: onHelp),
+      ]),
+    );
+  }
+}
+
+class _FooterRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  const _FooterRow({required this.icon, required this.label, this.onTap});
+  @override
+  State<_FooterRow> createState() => _FooterRowState();
+}
+
+class _FooterRowState extends State<_FooterRow> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: _hover ? _white.withOpacity(.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(children: [
+            Icon(widget.icon, size: 17, color: _shMuted),
+            const SizedBox(width: 10),
+            Text(widget.label, style: const TextStyle(
+                fontSize: 12.5, color: _shMuted, fontWeight: FontWeight.w500)),
           ]),
-          const SizedBox(height: 6),
-          _FRow(label: 'Trimestre', value: 'Semestre 2'),
-          const SizedBox(height: 3),
-          _FRow(label: 'Classes', value: '24 actives'),
-          const SizedBox(height: 3),
-          _FRow(label: 'Élèves', value: '487'),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _FRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _FRow({required this.label, required this.value});
+class _FooterIconBtn extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  const _FooterIconBtn(
+      {required this.icon, required this.tooltip, this.onTap});
+  @override
+  State<_FooterIconBtn> createState() => _FooterIconBtnState();
+}
 
+class _FooterIconBtnState extends State<_FooterIconBtn> {
+  bool _hover = false;
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Text(label, style: TextStyle(fontSize: 10.5, color: _shMuted)),
-      const Spacer(),
-      Text(value,
-          style: const TextStyle(
-              fontSize: 10.5,
-              color: _gold,
-              fontWeight: FontWeight.w600)),
-    ]);
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: 40, height: 36,
+            decoration: BoxDecoration(
+              color: _hover ? _white.withOpacity(.08) : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Center(
+                child: Icon(widget.icon, size: 20, color: _shMuted)),
+          ),
+        ),
+      ),
+    );
   }
 }
 
