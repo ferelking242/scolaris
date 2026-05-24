@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/data/mock_data.dart';
+import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+
+const _terra  = Color(0xFF8B1A00);
+const _green  = Color(0xFF2D6A4F);
 
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
@@ -12,22 +16,59 @@ class UsersPage extends StatefulWidget {
 class _UsersPageState extends State<UsersPage> {
   String _filter = 'All';
 
+  void _openEnrollment() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: _terra,
+            foregroundColor: Colors.white,
+            title: const Text('Inscrire un élève',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            elevation: 0,
+          ),
+          body: EnrollmentPage(
+            isAdminMode: true,
+            onSubmit: (data) {
+              // TODO: save to Supabase
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(children: const [
+                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text('Élève inscrit avec succès'),
+                  ]),
+                  backgroundColor: _green,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final users = MockData.users
         .where((u) => _filter == 'All' || u.role == _filter.toLowerCase())
         .toList();
     return PageScaffold(
-      title: 'Users',
-      subtitle: '${MockData.users.length} accounts across all roles',
+      title: 'Utilisateurs',
+      subtitle: '${MockData.users.length} comptes tous rôles',
       actions: [
-        ActionButton(label: 'Invite', icon: Icons.send_outlined, onTap: () {}),
+        ActionButton(label: 'Inviter', icon: Icons.send_outlined, onTap: () {}),
         const SizedBox(width: 8),
         ActionButton(
-            label: 'New user',
+            label: 'Inscrire un élève',
             icon: Icons.person_add_alt_1_rounded,
             primary: true,
-            onTap: () {}),
+            onTap: _openEnrollment),
       ],
       child: Column(
         children: [
@@ -38,10 +79,10 @@ class _UsersPageState extends State<UsersPage> {
           ),
           const SizedBox(height: 12),
           DataPanel(
-            title: 'Accounts',
-            headerActions: const [SearchInput(hint: 'Search user…')],
+            title: 'Comptes',
+            headerActions: const [SearchInput(hint: 'Rechercher un utilisateur…')],
             child: DataTablePanel(
-              columns: const ['Name', 'Email', 'Role', 'Status', 'Last seen', ''],
+              columns: const ['Nom', 'Email', 'Rôle', 'Statut', 'Dernière connexion', ''],
               flex: const [3, 3, 2, 2, 2, 2],
               rows: [
                 for (final u in users)
@@ -62,13 +103,13 @@ class _UsersPageState extends State<UsersPage> {
                     Align(
                         alignment: Alignment.centerLeft,
                         child: u.active
-                            ? StatusPill.success('Active')
-                            : StatusPill.danger('Inactive')),
+                            ? StatusPill.success('Actif')
+                            : StatusPill.danger('Inactif')),
                     Text(u.lastSeen,
                         style: const TextStyle(fontSize: 12, color: muted)),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: ActionButton(label: 'Manage', onTap: () {}),
+                      child: ActionButton(label: 'Gérer', onTap: () {}),
                     ),
                   ],
               ],
@@ -107,8 +148,7 @@ class _FilterRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: o == current ? ink : cardBg,
                     borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: o == current ? ink : border),
+                    border: Border.all(color: o == current ? ink : border),
                   ),
                   child: Text(o,
                       style: TextStyle(
