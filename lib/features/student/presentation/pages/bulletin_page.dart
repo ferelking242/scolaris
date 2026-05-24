@@ -18,26 +18,26 @@ class _BulletinRow {
   final int coef;
   final double s1;
   final double s2;
-  final String appréciation;
+  final String appreciation;
   const _BulletinRow({
     required this.matiere,
     required this.coef,
     required this.s1,
     required this.s2,
-    required this.appréciation,
+    required this.appreciation,
   });
   double moyennePonderee(bool isS1) => (isS1 ? s1 : s2) * coef;
 }
 
 const _bulletinTleC = [
-  _BulletinRow(matiere: 'Mathématiques',     coef: 7, s1: 16.5, s2: 17.2, appréciation: 'Très bon travail, continuez ainsi'),
-  _BulletinRow(matiere: 'Sciences Physiques',coef: 6, s1: 14.0, s2: 15.5, appréciation: 'Des progrès notables ce semestre'),
-  _BulletinRow(matiere: 'SVT',               coef: 5, s1: 15.0, s2: 14.8, appréciation: 'Bon niveau, attention aux schémas'),
-  _BulletinRow(matiere: 'Français',          coef: 4, s1: 12.5, s2: 13.0, appréciation: 'Doit approfondir l\'analyse littéraire'),
-  _BulletinRow(matiere: 'Philosophie',       coef: 3, s1: 14.0, s2: 15.0, appréciation: 'Excellent sens de l\'argumentation'),
-  _BulletinRow(matiere: 'Histoire-Géo',      coef: 3, s1: 13.5, s2: 14.5, appréciation: 'Bonne maîtrise des faits historiques'),
-  _BulletinRow(matiere: 'Anglais',           coef: 3, s1: 12.0, s2: 13.0, appréciation: 'Efforts à faire à l\'écrit'),
-  _BulletinRow(matiere: 'EPS',              coef: 2, s1: 17.0, s2: 16.5, appréciation: 'Excellent comportement sportif'),
+  _BulletinRow(matiere: 'Mathématiques',     coef: 7, s1: 16.5, s2: 17.2, appreciation: 'Très bon travail, continuez ainsi'),
+  _BulletinRow(matiere: 'Sciences Physiques',coef: 6, s1: 14.0, s2: 15.5, appreciation: 'Des progrès notables ce semestre'),
+  _BulletinRow(matiere: 'SVT',               coef: 5, s1: 15.0, s2: 14.8, appreciation: 'Bon niveau, attention aux schémas'),
+  _BulletinRow(matiere: 'Français',          coef: 4, s1: 12.5, s2: 13.0, appreciation: 'Doit approfondir l\'analyse littéraire'),
+  _BulletinRow(matiere: 'Philosophie',       coef: 3, s1: 14.0, s2: 15.0, appreciation: 'Excellent sens de l\'argumentation'),
+  _BulletinRow(matiere: 'Histoire-Géo',      coef: 3, s1: 13.5, s2: 14.5, appreciation: 'Bonne maîtrise des faits historiques'),
+  _BulletinRow(matiere: 'Anglais',           coef: 3, s1: 12.0, s2: 13.0, appreciation: 'Efforts à faire à l\'écrit'),
+  _BulletinRow(matiere: 'EPS',              coef: 2, s1: 17.0, s2: 16.5, appreciation: 'Excellent comportement sportif'),
 ];
 
 double _calcMoyenne(List<_BulletinRow> rows, bool s1) {
@@ -299,7 +299,7 @@ class _GradesTable extends StatelessWidget {
                   ))),
                 ]),
                 const SizedBox(height: 3),
-                Text(r.appréciation, style: TextStyle(
+                Text(r.appreciation, style: TextStyle(
                     fontSize: 10.5, color: _muted.withOpacity(.8), fontStyle: FontStyle.italic)),
               ],
             ),
