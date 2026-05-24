@@ -1,183 +1,214 @@
-# Scolaris — Matrice des fonctionnalités par rôle
+# 📚 Scolaris — Matrice des fonctionnalités par rôle
 
-> **Règle générale :** L'admin (staff) a accès à **toutes** les fonctionnalités de tous les rôles, plus les outils d'administration exclusifs.
+> **Règle générale :** L'admin (staff) a accès à **toutes** les fonctionnalités de tous les rôles + les outils d'administration exclusifs.
+> Les fonctionnalités marquées `—` sont **non disponibles** pour ce niveau/rôle.
+> Les fonctionnalités marquées `✅` sont **disponibles** (implémentées ou planifiées).
 
 ---
 
-## 📚 RÔLE : ÉLÈVE
+## 🎒 RÔLE : ÉLÈVE
 
-### Niveaux scolaires et fonctionnalités disponibles
+### Fonctionnalités par niveau scolaire
 
-| Fonctionnalité | Primaire (CP–CM2) | Collège (6e–3e) | Lycée (2nde–Tle) | Université (L1–L3) | Master (M1–M2) | Doctorat |
+| Fonctionnalité | Primaire<br>CP–CM2 | Collège<br>6e–3e | Lycée<br>2nde–Tle | Université<br>L1–L3 | Master<br>M1–M2 | Doctorat<br>PhD |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Tableau de bord personnel** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Tableau de bord** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Emploi du temps** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Notes & évaluations** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Présences & absences** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Devoirs & travaux à rendre** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Notes & évaluations** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Devoirs à rendre** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Messagerie interne** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Notifications push** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Profil & paramètres** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Mode hors-ligne** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Carnet de liaison numérique** | ✅ | ✅ | ✅ | — | — | — |
-| **Bibliothèque scolaire** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Bulletins trimestriels** | — | ✅ | ✅ | — | — | — |
-| **Relevé de notes ECTS** | — | — | — | ✅ | ✅ | ✅ |
-| **Inscription aux cours / UE** | — | — | — | ✅ | ✅ | ✅ |
-| **Validation de crédits** | — | — | — | ✅ | ✅ | ✅ |
-| **Clubs & activités parascolaires** | — | ✅ | ✅ | ✅ | — | — |
+| **Bibliothèque** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Bulletins trimestriels** | ✅ | ✅ | ✅ | — | — | — |
+| **Carnet de liaison** | ✅ | ✅ | ✅ | — | — | — |
+| **Clubs & activités** | ✅ | ✅ | ✅ | ✅ | — | — |
 | **Orientation scolaire** | — | ✅ | ✅ | — | — | — |
 | **Spécialités & filières** | — | — | ✅ | — | — | — |
-| **Prépa-bac / fiches de révision** | — | — | ✅ | — | — | — |
+| **Prépa-bac / révisions** | — | — | ✅ | — | — | — |
 | **Candidatures post-bac** | — | — | ✅ | — | — | — |
-| **Paiement frais de scolarité** | — | — | — | ✅ | ✅ | ✅ |
-| **Documents officiels** (attestations, certificats) | — | — | — | ✅ | ✅ | ✅ |
+| **Relevé notes ECTS** | — | — | — | ✅ | ✅ | ✅ |
+| **Inscription aux cours** | — | — | — | ✅ | ✅ | ✅ |
+| **Validation crédits** | — | — | — | ✅ | ✅ | ✅ |
+| **Paiement scolarité** | — | — | — | ✅ | ✅ | ✅ |
+| **Documents officiels** | — | — | — | ✅ | ✅ | ✅ |
 | **Forum étudiant** | — | — | — | ✅ | ✅ | ✅ |
-| **Bibliothèque numérique** (ressources univ) | — | — | — | ✅ | ✅ | ✅ |
-| **Offres de stage & emploi** | — | — | — | — | ✅ | ✅ |
-| **Réseaux alumni** | — | — | — | — | ✅ | ✅ |
-| **Mémoire / rapport de recherche** | — | — | — | — | ✅ | ✅ |
+| **Bibliothèque numérique** | — | — | — | ✅ | ✅ | ✅ |
+| **Offres stage / emploi** | — | — | ✅ | ✅ | ✅ | — |
+| **Réseau alumni** | — | — | — | — | ✅ | ✅ |
+| **Mémoire / rapport** | — | — | — | — | ✅ | ✅ |
 | **Suivi de thèse** | — | — | — | — | — | ✅ |
-| **Publications scientifiques** | — | — | — | — | — | ✅ |
-| **Encadrement & directeur de thèse** | — | — | — | — | — | ✅ |
+| **Publications scientifiques** | — | — | — | — | ✅ | ✅ |
 | **Conférences & colloques** | — | — | — | — | ✅ | ✅ |
+| **Encadrement directeur** | — | — | — | — | — | ✅ |
 | **Dépôt HDR** | — | — | — | — | — | ✅ |
+
+> **Pourquoi le Primaire a accès aux bulletins et à la bibliothèque ?**
+> Un élève de CP–CM2 reçoit bien un bulletin trimestriel (appréciation + notes simples), et la bibliothèque scolaire numérique doit être accessible dès le plus jeune âge pour encourager la lecture.
 
 ---
 
 ## 👨‍🏫 RÔLE : ENSEIGNANT
 
-### Modules disponibles
-
-| Module | Description | Disponible |
+| Module | Description | Statut |
 |---|---|:---:|
-| **Tableau de bord enseignant** | Aperçu des classes, tâches du jour, stats rapides | ✅ |
-| **Appel & présences** | Appel numérique en classe, gestion retards/absences | ✅ |
-| **Cahier de textes numérique** | Contenu de cours, objectifs, ressources partagées | ✅ |
-| **Saisie des notes** | Notation individuelle, par matière, export PDF | ✅ |
-| **Gestion des bulletins** | Création, validation, envoi aux parents | ✅ |
-| **Devoirs en ligne** | Création de devoirs, dépôt numérique, correction | ✅ |
-| **Évaluations QCM** | Création de quiz/QCM en ligne avec correction auto | ✅ |
-| **Emploi du temps** | Visualisation personnelle, gestion des créneaux | ✅ |
-| **Messagerie** | Communication avec élèves, parents, collègues | ✅ |
-| **Ressources pédagogiques** | Upload de documents, vidéos, liens, partage de classe | ✅ |
-| **Statistiques de classe** | Moyennes, courbes de progression, taux de présence | ✅ |
-| **Conseil de classe** | Compte-rendu numérique, appréciations, votes | ✅ |
-| **Réunions parents-profs** | Planification, créneaux de disponibilité, réservation | ✅ |
-| **Gestion des stages** | Suivi des élèves en stage, évaluation | ✅ (lycée/univ) |
-| **Encadrement mémoire/thèse** | Suivi des soutenances, retours | ✅ (univ/master) |
-| **Notifications & alertes** | Alertes absence, retard, devoir non rendu | ✅ |
-| **Mode hors-ligne** | Appel et saisie notes sans connexion, sync auto | ✅ |
+| **Tableau de bord** | Classes du jour, tâches, stats rapides | ✅ |
+| **Appel numérique** | Appel en classe, retards, absences | ✅ |
+| **Carnet de notes** | Saisie individuelle, coefficients, moyennes | ✅ |
+| **Cahier de textes** | Contenu cours, objectifs, ressources partagées | 🔜 |
+| **Gestion bulletins** | Création, validation, appréciations, envoi | 🔜 |
+| **Devoirs en ligne** | Création, dépôt, correction, barème | 🔜 |
+| **Évaluations QCM** | Quiz auto-corrigés, statistiques de résultats | 🔜 |
+| **Emploi du temps** | Planning personnel, créneaux disponibles | ✅ |
+| **Messagerie** | Élèves, parents, collègues, direction | 🔜 |
+| **Ressources pédagogiques** | Upload docs/vidéos, bibliothèque partagée | 🔜 |
+| **Statistiques de classe** | Courbes progression, comparatifs, taux présence | 🔜 |
+| **Conseil de classe** | Comptes-rendus numériques, délibérations | 🔜 |
+| **Réunions parents-profs** | Créneaux dispo, réservation, rappels | 🔜 |
+| **Suivi stages** | Évaluation élèves en stage (lycée/univ) | 🔜 |
+| **Encadrement mémoire** | Suivi soutenances, retours (univ/master) | 🔜 |
+| **Notifications & alertes** | Devoir non rendu, absence, message | ✅ |
+| **Mode hors-ligne** | Appel + saisie notes sans connexion, sync auto | 🔜 |
 | **Profil & paramètres** | Bio, spécialités, disponibilités | ✅ |
 
 ---
 
 ## 👨‍👩‍👧 RÔLE : PARENT
 
-### Modules disponibles
-
-| Module | Description | Disponible |
+| Module | Description | Statut |
 |---|---|:---:|
-| **Tableau de bord famille** | Vue de tous les enfants en un coup d'œil | ✅ |
-| **Suivi multi-enfants** | Basculer entre plusieurs profils d'enfants | ✅ |
-| **Notes & bulletins** | Consultation des notes, bulletins, appréciations | ✅ |
-| **Présences & absences** | Historique, justifications, alertes en temps réel | ✅ |
-| **Emploi du temps enfant** | Visualisation du planning de la semaine | ✅ |
-| **Devoirs à faire** | Voir les travaux à rendre et les dates limites | ✅ |
-| **Carnet de liaison numérique** | Messages de l'école, signature électronique | ✅ |
+| **Tableau de bord famille** | Vue tous enfants, alertes du jour | ✅ |
+| **Suivi multi-enfants** | Basculer entre profils d'enfants | ✅ |
+| **Notes & bulletins** | Consultation, téléchargement, signature électronique | ✅ |
+| **Présences & absences** | Historique, justifications, alertes temps réel | ✅ |
+| **Emploi du temps enfant** | Planning semaine | ✅ |
+| **Devoirs à faire** | Voir travaux à rendre et dates limites | 🔜 |
+| **Carnet de liaison** | Messages officiels école, signature électronique | 🔜 |
 | **Messagerie enseignants** | Communication directe avec les profs | ✅ |
-| **Paiement frais scolaires** | Paiement en ligne, historique, reçus | ✅ |
-| **Réunions parents-profs** | Réservation de créneaux, rappels | ✅ |
-| **Documents officiels** | Bulletins, certificats de scolarité, attestations | ✅ |
+| **Paiement frais scolaires** | Paiement en ligne, historique, reçus PDF | ✅ |
+| **Réunions parents-profs** | Réservation créneaux, rappels | 🔜 |
+| **Documents officiels** | Bulletins, certificats, attestations | 🔜 |
+| **Agenda scolaire** | Événements, sorties, examens | 🔜 |
+| **Signalement** | Problème, demande RDV | 🔜 |
 | **Notifications push** | Alertes absences, résultats, événements | ✅ |
-| **Agenda scolaire** | Événements, sorties, examens, jours fériés | ✅ |
-| **Signalement** | Signaler un problème, demander un rendez-vous | ✅ |
-| **Mode hors-ligne** | Consultation données sans connexion | ✅ |
-| **Profil & paramètres** | Coordonnées, préférences de notification | ✅ |
+| **Mode hors-ligne** | Consultation sans connexion | 🔜 |
+| **Profil & paramètres** | Coordonnées, préférences notification | ✅ |
 
 ---
 
-## 🏫 RÔLE : STAFF / ADMIN
+## 💰 RÔLE : COMPTABLE / GESTIONNAIRE FINANCIER
 
-> L'admin a accès à **tout** ce qui précède + les modules d'administration ci-dessous.
+> Accès financier uniquement. Pas d'accès à la pédagogie ni aux données sensibles des élèves (hors informations de paiement).
+
+| Module | Description | Statut |
+|---|---|:---:|
+| **Tableau de bord financier** | Revenus du mois, factures, encaissements, impayés | ✅ |
+| **Liste complète des élèves** | Nom, classe, statut paiement, contact parent | ✅ |
+| **Gestion des factures** | Créer, éditer, annuler des factures | ✅ |
+| **Suivi des paiements** | Historique complet, filtres par statut/classe | ✅ |
+| **Impression des reçus** | Reçu PDF imprimable (WiFi / Bluetooth / câble) | ✅ |
+| **Reçu personnalisé** | Logo établissement, infos élève, montant, date, signature | ✅ |
+| **Relances automatiques** | Emails/SMS de rappel aux familles avec impayés | 🔜 |
+| **Rapports financiers** | Export PDF/Excel mensuel, annuel, par classe | ✅ |
+| **Frais par type** | Scolarité, cantine, transport, activités, séjours | 🔜 |
+| **Gestion des bourses** | Étudiants boursiers, réductions, exonérations | 🔜 |
+| **Caisse journalière** | Encaissements espèces, chèques, mobile money | 🔜 |
+| **Paramètres tarifs** | Définir les frais par niveau/classe | 🔜 |
+| **Profil & paramètres** | Infos compte, signature électronique | ✅ |
+
+---
+
+## 🏫 RÔLE : ADMIN / DIRECTEUR
+
+> L'admin a accès à **tout** ce qui précède + les modules d'administration exclusifs.
 
 ### Modules d'administration exclusifs
 
-| Module | Description | Disponible |
+| Module | Description | Statut |
 |---|---|:---:|
-| **Tableau de bord global** | KPIs, stats temps réel, alertes système | ✅ |
-| **Gestion des utilisateurs** | Créer/modifier/supprimer comptes tous rôles | ✅ |
-| **Gestion des classes & niveaux** | Création, affectation élèves/profs, niveaux | ✅ |
-| **Gestion des emplois du temps** | Création et publication pour tout l'établissement | ✅ |
-| **Surveillance & discipline** | Registre incidents, sanctions, conseils de discipline | ✅ |
-| **Gestion financière** | Frais, paiements, factures, suivi budgétaire | ✅ |
-| **Rapports & statistiques** | Exports PDF/Excel, analyses de performance | ✅ |
-| **Communication globale** | Envoi notifications à tous / par groupe | ✅ |
-| **Gestion des stages** | Conventions, suivi entreprises, évaluations | ✅ |
-| **Archives** | Historique années précédentes, dossiers élèves | ✅ |
-| **Configuration établissement** | Infos école, logo, palette, domaines, multi-sites | ✅ |
-| **Gestion des inscriptions** | Dossiers d'inscription, validation, liste d'attente | ✅ |
-| **Certificats & documents officiels** | Génération et signature en masse | ✅ |
-| **Agenda & événements** | Calendrier scolaire, examens, sorties, réunions | ✅ |
-| **Bibliothèque & ressources** | Gestion du fond documentaire | ✅ |
-| **Paramètres système** | Permissions, intégrations, backups, sécurité | ✅ |
-| **Vue parent** | Voir l'interface parent pour déboguer | ✅ |
-| **Vue élève** | Voir l'interface élève pour déboguer | ✅ |
-| **Vue enseignant** | Voir l'interface enseignant pour déboguer | ✅ |
+| **Tableau de bord global** | KPIs, alertes système, activité en temps réel | ✅ |
+| **Gestion utilisateurs** | Créer/modifier/désactiver tous les comptes | ✅ |
+| **Gestion classes & niveaux** | Créer classes, affecter élèves/profs | ✅ |
+| **Gestion emplois du temps** | Publication pour tout l'établissement | 🔜 |
+| **Surveillance & discipline** | Incidents, sanctions, conseils de discipline | 🔜 |
+| **Gestion financière** | Frais, factures, budgets, comptabilité | ✅ |
+| **Rapports & statistiques** | Exports PDF/Excel, analyses performance | ✅ |
+| **Communication globale** | Notifications à tous / par groupe / par classe | 🔜 |
+| **Gestion des stages** | Conventions, suivi entreprises | 🔜 |
+| **Archives** | Historique années précédentes, dossiers élèves | 🔜 |
+| **Page d'inscription personnalisable** | Choix des champs, niveaux, documents requis | ✅ |
+| **Configuration établissement** | Logo, palette couleurs, domaines, multi-sites | 🔜 |
+| **Gestion des inscriptions** | Dossiers, validation, liste d'attente | ✅ |
+| **Documents officiels en masse** | Génération, signature, certificats | 🔜 |
+| **Agenda & événements** | Calendrier scolaire, examens, sorties, réunions | 🔜 |
+| **Bibliothèque & ressources** | Fond documentaire de l'établissement | 🔜 |
+| **Paramètres système** | Permissions, intégrations, sécurité | 🔜 |
+| **Vue par rôle** | Simuler l'interface d'un élève/prof/parent | 🔜 |
 
 ---
 
-## 🔒 Matrice de permissions (résumé)
+## 🔒 Matrice de permissions (résumé rapide)
 
-| Module clé | Élève | Enseignant | Parent | Admin |
-|---|:---:|:---:|:---:|:---:|
-| Voir ses propres notes | ✅ | — | ✅ (enfant) | ✅ |
-| Saisir des notes | — | ✅ | — | ✅ |
-| Faire l'appel | — | ✅ | — | ✅ |
-| Voir bulletins | ✅ | ✅ | ✅ | ✅ |
-| Valider bulletins | — | — | — | ✅ |
-| Payer les frais | ✅ (univ+) | — | ✅ | ✅ |
-| Gérer les paiements | — | — | — | ✅ |
-| Envoyer notif à tous | — | — | — | ✅ |
-| Créer des cours/UE | — | ✅ | — | ✅ |
-| Gérer les utilisateurs | — | — | — | ✅ |
-| Voir tous les élèves | — | ✅ (ses classes) | — | ✅ |
-| Accéder aux archives | — | — | — | ✅ |
-| Config établissement | — | — | — | ✅ |
+| Action | Élève | Enseignant | Parent | Comptable | Admin |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Voir ses propres notes | ✅ | — | ✅ enfant | — | ✅ |
+| Saisir des notes | — | ✅ | — | — | ✅ |
+| Faire l'appel | — | ✅ | — | — | ✅ |
+| Voir bulletins | ✅ | ✅ | ✅ | — | ✅ |
+| Valider bulletins | — | — | — | — | ✅ |
+| Voir liste élèves | — | ✅ ses classes | — | ✅ | ✅ |
+| Payer les frais | ✅ (univ+) | — | ✅ | — | ✅ |
+| Créer factures | — | — | — | ✅ | ✅ |
+| Imprimer reçus | — | — | — | ✅ | ✅ |
+| Gérer paiements | — | — | — | ✅ | ✅ |
+| Envoyer notif à tous | — | — | — | — | ✅ |
+| Config page inscription | — | — | — | — | ✅ |
+| Inscrire un élève | — | — | ✅ (son enfant) | — | ✅ |
+| Gérer utilisateurs | — | — | — | — | ✅ |
+| Accès archives | — | — | — | — | ✅ |
+| Config établissement | — | — | — | — | ✅ |
 
 ---
 
-## 🗺️ Roadmap d'implémentation suggérée
+## 🗺️ Roadmap d'implémentation
 
-### Phase 1 — Socle (déjà en cours)
-- [x] Auth & routing
-- [x] Shell desktop + mobile
-- [x] Dashboard admin
-- [x] Paramètres & profil
+### ✅ Phase 0 — Déjà implémenté
+- [x] Auth & routing complet
+- [x] Shell desktop (sidebar, popups, notifications)
+- [x] Shell mobile (drawer, bottom nav)
+- [x] Paramètres & profil (tous rôles)
+- [x] Dashboard admin, enseignant, élève, parent, finance
+- [x] Page features hub (catalogue par rôle)
+- [x] Liste utilisateurs (admin)
 
-### Phase 2 — Élève primaire/collège/lycée
-- [ ] Notes & bulletins
-- [ ] Emploi du temps interactif
-- [ ] Devoirs & travaux
-- [ ] Présences (vue élève)
+### 🔄 Phase 1 — En cours (session actuelle)
+- [x] Matrice features complète (ce fichier)
+- [x] PLAN.md complet dans `/docs`
+- [ ] Rôle comptable complet (liste élèves + reçus imprimables)
+- [ ] Page d'inscription personnalisable (admin config + formulaire)
 
-### Phase 3 — Enseignant
-- [ ] Appel numérique
-- [ ] Saisie notes en masse
-- [ ] Cahier de textes
-- [ ] Messagerie
+### 🔜 Phase 2 — Notes & bulletins
+- [ ] Saisie notes en masse (enseignant)
+- [ ] Bulletins trimestriels PDF
+- [ ] Vue notes élève (tous niveaux)
+- [ ] Vue bulletins parent
 
-### Phase 4 — Parent
-- [ ] Vue multi-enfants
-- [ ] Paiement en ligne
+### 🔜 Phase 3 — Communication
+- [ ] Messagerie interne temps réel
+- [ ] Carnet de liaison numérique
+- [ ] Annonces & événements
 - [ ] Réunions parents-profs
 
-### Phase 5 — Université / Master / Doctorat
+### 🔜 Phase 4 — Université / Master / Doctorat
 - [ ] Inscription UE / crédits ECTS
-- [ ] Suivi thèse
-- [ ] Publications & conférences
+- [ ] Suivi thèse + publications
+- [ ] Forum étudiant + alumni
 
-### Phase 6 — Admin avancé
-- [ ] Config multi-sites
-- [ ] Rapports exports
-- [ ] Communication globale
+### 🔜 Phase 5 — Supabase (backend)
+- [ ] Auth réel Supabase
+- [ ] Base de données multi-école
+- [ ] Storage fichiers (photos, diplômes, PDF)
+- [ ] Realtime (présences, messagerie)
+- [ ] RLS (Row Level Security) par rôle
