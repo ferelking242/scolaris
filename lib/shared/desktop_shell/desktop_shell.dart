@@ -122,7 +122,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                       MaterialPageRoute(builder: (_) => const Scaffold(body: SettingsPage()))),
                   onHelp: () => showDialog(
                     context: context,
-                    builder: (_) => const _HelpDialog(),
+                    builder: (_) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      child: const _HelpPanel(),
+                    ),
                   ),
                 ),
               ]),
