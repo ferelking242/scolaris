@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
+import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -45,6 +46,8 @@ class AdminHome extends StatelessWidget {
               labelKey: 'nav.reports', page: AdminReportsPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
+          RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
+              labelKey: 'nav.features', page: FeaturesHubPage()),
           RoleNavEntry(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded,
               labelKey: 'common.settings', page: SettingsPage()),
         ]),
