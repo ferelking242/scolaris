@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/qr_panel.dart';
@@ -48,6 +49,11 @@ class TeacherHome extends StatelessWidget {
               page: QrPanel()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
+          RoleNavEntry(
+              icon: Icons.apps_outlined,
+              activeIcon: Icons.apps_rounded,
+              labelKey: 'nav.features',
+              page: FeaturesHubPage()),
           RoleNavEntry(
               icon: Icons.settings_outlined,
               activeIcon: Icons.settings_rounded,
