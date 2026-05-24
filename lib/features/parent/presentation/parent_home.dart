@@ -5,10 +5,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
+import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'pages/children_page.dart';
-import 'pages/messages_page.dart';
 import 'pages/parent_payments_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -39,8 +39,8 @@ class ParentHome extends StatelessWidget {
         RoleNavGroup(labelKey: 'sections.activity', entries: [
           RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
               labelKey: 'nav.payments', page: ParentPaymentsPage()),
-          RoleNavEntry(icon: Icons.message_outlined, activeIcon: Icons.message_rounded,
-              labelKey: 'nav.messages', page: MessagesPage()),
+          RoleNavEntry(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded,
+              labelKey: 'nav.messages', page: MessagingPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
