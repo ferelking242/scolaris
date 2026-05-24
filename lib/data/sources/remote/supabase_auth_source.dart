@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../core/config/app_config.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../shared/data/mock_school_brazza.dart';
 
 /// Thin wrapper around Supabase auth.
 ///
@@ -39,9 +40,18 @@ class SupabaseAuthSource {
     _controller.add(null);
   }
 
-  /// Deterministic mock — derives a role from the local-part of the email
-  /// so demos can showcase every role.
+  /// Mock signin — vérifie d'abord le mock Congo Brazzaville,
+  /// puis dérive le rôle depuis l'email.
   AppUser _mockSignIn(String email) {
+    // 1. Lookup dans le mock école Saint-Gabriel Brazzaville
+    final schoolUser = MockSchoolBrazza.getUser(email);
+    if (schoolUser != null) {
+      _current = schoolUser;
+      _controller.add(schoolUser);
+      return schoolUser;
+    }
+
+    // 2. Fallback : dériver depuis l'email
     final local = email.split('@').first.toLowerCase();
     final role = _detectRole(local);
     final user = AppUser(
@@ -49,7 +59,7 @@ class SupabaseAuthSource {
       email: email,
       fullName: _humanize(local),
       role: role,
-      schoolId: 'akili-demo',
+      schoolId: kSchoolId,
       schoolAccentArgb: AppConfig.defaultAccentArgb,
     );
     _current = user;
