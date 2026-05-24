@@ -594,13 +594,11 @@ class _AccountPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final roleName = switch (user?.role) {
-      UserRole.admin        => 'Administrateur',
-      UserRole.teacher      => 'Enseignant',
-      UserRole.student      => 'Élève',
-      UserRole.parent       => 'Parent',
-      UserRole.finance      => 'Finance',
-      UserRole.surveillance => 'Surveillance',
-      null                  => '—',
+      UserRole.staff   => 'Administration',
+      UserRole.teacher => 'Enseignant',
+      UserRole.student => 'Élève',
+      UserRole.parent  => 'Parent',
+      null             => '—',
     };
 
     return Container(
