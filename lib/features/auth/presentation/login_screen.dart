@@ -503,24 +503,18 @@ class _LeftHeroState extends State<_LeftHero> with TickerProviderStateMixin {
           ),
         ),
 
-        // Full-panel Lottie (centered, large) — ColorFiltered eliminates white backgrounds
+        // Full-panel Lottie (centered, large)
         FadeTransition(
           opacity: _fadeAnim,
           child: Align(
-            alignment: const Alignment(0, -0.1),
+            alignment: const Alignment(0, -0.15),
             child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.58,
+              height: MediaQuery.sizeOf(context).height * 0.52,
               width: double.infinity,
-              child: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF0D3B1E),
-                  BlendMode.multiply,
-                ),
-                child: Lottie.asset(
-                  slide.lottie,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+              child: Lottie.asset(
+                slide.lottie,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),
           ),
@@ -671,7 +665,7 @@ class _MobileHeader extends StatelessWidget {
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF071A0A), Color(0xFF1B5E20)],
+          colors: [Color(0xFF1A0A00), Color(0xFF8B1A00)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -685,18 +679,24 @@ class _MobileHeader extends StatelessWidget {
             const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Scolaris',
-                  style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 18)),
+                  style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: .5)),
               Text(AppConfig.appTagline,
-                  style: TextStyle(color: _gold.withOpacity(.8), fontSize: 10)),
+                  style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
             ]),
           ]),
           const SizedBox(height: 16),
           const Text('Bienvenue sur Scolaris',
-              style: TextStyle(color: _white, fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
+              style: TextStyle(color: _white, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 5),
           Text('Plateforme scolaire africaine de nouvelle génération',
               textAlign: TextAlign.center,
-              style: TextStyle(color: _white.withOpacity(.65), fontSize: 12)),
+              style: TextStyle(color: _white.withOpacity(.68), fontSize: 12, height: 1.5)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: const [
+            _FeaturePill(icon: Icons.people_rounded, label: '6 rôles'),
+            _FeaturePill(icon: Icons.wifi_off_rounded, label: 'Hors-ligne'),
+            _FeaturePill(icon: Icons.translate_rounded, label: '4 langues'),
+          ]),
         ],
       ),
     );
