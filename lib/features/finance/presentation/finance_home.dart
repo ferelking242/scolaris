@@ -6,7 +6,9 @@ import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/billing_page.dart';
+import 'pages/finance_students_page.dart';
 import 'pages/payments_page.dart';
+import 'pages/receipts_page.dart';
 import 'pages/reports_page.dart';
 
 class FinanceHome extends StatelessWidget {
@@ -24,17 +26,27 @@ class FinanceHome extends StatelessWidget {
               labelKey: 'nav.dashboard',
               page: _FinanceDashboard()),
           RoleNavEntry(
+              icon: Icons.people_outline,
+              activeIcon: Icons.people_rounded,
+              labelKey: 'nav.students',
+              page: FinanceStudentsPage()),
+        ]),
+        RoleNavGroup(labelKey: 'sections.activity', entries: [
+          RoleNavEntry(
               icon: Icons.payments_outlined,
               activeIcon: Icons.payments_rounded,
               labelKey: 'nav.payments',
               page: FinancePaymentsPage()),
-        ]),
-        RoleNavGroup(labelKey: 'sections.activity', entries: [
           RoleNavEntry(
               icon: Icons.receipt_long_outlined,
               activeIcon: Icons.receipt_long_rounded,
               labelKey: 'nav.billing',
               page: BillingPage()),
+          RoleNavEntry(
+              icon: Icons.print_outlined,
+              activeIcon: Icons.print_rounded,
+              labelKey: 'nav.receipts',
+              page: ReceiptsPage()),
           RoleNavEntry(
               icon: Icons.summarize_outlined,
               activeIcon: Icons.summarize_rounded,
@@ -62,7 +74,7 @@ class _FinanceDashboard extends StatelessWidget {
         DashStat(icon: Icons.account_balance_wallet_outlined, label: 'Revenus (mois)',  value: '24 580 F'),
         DashStat(icon: Icons.receipt_long_outlined,            label: 'Factures',        value: '187'),
         DashStat(icon: Icons.timelapse_rounded,                label: 'En attente',      value: '3 420 F'),
-        DashStat(icon: Icons.summarize_rounded,                label: 'Rapports',        value: '6'),
+        DashStat(icon: Icons.people_outline,                   label: 'Élèves',          value: '8'),
       ],
       sections: [
         DashSection(
@@ -83,15 +95,20 @@ class _FinanceDashboard extends StatelessWidget {
       ],
       explore: [
         ExploreCard(
-          icon: Icons.pie_chart_outline_rounded,
-          title: 'Rapport financier',
-          description: 'Générez un rapport complet des recettes et dépenses.',
+          icon: Icons.print_rounded,
+          title: 'Imprimer les reçus',
+          description: 'Imprimez les reçus de paiement (WiFi, Bluetooth, câble).',
           suggested: true,
         ),
         ExploreCard(
-          icon: Icons.send_rounded,
-          title: 'Relance automatique',
-          description: 'Envoyez des rappels aux familles avec des impayés.',
+          icon: Icons.pie_chart_outline_rounded,
+          title: 'Rapport financier',
+          description: 'Générez un rapport complet des recettes et dépenses.',
+        ),
+        ExploreCard(
+          icon: Icons.people_outline,
+          title: 'Liste des élèves',
+          description: 'Consultez la liste complète avec statuts de paiement.',
         ),
       ],
     );
