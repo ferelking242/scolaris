@@ -173,16 +173,12 @@ class _ProfileHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: _gold.withOpacity(.3)),
           ),
-          child: Text('${_documents.where((d) => d.disponible).length} disponibles',
+          child: Text('${StudentDocumentsPage._documents.where((d) => d.disponible).length} disponibles',
               style: const TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.w700)),
         ),
       ]),
     );
   }
-
-  static const _documents = [
-    true, true, true, false, true, true,
-  ];
 }
 
 // ── Category Section ──────────────────────────────────────────────────────

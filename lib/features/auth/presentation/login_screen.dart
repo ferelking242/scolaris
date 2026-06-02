@@ -497,7 +497,7 @@ class _LeftPanel extends StatelessWidget {
         ),
 
         // African hex/adinkra pattern overlay
-        const CustomPaint(painter: _AfricanPatternPainter()),
+        CustomPaint(painter: _AfricanPatternPainter()),
 
         // Gold top accent stripe
         Positioned(
