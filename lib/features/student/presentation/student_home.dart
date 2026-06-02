@@ -91,9 +91,9 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 
   // Dernières notes
   static const _recentNotes = [
-    (sub: 'Mathématiques', n: 17.5, max: 20, c: _gold,  d: '28 Mai'),
-    (sub: 'Physique',      n: 13.0, max: 20, c: _terra, d: '25 Mai'),
-    (sub: 'Histoire',      n: 15.5, max: 20, c: _green, d: '22 Mai'),
+    (sub: 'Mathématiques', n: 17.5, max: 20.0, c: _gold,  d: '28 Mai'),
+    (sub: 'Physique',      n: 13.0, max: 20.0, c: _terra, d: '25 Mai'),
+    (sub: 'Histoire',      n: 15.5, max: 20.0, c: _green, d: '22 Mai'),
   ];
 
   // Devoirs urgents
