@@ -120,7 +120,6 @@ class _PdfReaderPageState extends State<PdfReaderPage>
   bool _showControls  = true;
   bool _isBookmarked  = false;
   double _fontSize    = 14.0;
-  bool _showPageNav   = false;
   late AnimationController _fadeCtrl;
   late Animation<double> _fade;
   final _pageCtrl = TextEditingController();
@@ -172,7 +171,9 @@ class _PdfReaderPageState extends State<PdfReaderPage>
   }
 
   void _animateFlip() {
-    _fadeCtrl.reverse().then((_) => _fadeCtrl.forward());
+    _fadeCtrl.reverse().then((_) {
+      if (mounted) _fadeCtrl.forward();
+    });
   }
 
   void _toggleBookmark() {
@@ -260,189 +261,240 @@ class _PdfReaderPageState extends State<PdfReaderPage>
 
   @override
   Widget build(BuildContext context) {
-    final bg  = _darkMode ? const Color(0xFF121212) : const Color(0xFFF8F0E4);
-    final txt = _darkMode ? const Color(0xFFE0D4C0) : _ink;
+    final bg      = _darkMode ? const Color(0xFF121212) : const Color(0xFFF8F0E4);
+    final txt     = _darkMode ? const Color(0xFFE0D4C0) : _ink;
     final surface = _darkMode ? const Color(0xFF1E1E1E) : _white;
+    final topPad  = MediaQuery.of(context).padding.top;
+    final botPad  = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: bg,
       body: GestureDetector(
         onTap: _toggleControls,
         child: Stack(children: [
-          // Content
-          Column(children: [
-            SizedBox(height: MediaQuery.of(context).padding.top + 56),
-            Expanded(child: FadeTransition(
-              opacity: _fade,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Page number watermark
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text('Page $_page / ${widget.totalPages}',
-                        style: TextStyle(color: widget.color.withOpacity(0.50),
-                            fontSize: 11, fontWeight: FontWeight.w700)),
-                  ]),
-                  const SizedBox(height: 16),
-                  // Content
-                  SelectableText(
-                    _content,
-                    style: TextStyle(
-                      color: txt, fontSize: _fontSize, height: 1.75,
-                      fontFamily: 'Georgia',
-                      letterSpacing: 0.1,
+
+          // ── Content area ─────────────────────────────────────────────────
+          // Fills the full screen; paddingTop reserves space for the top bar,
+          // paddingBottom reserves space for the floating dock.
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(top: topPad + 56, bottom: 110 + botPad),
+              child: FadeTransition(
+                opacity: _fade,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    // Page number watermark
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text('Page $_page / ${widget.totalPages}',
+                          style: TextStyle(
+                              color: widget.color.withOpacity(0.50),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    ]),
+                    const SizedBox(height: 16),
+                    // Content
+                    SelectableText(
+                      _content,
+                      style: TextStyle(
+                        color: txt,
+                        fontSize: _fontSize,
+                        height: 1.75,
+                        fontFamily: 'Georgia',
+                        letterSpacing: 0.1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 60),
-                  // Reading progress hint
-                  Center(child: Column(children: [
+                    const SizedBox(height: 32),
+                    // Reading progress hint
                     LinearProgressIndicator(
                       value: _page / widget.totalPages,
                       backgroundColor: widget.color.withOpacity(0.12),
                       valueColor: AlwaysStoppedAnimation(widget.color),
-                      minHeight: 4, borderRadius: BorderRadius.circular(4),
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     const SizedBox(height: 6),
-                    Text('${((_page / widget.totalPages) * 100).toInt()}% lu',
-                        style: TextStyle(color: widget.color.withOpacity(0.60),
-                            fontSize: 10, fontWeight: FontWeight.w600)),
-                  ])),
-                  const SizedBox(height: 20),
-                ]),
-              ),
-            )),
-          ]),
-
-          // ── Top bar ─────────────────────────────────────────────────────
-          AnimatedSlide(
-            offset: _showControls ? Offset.zero : const Offset(0, -1),
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            child: Container(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [widget.color, widget.color.withOpacity(0.85)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    Center(
+                      child: Text('${((_page / widget.totalPages) * 100).toInt()}% lu',
+                          style: TextStyle(
+                              color: widget.color.withOpacity(0.60),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(height: 20),
+                  ]),
                 ),
-                boxShadow: [BoxShadow(color: widget.color.withOpacity(0.35),
-                    blurRadius: 12, offset: const Offset(0, 4))],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(children: [
-                  IconButton(icon: const Icon(Icons.arrow_back_rounded, color: _white),
-                      onPressed: () => Navigator.pop(context)),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(widget.title,
-                        style: const TextStyle(color: _white, fontSize: 13.5, fontWeight: FontWeight.w800),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text('Page $_page / ${widget.totalPages}',
-                        style: TextStyle(color: _white.withOpacity(0.65), fontSize: 11)),
-                  ])),
-                  // Toolbar actions
-                  IconButton(
-                    icon: Icon(_bookmarkedNow ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                        color: _bookmarkedNow ? const Color(0xFFFFD700) : _white, size: 22),
-                    onPressed: _toggleBookmark,
-                  ),
-                  IconButton(
-                    icon: Icon(_darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                        color: _white, size: 20),
-                    onPressed: () => setState(() => _darkMode = !_darkMode),
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: _white, size: 20),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'bookmarks', child: Text('Mes favoris')),
-                      const PopupMenuItem(value: 'jump', child: Text('Aller à la page…')),
-                      PopupMenuItem(value: 'zoomin',  child: Text('Zoom + (${_fontSize.toInt()}px)')),
-                      const PopupMenuItem(value: 'zoomout', child: Text('Zoom -')),
-                    ],
-                    onSelected: (v) {
-                      if (v == 'bookmarks') _showBookmarks();
-                      if (v == 'jump') _jumpToPage();
-                      if (v == 'zoomin'  && _fontSize < 22) setState(() => _fontSize += 2);
-                      if (v == 'zoomout' && _fontSize >  10) setState(() => _fontSize -= 2);
-                    },
-                  ),
-                ]),
               ),
             ),
           ),
 
-          // ── Bottom navigation bar ────────────────────────────────────────
+          // ── Top bar — POSITIONED so it never expands beyond its own height ──
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            top: 0, left: 0, right: 0,
             child: AnimatedSlide(
-              offset: _showControls ? Offset.zero : const Offset(0, 1),
+              offset: _showControls ? Offset.zero : const Offset(0, -1),
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOut,
               child: Container(
-                padding: EdgeInsets.fromLTRB(16, 12, 16,
-                    MediaQuery.of(context).padding.bottom + 12),
+                padding: EdgeInsets.only(top: topPad),
                 decoration: BoxDecoration(
-                  color: surface,
-                  border: Border(top: BorderSide(color: widget.color.withOpacity(0.15))),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10),
-                      blurRadius: 20, offset: const Offset(0, -5))],
+                  gradient: LinearGradient(
+                    colors: [widget.color, widget.color.withOpacity(0.85)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [BoxShadow(
+                      color: widget.color.withOpacity(0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))],
                 ),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  // Progress slider
-                  Row(children: [
-                    Text('1', style: TextStyle(color: widget.color, fontSize: 10, fontWeight: FontWeight.w600)),
-                    Expanded(child: Slider(
-                      value: _page.toDouble(),
-                      min: 1, max: widget.totalPages.toDouble(),
-                      activeColor: widget.color,
-                      inactiveColor: widget.color.withOpacity(0.15),
-                      onChanged: (v) => setState(() => _page = v.round()),
-                      onChangeEnd: (_) => _animateFlip(),
-                    )),
-                    Text('${widget.totalPages}', style: TextStyle(
-                        color: widget.color, fontSize: 10, fontWeight: FontWeight.w600)),
-                  ]),
-                  const SizedBox(height: 4),
-                  // Page navigation buttons
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    // Prev
-                    _NavBtn(
-                      icon: Icons.skip_previous_rounded, label: 'Début', color: widget.color,
-                      enabled: _page > 1,
-                      onTap: () { setState(() => _page = 1); _animateFlip(); },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Row(children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, color: _white),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    _NavBtn(
-                      icon: Icons.chevron_left_rounded, label: 'Préc.', color: widget.color,
-                      enabled: _page > 1, onTap: _prevPage,
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(widget.title,
+                          style: const TextStyle(
+                              color: _white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      Text('Page $_page / ${widget.totalPages}',
+                          style: TextStyle(color: _white.withOpacity(0.65), fontSize: 11)),
+                    ])),
+                    IconButton(
+                      icon: Icon(
+                          _bookmarkedNow ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                          color: _bookmarkedNow ? const Color(0xFFFFD700) : _white,
+                          size: 22),
+                      onPressed: _toggleBookmark,
                     ),
-                    // Page indicator (tap to jump)
-                    GestureDetector(
-                      onTap: _jumpToPage,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: widget.color.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: widget.color.withOpacity(0.25)),
-                        ),
-                        child: Text('$_page / ${widget.totalPages}', style: TextStyle(
-                            color: widget.color, fontSize: 13, fontWeight: FontWeight.w800)),
-                      ),
+                    IconButton(
+                      icon: Icon(
+                          _darkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                          color: _white,
+                          size: 20),
+                      onPressed: () => setState(() => _darkMode = !_darkMode),
                     ),
-                    _NavBtn(
-                      icon: Icons.chevron_right_rounded, label: 'Suiv.', color: widget.color,
-                      enabled: _page < widget.totalPages, onTap: _nextPage,
-                    ),
-                    _NavBtn(
-                      icon: Icons.skip_next_rounded, label: 'Fin', color: widget.color,
-                      enabled: _page < widget.totalPages,
-                      onTap: () { setState(() => _page = widget.totalPages); _animateFlip(); },
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, color: _white, size: 20),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'bookmarks', child: Text('Mes favoris')),
+                        const PopupMenuItem(value: 'jump',      child: Text('Aller à la page…')),
+                        PopupMenuItem(value: 'zoomin',  child: Text('Zoom + (${_fontSize.toInt()}px)')),
+                        const PopupMenuItem(value: 'zoomout',   child: Text('Zoom -')),
+                      ],
+                      onSelected: (v) {
+                        if (v == 'bookmarks') _showBookmarks();
+                        if (v == 'jump')      _jumpToPage();
+                        if (v == 'zoomin'  && _fontSize < 22) setState(() => _fontSize += 2);
+                        if (v == 'zoomout' && _fontSize > 10) setState(() => _fontSize -= 2);
+                      },
                     ),
                   ]),
-                ]),
+                ),
               ),
             ),
           ),
+
+          // ── Floating dock — centered pill at bottom ───────────────────────
+          Positioned(
+            bottom: botPad + 12,
+            left: 0,
+            right: 0,
+            child: AnimatedSlide(
+              offset: _showControls ? Offset.zero : const Offset(0, 1.5),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.18),
+                          blurRadius: 24,
+                          offset: const Offset(0, 6)),
+                      BoxShadow(
+                          color: widget.color.withOpacity(0.12),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2)),
+                    ],
+                    border: Border.all(color: widget.color.withOpacity(0.12)),
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    // Progress slider
+                    Row(children: [
+                      Text('1',
+                          style: TextStyle(
+                              color: widget.color,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                      Expanded(child: Slider(
+                        value: _page.toDouble(),
+                        min: 1,
+                        max: widget.totalPages.toDouble(),
+                        activeColor: widget.color,
+                        inactiveColor: widget.color.withOpacity(0.15),
+                        onChanged: (v) => setState(() => _page = v.round()),
+                        onChangeEnd: (_) => _animateFlip(),
+                      )),
+                      Text('${widget.totalPages}',
+                          style: TextStyle(
+                              color: widget.color,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                    // Page navigation buttons
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                      _NavBtn(
+                        icon: Icons.skip_previous_rounded, label: 'Début', color: widget.color,
+                        enabled: _page > 1,
+                        onTap: () { setState(() => _page = 1); _animateFlip(); },
+                      ),
+                      _NavBtn(
+                        icon: Icons.chevron_left_rounded, label: 'Préc.', color: widget.color,
+                        enabled: _page > 1, onTap: _prevPage,
+                      ),
+                      // Page indicator (tap to jump)
+                      GestureDetector(
+                        onTap: _jumpToPage,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: widget.color.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: widget.color.withOpacity(0.25)),
+                          ),
+                          child: Text('$_page / ${widget.totalPages}',
+                              style: TextStyle(
+                                  color: widget.color,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                      _NavBtn(
+                        icon: Icons.chevron_right_rounded, label: 'Suiv.', color: widget.color,
+                        enabled: _page < widget.totalPages, onTap: _nextPage,
+                      ),
+                      _NavBtn(
+                        icon: Icons.skip_next_rounded, label: 'Fin', color: widget.color,
+                        enabled: _page < widget.totalPages,
+                        onTap: () { setState(() => _page = widget.totalPages); _animateFlip(); },
+                      ),
+                    ]),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+
         ]),
       ),
     );
@@ -465,7 +517,8 @@ class _NavBtn extends StatelessWidget {
       Icon(icon, size: 28, color: enabled ? color : color.withOpacity(0.25)),
       Text(label, style: TextStyle(
           color: enabled ? color : color.withOpacity(0.25),
-          fontSize: 9, fontWeight: FontWeight.w600)),
+          fontSize: 9,
+          fontWeight: FontWeight.w600)),
     ]),
   );
 }
