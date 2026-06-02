@@ -25,7 +25,7 @@ const _cream   = ScolarisPalette.cream;
 const _ink     = Color(0xFF1A0A00);
 const _muted   = Color(0xFF7A5C44);
 const _white   = Colors.white;
-const _bg      = Color(0xFFF5EEE6);
+const _bg      = Color(0xFFEDD8BE);
 
 class StudentHome extends StatelessWidget {
   const StudentHome({super.key});
