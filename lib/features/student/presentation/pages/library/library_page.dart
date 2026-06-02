@@ -3,365 +3,226 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/data/mock_library_data.dart';
-import '../../../../../shared/widgets/surface.dart';
-import 'books_page.dart';
-import 'course_materials_page.dart';
-import 'exam_subjects_page.dart';
-import 'library_favorites_page.dart';
+import 'library_advanced_search_page.dart';
 import 'library_stats_page.dart';
 import 'pdf_reader_page.dart';
 
-const _terra  = ScolarisPalette.terracotta;
-const _orange = ScolarisPalette.orange;
-const _gold   = ScolarisPalette.gold;
-const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _bg     = Color(0xFFF5EEE6);
-const _white  = Colors.white;
-const _cyan   = Color(0xFF0891B2);
-const _purple = Color(0xFF7C3AED);
+// ── Palette propre (un seul accent, pas de couleurs idiotes) ───────────────
+const _accent  = Color(0xFFCC4A1A);
+const _bg      = Color(0xFFF6F4F1);
+const _surface = Colors.white;
+const _ink     = Color(0xFF1C1008);
+const _muted   = Color(0xFF8A7060);
+const _divider = Color(0xFFEAE3DB);
+const _success = Color(0xFF2D7A4F);
 
+// ── Search result model ─────────────────────────────────────────────────────
+class _QuickResult {
+  final String type, title, sub;
+  final Color color;
+  final IconData icon;
+  const _QuickResult({
+    required this.type,
+    required this.title,
+    required this.sub,
+    required this.color,
+    required this.icon,
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// LibraryPage — hub principal (sans sidebar droite, navigation interne)
+// ══════════════════════════════════════════════════════════════════════════
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
   @override
   State<LibraryPage> createState() => _LibraryPageState();
 }
 
-class _LibraryPageState extends State<LibraryPage> {
+class _LibraryPageState extends State<LibraryPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tab;
   bool _loading = true;
+  final _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  int _filterIdx = 0; // 0=Tout, 1=Livres, 2=Examens, 3=Supports, 4=Favoris
-  static const _filterLabels = ['Tout', 'Livres', 'Examens', 'Supports', 'Favoris'];
-  static const _userClasse = '5e A';
+  final _searchFocus = FocusNode();
+
+  // Filtres par onglet
+  String _bookSubject = 'Toutes';
+  String _bookClasse  = 'Toutes';
+  String _examLevel   = 'Tous';
+  String _matSubject  = 'Toutes';
+
+  static const _tabLabels = ['Accueil', 'Livres', 'Examens', 'Supports', 'Favoris'];
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1000),
+    _tab = TabController(length: _tabLabels.length, vsync: this);
+    Future.delayed(const Duration(milliseconds: 900),
         () { if (mounted) setState(() => _loading = false); });
   }
 
-  void _go(Widget page) => Navigator.push(
-      context, MaterialPageRoute(builder: (_) => page));
-
   @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      color: _bg,
-      child: Column(children: [
-        // ── Header premium ─────────────────────────────────────────
-        _LibraryHeader(loading: _loading),
+  void dispose() {
+    _tab.dispose();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
 
-        // ── Barre de recherche + filtres ───────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(children: [
-            _SearchBar(
-              onChanged: (q) => setState(() => _searchQuery = q),
-            ),
-            const SizedBox(height: 10),
-            _FilterChips(
-              selected: _filterIdx,
-              onSelect: (i) => setState(() => _filterIdx = i),
-            ),
-          ]),
-        ),
+  void _go(Widget page) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
-        // ── Corps scrollable ───────────────────────────────────────
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
-            child: _searchQuery.isNotEmpty
-                ? _SearchResults(query: _searchQuery, onGo: _go)
-                : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  void _switchTab(int i) => _tab.animateTo(i);
 
-                    // Continuer la lecture
-                    if (MockLibraryData.readingHistory.isNotEmpty) ...[
-                      _SectionHeader(
-                        icon: Icons.play_circle_rounded,
-                        title: 'Continuer la lecture',
-                        gradient: [_terra, _orange],
-                      ),
-                      const SizedBox(height: 10),
-                      Skeletonizer(
-                        enabled: _loading,
-                        effect: const ShimmerEffect(
-                            baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-                        child: _ContinueReadingCarousel(history: MockLibraryData.readingHistory, onGo: _go),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Catégories
-                    _SectionHeader(
-                      icon: Icons.apps_rounded,
-                      title: 'Catégories',
-                      gradient: [_gold, _orange],
-                    ),
-                    const SizedBox(height: 10),
-                    _CategoriesGrid(onGo: _go),
-                    const SizedBox(height: 20),
-
-                    // Adaptés à ta classe
-                    _SectionHeader(
-                      icon: Icons.school_rounded,
-                      title: 'Recommandés pour ta classe',
-                      gradient: [_green, _cyan],
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _green.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _green.withOpacity(0.30)),
-                        ),
-                        child: Text(_userClasse,
-                            style: const TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w800)),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Skeletonizer(
-                      enabled: _loading,
-                      effect: const ShimmerEffect(
-                          baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-                      child: _RecommendedBooks(
-                        books: MockLibraryData.recommendedForClasse(_userClasse).take(5).toList(),
-                        onBook: (b) => _go(PdfReaderPage(
-                            title: b.title, color: b.coverColor, totalPages: b.pages)),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => _go(const BooksPage()),
-                        icon: const Icon(Icons.grid_view_rounded, size: 14, color: _terra),
-                        label: const Text('Voir toutes les ressources',
-                            style: TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Examens recommandés
-                    _SectionHeader(
-                      icon: Icons.quiz_rounded,
-                      title: 'Examens pour ta classe',
-                      gradient: [_green, const Color(0xFF1B5E20)],
-                    ),
-                    const SizedBox(height: 10),
-                    Skeletonizer(
-                      enabled: _loading,
-                      effect: const ShimmerEffect(
-                          baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-                      child: _MiniExamList(
-                        exams: MockLibraryData.recommendedExamsForClasse(_userClasse).take(4).toList(),
-                        onExam: (e) => _go(PdfReaderPage(
-                            title: e.title, color: e.color, totalPages: 12)),
-                        onSeeAll: () => _go(const ExamSubjectsPage()),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Populaires
-                    _SectionHeader(
-                      icon: Icons.trending_up_rounded,
-                      title: 'Livres populaires',
-                      gradient: [_purple, const Color(0xFF5B21B6)],
-                      action: 'Voir tout',
-                      onAction: () => _go(const BooksPage()),
-                    ),
-                    const SizedBox(height: 10),
-                    Skeletonizer(
-                      enabled: _loading,
-                      effect: const ShimmerEffect(
-                          baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-                      child: _PopularBooksRow(
-                        books: MockLibraryData.popularBooks.take(4).toList(),
-                        onBook: (b) => _go(PdfReaderPage(
-                            title: b.title, color: b.coverColor, totalPages: b.pages)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Supports récents
-                    _SectionHeader(
-                      icon: Icons.schedule_rounded,
-                      title: 'Supports récemment ajoutés',
-                      gradient: [_cyan, const Color(0xFF006064)],
-                      action: 'Voir tout',
-                      onAction: () => _go(const CourseMaterialsPage()),
-                    ),
-                    const SizedBox(height: 10),
-                    Skeletonizer(
-                      enabled: _loading,
-                      effect: const ShimmerEffect(
-                          baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-                      child: _RecentMaterialsList(
-                        materials: MockLibraryData.materials.take(4).toList(),
-                        onMaterial: (m) => _go(PdfReaderPage(
-                            title: m.title, color: m.color, totalPages: 24)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Badges lecteur
-                    _SectionHeader(
-                      icon: Icons.emoji_events_rounded,
-                      title: 'Mes badges de lecture',
-                      gradient: [_gold, _orange],
-                    ),
-                    const SizedBox(height: 10),
-                    const _ReadingBadges(),
-                  ]),
-          ),
-        ),
-      ]),
-    );
-    return LayoutBuilder(builder: (ctx, c) {
-      if (c.maxWidth > 700) {
-        return Row(children: [
-          Expanded(child: content),
-          _LibraryRightSidebar(onGo: _go),
-        ]);
+  List<_QuickResult> get _quickResults {
+    if (_searchQuery.isEmpty) return [];
+    final q = _searchQuery.toLowerCase();
+    final out = <_QuickResult>[];
+    for (final b in MockLibraryData.books) {
+      if (b.title.toLowerCase().contains(q) ||
+          b.author.toLowerCase().contains(q) ||
+          b.subject.toLowerCase().contains(q)) {
+        out.add(_QuickResult(
+            type: 'Livre', title: b.title,
+            sub: '${b.author} · ${b.subject}',
+            color: b.coverColor, icon: Icons.book_rounded));
       }
-      return content;
-    });
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Right sidebar — PC only (navigation rapide bibliothèque)
-// ══════════════════════════════════════════════════════════════════════════
-class _LibraryRightSidebar extends StatefulWidget {
-  final Function(Widget) onGo;
-  const _LibraryRightSidebar({required this.onGo});
-  @override
-  State<_LibraryRightSidebar> createState() => _LibraryRightSidebarState();
-}
-
-class _LibraryRightSidebarState extends State<_LibraryRightSidebar> {
-  int _sel = -1;
-
-  static const _items = [
-    (icon: Icons.book_rounded,          label: 'Livres',          sub: 'Romans & manuels'),
-    (icon: Icons.quiz_rounded,           label: 'Examens',         sub: 'Sujets & corrigés'),
-    (icon: Icons.description_rounded,    label: 'Supports',        sub: 'Fiches de cours'),
-    (icon: Icons.favorite_rounded,       label: 'Favoris',         sub: 'Mes sauvegardes'),
-    (icon: Icons.download_done_rounded,  label: 'Téléch.',         sub: 'Offline'),
-    (icon: Icons.bar_chart_rounded,      label: 'Stats',           sub: 'Mon profil'),
-  ];
-
-  void _tap(int i) {
-    setState(() => _sel = i);
-    final pages = [
-      const BooksPage(),
-      const ExamSubjectsPage(),
-      const CourseMaterialsPage(),
-      const LibraryFavoritesPage(),
-      const LibraryFavoritesPage(),
-      const LibraryStatsPage(),
-    ];
-    widget.onGo(pages[i]);
+    }
+    for (final e in MockLibraryData.examSubjects) {
+      if (e.title.toLowerCase().contains(q) ||
+          e.subject.toLowerCase().contains(q)) {
+        out.add(_QuickResult(
+            type: 'Examen', title: e.title,
+            sub: '${e.levelLabel} · ${e.year}',
+            color: e.color, icon: Icons.quiz_rounded));
+      }
+    }
+    for (final m in MockLibraryData.materials) {
+      if (m.title.toLowerCase().contains(q) ||
+          m.subject.toLowerCase().contains(q)) {
+        out.add(_QuickResult(
+            type: 'Support', title: m.title,
+            sub: '${m.subject} · ${m.teacher}',
+            color: m.color, icon: m.icon));
+      }
+    }
+    return out;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 148,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A0500),
-        border: Border(left: BorderSide(color: Color(0xFF3E1A00), width: 1)),
-      ),
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-          child: Row(children: [
-            Container(
-              width: 20, height: 20,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [_terra, _orange]),
-                borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      onTap: () => _searchFocus.unfocus(),
+      child: Container(
+        color: _bg,
+        child: Column(children: [
+
+          // ── Header compact ─────────────────────────────────────────
+          _LibraryHeader(loading: _loading),
+
+          // ── Barre de recherche ─────────────────────────────────────
+          Container(
+            color: _surface,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Column(children: [
+              _SearchBarWidget(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                onChanged: (q) => setState(() => _searchQuery = q),
+                onClear: () => setState(() {
+                  _searchCtrl.clear();
+                  _searchQuery = '';
+                }),
+                onFilterTap: () =>
+                    _go(LibraryAdvancedSearchPage(initialQuery: _searchQuery)),
               ),
-              child: const Icon(Icons.local_library_rounded, color: _white, size: 11),
-            ),
-            const SizedBox(width: 7),
-            const Expanded(child: Text('Navigation',
-                style: TextStyle(color: Color(0xFFE8DDD0), fontSize: 10.5,
-                    fontWeight: FontWeight.w800, letterSpacing: 0.2),
-                maxLines: 1, overflow: TextOverflow.ellipsis)),
-          ]),
-        ),
-        Container(height: 1, color: const Color(0xFF3E1A00)),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: _items.length,
-            itemBuilder: (_, i) {
-              final item = _items[i];
-              final active = _sel == i;
-              return MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => _tap(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: active ? _terra.withOpacity(0.90) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(
-                        color: active ? _terra : Colors.transparent,
-                      ),
-                    ),
-                    child: Row(children: [
-                      Icon(item.icon, size: 15,
-                          color: active ? _white : const Color(0xFFB89880)),
-                      const SizedBox(width: 8),
-                      Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(item.label, style: TextStyle(
-                            color: active ? _white : const Color(0xFFE8DDD0),
-                            fontSize: 11, fontWeight: active
-                                ? FontWeight.w700 : FontWeight.w500),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text(item.sub, style: const TextStyle(
-                            color: Color(0xFF7A5040), fontSize: 9.5),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ])),
-                    ]),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Container(height: 1, color: const Color(0xFF3E1A00)),
-        Padding(
-          padding: const EdgeInsets.all(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: _gold.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _gold.withOpacity(0.30)),
-            ),
-            child: Row(children: [
-              const Icon(Icons.emoji_events_rounded, size: 14, color: _gold),
-              const SizedBox(width: 7),
-              const Expanded(child: Text('2/6 badges', style: TextStyle(
-                  color: _gold, fontSize: 10, fontWeight: FontWeight.w700))),
+              // Dropdown résultats inline
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: _searchQuery.isNotEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _SearchDropdown(
+                          results: _quickResults,
+                          onSeeAll: () => _go(
+                              LibraryAdvancedSearchPage(initialQuery: _searchQuery)),
+                          onTapResult: (r) => _go(PdfReaderPage(
+                              title: r.title, color: r.color, totalPages: 100)),
+                        ),
+                      )
+                    : const SizedBox(height: 10),
+              ),
             ]),
           ),
-        ),
-      ]),
+
+          // ── Onglets internes ───────────────────────────────────────
+          Container(
+            color: _surface,
+            child: Column(children: [
+              TabBar(
+                controller: _tab,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: _accent,
+                unselectedLabelColor: _muted,
+                labelStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+                indicatorColor: _accent,
+                indicatorWeight: 2.5,
+                dividerColor: _divider,
+                tabs: _tabLabels
+                    .map((t) => Tab(text: t, height: 40))
+                    .toList(),
+              ),
+            ]),
+          ),
+
+          // ── Contenu des onglets ────────────────────────────────────
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _HomeTab(
+                    loading: _loading,
+                    onGo: _go,
+                    onSwitchTab: _switchTab),
+                _BooksTab(
+                  loading: _loading,
+                  subject: _bookSubject,
+                  classe: _bookClasse,
+                  onSubjectChanged: (s) => setState(() => _bookSubject = s),
+                  onClasseChanged: (c) => setState(() => _bookClasse = c),
+                  onGo: _go,
+                ),
+                _ExamsTab(
+                  loading: _loading,
+                  level: _examLevel,
+                  onLevelChanged: (l) => setState(() => _examLevel = l),
+                  onGo: _go,
+                ),
+                _MaterialsTab(
+                  loading: _loading,
+                  subject: _matSubject,
+                  onSubjectChanged: (s) => setState(() => _matSubject = s),
+                  onGo: _go,
+                ),
+                _FavoritesTab(loading: _loading, onGo: _go),
+              ],
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Header premium
+// Header compact
 // ══════════════════════════════════════════════════════════════════════════
 class _LibraryHeader extends StatelessWidget {
   final bool loading;
@@ -370,368 +231,375 @@ class _LibraryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A0500), Color(0xFF4A1500), _terra],
-          stops: [0.0, 0.45, 1.0],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      color: _surface,
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Bibliothèque', style: TextStyle(
-                  color: _white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
-              const SizedBox(height: 4),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          const Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Bibliothèque', style: TextStyle(
+                  color: _ink, fontSize: 22,
+                  fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              SizedBox(height: 2),
               Text('Toutes tes ressources pédagogiques',
-                  style: TextStyle(color: _white.withOpacity(0.65), fontSize: 12)),
-              const SizedBox(height: 12),
-              // Stats
-              Skeletonizer(
-                enabled: loading,
-                effect: const ShimmerEffect(baseColor: Color(0x44FFFFFF), highlightColor: Color(0x66FFFFFF)),
-                child: Row(children: [
-                  _HeaderStat(label: 'Ressources', val: '${MockLibraryData.totalResources}',
-                      icon: Icons.folder_rounded),
-                  const SizedBox(width: 16),
-                  _HeaderStat(label: 'Livres', val: '${MockLibraryData.totalBooks}',
-                      icon: Icons.book_rounded),
-                  const SizedBox(width: 16),
-                  _HeaderStat(label: 'Examens', val: '${MockLibraryData.totalExams}',
-                      icon: Icons.quiz_rounded),
-                ]),
-              ),
-            ])),
-            const SizedBox(width: 12),
-            // Illustration décorative
-            Container(
-              width: 72, height: 72,
-              decoration: BoxDecoration(
-                color: _white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _white.withOpacity(0.25)),
-              ),
-              child: const Center(child: Text('📚', style: TextStyle(fontSize: 36))),
-            ),
-          ]),
-        ),
+                  style: TextStyle(color: _muted, fontSize: 12.5)),
+            ]),
+          ),
+          Skeletonizer(
+            enabled: loading,
+            effect: const ShimmerEffect(
+                baseColor: Color(0xFFEAE3DB),
+                highlightColor: Color(0xFFF5F0EA)),
+            child: Row(children: [
+              _MiniStat(n: MockLibraryData.totalBooks,     label: 'Livres'),
+              _statDiv(),
+              _MiniStat(n: MockLibraryData.totalExams,     label: 'Examens'),
+              _statDiv(),
+              _MiniStat(n: MockLibraryData.totalMaterials, label: 'Supports'),
+            ]),
+          ),
+        ]),
       ),
     );
   }
+
+  Widget _statDiv() => Container(
+      height: 26, width: 1,
+      color: _divider,
+      margin: const EdgeInsets.symmetric(horizontal: 10));
 }
 
-class _HeaderStat extends StatelessWidget {
-  final String label, val;
-  final IconData icon;
-  const _HeaderStat({required this.label, required this.val, required this.icon});
-
+class _MiniStat extends StatelessWidget {
+  final int n;
+  final String label;
+  const _MiniStat({required this.n, required this.label});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Row(children: [
-      Icon(icon, size: 11, color: _gold),
-      const SizedBox(width: 4),
-      Text(label, style: TextStyle(color: _white.withOpacity(0.60), fontSize: 9, fontWeight: FontWeight.w600)),
-    ]),
-    const SizedBox(height: 2),
-    Text(val, style: const TextStyle(color: _white, fontSize: 16, fontWeight: FontWeight.w900)),
+  Widget build(BuildContext context) => Column(children: [
+    Text('$n', style: const TextStyle(
+        color: _ink, fontSize: 15, fontWeight: FontWeight.w900)),
+    const SizedBox(height: 1),
+    Text(label, style: const TextStyle(
+        color: _muted, fontSize: 9.5, fontWeight: FontWeight.w500)),
   ]);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Search bar
+// Barre de recherche + bouton filtre
 // ══════════════════════════════════════════════════════════════════════════
-class _SearchBar extends StatelessWidget {
+class _SearchBarWidget extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
-  const _SearchBar({required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44, decoration: BoxDecoration(
-        color: _white, borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-        boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(children: [
-        const Icon(Icons.search_rounded, size: 18, color: _muted),
-        const SizedBox(width: 8),
-        Expanded(child: TextField(
-          onChanged: onChanged,
-          style: const TextStyle(fontSize: 13.5, color: _ink),
-          decoration: const InputDecoration(
-            hintText: 'Rechercher livres, examens, supports…',
-            hintStyle: TextStyle(fontSize: 13.5, color: _muted),
-            isCollapsed: true, border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: 10),
-          ),
-        )),
-        const Icon(Icons.mic_rounded, size: 16, color: _muted),
-      ]),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Filter chips
-// ══════════════════════════════════════════════════════════════════════════
-class _FilterChips extends StatelessWidget {
-  final int selected;
-  final ValueChanged<int> onSelect;
-  const _FilterChips({required this.selected, required this.onSelect});
-
-  static const _icons = [Icons.apps_rounded, Icons.book_rounded,
-    Icons.quiz_rounded, Icons.description_rounded, Icons.favorite_rounded];
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _LibraryPageState._filterLabels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final sel = i == selected;
-          return GestureDetector(
-            onTap: () => onSelect(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: sel ? _terra : _white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: sel ? _terra : _border),
-                boxShadow: sel ? [BoxShadow(color: _terra.withOpacity(0.30),
-                    blurRadius: 8, offset: const Offset(0, 3))] : [],
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_icons[i], size: 12, color: sel ? _white : _muted),
-                const SizedBox(width: 5),
-                Text(_LibraryPageState._filterLabels[i], style: TextStyle(
-                    color: sel ? _white : _muted,
-                    fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Section header
-// ══════════════════════════════════════════════════════════════════════════
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final List<Color> gradient;
-  final String? action;
-  final VoidCallback? onAction;
-  final Widget? trailing;
-  const _SectionHeader({
-    required this.icon, required this.title, required this.gradient,
-    this.action, this.onAction, this.trailing,
+  final VoidCallback onClear;
+  final VoidCallback onFilterTap;
+  const _SearchBarWidget({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+    required this.onClear,
+    required this.onFilterTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Container(
-        width: 30, height: 30,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: gradient,
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(9),
-          boxShadow: [BoxShadow(color: gradient.first.withOpacity(0.35),
-              blurRadius: 8, offset: const Offset(0, 3))],
+      Expanded(
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0EBE5),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            const Icon(Icons.search_rounded, size: 18, color: _muted),
+            const SizedBox(width: 8),
+            Expanded(child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              style: const TextStyle(fontSize: 13.5, color: _ink),
+              decoration: const InputDecoration(
+                hintText: 'Livres, examens, supports…',
+                hintStyle: TextStyle(fontSize: 13.5, color: _muted),
+                isCollapsed: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 13),
+              ),
+            )),
+            if (controller.text.isNotEmpty)
+              GestureDetector(
+                onTap: onClear,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.close_rounded, size: 16, color: _muted),
+                ),
+              ),
+          ]),
         ),
-        child: Icon(icon, color: _white, size: 15),
       ),
       const SizedBox(width: 8),
-      Expanded(child: Text(title, style: const TextStyle(
-          fontSize: 14.5, color: _ink, fontWeight: FontWeight.w800, letterSpacing: -0.2))),
-      if (trailing != null) trailing!,
-      if (action != null) ...[
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onAction,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: _terra.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8)),
-            child: Text(action!, style: const TextStyle(
-                color: _terra, fontSize: 11.5, fontWeight: FontWeight.w700)),
+      // Bouton filtre → Recherche avancée
+      GestureDetector(
+        onTap: onFilterTap,
+        child: Container(
+          height: 44, width: 44,
+          decoration: BoxDecoration(
+            color: _accent,
+            borderRadius: BorderRadius.circular(11),
           ),
+          child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
         ),
-      ],
+      ),
     ]);
   }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Continue reading carousel
+// Dropdown résultats de recherche (inline, sans quitter la page)
 // ══════════════════════════════════════════════════════════════════════════
-class _ContinueReadingCarousel extends StatelessWidget {
-  final List<ReadingEntry> history;
-  final Function(Widget) onGo;
-  const _ContinueReadingCarousel({required this.history, required this.onGo});
+class _SearchDropdown extends StatelessWidget {
+  final List<_QuickResult> results;
+  final VoidCallback onSeeAll;
+  final Function(_QuickResult) onTapResult;
+  const _SearchDropdown({
+    required this.results,
+    required this.onSeeAll,
+    required this.onTapResult,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(height: 112,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: history.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final h = history[i];
-          return GestureDetector(
-            onTap: () => onGo(PdfReaderPage(
-                title: h.title, color: h.color, totalPages: 200,
-                initialPage: (h.progress * 200).round())),
-            child: Container(
-              width: 230,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _white, borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: h.color.withOpacity(0.25)),
-                boxShadow: [BoxShadow(color: h.color.withOpacity(0.12),
-                    blurRadius: 10, offset: const Offset(0, 4))],
+    final shown = results.take(7).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _divider),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.09),
+              blurRadius: 20,
+              offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (shown.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text('Aucun résultat.',
+                style: TextStyle(color: _muted, fontSize: 13)),
+          )
+        else
+          ...shown.map((r) => _QuickResultTile(
+              result: r, onTap: () => onTapResult(r))),
+
+        const Divider(height: 1, thickness: 1, color: _divider),
+        // Bouton "Voir tout"
+        InkWell(
+          onTap: onSeeAll,
+          borderRadius:
+              const BorderRadius.vertical(bottom: Radius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 12),
+            child: Row(children: [
+              Text(
+                results.isNotEmpty
+                    ? 'Voir tous les résultats (${results.length})'
+                    : 'Recherche avancée',
+                style: const TextStyle(
+                    color: _accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700),
               ),
-              child: Row(children: [
-                Container(
-                  width: 46, height: 46,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [h.color, h.color.withOpacity(0.7)]),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(h.icon, color: _white, size: 22),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(_typeLabel(h.type), style: TextStyle(
-                      color: h.color, fontSize: 9.5, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(h.title, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    Expanded(child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: h.progress, minHeight: 5,
-                        backgroundColor: h.color.withOpacity(0.12),
-                        valueColor: AlwaysStoppedAnimation(h.color),
-                      ),
-                    )),
-                    const SizedBox(width: 6),
-                    Text('${(h.progress * 100).toInt()}%',
-                        style: TextStyle(color: h.color, fontSize: 9.5, fontWeight: FontWeight.w800)),
-                  ]),
-                ])),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  String _typeLabel(ResourceType t) {
-    switch (t) {
-      case ResourceType.book: return 'Livre';
-      case ResourceType.material: return 'Support';
-      case ResourceType.examSubject: return 'Examen';
-    }
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Catégories grid
-// ══════════════════════════════════════════════════════════════════════════
-class _CategoriesGrid extends StatelessWidget {
-  final Function(Widget) onGo;
-  const _CategoriesGrid({required this.onGo});
-
-  @override
-  Widget build(BuildContext context) {
-    final cats = [
-      (icon: Icons.book_rounded,        label: 'Livres',        sub: '${MockLibraryData.totalBooks}',        grad: [const Color(0xFF1565C0), const Color(0xFF0288D1)], page: const BooksPage()),
-      (icon: Icons.quiz_rounded,         label: 'Examens',       sub: '${MockLibraryData.totalExams}',        grad: [const Color(0xFF1B5E20), const Color(0xFF388E3C)], page: const ExamSubjectsPage()),
-      (icon: Icons.description_rounded,  label: 'Supports',      sub: '${MockLibraryData.totalMaterials}',    grad: [_terra, _orange],                                  page: const CourseMaterialsPage()),
-      (icon: Icons.favorite_rounded,     label: 'Favoris',       sub: '${MockLibraryData.favoriteBooks.length + MockLibraryData.favoriteExams.length}', grad: [const Color(0xFFE91E63), const Color(0xFFC2185B)], page: const LibraryFavoritesPage()),
-      (icon: Icons.download_done_rounded,label: 'Téléchargements',sub: '${MockLibraryData.downloadedBooks.length + MockLibraryData.downloadedMaterials.length}', grad: [_cyan, const Color(0xFF006064)], page: const LibraryFavoritesPage()),
-      (icon: Icons.bar_chart_rounded,    label: 'Statistiques',  sub: 'Mon profil',  grad: [_purple, const Color(0xFF5B21B6)],            page: const LibraryStatsPage()),
-    ];
-
-    return LayoutBuilder(builder: (_, constraints) {
-      final cols = constraints.maxWidth > 500 ? 6 : 3;
-      final ratio = constraints.maxWidth > 500 ? 1.5 : 1.0;
-      return GridView.count(
-        crossAxisCount: cols,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 10, mainAxisSpacing: 10,
-        childAspectRatio: ratio,
-        children: cats.map((c) => GestureDetector(
-        onTap: () => onGo(c.page),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: c.grad,
-                begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: c.grad.first.withOpacity(0.35),
-                blurRadius: 12, offset: const Offset(0, 5))],
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Container(width: 34, height: 34,
-              decoration: BoxDecoration(color: _white.withOpacity(0.22),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(c.icon, color: _white, size: 18)),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(c.label, style: const TextStyle(color: _white,
-                  fontSize: 11, fontWeight: FontWeight.w800),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(c.sub, style: TextStyle(color: _white.withOpacity(0.70),
-                  fontSize: 9.5, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              const Icon(Icons.arrow_forward_rounded,
+                  size: 15, color: _accent),
             ]),
-          ]),
+          ),
         ),
-      )).toList(),
-      );
-    });
+      ]),
+    );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// Recommended books horizontal scroll
-// ══════════════════════════════════════════════════════════════════════════
-class _RecommendedBooks extends StatelessWidget {
-  final List<LibraryBook> books;
-  final Function(LibraryBook) onBook;
-  const _RecommendedBooks({required this.books, required this.onBook});
+class _QuickResultTile extends StatelessWidget {
+  final _QuickResult result;
+  final VoidCallback onTap;
+  const _QuickResultTile({required this.result, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(height: 186,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: books.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => _BookCover(book: books[i], onTap: () => onBook(books[i])),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: result.color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(result.icon, size: 16, color: result.color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(result.title,
+                style: const TextStyle(
+                    color: _ink, fontSize: 13, fontWeight: FontWeight.w600),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 1),
+            Text(result.sub,
+                style: const TextStyle(color: _muted, fontSize: 11),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: result.color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(result.type,
+                style: TextStyle(
+                    color: result.color,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
       ),
     );
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// Widgets partagés
+// ══════════════════════════════════════════════════════════════════════════
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final String? action;
+  final VoidCallback? onAction;
+  const _SectionLabel(this.text, {this.action, this.onAction});
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Expanded(child: Text(text, style: const TextStyle(
+        color: _ink, fontSize: 14,
+        fontWeight: FontWeight.w800, letterSpacing: -0.2))),
+    if (action != null)
+      GestureDetector(
+        onTap: onAction,
+        child: Text(action!, style: const TextStyle(
+            color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
+      ),
+  ]);
+}
+
+class _FilterDropdown extends StatelessWidget {
+  final String label;
+  final List<String> options;
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _FilterDropdown({
+    required this.label,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = value != options.first;
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        context: context,
+        backgroundColor: _surface,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        builder: (_) => _OptionsSheet(
+            title: label, options: options,
+            value: value, onChanged: onChanged),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? _accent.withOpacity(0.08)
+              : const Color(0xFFF0EBE5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: active
+                  ? _accent.withOpacity(0.35)
+                  : Colors.transparent),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(value,
+              style: TextStyle(
+                  color: active ? _accent : _muted,
+                  fontSize: 12,
+                  fontWeight:
+                      active ? FontWeight.w700 : FontWeight.w500)),
+          const SizedBox(width: 4),
+          Icon(Icons.expand_more_rounded,
+              size: 14, color: active ? _accent : _muted),
+        ]),
+      ),
+    );
+  }
+}
+
+class _OptionsSheet extends StatelessWidget {
+  final String title;
+  final List<String> options;
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _OptionsSheet({
+    required this.title,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Text(title, style: const TextStyle(
+              color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
+        ),
+        const Divider(height: 1, color: _divider),
+        ...options.map((o) => InkWell(
+          onTap: () { onChanged(o); Navigator.pop(context); },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 20, vertical: 13),
+            child: Row(children: [
+              Expanded(child: Text(o,
+                  style: TextStyle(
+                      color: o == value ? _accent : _ink,
+                      fontSize: 14,
+                      fontWeight: o == value
+                          ? FontWeight.w700
+                          : FontWeight.w400))),
+              if (o == value)
+                const Icon(Icons.check_rounded, size: 16, color: _accent),
+            ]),
+          ),
+        )),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
+}
+
+// ── Couverture livre ──────────────────────────────────────────────────────
 class _BookCover extends StatelessWidget {
   final LibraryBook book;
   final VoidCallback onTap;
@@ -742,63 +610,66 @@ class _BookCover extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 120,
+        width: 112,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Couverture
           Container(
-            height: 140, width: 120,
+            height: 140, width: 112,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [book.coverColor, book.coverColorEnd],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: book.coverColor.withOpacity(0.35),
-                  blurRadius: 12, offset: const Offset(0, 5))],
+                  colors: [book.coverColor, book.coverColorEnd],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [BoxShadow(
+                  color: book.coverColor.withOpacity(0.25),
+                  blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: Stack(children: [
-              // Reliure
-              Positioned(left: 0, top: 0, bottom: 0,
-                child: Container(width: 6,
+              Positioned(
+                left: 0, top: 0, bottom: 0,
+                child: Container(
+                  width: 5,
                   decoration: BoxDecoration(
-                    color: _white.withOpacity(0.20),
-                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                    color: Colors.white.withOpacity(0.20),
+                    borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(10)),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(book.subject, style: TextStyle(
-                      color: _white.withOpacity(0.75), fontSize: 9, fontWeight: FontWeight.w700)),
-                  Text(book.title, style: const TextStyle(
-                      color: _white, fontSize: 11.5, fontWeight: FontWeight.w900, height: 1.3),
+                padding: const EdgeInsets.fromLTRB(10, 10, 6, 8),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                  Text(book.subject,
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.75),
+                          fontSize: 8.5, fontWeight: FontWeight.w700)),
+                  Text(book.title,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 11,
+                          fontWeight: FontWeight.w900, height: 1.3),
                       maxLines: 3, overflow: TextOverflow.ellipsis),
-                  Text(book.classe, style: TextStyle(
-                      color: _white.withOpacity(0.65), fontSize: 9)),
-                ]),
-              ),
-              // Rating badge
-              Positioned(top: 8, right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: _white.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.star_rounded, size: 8, color: _gold),
+                  Row(children: [
+                    const Icon(Icons.star_rounded,
+                        size: 9, color: Color(0xFFFFD966)),
                     const SizedBox(width: 2),
-                    Text(book.rating.toStringAsFixed(1), style: const TextStyle(
-                        color: _white, fontSize: 8, fontWeight: FontWeight.w800)),
+                    Text(book.rating.toStringAsFixed(1),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 8.5, fontWeight: FontWeight.w700)),
                   ]),
-                ),
+                ]),
               ),
             ]),
           ),
           const SizedBox(height: 6),
-          Text(book.title, style: const TextStyle(color: _ink, fontSize: 11, fontWeight: FontWeight.w700),
+          Text(book.title,
+              style: const TextStyle(
+                  color: _ink, fontSize: 11, fontWeight: FontWeight.w700),
               maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(book.author, style: const TextStyle(color: _muted, fontSize: 9.5),
+          Text(book.author,
+              style: const TextStyle(color: _muted, fontSize: 9.5),
               maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
       ),
@@ -806,346 +677,832 @@ class _BookCover extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// Mini exam list
-// ══════════════════════════════════════════════════════════════════════════
-class _MiniExamList extends StatelessWidget {
-  final List<ExamSubject> exams;
-  final Function(ExamSubject) onExam;
-  final VoidCallback onSeeAll;
-  const _MiniExamList({required this.exams, required this.onExam, required this.onSeeAll});
+// ── Ligne livre ───────────────────────────────────────────────────────────
+class _BookListTile extends StatelessWidget {
+  final LibraryBook book;
+  final VoidCallback onTap;
+  const _BookListTile({required this.book, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      for (final e in exams) ...[
-        GestureDetector(
-          onTap: () => onExam(e),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: e.color.withOpacity(0.20))),
-            child: Row(children: [
-              Container(width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: e.color.withOpacity(0.10), borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: e.color.withOpacity(0.25)),
-                ),
-                child: Center(child: Text(e.levelLabel[0],
-                    style: TextStyle(color: e.color, fontSize: 14, fontWeight: FontWeight.w900))),
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${e.subject} · ${e.year}', style: const TextStyle(
-                    color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
-                Text('${e.levelLabel} · ${e.session}',
-                    style: const TextStyle(color: _muted, fontSize: 11)),
-              ])),
-              if (e.hasCorrection)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(color: _green.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: _green.withOpacity(0.30))),
-                  child: const Text('+ Corrigé', style: TextStyle(
-                      color: _green, fontSize: 9.5, fontWeight: FontWeight.w800)),
-                ),
-              const SizedBox(width: 6),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _muted),
-            ]),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _divider),
         ),
-      ],
-      TextButton(
-        onPressed: onSeeAll,
-        child: const Text('Voir tous les examens',
-            style: TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
-      ),
-    ]);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Popular books row
-// ══════════════════════════════════════════════════════════════════════════
-class _PopularBooksRow extends StatelessWidget {
-  final List<LibraryBook> books;
-  final Function(LibraryBook) onBook;
-  const _PopularBooksRow({required this.books, required this.onBook});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [
-      for (int i = 0; i < books.length; i++) ...[
-        GestureDetector(
-          onTap: () => onBook(books[i]),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: ScolarisSurface.card(radius: 12),
-            child: Row(children: [
-              // Mini cover
-              Container(width: 44, height: 58,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [books[i].coverColor, books[i].coverColorEnd]),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Padding(padding: const EdgeInsets.all(4),
-                    child: Text(books[i].classe, style: TextStyle(
-                        color: _white.withOpacity(0.80), fontSize: 7, fontWeight: FontWeight.w700)),
-                  ),
-                ]),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(books[i].title, style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(books[i].author, style: const TextStyle(color: _muted, fontSize: 11)),
-                const SizedBox(height: 4),
-                Row(children: [
-                  ...List.generate(5, (s) => Icon(
-                      s < books[i].rating.floor() ? Icons.star_rounded : Icons.star_outline_rounded,
-                      size: 11, color: _gold)),
-                  const SizedBox(width: 4),
-                  Text('(${books[i].reviewCount})', style: const TextStyle(color: _muted, fontSize: 9.5)),
-                ]),
-              ])),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: books[i].coverColor.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.download_rounded, size: 10, color: books[i].coverColor),
-                    const SizedBox(width: 3),
-                    Text('${(books[i].downloads / 1000).toStringAsFixed(1)}k',
-                        style: TextStyle(color: books[i].coverColor, fontSize: 9, fontWeight: FontWeight.w800)),
-                  ]),
-                ),
-              ]),
-            ]),
-          ),
-        ),
-      ],
-    ]);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Recent materials list
-// ══════════════════════════════════════════════════════════════════════════
-class _RecentMaterialsList extends StatelessWidget {
-  final List<CourseMaterial> materials;
-  final Function(CourseMaterial) onMaterial;
-  const _RecentMaterialsList({required this.materials, required this.onMaterial});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: materials.map((m) => GestureDetector(
-        onTap: () => onMaterial(m),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: ScolarisSurface.card(radius: 12),
-          child: Row(children: [
-            Container(width: 40, height: 40,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [m.color, m.color.withOpacity(0.7)]),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(m.icon, color: _white, size: 18),
+        child: Row(children: [
+          // Mini couverture
+          Container(
+            width: 46, height: 60,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  colors: [book.coverColor, book.coverColorEnd]),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(m.title, style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Text('${m.subject} · ${m.teacher}', style: const TextStyle(color: _muted, fontSize: 11)),
-            ])),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(m.size, style: TextStyle(color: m.color, fontSize: 10, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(m.addedDate, style: const TextStyle(color: _muted, fontSize: 9.5)),
+            child: Stack(children: [
+              Positioned(
+                left: 0, top: 0, bottom: 0,
+                child: Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.20),
+                    borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(8)),
+                  ),
+                ),
+              ),
             ]),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(book.title,
+                style: const TextStyle(
+                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text(book.author,
+                style: const TextStyle(color: _muted, fontSize: 11.5)),
+            const SizedBox(height: 5),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: book.coverColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(book.subject,
+                    style: TextStyle(
+                        color: book.coverColor,
+                        fontSize: 9.5, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0EBE5),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(book.classe,
+                    style: const TextStyle(
+                        color: _muted, fontSize: 9.5)),
+              ),
+            ]),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Row(children: [
+              const Icon(Icons.star_rounded,
+                  size: 11, color: Color(0xFFC17F24)),
+              const SizedBox(width: 2),
+              Text(book.rating.toStringAsFixed(1),
+                  style: const TextStyle(
+                      color: _ink,
+                      fontSize: 11, fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 4),
+            Text('${book.pages}p',
+                style: const TextStyle(color: _muted, fontSize: 10)),
+            if (book.isFavorite) ...[
+              const SizedBox(height: 4),
+              const Icon(Icons.favorite_rounded,
+                  size: 12, color: Color(0xFFB72653)),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Ligne examen ──────────────────────────────────────────────────────────
+class _ExamTile extends StatelessWidget {
+  final ExamSubject exam;
+  final VoidCallback onTap;
+  const _ExamTile({required this.exam, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _divider),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              color: exam.color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(child: Text(exam.levelLabel[0],
+                style: TextStyle(
+                    color: exam.color,
+                    fontSize: 15, fontWeight: FontWeight.w900))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${exam.subject} · ${exam.year}',
+                style: const TextStyle(
+                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text('${exam.levelLabel} · ${exam.session}',
+                style: const TextStyle(color: _muted, fontSize: 11)),
+          ])),
+          if (exam.hasCorrection)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: _success.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                    color: _success.withOpacity(0.25)),
+              ),
+              child: const Text('Corrigé',
+                  style: TextStyle(
+                      color: _success,
+                      fontSize: 10, fontWeight: FontWeight.w800)),
+            ),
+          const SizedBox(width: 8),
+          const Icon(Icons.arrow_forward_ios_rounded,
+              size: 11, color: _muted),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Ligne support ─────────────────────────────────────────────────────────
+class _MaterialTile extends StatelessWidget {
+  final CourseMaterial material;
+  final VoidCallback onTap;
+  const _MaterialTile({required this.material, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _divider),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: material.color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(material.icon, size: 20, color: material.color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(material.title,
+                style: const TextStyle(
+                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text('${material.subject} · ${material.teacher}',
+                style: const TextStyle(color: _muted, fontSize: 11)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(material.size,
+                style: TextStyle(
+                    color: material.color,
+                    fontSize: 11, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(material.addedDate,
+                style: const TextStyle(color: _muted, fontSize: 10)),
+            if (material.isDownloaded) ...[
+              const SizedBox(height: 3),
+              const Icon(Icons.download_done_rounded,
+                  size: 12, color: _success),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ONGLET 0 — Accueil
+// ══════════════════════════════════════════════════════════════════════════
+class _HomeTab extends StatelessWidget {
+  final bool loading;
+  final Function(Widget) onGo;
+  final Function(int) onSwitchTab;
+  const _HomeTab({
+    required this.loading,
+    required this.onGo,
+    required this.onSwitchTab,
+  });
+
+  static const _userClasse = '5e A';
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+        // ── En cours de lecture ──────────────────────────────────────
+        if (MockLibraryData.readingHistory.isNotEmpty) ...[
+          const _SectionLabel('Reprendre la lecture'),
+          const SizedBox(height: 10),
+          Skeletonizer(
+            enabled: loading,
+            effect: const ShimmerEffect(
+                baseColor: Color(0xFFEAE3DB),
+                highlightColor: Color(0xFFF5F0EA)),
+            child: SizedBox(
+              height: 88,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: MockLibraryData.readingHistory.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) {
+                  final h = MockLibraryData.readingHistory[i];
+                  return _ContinueCard(
+                    entry: h,
+                    onTap: () => onGo(PdfReaderPage(
+                        title: h.title, color: h.color, totalPages: 200,
+                        initialPage: (h.progress * 200).round())),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+        ],
+
+        // ── Catégories ───────────────────────────────────────────────
+        const _SectionLabel('Catégories'),
+        const SizedBox(height: 10),
+        _CategoryGrid(onSwitchTab: onSwitchTab, onGo: onGo),
+        const SizedBox(height: 22),
+
+        // ── Recommandés pour la classe ───────────────────────────────
+        _SectionLabel(
+          'Pour ta classe · $_userClasse',
+          action: 'Voir tout',
+          onAction: () => onSwitchTab(1),
+        ),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: SizedBox(
+            height: 176,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: MockLibraryData.recommendedForClasse(_userClasse)
+                  .take(5).length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) {
+                final books = MockLibraryData.recommendedForClasse(_userClasse)
+                    .take(5).toList();
+                return _BookCover(
+                    book: books[i],
+                    onTap: () => onGo(PdfReaderPage(
+                        title: books[i].title,
+                        color: books[i].coverColor,
+                        totalPages: books[i].pages)));
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        // ── Examens ──────────────────────────────────────────────────
+        _SectionLabel(
+          'Examens recommandés',
+          action: 'Voir tout',
+          onAction: () => onSwitchTab(2),
+        ),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: Column(children: [
+            ...MockLibraryData.recommendedExamsForClasse(_userClasse)
+                .take(4)
+                .map((e) => _ExamTile(
+                      exam: e,
+                      onTap: () => onGo(PdfReaderPage(
+                          title: e.title, color: e.color, totalPages: 12)),
+                    )),
           ]),
         ),
-      )).toList(),
-    );
-  }
-}
+        const SizedBox(height: 22),
 
-// ══════════════════════════════════════════════════════════════════════════
-// Badges de lecture
-// ══════════════════════════════════════════════════════════════════════════
-class _ReadingBadges extends StatelessWidget {
-  const _ReadingBadges();
-
-  static const _badges = [
-    (emoji: '📖', label: 'Premier livre', desc: 'Débloqué', unlocked: true,  color: Color(0xFF6D28D9)),
-    (emoji: '🎯', label: 'Lecteur régulier', desc: '7 jours consécutifs', unlocked: true, color: Color(0xFF1B5E20)),
-    (emoji: '⚡', label: 'Speed reader', desc: '3 docs en 1h', unlocked: false, color: Color(0xFFC17F24)),
-    (emoji: '🏆', label: 'Champion BAC', desc: '10 examens', unlocked: false, color: Color(0xFF8B1A00)),
-    (emoji: '💡', label: 'Curieux',         desc: '5 matières', unlocked: false, color: Color(0xFF0891B2)),
-    (emoji: '🌟', label: 'Super lecteur',   desc: 'Top 10%',   unlocked: false, color: Color(0xFFDB2777)),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: ScolarisSurface.card(radius: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Expanded(child: Text('Mes badges', style: TextStyle(
-              color: _ink, fontSize: 13, fontWeight: FontWeight.w800))),
-          Text('2/6 débloqués', style: TextStyle(color: _gold, fontSize: 11, fontWeight: FontWeight.w700)),
-        ]),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 3, shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 8, mainAxisSpacing: 8,
-          childAspectRatio: 1.1,
-          children: _badges.map((b) => Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: b.unlocked ? b.color.withOpacity(0.08) : const Color(0xFFF5EEE6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: b.unlocked ? b.color.withOpacity(0.30) : _border),
-            ),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(b.emoji, style: TextStyle(fontSize: 22,
-                  color: b.unlocked ? null : const Color(0xFFBBBBBB))),
-              const SizedBox(height: 4),
-              Text(b.label, style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w700,
-                  color: b.unlocked ? b.color : _muted),
-                  textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            ]),
-          )).toList(),
+        // ── Supports récents ─────────────────────────────────────────
+        _SectionLabel(
+          'Supports récents',
+          action: 'Voir tout',
+          onAction: () => onSwitchTab(3),
+        ),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: Column(children: [
+            ...MockLibraryData.materials.take(4).map((m) => _MaterialTile(
+                  material: m,
+                  onTap: () => onGo(PdfReaderPage(
+                      title: m.title, color: m.color, totalPages: 24)),
+                )),
+          ]),
         ),
       ]),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// Search results
-// ══════════════════════════════════════════════════════════════════════════
-class _SearchResults extends StatelessWidget {
-  final String query;
-  final Function(Widget) onGo;
-  const _SearchResults({required this.query, required this.onGo});
+// ── Carte "continuer la lecture" ───────────────────────────────────────────
+class _ContinueCard extends StatelessWidget {
+  final ReadingEntry entry;
+  final VoidCallback onTap;
+  const _ContinueCard({required this.entry, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final q = query.toLowerCase();
-    final books = MockLibraryData.books.where((b) =>
-      b.title.toLowerCase().contains(q) || b.author.toLowerCase().contains(q) ||
-      b.subject.toLowerCase().contains(q)).toList();
-    final exams = MockLibraryData.examSubjects.where((e) =>
-      e.title.toLowerCase().contains(q) || e.subject.toLowerCase().contains(q) ||
-      e.levelLabel.toLowerCase().contains(q)).toList();
-    final mats = MockLibraryData.materials.where((m) =>
-      m.title.toLowerCase().contains(q) || m.subject.toLowerCase().contains(q) ||
-      m.teacher.toLowerCase().contains(q)).toList();
-    final total = books.length + exams.length + mats.length;
-    if (total == 0) {
-      return Column(mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(height: 48),
-        Container(width: 56, height: 56,
-          decoration: BoxDecoration(color: const Color(0xFFF0E8DC), borderRadius: BorderRadius.circular(16)),
-          child: const Icon(Icons.search_off_rounded, color: _muted, size: 26)),
-        const SizedBox(height: 14),
-        const Text('Aucun résultat', style: TextStyle(fontSize: 14, color: _ink, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text('Aucune ressource ne correspond à "$query"',
-            style: const TextStyle(fontSize: 12, color: _muted), textAlign: TextAlign.center),
-      ]);
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('$total résultat${total > 1 ? 's' : ''} pour "$query"',
-          style: const TextStyle(color: _muted, fontSize: 12, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 14),
-      if (books.isNotEmpty) ...[
-        const Text('Livres', style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        for (final b in books) GestureDetector(
-          onTap: () => onGo(PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages)),
-          child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-            decoration: ScolarisSurface.card(radius: 12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 218,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _divider),
+        ),
+        child: Row(children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: entry.color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(entry.icon, color: entry.color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(entry.title,
+                style: const TextStyle(
+                    color: _ink, fontSize: 12, fontWeight: FontWeight.w700),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 5),
+            Row(children: [
+              Expanded(child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: entry.progress,
+                  minHeight: 4,
+                  backgroundColor: entry.color.withOpacity(0.12),
+                  valueColor: AlwaysStoppedAnimation(entry.color),
+                ),
+              )),
+              const SizedBox(width: 6),
+              Text('${(entry.progress * 100).toInt()}%',
+                  style: TextStyle(
+                      color: entry.color,
+                      fontSize: 10, fontWeight: FontWeight.w800)),
+            ]),
+          ])),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Grille catégories (propre, sans gradients inutiles) ────────────────────
+class _CategoryGrid extends StatelessWidget {
+  final Function(int) onSwitchTab;
+  final Function(Widget) onGo;
+  const _CategoryGrid({required this.onSwitchTab, required this.onGo});
+
+  @override
+  Widget build(BuildContext context) {
+    final cats = [
+      _CatDef(
+        icon: Icons.book_rounded,
+        label: 'Livres',
+        count: '${MockLibraryData.totalBooks} manuels',
+        color: const Color(0xFF1565C0),
+        onTap: () => onSwitchTab(1),
+      ),
+      _CatDef(
+        icon: Icons.quiz_rounded,
+        label: 'Examens',
+        count: '${MockLibraryData.totalExams} sujets',
+        color: const Color(0xFF2D7A4F),
+        onTap: () => onSwitchTab(2),
+      ),
+      _CatDef(
+        icon: Icons.description_rounded,
+        label: 'Supports',
+        count: '${MockLibraryData.totalMaterials} fichiers',
+        color: _accent,
+        onTap: () => onSwitchTab(3),
+      ),
+      _CatDef(
+        icon: Icons.favorite_rounded,
+        label: 'Favoris',
+        count: '${MockLibraryData.favoriteBooks.length + MockLibraryData.favoriteExams.length} enregistrés',
+        color: const Color(0xFFB72653),
+        onTap: () => onSwitchTab(4),
+      ),
+      _CatDef(
+        icon: Icons.download_done_rounded,
+        label: 'Hors ligne',
+        count: '${MockLibraryData.downloadedBooks.length + MockLibraryData.downloadedMaterials.length} téléchargés',
+        color: const Color(0xFF5B4F3A),
+        onTap: () {},
+      ),
+      _CatDef(
+        icon: Icons.bar_chart_rounded,
+        label: 'Statistiques',
+        count: 'Mon profil lecteur',
+        color: const Color(0xFF6D28D9),
+        onTap: () => onGo(const LibraryStatsPage()),
+      ),
+    ];
+
+    return LayoutBuilder(builder: (_, c) {
+      final cols = c.maxWidth > 420 ? 3 : 2;
+      return GridView.count(
+        crossAxisCount: cols,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: c.maxWidth > 420 ? 2.3 : 2.0,
+        children: cats.map((cat) => GestureDetector(
+          onTap: cat.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _divider),
+            ),
             child: Row(children: [
-              Container(width: 36, height: 36,
+              Container(
+                width: 34, height: 34,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [b.coverColor, b.coverColorEnd]),
-                  borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.book_rounded, color: _white, size: 18)),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(b.title, style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700),
+                  color: cat.color.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(cat.icon, size: 17, color: cat.color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(cat.label,
+                    style: const TextStyle(
+                        color: _ink,
+                        fontSize: 11.5, fontWeight: FontWeight.w700),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text('${b.author} · ${b.classe}', style: const TextStyle(color: _muted, fontSize: 11)),
-              ])),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _muted),
-            ])),
-        ),
-        const SizedBox(height: 8),
-      ],
-      if (exams.isNotEmpty) ...[
-        const Text('Examens', style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        for (final e in exams) GestureDetector(
-          onTap: () => onGo(PdfReaderPage(title: e.title, color: e.color, totalPages: 12)),
-          child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-            decoration: ScolarisSurface.card(radius: 12),
-            child: Row(children: [
-              Container(width: 36, height: 36,
-                decoration: BoxDecoration(color: e.color.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(10), border: Border.all(color: e.color.withOpacity(0.30))),
-                child: Center(child: Text(e.levelLabel[0],
-                    style: TextStyle(color: e.color, fontSize: 14, fontWeight: FontWeight.w900)))),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e.title, style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700),
+                const SizedBox(height: 1),
+                Text(cat.count,
+                    style: const TextStyle(
+                        color: _muted, fontSize: 10),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text('${e.subject} · ${e.year}', style: const TextStyle(color: _muted, fontSize: 11)),
               ])),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _muted),
-            ])),
+            ]),
+          ),
+        )).toList(),
+      );
+    });
+  }
+}
+
+class _CatDef {
+  final IconData icon;
+  final String label, count;
+  final Color color;
+  final VoidCallback onTap;
+  const _CatDef({
+    required this.icon, required this.label, required this.count,
+    required this.color, required this.onTap,
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ONGLET 1 — Livres
+// ══════════════════════════════════════════════════════════════════════════
+class _BooksTab extends StatelessWidget {
+  final bool loading;
+  final String subject, classe;
+  final ValueChanged<String> onSubjectChanged, onClasseChanged;
+  final Function(Widget) onGo;
+  const _BooksTab({
+    required this.loading, required this.subject, required this.classe,
+    required this.onSubjectChanged, required this.onClasseChanged,
+    required this.onGo,
+  });
+
+  List<String> get _subjects =>
+      ['Toutes', ...{for (final b in MockLibraryData.books) b.subject}];
+  List<String> get _classes =>
+      ['Toutes', ...{for (final b in MockLibraryData.books) b.classe}];
+
+  List<LibraryBook> get _filtered => MockLibraryData.books.where((b) {
+        if (subject != 'Toutes' && b.subject != subject) return false;
+        if (classe != 'Toutes' && b.classe != classe) return false;
+        return true;
+      }).toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final books = _filtered;
+    return Column(children: [
+      Container(
+        color: _surface,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(children: [
+          _FilterDropdown(
+              label: 'Matière', options: _subjects,
+              value: subject, onChanged: onSubjectChanged),
+          const SizedBox(width: 8),
+          _FilterDropdown(
+              label: 'Classe', options: _classes,
+              value: classe, onChanged: onClasseChanged),
+          const Spacer(),
+          Text('${books.length} livre${books.length > 1 ? 's' : ''}',
+              style: const TextStyle(color: _muted, fontSize: 12)),
+        ]),
+      ),
+      const Divider(height: 1, thickness: 1, color: _divider),
+      Expanded(
+        child: Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: books.isEmpty
+              ? const Center(child: Text('Aucun livre ne correspond.',
+                  style: TextStyle(color: _muted)))
+              : ListView.builder(
+                  padding:
+                      const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                  itemCount: books.length,
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _BookListTile(
+                      book: books[i],
+                      onTap: () => onGo(PdfReaderPage(
+                          title: books[i].title,
+                          color: books[i].coverColor,
+                          totalPages: books[i].pages)),
+                    ),
+                  ),
+                ),
         ),
-      ],
-      if (mats.isNotEmpty) ...[
-        const Text('Supports', style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        for (final m in mats) GestureDetector(
-          onTap: () => onGo(PdfReaderPage(title: m.title, color: m.color, totalPages: 24)),
-          child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
-            decoration: ScolarisSurface.card(radius: 12),
-            child: Row(children: [
-              Container(width: 36, height: 36,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [m.color, m.color.withOpacity(0.7)]),
-                  borderRadius: BorderRadius.circular(10)),
-                child: Icon(m.icon, color: _white, size: 18)),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(m.title, style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text('${m.subject} · ${m.teacher}', style: const TextStyle(color: _muted, fontSize: 11)),
-              ])),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _muted),
-            ])),
-        ),
-      ],
+      ),
     ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ONGLET 2 — Examens
+// ══════════════════════════════════════════════════════════════════════════
+class _ExamsTab extends StatelessWidget {
+  final bool loading;
+  final String level;
+  final ValueChanged<String> onLevelChanged;
+  final Function(Widget) onGo;
+  const _ExamsTab({
+    required this.loading, required this.level,
+    required this.onLevelChanged, required this.onGo,
+  });
+
+  static const _levels = ['Tous', 'CEPE', 'BEPC', 'BAC'];
+
+  List<ExamSubject> get _filtered => level == 'Tous'
+      ? MockLibraryData.examSubjects
+      : MockLibraryData.examSubjects
+          .where((e) => e.levelLabel == level)
+          .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final exams = _filtered;
+    return Column(children: [
+      Container(
+        color: _surface,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(children: [
+          ..._levels.map((l) => Padding(
+            padding: const EdgeInsets.only(right: 7),
+            child: GestureDetector(
+              onTap: () => onLevelChanged(l),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: l == level
+                      ? _accent
+                      : const Color(0xFFF0EBE5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(l,
+                    style: TextStyle(
+                        color: l == level ? Colors.white : _muted,
+                        fontSize: 12,
+                        fontWeight: l == level
+                            ? FontWeight.w700
+                            : FontWeight.w500)),
+              ),
+            ),
+          )),
+          const Spacer(),
+          Text('${exams.length} sujet${exams.length > 1 ? 's' : ''}',
+              style: const TextStyle(color: _muted, fontSize: 12)),
+        ]),
+      ),
+      const Divider(height: 1, thickness: 1, color: _divider),
+      Expanded(
+        child: Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: exams.isEmpty
+              ? const Center(child: Text('Aucun examen.',
+                  style: TextStyle(color: _muted)))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                  itemCount: exams.length,
+                  itemBuilder: (_, i) => _ExamTile(
+                    exam: exams[i],
+                    onTap: () => onGo(PdfReaderPage(
+                        title: exams[i].title,
+                        color: exams[i].color,
+                        totalPages: 12)),
+                  ),
+                ),
+        ),
+      ),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ONGLET 3 — Supports
+// ══════════════════════════════════════════════════════════════════════════
+class _MaterialsTab extends StatelessWidget {
+  final bool loading;
+  final String subject;
+  final ValueChanged<String> onSubjectChanged;
+  final Function(Widget) onGo;
+  const _MaterialsTab({
+    required this.loading, required this.subject,
+    required this.onSubjectChanged, required this.onGo,
+  });
+
+  List<String> get _subjects =>
+      ['Toutes', ...{for (final m in MockLibraryData.materials) m.subject}];
+  List<CourseMaterial> get _filtered => subject == 'Toutes'
+      ? MockLibraryData.materials
+      : MockLibraryData.materials
+          .where((m) => m.subject == subject)
+          .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final mats = _filtered;
+    return Column(children: [
+      Container(
+        color: _surface,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(children: [
+          _FilterDropdown(
+              label: 'Matière', options: _subjects,
+              value: subject, onChanged: onSubjectChanged),
+          const Spacer(),
+          Text('${mats.length} support${mats.length > 1 ? 's' : ''}',
+              style: const TextStyle(color: _muted, fontSize: 12)),
+        ]),
+      ),
+      const Divider(height: 1, thickness: 1, color: _divider),
+      Expanded(
+        child: Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(
+              baseColor: Color(0xFFEAE3DB),
+              highlightColor: Color(0xFFF5F0EA)),
+          child: mats.isEmpty
+              ? const Center(child: Text('Aucun support.',
+                  style: TextStyle(color: _muted)))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                  itemCount: mats.length,
+                  itemBuilder: (_, i) => _MaterialTile(
+                    material: mats[i],
+                    onTap: () => onGo(PdfReaderPage(
+                        title: mats[i].title,
+                        color: mats[i].color,
+                        totalPages: 24)),
+                  ),
+                ),
+        ),
+      ),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ONGLET 4 — Favoris
+// ══════════════════════════════════════════════════════════════════════════
+class _FavoritesTab extends StatelessWidget {
+  final bool loading;
+  final Function(Widget) onGo;
+  const _FavoritesTab({required this.loading, required this.onGo});
+
+  @override
+  Widget build(BuildContext context) {
+    final favBooks = MockLibraryData.favoriteBooks;
+    final favExams = MockLibraryData.favoriteExams;
+    final favMats  = MockLibraryData.favoriteMaterials;
+    final total = favBooks.length + favExams.length + favMats.length;
+
+    return Skeletonizer(
+      enabled: loading,
+      effect: const ShimmerEffect(
+          baseColor: Color(0xFFEAE3DB),
+          highlightColor: Color(0xFFF5F0EA)),
+      child: total == 0
+          ? const Center(child: Text('Aucun favori enregistré.',
+              style: TextStyle(color: _muted, fontSize: 14)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (favBooks.isNotEmpty) ...[
+                  const _SectionLabel('Livres favoris'),
+                  const SizedBox(height: 10),
+                  ...favBooks.map((b) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _BookListTile(
+                      book: b,
+                      onTap: () => onGo(PdfReaderPage(
+                          title: b.title, color: b.coverColor,
+                          totalPages: b.pages)),
+                    ),
+                  )),
+                  const SizedBox(height: 16),
+                ],
+                if (favExams.isNotEmpty) ...[
+                  const _SectionLabel('Examens favoris'),
+                  const SizedBox(height: 10),
+                  ...favExams.map((e) => _ExamTile(
+                    exam: e,
+                    onTap: () => onGo(PdfReaderPage(
+                        title: e.title, color: e.color, totalPages: 12)),
+                  )),
+                  const SizedBox(height: 16),
+                ],
+                if (favMats.isNotEmpty) ...[
+                  const _SectionLabel('Supports favoris'),
+                  const SizedBox(height: 10),
+                  ...favMats.map((m) => _MaterialTile(
+                    material: m,
+                    onTap: () => onGo(PdfReaderPage(
+                        title: m.title, color: m.color, totalPages: 24)),
+                  )),
+                ],
+              ]),
+            ),
+    );
   }
 }
