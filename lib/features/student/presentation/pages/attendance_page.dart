@@ -15,10 +15,10 @@ const _ink2   = Color(0xFF1A0A00);
 const _muted2 = Color(0xFF7A5C44);
 const _white  = Colors.white;
 
-class AttendancePage extends StatefulWidget {
+class AttendancePage extends ConsumerStatefulWidget {
   const AttendancePage({super.key});
   @override
-  State<AttendancePage> createState() => _AttendancePageState();
+  ConsumerState<AttendancePage> createState() => _AttendancePageState();
 }
 
 class _AttendanceSummary {
@@ -150,7 +150,7 @@ class _SectionHeader extends StatelessWidget {
 // 4 cartes résumé (présents, absents, retards, jours total)
 // ══════════════════════════════════════════════════════════════════════════
 class _SummaryCards extends StatelessWidget {
-  final ({int joursTotal, int presents, int absents, int retards, double tauxPresence, double tauxAbsence}) summary;
+  final _AttendanceSummary summary;
   const _SummaryCards({required this.summary});
 
   @override
@@ -217,9 +217,9 @@ class _SummaryCard extends StatelessWidget {
 
 // ══════════════════════════════════════════════════════════════════════════
 // Taux présence / absence (progress bars)
-// ══════════════════════════════════════════════════════════════════════════
+// ═════���════════════════════════════════════════════════════════════════════
 class _RateCards extends StatelessWidget {
-  final ({int joursTotal, int presents, int absents, int retards, double tauxPresence, double tauxAbsence}) summary;
+  final _AttendanceSummary summary;
   const _RateCards({required this.summary});
 
   @override
@@ -285,11 +285,11 @@ class _RateBar extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ══════════���═══════════════════════════════════════════════════════════════
 // Pie chart présence
 // ══════════════════════════════════════════════════════════════════════════
 class _PresencePieCard extends StatelessWidget {
-  final ({int joursTotal, int presents, int absents, int retards, double tauxPresence, double tauxAbsence}) summary;
+  final _AttendanceSummary summary;
   const _PresencePieCard({required this.summary});
 
   @override
@@ -374,9 +374,9 @@ class _PieLegend extends StatelessWidget {
 
 // ══════════════════════════════════════════════════════════════════════════
 // Bar chart semaines
-// ══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════��═════════════════════════
 class _WeeklyBarCard extends StatelessWidget {
-  final List<MockAttendanceStat> weekly;
+  final List<_AttStat> weekly;
   const _WeeklyBarCard({required this.weekly});
 
   @override
@@ -491,7 +491,7 @@ class _BarLegend extends StatelessWidget {
 // Line chart — évolution du taux de présence
 // ══════════════════════════════════════════════════════════════════════════
 class _PresenceLineCard extends StatelessWidget {
-  final List<MockAttendanceStat> weekly;
+  final List<_AttStat> weekly;
   const _PresenceLineCard({required this.weekly});
 
   @override
