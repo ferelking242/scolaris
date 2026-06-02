@@ -240,9 +240,9 @@ class _PdfReaderPageState extends State<PdfReaderPage>
             child: Text('Pages favorites (${_bookmarkedPages.length})',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ink))),
         const Divider(height: 1),
-        ListView(shrinkWrap: true, children: _bookmarkedPages.toList()
-          ..sort()
-          ..map((p) => ListTile(
+        ListView(
+          shrinkWrap: true,
+          children: (_bookmarkedPages.toList()..sort()).map((p) => ListTile(
             leading: Icon(Icons.bookmark_rounded, color: widget.color),
             title: Text('Page $p'),
             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12),
@@ -251,7 +251,7 @@ class _PdfReaderPageState extends State<PdfReaderPage>
               _animateFlip();
               Navigator.pop(context);
             },
-          )).toList() as dynamic,
+          )).toList(),
         ),
         const SizedBox(height: 16),
       ]),

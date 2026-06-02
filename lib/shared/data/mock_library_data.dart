@@ -20,8 +20,8 @@ class LibraryBook {
   final double rating;
   final Color coverColor;
   final Color coverColorEnd;
-  bool isFavorite;
-  bool isDownloaded;
+  final bool isFavorite;
+  final bool isDownloaded;
   final int reviewCount;
   final String description;
   const LibraryBook({
@@ -52,8 +52,8 @@ class ExamSubject {
   final int year;
   final bool hasCorrection;
   final Color color;
-  bool isFavorite;
-  bool isDownloaded;
+  final bool isFavorite;
+  final bool isDownloaded;
   const ExamSubject({
     required this.id,
     required this.title,
@@ -86,8 +86,8 @@ class CourseMaterial {
   final String addedDate;
   final Color color;
   final IconData icon;
-  bool isFavorite;
-  bool isDownloaded;
+  final bool isFavorite;
+  final bool isDownloaded;
   const CourseMaterial({
     required this.id,
     required this.title,
