@@ -90,6 +90,9 @@ class CourseMaterial {
   final Color color;
   final IconData icon;
   final bool isFavorite;
+  final bool isDownloaded;
+  final String size;
+  final String addedDate;
   const CourseMaterial({
     required this.id,
     required this.title,
@@ -101,7 +104,12 @@ class CourseMaterial {
     required this.color,
     required this.icon,
     this.isFavorite = false,
+    this.isDownloaded = false,
+    this.size = '—',
+    this.addedDate = '—',
   });
+
+  String get teacher => uploadedBy;
 }
 
 class ReadingEntry {
@@ -127,13 +135,26 @@ class ReadingEntry {
 // Data source — Supabase-backed
 // ══════════════════════════════════════════════════════════════════════════
 
+class _SubjectStat {
+  final String subject;
+  final double pct;
+  final Color color;
+  const _SubjectStat({required this.subject, required this.pct, required this.color});
+}
+
 class _ReadingStats {
   final int booksRead, documentsOpened, readingHours, pagesRead;
   final List<double> weeklyMinutes;
+  final List<String> weekDays;
+  final List<_SubjectStat> subjectBreakdown;
   const _ReadingStats({
-    required this.booksRead, required this.documentsOpened,
-    required this.readingHours, required this.pagesRead,
+    required this.booksRead,
+    required this.documentsOpened,
+    required this.readingHours,
+    required this.pagesRead,
     required this.weeklyMinutes,
+    this.weekDays = const ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+    this.subjectBreakdown = const [],
   });
 }
 
@@ -146,30 +167,57 @@ class MockLibraryData {
   static final List<ExamSubject> examSubjects = [];
   static final List<CourseMaterial> materials = [];
   static final List<ReadingEntry> recentlyRead = [];
-  static List<LibraryBook> get favoriteBooks => _books.where((b) => b.isFavorite).toList();
-  static List<ExamSubject> get favoriteExams => examSubjects.where((e) => e.isFavorite).toList();
-  static List<CourseMaterial> get favoriteMaterials => materials.where((m) => m.isFavorite).toList();
+
+  static List<LibraryBook> get favoriteBooks =>
+      _books.where((b) => b.isFavorite).toList();
+  static List<ExamSubject> get favoriteExams =>
+      examSubjects.where((e) => e.isFavorite).toList();
+  static List<CourseMaterial> get favoriteMaterials =>
+      materials.where((m) => m.isFavorite).toList();
+
+  static int get totalBooks     => _books.length;
+  static int get totalExams     => examSubjects.length;
+  static int get totalMaterials => materials.length;
+
+  static List<LibraryBook>    get downloadedBooks     =>
+      _books.where((b) => b.isDownloaded).toList();
+  static List<CourseMaterial> get downloadedMaterials =>
+      materials.where((m) => m.isDownloaded).toList();
+
+  static List<ReadingEntry> get readingHistory => recentlyRead;
+
+  static List<LibraryBook> recommendedForClasse(String classe) =>
+      _books.where((b) => b.classe == classe || b.classe == 'Toutes').toList();
+
+  static List<ExamSubject> recommendedExamsForClasse(String classe) =>
+      examSubjects.toList();
+
   static const readingStats = _ReadingStats(
-    booksRead: 0, documentsOpened: 0, readingHours: 0, pagesRead: 0,
+    booksRead: 0,
+    documentsOpened: 0,
+    readingHours: 0,
+    pagesRead: 0,
     weeklyMinutes: [0, 0, 0, 0, 0, 0, 0],
+    weekDays: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+    subjectBreakdown: [],
   );
 
   static Color _domainColor(String? domain) {
     switch (domain?.toLowerCase()) {
-      case 'informatique': return const Color(0xFF0891B2);
-      case 'mathématiques': return const Color(0xFF6D28D9);
+      case 'informatique':         return const Color(0xFF0891B2);
+      case 'mathématiques':        return const Color(0xFF6D28D9);
       case 'physique':
-      case 'sciences physiques': return const Color(0xFF0284C7);
+      case 'sciences physiques':   return const Color(0xFF0284C7);
       case 'biologie':
-      case 'svt': return const Color(0xFF059669);
+      case 'svt':                  return const Color(0xFF059669);
       case 'histoire':
-      case 'géographie': return const Color(0xFFDB2777);
+      case 'géographie':           return const Color(0xFFDB2777);
       case 'français':
-      case 'littérature': return const Color(0xFFEA580C);
-      case 'philosophie': return const Color(0xFF7C3AED);
+      case 'littérature':          return const Color(0xFFEA580C);
+      case 'philosophie':          return const Color(0xFF7C3AED);
       case 'économie':
-      case 'comptabilité': return const Color(0xFF16A34A);
-      default: return const Color(0xFF8B1A00);
+      case 'comptabilité':         return const Color(0xFF16A34A);
+      default:                     return const Color(0xFF8B1A00);
     }
   }
 
