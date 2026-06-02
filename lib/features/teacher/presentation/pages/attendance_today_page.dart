@@ -1,118 +1,258 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/data/mock_data.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
-class AttendanceTodayPage extends StatefulWidget {
+enum _Status { present, late, absent }
+
+class AttendanceTodayPage extends ConsumerStatefulWidget {
   const AttendanceTodayPage({super.key});
   @override
-  State<AttendanceTodayPage> createState() => _AttendanceTodayPageState();
+  ConsumerState<AttendanceTodayPage> createState() =>
+      _AttendanceTodayPageState();
 }
 
-class _AttendanceTodayPageState extends State<AttendanceTodayPage> {
-  late Map<String, AttendanceStatus> _state;
-
-  @override
-  void initState() {
-    super.initState();
-    _state = {for (final a in MockData.attendance) a.student: a.status};
-  }
+class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
+  String? _selectedClassId;
+  Map<String, _Status> _statusMap = {};
 
   @override
   Widget build(BuildContext context) {
-    final entries = MockData.attendance;
-    final present = _state.values.where((s) => s == AttendanceStatus.present).length;
-    final late = _state.values.where((s) => s == AttendanceStatus.late).length;
-    final absent = _state.values.where((s) => s == AttendanceStatus.absent).length;
-    return PageScaffold(
-      title: 'Attendance — today',
-      subtitle: 'Mark students as present, late or absent',
-      actions: [
-        ActionButton(
-            label: 'Open scanner',
-            icon: Icons.qr_code_scanner_rounded,
-            onTap: () {}),
-        const SizedBox(width: 8),
-        ActionButton(
-            label: 'Save',
-            icon: Icons.check_rounded,
-            primary: true,
-            onTap: () {}),
-      ],
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _SummaryCard(label: 'Present', value: present, color: const Color(0xFF16A34A))),
-              const SizedBox(width: 12),
-              Expanded(child: _SummaryCard(label: 'Late', value: late, color: const Color(0xFFEA580C))),
-              const SizedBox(width: 12),
-              Expanded(child: _SummaryCard(label: 'Absent', value: absent, color: const Color(0xFFDC2626))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          DataPanel(
-            title: 'Class roll',
-            headerActions: const [SearchInput(hint: 'Search student…')],
-            child: DataTablePanel(
-              columns: const ['Student', 'Class', 'Time', 'Status'],
-              flex: const [3, 1, 1, 3],
-              rows: [
-                for (final e in entries)
-                  [
-                    Row(children: [
-                      Avatar(name: e.student, size: 24),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(e.student,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: ink,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
-                    Text(e.classGroup,
-                        style: const TextStyle(fontSize: 12, color: muted)),
-                    Text(e.time,
-                        style: const TextStyle(fontSize: 12, color: ink)),
-                    _StatusToggle(
-                      current: _state[e.student] ?? AttendanceStatus.present,
-                      onChanged: (v) => setState(() => _state[e.student] = v),
-                    ),
-                  ],
-              ],
-            ),
-          ),
-        ],
+    final classesAsync = ref.watch(classesProvider);
+
+    return classesAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Présences — aujourd\'hui',
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (e, _) => PageScaffold(
+        title: 'Présences — aujourd\'hui',
+        child: Center(child: Text('Erreur : $e')),
+      ),
+      data: (classes) {
+        if (classes.isNotEmpty && _selectedClassId == null) {
+          _selectedClassId = classes.first.id;
+        }
+        return _buildContent(classes);
+      },
     );
   }
+
+  Widget _buildContent(List<SbClass> classes) {
+    final selectedClass = classes.isEmpty
+        ? null
+        : classes.firstWhere(
+            (c) => c.id == _selectedClassId,
+            orElse: () => classes.first,
+          );
+
+    if (selectedClass == null) {
+      return const PageScaffold(
+        title: 'Présences — aujourd\'hui',
+        child: Center(child: Text('Aucune classe disponible.')),
+      );
+    }
+
+    final studentsAsync =
+        ref.watch(studentsByClassProvider(selectedClass.name));
+
+    return studentsAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Présences — aujourd\'hui',
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => PageScaffold(
+        title: 'Présences — aujourd\'hui',
+        child: Center(child: Text('Erreur : $e')),
+      ),
+      data: (students) {
+        final present =
+            _statusMap.values.where((s) => s == _Status.present).length;
+        final late =
+            _statusMap.values.where((s) => s == _Status.late).length;
+        final absent =
+            _statusMap.values.where((s) => s == _Status.absent).length;
+
+        return PageScaffold(
+          title: 'Présences — aujourd\'hui',
+          subtitle: 'Marquez présent, retard ou absent',
+          actions: [
+            ActionButton(
+                label: 'Scanner QR',
+                icon: Icons.qr_code_scanner_rounded,
+                onTap: () {}),
+            const SizedBox(width: 8),
+            ActionButton(
+                label: 'Enregistrer',
+                icon: Icons.check_rounded,
+                primary: true,
+                onTap: () => _save(students, selectedClass.id)),
+          ],
+          child: Column(children: [
+            _ClassPicker(
+              classes: classes,
+              selectedId: _selectedClassId,
+              onChanged: (id) => setState(() {
+                _selectedClassId = id;
+                _statusMap = {};
+              }),
+            ),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                  child: _SummaryCard(
+                      label: 'Présents',
+                      value: present,
+                      color: const Color(0xFF16A34A))),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _SummaryCard(
+                      label: 'Retards',
+                      value: late,
+                      color: const Color(0xFFEA580C))),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _SummaryCard(
+                      label: 'Absents',
+                      value: absent,
+                      color: const Color(0xFFDC2626))),
+            ]),
+            const SizedBox(height: 12),
+            DataPanel(
+              title: 'Liste de classe',
+              headerActions: const [SearchInput(hint: 'Rechercher élève…')],
+              child: students.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(
+                          child: Text('Aucun élève.',
+                              style: TextStyle(color: muted))),
+                    )
+                  : DataTablePanel(
+                      columns: const [
+                        'Élève',
+                        'Classe',
+                        'Statut'
+                      ],
+                      flex: const [3, 2, 4],
+                      rows: [
+                        for (final s in students)
+                          [
+                            Row(children: [
+                              Avatar(name: s.fullName, size: 24),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(s.fullName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: ink,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ]),
+                            Text(s.classe ?? '—',
+                                style: const TextStyle(
+                                    fontSize: 12, color: muted)),
+                            _StatusToggle(
+                              current:
+                                  _statusMap[s.id] ?? _Status.present,
+                              onChanged: (v) =>
+                                  setState(() => _statusMap[s.id] = v),
+                            ),
+                          ],
+                      ],
+                    ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Future<void> _save(List<SbStudent> students, String classId) async {
+    final records = students.map((s) {
+      final st = _statusMap[s.id] ?? _Status.present;
+      return SbAttendance(
+        id: '',
+        studentId: s.id,
+        classId: classId,
+        status: st == _Status.present
+            ? 'present'
+            : st == _Status.late
+                ? 'late'
+                : 'absent',
+      );
+    }).toList();
+    try {
+      await SupabaseDbSource.saveAttendance(records);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Présences enregistrées !')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
+  }
+}
+
+class _ClassPicker extends StatelessWidget {
+  final List<SbClass> classes;
+  final String? selectedId;
+  final ValueChanged<String> onChanged;
+  const _ClassPicker(
+      {required this.classes, required this.selectedId, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final c in classes)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(c.name),
+                  selected: selectedId == c.id,
+                  onSelected: (_) => onChanged(c.id),
+                  selectedColor:
+                      const Color(0xFF8B1A00).withValues(alpha: .12),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    color: selectedId == c.id ? const Color(0xFF8B1A00) : muted,
+                    fontWeight: selectedId == c.id
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
 }
 
 class _SummaryCard extends StatelessWidget {
   final String label;
   final int value;
   final Color color;
-  const _SummaryCard({required this.label, required this.value, required this.color});
+  const _SummaryCard(
+      {required this.label, required this.value, required this.color});
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .06),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: border),
+        ),
+        child: Row(children: [
           Container(
             width: 36,
             height: 36,
@@ -129,49 +269,71 @@ class _SummaryCard extends StatelessWidget {
           Text(label,
               style: const TextStyle(
                   fontSize: 13, color: ink, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
+        ]),
+      );
 }
 
 class _StatusToggle extends StatelessWidget {
-  final AttendanceStatus current;
-  final ValueChanged<AttendanceStatus> onChanged;
+  final _Status current;
+  final ValueChanged<_Status> onChanged;
   const _StatusToggle({required this.current, required this.onChanged});
+
   @override
-  Widget build(BuildContext context) {
-    Widget btn(AttendanceStatus s, String label, Color color) {
-      final selected = s == current;
-      return GestureDetector(
-        onTap: () => onChanged(s),
-        child: Container(
-          height: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          margin: const EdgeInsets.only(right: 4),
-          alignment: Alignment.center,
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Btn(
+            label: 'Présent',
+            color: const Color(0xFF16A34A),
+            active: current == _Status.present,
+            onTap: () => onChanged(_Status.present),
+          ),
+          const SizedBox(width: 4),
+          _Btn(
+            label: 'Retard',
+            color: const Color(0xFFEA580C),
+            active: current == _Status.late,
+            onTap: () => onChanged(_Status.late),
+          ),
+          const SizedBox(width: 4),
+          _Btn(
+            label: 'Absent',
+            color: const Color(0xFFDC2626),
+            active: current == _Status.absent,
+            onTap: () => onChanged(_Status.absent),
+          ),
+        ],
+      );
+}
+
+class _Btn extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool active;
+  final VoidCallback onTap;
+  const _Btn(
+      {required this.label,
+      required this.color,
+      required this.active,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: .15) : Colors.transparent,
+            color: active ? color : color.withValues(alpha: .08),
             borderRadius: BorderRadius.circular(6),
-            border:
-                Border.all(color: selected ? color : border, width: 1),
+            border: Border.all(
+                color: active ? color : color.withValues(alpha: .3)),
           ),
           child: Text(label,
               style: TextStyle(
-                  fontSize: 11.5,
-                  color: selected ? color : muted,
+                  fontSize: 11,
+                  color: active ? Colors.white : color,
                   fontWeight: FontWeight.w700)),
         ),
       );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        btn(AttendanceStatus.present, 'Present', const Color(0xFF16A34A)),
-        btn(AttendanceStatus.late, 'Late', const Color(0xFFEA580C)),
-        btn(AttendanceStatus.absent, 'Absent', const Color(0xFFDC2626)),
-      ],
-    );
-  }
 }

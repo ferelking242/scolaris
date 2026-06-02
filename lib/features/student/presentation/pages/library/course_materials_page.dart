@@ -31,8 +31,9 @@ class _CourseMaterialsPageState extends State<CourseMaterialsPage> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 900),
-        () { if (mounted) setState(() => _loading = false); });
+    MockLibraryData.load().then((_) {
+        if (mounted) setState(() => _loading = false);
+      });
   }
 
   List<String> get _subjects {

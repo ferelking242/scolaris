@@ -6,7 +6,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
-import '../../../shared/data/mock_data.dart';
+import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
@@ -884,13 +884,20 @@ class _PremiumCardState extends State<_PremiumCard>
 // ══════════════════════════════════════════════════════════════════════════
 // Résumé présences
 // ══════════════════════════════════════════════════════════════════════════
-class _AttendanceSummaryCard extends StatelessWidget {
+class _AttendanceSummaryCard extends ConsumerWidget {
   final VoidCallback onTap;
   const _AttendanceSummaryCard({required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    const summary = MockData.attendanceSummary;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final absencesAsync = ref.watch(myAbsencesProvider);
+    final absences = absencesAsync.value ?? [];
+    final absents = absences.where((a) => a.status == 'absent').length;
+    final retards = absences.where((a) => a.status == 'late').length;
+    const joursTotal = 90;
+    final presents = (joursTotal - absents - retards).clamp(0, joursTotal);
+    final taux = joursTotal > 0 ? (presents / joursTotal * 100) : 0.0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -899,22 +906,22 @@ class _AttendanceSummaryCard extends StatelessWidget {
         child: Column(children: [
           Row(children: [
             _AttPresCell(icon: Icons.check_circle_rounded, label: 'Présents',
-                val: '${summary.presents}', color: _green),
+                val: '$presents', color: _green),
             _AttDivider(),
             _AttPresCell(icon: Icons.cancel_rounded, label: 'Absents',
-                val: '${summary.absents}', color: _terra),
+                val: '$absents', color: _terra),
             _AttDivider(),
             _AttPresCell(icon: Icons.access_time_rounded, label: 'Retards',
-                val: '${summary.retards}', color: _gold),
+                val: '$retards', color: _gold),
             _AttDivider(),
             _AttPresCell(icon: Icons.percent_rounded, label: 'Taux',
-                val: '${summary.tauxPresence.toStringAsFixed(0)}%', color: _cyan),
+                val: '${taux.toStringAsFixed(0)}%', color: _cyan),
           ]),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-              value: summary.tauxPresence / 100,
+              value: taux / 100,
               minHeight: 8,
               backgroundColor: _terra.withOpacity(0.12),
               valueColor: const AlwaysStoppedAnimation<Color>(_green),
@@ -922,7 +929,7 @@ class _AttendanceSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Row(children: [
-            Text('${summary.tauxPresence.toStringAsFixed(1)}% de présence sur ${summary.joursTotal} jours',
+            Text('${taux.toStringAsFixed(1)}% de présence sur $joursTotal jours',
                 style: const TextStyle(color: _muted, fontSize: 11)),
             const Spacer(),
             Text('Voir le détail →',

@@ -59,8 +59,9 @@ class _LibraryPageState extends State<LibraryPage>
   void initState() {
     super.initState();
     _tab = TabController(length: _tabLabels.length, vsync: this);
-    Future.delayed(const Duration(milliseconds: 900),
-        () { if (mounted) setState(() => _loading = false); });
+    MockLibraryData.load().then((_) {
+        if (mounted) setState(() => _loading = false);
+      });
   }
 
   @override

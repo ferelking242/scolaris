@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/data/mock_data.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -9,229 +13,204 @@ const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 
-class GradesPage extends StatelessWidget {
+class GradesPage extends ConsumerWidget {
   const GradesPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final grades = MockData.grades;
-    final avg = grades.isEmpty
-        ? 0.0
-        : grades.fold<double>(0, (s, g) => s + g.value) / grades.length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authSessionProvider);
+    final gradesAsync = session != null
+        ? ref.watch(gradesForStudentProvider(session.id))
+        : const AsyncValue<List<SbGrade>>.data([]);
 
-    final best = grades.isEmpty
-        ? null
-        : grades.reduce((a, b) => a.value >= b.value ? a : b);
-
-    return PageScaffold(
-      title: 'Mes notes',
-      subtitle: 'Trimestre 2 · ${grades.length} notes enregistrées',
-      actions: [
-        ActionButton(
-            label: 'Export PDF',
-            icon: Icons.download_rounded,
-            onTap: () {}),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Top metrics ─────────────────────────────────────────────
-          Row(children: [
-            Expanded(child: _MetricCard(
-              label: 'Moyenne générale',
-              value: avg.toStringAsFixed(1),
-              unit: '/ 20',
-              color: avg >= 14 ? _green : avg >= 10 ? _gold : _terra,
-              icon: Icons.grading_rounded,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: 'Meilleure matière',
-              value: best?.subject.split(' ').first ?? '—',
-              unit: best != null ? '${best.value.toStringAsFixed(1)}/20' : '',
-              color: _green,
-              icon: Icons.emoji_events_outlined,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _MetricCard(
-              label: 'Rang de classe',
-              value: '4',
-              unit: '/ 32',
-              color: _terra,
-              icon: Icons.leaderboard_outlined,
-            )),
-          ]),
-          const SizedBox(height: 16),
-
-          // ── Progress bar ─────────────────────────────────────────────
-          DataPanel(
-            title: 'Progression vers la mention',
-            child: Column(children: [
-              Row(children: [
-                Expanded(child: Text('Moyenne : ${avg.toStringAsFixed(1)}/20',
-                    style: const TextStyle(color: ink, fontSize: 13,
-                        fontWeight: FontWeight.w600))),
-                _MentionBadge(avg: avg),
-              ]),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: (avg / 20).clamp(0.0, 1.0),
-                  minHeight: 10,
-                  backgroundColor: const Color(0xFFEEE5D8),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      avg >= 14 ? _green : avg >= 10 ? _gold : _terra),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  _BarLabel('0', ''),
-                  _BarLabel('10', 'Passable'),
-                  _BarLabel('12', 'AB'),
-                  _BarLabel('14', 'Bien'),
-                  _BarLabel('16', 'TB'),
-                  _BarLabel('20', ''),
-                ],
-              ),
-            ]),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Grade table ──────────────────────────────────────────────
-          DataPanel(
-            title: 'Toutes les notes',
-            child: DataTablePanel(
-              columns: const ['Matière', 'Trim.', 'Note', 'Enseignant', 'Date'],
-              flex: const [3, 1, 2, 2, 2],
-              rows: [
-                for (final g in grades)
-                  [
-                    Text(g.subject, style: const TextStyle(
-                        color: ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    Text(g.term, style: const TextStyle(fontSize: 12, color: muted)),
-                    _GradeChip(value: g.value),
-                    Text(g.teacher, style: const TextStyle(fontSize: 12, color: ink)),
-                    Text(_fmtDate(g.date),
-                        style: const TextStyle(fontSize: 12, color: muted)),
-                  ],
-              ],
-            ),
-          ),
-        ],
+    return gradesAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Mes notes',
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (e, _) => PageScaffold(
+        title: 'Mes notes',
+        child: Center(child: Text('Erreur : $e')),
+      ),
+      data: (grades) {
+        final avg = grades.isEmpty
+            ? 0.0
+            : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+        final best = grades.isEmpty
+            ? null
+            : grades.reduce((a, b) => a.outOf20 >= b.outOf20 ? a : b);
+
+        return PageScaffold(
+          title: 'Mes notes',
+          subtitle: '${grades.isEmpty ? "Aucun" : grades.length} résultat(s)',
+          actions: [
+            ActionButton(
+                label: 'Export PDF',
+                icon: Icons.download_rounded,
+                onTap: () {}),
+          ],
+          child: grades.isEmpty
+              ? const _EmptyGrades()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: _MetricCard(
+                        label: 'Moyenne générale',
+                        value: avg.toStringAsFixed(1),
+                        unit: '/ 20',
+                        color: avg >= 14 ? _green : avg >= 10 ? _gold : _terra,
+                        icon: Icons.grading_rounded,
+                      )),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _MetricCard(
+                        label: 'Meilleure matière',
+                        value: best?.subjectName?.split(' ').first ?? '—',
+                        unit: best != null
+                            ? '${best.outOf20.toStringAsFixed(1)}/20'
+                            : '',
+                        color: _green,
+                        icon: Icons.emoji_events_outlined,
+                      )),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: _MetricCard(
+                        label: 'Nombre de notes',
+                        value: '${grades.length}',
+                        unit: 'enregistrées',
+                        color: _terra,
+                        icon: Icons.format_list_numbered_rounded,
+                      )),
+                    ]),
+                    const SizedBox(height: 16),
+                    _GradesList(grades: grades),
+                  ],
+                ),
+        );
+      },
     );
   }
-
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
-class _GradeChip extends StatelessWidget {
-  final double value;
-  const _GradeChip({required this.value});
+class _EmptyGrades extends StatelessWidget {
+  const _EmptyGrades();
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.grading_rounded, size: 48, color: _gold),
+              SizedBox(height: 12),
+              Text('Aucune note disponible',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _terra)),
+              SizedBox(height: 4),
+              Text('Vos notes apparaîtront ici.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
+            ],
+          ),
+        ),
+      );
+}
+
+class _GradesList extends StatelessWidget {
+  final List<SbGrade> grades;
+  const _GradesList({required this.grades});
+
   @override
   Widget build(BuildContext context) {
-    final color = value >= 16 ? _green
-        : value >= 14 ? const Color(0xFF1B5E20)
-        : value >= 12 ? _gold
-        : value >= 10 ? _orange
-        : _terra;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(.3)),
-        ),
-        child: Text('${value.toStringAsFixed(1)} / 20',
-            style: TextStyle(color: color, fontSize: 11.5, fontWeight: FontWeight.w800)),
+    return DataPanel(
+      title: 'Toutes les notes',
+      child: DataTablePanel(
+        columns: const ['Matière', 'Type', 'Période', 'Note', '/ Max'],
+        flex: const [3, 2, 2, 2, 1],
+        rows: [
+          for (final g in grades)
+            [
+              Text(g.subjectName ?? g.title ?? '—',
+                  style: const TextStyle(
+                      color: ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              Text(g.type ?? '—',
+                  style: const TextStyle(fontSize: 12, color: muted)),
+              Text(g.period ?? '—',
+                  style: const TextStyle(fontSize: 12, color: muted)),
+              Text(
+                g.score.toStringAsFixed(1),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: g.outOf20 >= 14
+                      ? _green
+                      : g.outOf20 >= 10
+                          ? _gold
+                          : _terra,
+                ),
+              ),
+              Text(g.maxScore.toStringAsFixed(0),
+                  style: const TextStyle(fontSize: 12, color: muted)),
+            ],
+        ],
       ),
     );
   }
 }
 
 class _MetricCard extends StatelessWidget {
-  final String label, value, unit;
+  final String label;
+  final String value;
+  final String unit;
   final Color color;
   final IconData icon;
   const _MetricCard({
-    required this.label, required this.value,
-    required this.unit, required this.color, required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+    required this.icon,
   });
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 90,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(
-            color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 5),
-          Expanded(child: Text(label, style: const TextStyle(
-              fontSize: 10.5, color: muted), overflow: TextOverflow.ellipsis)),
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFDDCCBB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .05),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+                child: Text(label,
+                    style: const TextStyle(fontSize: 11, color: muted))),
+          ]),
+          const SizedBox(height: 8),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                    text: value,
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: color)),
+                TextSpan(
+                    text: '  $unit',
+                    style: const TextStyle(fontSize: 11, color: muted)),
+              ],
+            ),
+          ),
         ]),
-        const Spacer(),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(value, style: TextStyle(
-                  fontSize: 20, color: color, fontWeight: FontWeight.w900)),
-              const SizedBox(width: 4),
-              Text(unit, style: const TextStyle(
-                  fontSize: 11, color: muted, fontWeight: FontWeight.w600)),
-            ]),
-      ]),
-    );
-  }
-}
-
-class _MentionBadge extends StatelessWidget {
-  final double avg;
-  const _MentionBadge({required this.avg});
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = avg >= 16
-        ? ('Très Bien', _green)
-        : avg >= 14
-            ? ('Bien', const Color(0xFF1B5E20))
-            : avg >= 12
-                ? ('Assez Bien', _gold)
-                : avg >= 10
-                    ? ('Passable', _orange)
-                    : ('Insuffisant', _terra);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(.3)),
-      ),
-      child: Text(label, style: TextStyle(
-          color: color, fontSize: 11, fontWeight: FontWeight.w800)),
-    );
-  }
-}
-
-class _BarLabel extends StatelessWidget {
-  final String value;
-  final String label;
-  const _BarLabel(this.value, this.label);
-  @override
-  Widget build(BuildContext context) => Column(children: [
-    Text(value, style: const TextStyle(fontSize: 9, color: muted)),
-    if (label.isNotEmpty)
-      Text(label, style: const TextStyle(fontSize: 8, color: muted)),
-  ]);
+      );
 }

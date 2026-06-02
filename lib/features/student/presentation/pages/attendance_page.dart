@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/data/mock_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -20,11 +21,31 @@ class AttendancePage extends StatefulWidget {
   State<AttendancePage> createState() => _AttendancePageState();
 }
 
-class _AttendancePageState extends State<AttendancePage> {
+class _AttendanceSummary {
+  final int joursTotal, presents, absents, retards;
+  final double tauxPresence, tauxAbsence;
+  const _AttendanceSummary({
+    required this.joursTotal, required this.presents,
+    required this.absents, required this.retards,
+    required this.tauxPresence, required this.tauxAbsence,
+  });
+}
+
+class _AttStat {
+  final String label;
+  final double presents, absents, retards;
+  const _AttStat({required this.label, required this.presents,
+      required this.absents, required this.retards});
+}
+
+class _AttendancePageState extends ConsumerState<AttendancePage> {
   bool _loading = true;
 
-  static const _summary = MockData.attendanceSummary;
-  static final _weekly  = MockData.weeklyAttendance;
+  _AttendanceSummary _summary = const _AttendanceSummary(
+    joursTotal: 0, presents: 0, absents: 0, retards: 0,
+    tauxPresence: 0.0, tauxAbsence: 0.0,
+  );
+  List<_AttStat> _weekly = [];
 
   @override
   void initState() {
@@ -35,6 +56,19 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final absencesAsync = ref.watch(myAbsencesProvider);
+    absencesAsync.whenData((absences) {
+      final absents = absences.where((a) => a.status == 'absent').length;
+      final retards = absences.where((a) => a.status == 'late').length;
+      const total = 90;
+      final presents = (total - absents - retards).clamp(0, total);
+      final taux = total > 0 ? presents / total * 100 : 0.0;
+      _summary = _AttendanceSummary(
+        joursTotal: total, presents: presents, absents: absents, retards: retards,
+        tauxPresence: taux, tauxAbsence: total > 0 ? absents / total * 100 : 0.0,
+      );
+    });
+
     return PageScaffold(
       title: 'Mes présences',
       subtitle: 'Trimestre 2 · ${_summary.joursTotal} jours de cours',
@@ -546,22 +580,28 @@ class _PresenceLineCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 // Détail absences et retards
 // ══════════════════════════════════════════════════════════════════════════
-class _AttendanceDetail extends StatelessWidget {
+class _AttendanceDetail extends ConsumerWidget {
   const _AttendanceDetail();
 
-  static const _detail = [
-    (date: 'Lundi 6 Mai 2026',   type: 'Absence',  motif: 'Non justifiée',     justified: false),
-    (date: 'Mercredi 8 Mai 2026', type: 'Retard',   motif: 'Justifié (médical)', justified: true),
-    (date: 'Lundi 20 Mai 2026',  type: 'Absence',  motif: 'Justifiée (maladie)', justified: true),
-    (date: 'Vendredi 24 Mai 2026', type: 'Absence', motif: 'Non justifiée',     justified: false),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final absencesAsync = ref.watch(myAbsencesProvider);
+    final absences = absencesAsync.value ?? [];
+    if (absences.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(13)),
+        child: const Center(child: Text('Aucune absence ou retard enregistré.',
+            style: TextStyle(color: _muted2, fontSize: 13))),
+      );
+    }
     return Column(
-      children: _detail.map((d) {
-        final isAbsence = d.type == 'Absence';
-        final color = d.justified ? _gold : (isAbsence ? _terra : _orange);
+      children: absences.map((a) {
+        final isAbsence = a.status == 'absent';
+        final justified = a.isJustified ?? false;
+        final color = justified ? _gold : (isAbsence ? _terra : _orange);
+        final typeLabel = isAbsence ? 'Absence' : 'Retard';
+        final motifLabel = justified ? 'Justifiée' : 'Non justifiée';
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
@@ -584,25 +624,25 @@ class _AttendanceDetail extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(d.type, style: TextStyle(
+              Text(typeLabel, style: TextStyle(
                   color: color, fontSize: 12, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
-              Text(d.date, style: const TextStyle(
+              Text(a.date ?? '—', style: const TextStyle(
                   color: _ink2, fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text(d.motif, style: const TextStyle(color: _muted2, fontSize: 11.5)),
+              Text(motifLabel, style: const TextStyle(color: _muted2, fontSize: 11.5)),
             ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: (d.justified ? _green : _terra).withOpacity(0.10),
+                color: (justified ? _green : _terra).withOpacity(0.10),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: (d.justified ? _green : _terra).withOpacity(0.30)),
+                    color: (justified ? _green : _terra).withOpacity(0.30)),
               ),
-              child: Text(d.justified ? 'Justifiée' : 'Non justifiée',
+              child: Text(justified ? 'Justifiée' : 'Non justifiée',
                   style: TextStyle(
-                      color: d.justified ? _green : _terra,
+                      color: justified ? _green : _terra,
                       fontSize: 10, fontWeight: FontWeight.w800)),
             ),
           ]),

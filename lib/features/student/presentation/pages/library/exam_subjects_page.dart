@@ -39,8 +39,9 @@ class _ExamSubjectsPageState extends State<ExamSubjectsPage>
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
-    Future.delayed(const Duration(milliseconds: 950),
-        () { if (mounted) setState(() => _loading = false); });
+    MockLibraryData.load().then((_) {
+        if (mounted) setState(() => _loading = false);
+      });
   }
 
   @override

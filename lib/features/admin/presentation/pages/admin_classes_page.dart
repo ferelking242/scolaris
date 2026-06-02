@@ -1,100 +1,107 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/data/mock_data.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
-class AdminClassesPage extends StatelessWidget {
+class AdminClassesPage extends ConsumerWidget {
   const AdminClassesPage({super.key});
+
   @override
-  Widget build(BuildContext context) {
-    final classes = MockData.classes;
-    return PageScaffold(
-      title: 'Classes & sections',
-      subtitle: '${classes.length} classes across the school',
-      actions: [
-        ActionButton(
-            label: 'New class',
-            icon: Icons.add_rounded,
-            primary: true,
-            onTap: () {}),
-      ],
-      child: DataPanel(
-        title: 'All classes',
-        headerActions: const [SearchInput(hint: 'Search class…')],
-        child: DataTablePanel(
-          columns: const ['Class', 'Level', 'Lead teacher', 'Students', 'Capacity', ''],
-          flex: const [2, 3, 3, 1, 2, 2],
-          rows: [
-            for (final cl in classes)
-              [
-                Text(cl.name,
-                    style: const TextStyle(
-                        color: ink, fontSize: 13, fontWeight: FontWeight.w700)),
-                Text(cl.level,
-                    style: const TextStyle(fontSize: 12, color: muted)),
-                Row(children: [
-                  Avatar(name: cl.teacher, size: 22),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(cl.teacher,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: ink)),
-                  ),
-                ]),
-                Text('${cl.students}',
-                    style: const TextStyle(
-                        fontSize: 13, color: ink, fontWeight: FontWeight.w700)),
-                _CapacityBar(used: cl.students, max: 32),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    ActionButton(label: 'Edit', icon: Icons.edit_outlined, onTap: () {}),
-                    const SizedBox(width: 6),
-                    ActionButton(label: 'Assign', onTap: () {}, primary: true),
-                  ]),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final classesAsync = ref.watch(classesProvider);
+    return classesAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Classes & sections',
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => PageScaffold(
+        title: 'Classes & sections',
+        child: Center(child: Text('Erreur : $e')),
+      ),
+      data: (classes) => PageScaffold(
+        title: 'Classes & sections',
+        subtitle: '${classes.length} classes dans l\'établissement',
+        actions: [
+          ActionButton(
+              label: 'Nouvelle classe',
+              icon: Icons.add_rounded,
+              primary: true,
+              onTap: () {}),
+        ],
+        child: DataPanel(
+          title: 'Toutes les classes',
+          headerActions: const [SearchInput(hint: 'Rechercher classe…')],
+          child: classes.isEmpty
+              ? const _EmptyState()
+              : DataTablePanel(
+                  columns: const ['Classe', 'Niveau', 'Section', 'Capacité', ''],
+                  flex: const [2, 3, 3, 2, 2],
+                  rows: [
+                    for (final cl in classes)
+                      [
+                        Text(cl.name,
+                            style: const TextStyle(
+                                color: ink,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700)),
+                        Text(cl.level ?? '—',
+                            style: const TextStyle(fontSize: 12, color: muted)),
+                        Text(cl.section ?? '—',
+                            style: const TextStyle(fontSize: 12, color: muted)),
+                        _CapacityBar(max: cl.maxStudents),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            _IconBtn(
+                                icon: Icons.edit_outlined, onTap: () {}),
+                            const SizedBox(width: 6),
+                            _IconBtn(
+                                icon: Icons.people_outline_rounded,
+                                onTap: () {}),
+                          ]),
+                        ),
+                      ],
+                  ],
                 ),
-              ],
-          ],
         ),
       ),
     );
   }
 }
 
-class _CapacityBar extends StatelessWidget {
-  final int used, max;
-  const _CapacityBar({required this.used, required this.max});
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
   @override
-  Widget build(BuildContext context) {
-    final ratio = (used / max).clamp(0.0, 1.0);
-    final color = ratio > .9
-        ? const Color(0xFFDC2626)
-        : ratio > .7
-            ? const Color(0xFFEA580C)
-            : const Color(0xFF16A34A);
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 6,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: Stack(
-                children: [
-                  Container(color: subtleBg),
-                  FractionallySizedBox(
-                    widthFactor: ratio,
-                    child: Container(color: color),
-                  ),
-                ],
-              ),
-            ),
-          ),
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: Text('Aucune classe créée.',
+              style: TextStyle(color: muted, fontSize: 14)),
         ),
-        const SizedBox(width: 8),
-        Text('$used/$max',
-            style: const TextStyle(fontSize: 11, color: muted)),
-      ],
-    );
-  }
+      );
+}
+
+class _CapacityBar extends StatelessWidget {
+  final int max;
+  const _CapacityBar({required this.max});
+  @override
+  Widget build(BuildContext context) => Text('/ $max',
+      style: const TextStyle(fontSize: 12, color: muted));
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 16, color: muted),
+        ),
+      );
 }

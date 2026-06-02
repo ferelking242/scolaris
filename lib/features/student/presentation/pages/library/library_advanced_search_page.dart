@@ -72,8 +72,9 @@ class _LibraryAdvancedSearchPageState
     _ctrl  = TextEditingController(text: _query);
     if (_query.isNotEmpty) {
       _loading = true;
-      Future.delayed(const Duration(milliseconds: 500),
-          () { if (mounted) setState(() => _loading = false); });
+      MockLibraryData.load().then((_) {
+        if (mounted) setState(() => _loading = false);
+      });
     }
   }
 
