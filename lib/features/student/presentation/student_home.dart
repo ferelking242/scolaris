@@ -16,6 +16,7 @@ import 'pages/bulletin_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/homework_student_page.dart';
+import 'pages/library/library_page.dart';
 import 'pages/schedule_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -63,6 +64,9 @@ class StudentHome extends StatelessWidget {
           RoleNavEntry(icon: Icons.receipt_long_outlined,
               activeIcon: Icons.receipt_long_rounded,
               labelKey: 'nav.bulletin',  page: BulletinPage()),
+          RoleNavEntry(icon: Icons.local_library_outlined,
+              activeIcon: Icons.local_library_rounded,
+              labelKey: 'nav.library',   page: LibraryPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(icon: Icons.chat_outlined,   activeIcon: Icons.chat_rounded,
@@ -157,14 +161,15 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
           ),
           const SizedBox(height: 10),
           _PremiumShortcutsGrid(onTap: {
-            'notes':      () => _push(const GradesPage()),
-            'edt':        () => _push(const SchedulePage()),
-            'devoirs':    () => _push(const HomeworkStudentPage()),
-            'presences':  () => _push(const AttendancePage()),
-            'cours':      () => _push(const CoursesPage()),
-            'messages':   () => _push(const MessagingPage()),
-            'bulletin':   () => _push(const BulletinPage()),
-            'features':   () => _push(const FeaturesHubPage()),
+            'notes':         () => _push(const GradesPage()),
+            'edt':           () => _push(const SchedulePage()),
+            'devoirs':       () => _push(const HomeworkStudentPage()),
+            'presences':     () => _push(const AttendancePage()),
+            'cours':         () => _push(const CoursesPage()),
+            'messages':      () => _push(const MessagingPage()),
+            'bulletin':      () => _push(const BulletinPage()),
+            'bibliotheque':  () => _push(const LibraryPage()),
+            'features':      () => _push(const FeaturesHubPage()),
           }),
           const SizedBox(height: 22),
 
@@ -681,24 +686,25 @@ class _PremiumShortcutsGrid extends StatelessWidget {
   const _PremiumShortcutsGrid({required this.onTap});
 
   static const _items = [
-    (key: 'notes',    icon: Icons.grading_rounded,         label: 'Notes',     sub: 'Résultats',  grad: [Color(0xFFC17F24), Color(0xFFE8A83A)]),
-    (key: 'edt',      icon: Icons.calendar_month_rounded,   label: 'Emploi',    sub: 'du temps',   grad: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
-    (key: 'devoirs',  icon: Icons.assignment_rounded,        label: 'Devoirs',   sub: '2 urgents',  grad: [Color(0xFFD4540A), Color(0xFFEF6C00)]),
-    (key: 'presences',icon: Icons.fact_check_rounded,        label: 'Présences', sub: '96% T2',     grad: [Color(0xFF1B5E20), Color(0xFF388E3C)]),
-    (key: 'cours',    icon: Icons.menu_book_rounded,         label: 'Cours',     sub: 'Catalogue',  grad: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
-    (key: 'messages', icon: Icons.chat_rounded,              label: 'Messages',  sub: '1 nouveau',  grad: [Color(0xFF7C3AED), Color(0xFFA855F7)]),
-    (key: 'bulletin', icon: Icons.receipt_long_rounded,      label: 'Bulletin',  sub: 'Trimestriel',grad: [Color(0xFF0891B2), Color(0xFF06B6D4)]),
-    (key: 'features', icon: Icons.apps_rounded,              label: 'Tout',      sub: 'Explorer',   grad: [Color(0xFF374151), Color(0xFF6B7280)]),
+    (key: 'notes',       icon: Icons.grading_rounded,          label: 'Notes',        sub: 'Résultats',   grad: [Color(0xFFC17F24), Color(0xFFE8A83A)]),
+    (key: 'edt',         icon: Icons.calendar_month_rounded,    label: 'Emploi',       sub: 'du temps',    grad: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
+    (key: 'devoirs',     icon: Icons.assignment_rounded,         label: 'Devoirs',      sub: '2 urgents',   grad: [Color(0xFFD4540A), Color(0xFFEF6C00)]),
+    (key: 'presences',   icon: Icons.fact_check_rounded,         label: 'Présences',    sub: '96% T2',      grad: [Color(0xFF1B5E20), Color(0xFF388E3C)]),
+    (key: 'cours',       icon: Icons.menu_book_rounded,          label: 'Cours',        sub: 'Catalogue',   grad: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
+    (key: 'bibliotheque',icon: Icons.local_library_rounded,      label: 'Biblio.',      sub: 'Ressources',  grad: [Color(0xFF7B341E), Color(0xFFB44000)]),
+    (key: 'messages',    icon: Icons.chat_rounded,               label: 'Messages',     sub: '1 nouveau',   grad: [Color(0xFF7C3AED), Color(0xFFA855F7)]),
+    (key: 'bulletin',    icon: Icons.receipt_long_rounded,        label: 'Bulletin',     sub: 'Trimestriel', grad: [Color(0xFF0891B2), Color(0xFF06B6D4)]),
+    (key: 'features',    icon: Icons.apps_rounded,               label: 'Tout',         sub: 'Explorer',    grad: [Color(0xFF374151), Color(0xFF6B7280)]),
   ];
 
   @override
   Widget build(BuildContext context) {
     return GridView.count(
-      crossAxisCount: 4,
+      crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 10, mainAxisSpacing: 10,
-      childAspectRatio: 0.82,
+      childAspectRatio: 0.88,
       children: _items.map((item) =>
           _PremiumCard(item: item, onTap: onTap[item.key])).toList(),
     );
