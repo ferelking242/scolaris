@@ -10,6 +10,7 @@ import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../../shared/widgets/surface.dart';
 import 'pages/bulletin_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
@@ -73,8 +74,6 @@ class _StudentDashboard extends ConsumerStatefulWidget {
 
 class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
   bool _loading = true;
-
-  // Simulated async data
   int? _daysLeft;
   double? _avgGrade;
   int? _attendancePct;
@@ -86,9 +85,9 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
         setState(() {
-          _loading      = false;
-          _daysLeft     = 47;
-          _avgGrade     = 15.4;
+          _loading       = false;
+          _daysLeft      = 47;
+          _avgGrade      = 15.4;
           _attendancePct = 96;
           _upcomingTasks = 3;
         });
@@ -115,19 +114,15 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Greeting banner ─────────────────────────────────────
             _GreetingBanner(
               greeting: _greeting,
               name: firstName,
-              subtitle: _loading
-                  ? null
-                  : 'Il vous reste $_daysLeft jours avant les examens',
               daysLeft: _daysLeft,
               loading: _loading,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // ── Stats row ───────────────────────────────────────────
+            // Stat pills
             Row(children: [
               Expanded(child: _StatPill(
                 icon: Icons.grading_rounded,
@@ -155,15 +150,12 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ]),
             const SizedBox(height: 22),
 
-            // ── Today's schedule ─────────────────────────────────────
             _SectionHeader(title: 'Emploi du temps du jour',
                 action: 'Voir tout', onAction: () {}),
             const SizedBox(height: 10),
             if (_loading) ...[
-              const SkeletonListRow(),
-              const SizedBox(height: 8),
-              const SkeletonListRow(),
-              const SizedBox(height: 8),
+              const SkeletonListRow(), const SizedBox(height: 8),
+              const SkeletonListRow(), const SizedBox(height: 8),
               const SkeletonListRow(),
             ] else ...[
               _ScheduleCard(time: '08:00', subject: 'Mathématiques',
@@ -177,13 +169,11 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ],
             const SizedBox(height: 22),
 
-            // ── Recent grades ──────────────────────────────────────
             _SectionHeader(title: 'Dernières notes',
                 action: 'Voir tout', onAction: () {}),
             const SizedBox(height: 10),
             if (_loading) ...[
-              const SkeletonListRow(),
-              const SizedBox(height: 8),
+              const SkeletonListRow(), const SizedBox(height: 8),
               const SkeletonListRow(),
             ] else ...[
               _GradeRow(subject: 'Mathématiques', grade: 17.5, max: 20,
@@ -197,31 +187,34 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ],
             const SizedBox(height: 22),
 
-            // ── Motivational banner ───────────────────────────────
+            // Motivational banner
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF3E1A00), _terra],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(color: _terra.withOpacity(0.30),
+                      blurRadius: 20, offset: const Offset(0, 8), spreadRadius: -2),
+                ],
               ),
               child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('"Le savoir est une lumière\nque nul ne peut éteindre."',
-                        style: TextStyle(color: _white, fontSize: 13, height: 1.5,
-                            fontStyle: FontStyle.italic)),
-                    const SizedBox(height: 8),
-                    Text('— Proverbe africain',
-                        style: TextStyle(color: _gold.withOpacity(.9),
-                            fontSize: 11, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('"Le savoir est une lumière\nque nul ne peut éteindre."',
+                      style: TextStyle(color: _white, fontSize: 13, height: 1.5,
+                          fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 8),
+                  Text('— Proverbe africain',
+                      style: TextStyle(color: _gold.withOpacity(0.9),
+                          fontSize: 11, fontWeight: FontWeight.w600)),
+                ])),
                 const SizedBox(width: 12),
-                Icon(Icons.lightbulb_outline_rounded, color: _gold.withOpacity(.8), size: 36),
+                Icon(Icons.lightbulb_outline_rounded,
+                    color: _gold.withOpacity(0.8), size: 36),
               ]),
             ),
           ],
@@ -235,24 +228,18 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 class _GreetingBanner extends StatelessWidget {
   final String greeting;
   final String name;
-  final String? subtitle;
   final int? daysLeft;
   final bool loading;
   const _GreetingBanner({
     required this.greeting, required this.name,
-    required this.subtitle, required this.daysLeft, required this.loading,
+    required this.daysLeft, required this.loading,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Color(0x12000000),
-            blurRadius: 12, offset: Offset(0, 4))],
-      ),
+      decoration: ScolarisSurface.card(radius: 18),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$greeting, $name 👋',
@@ -278,7 +265,7 @@ class _GreetingBanner extends StatelessWidget {
             )),
         ])),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [_terra, _orange],
@@ -286,6 +273,10 @@ class _GreetingBanner extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(color: _terra.withOpacity(0.35),
+                  blurRadius: 12, offset: const Offset(0, 5)),
+            ],
           ),
           child: const Icon(Icons.school_rounded, color: _white, size: 28),
         ),
@@ -308,24 +299,19 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [BoxShadow(color: Color(0x0C000000),
-            blurRadius: 8, offset: Offset(0, 2))],
-      ),
+      decoration: ScolarisSurface.accent(color: color, radius: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withOpacity(.12),
+            color: color.withOpacity(0.18),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 16),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: _muted, fontSize: 10,
-            fontWeight: FontWeight.w500)),
+        Text(label, style: TextStyle(color: color.withOpacity(0.7), fontSize: 10,
+            fontWeight: FontWeight.w600)),
         const SizedBox(height: 2),
         if (loading)
           const SkeletonBox(width: 40, height: 16, radius: 4)
@@ -362,10 +348,7 @@ class _SectionHeader extends StatelessWidget {
 
 // ── Schedule Card ──────────────────────────────────────────────────────────
 class _ScheduleCard extends StatelessWidget {
-  final String time;
-  final String subject;
-  final String room;
-  final String teacher;
+  final String time, subject, room, teacher;
   final bool isNext;
   final Color color;
   const _ScheduleCard({required this.time, required this.subject,
@@ -376,17 +359,17 @@ class _ScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: isNext ? color.withOpacity(.08) : _white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: isNext ? color.withOpacity(.3) : const Color(0xFFEEE5D8)),
-      ),
+      decoration: isNext
+          ? ScolarisSurface.accent(color: color, radius: 12)
+          : ScolarisSurface.subtle(radius: 12),
       child: Row(children: [
         Container(
           width: 4, height: 44,
           decoration: BoxDecoration(
-            color: color,
+            gradient: LinearGradient(
+              colors: [color, color.withOpacity(0.6)],
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            ),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -402,7 +385,7 @@ class _ScheduleCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color,
+                    gradient: LinearGradient(colors: [color, color.withOpacity(0.8)]),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text('Prochain', style: TextStyle(color: _white,
@@ -424,10 +407,8 @@ class _ScheduleCard extends StatelessWidget {
 
 // ── Grade Row ──────────────────────────────────────────────────────────────
 class _GradeRow extends StatelessWidget {
-  final String subject;
-  final double grade;
-  final double max;
-  final String date;
+  final String subject, date;
+  final double grade, max;
   final Color color;
   const _GradeRow({required this.subject, required this.grade,
       required this.max, required this.date, required this.color});
@@ -437,17 +418,16 @@ class _GradeRow extends StatelessWidget {
     final pct = grade / max;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEEE5D8)),
-      ),
+      decoration: ScolarisSurface.subtle(radius: 12),
       child: Row(children: [
         Container(
-          width: 40, height: 40,
+          width: 42, height: 42,
           decoration: BoxDecoration(
-            color: color.withOpacity(.1),
-            borderRadius: BorderRadius.circular(10),
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.12), color.withOpacity(0.20)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(11),
           ),
           child: Center(
             child: Text('${grade.toStringAsFixed(0)}',
@@ -463,11 +443,10 @@ class _GradeRow extends StatelessWidget {
                 fontWeight: FontWeight.w600)),
             const SizedBox(height: 5),
             ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
-                value: pct,
-                minHeight: 4,
-                backgroundColor: color.withOpacity(.1),
+                value: pct, minHeight: 5,
+                backgroundColor: color.withOpacity(0.12),
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),
