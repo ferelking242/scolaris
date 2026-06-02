@@ -699,15 +699,20 @@ class _PremiumShortcutsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10, mainAxisSpacing: 10,
-      childAspectRatio: 0.88,
-      children: _items.map((item) =>
-          _PremiumCard(item: item, onTap: onTap[item.key])).toList(),
-    );
+    return LayoutBuilder(builder: (_, c) {
+      final isWide = c.maxWidth > 600;
+      final cols = isWide ? 5 : 3;
+      final ratio = isWide ? 1.45 : 0.88;
+      return GridView.count(
+        crossAxisCount: cols,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 10, mainAxisSpacing: 10,
+        childAspectRatio: ratio,
+        children: _items.map((item) =>
+            _PremiumCard(item: item, onTap: onTap[item.key])).toList(),
+      );
+    });
   }
 }
 

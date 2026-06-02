@@ -73,7 +73,7 @@ class DesktopShell extends ConsumerStatefulWidget {
 
 class _DesktopShellState extends ConsumerState<DesktopShell> {
   int _flatIndex = 0;
-  _SideMode _mode = _SideMode.full;
+  _SideMode _mode = _SideMode.icons;
   String _selectedSchool = 'Pointe-Noire';
 
   List<DesktopNavItem> get _flatItems =>

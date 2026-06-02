@@ -48,7 +48,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       color: _bg,
       child: Column(children: [
         // ── Header premium ─────────────────────────────────────────
@@ -214,6 +214,145 @@ class _LibraryPageState extends State<LibraryPage> {
                     const SizedBox(height: 10),
                     const _ReadingBadges(),
                   ]),
+          ),
+        ),
+      ]),
+    );
+    return LayoutBuilder(builder: (ctx, c) {
+      if (c.maxWidth > 700) {
+        return Row(children: [
+          Expanded(child: content),
+          _LibraryRightSidebar(onGo: _go),
+        ]);
+      }
+      return content;
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Right sidebar — PC only (navigation rapide bibliothèque)
+// ══════════════════════════════════════════════════════════════════════════
+class _LibraryRightSidebar extends StatefulWidget {
+  final Function(Widget) onGo;
+  const _LibraryRightSidebar({required this.onGo});
+  @override
+  State<_LibraryRightSidebar> createState() => _LibraryRightSidebarState();
+}
+
+class _LibraryRightSidebarState extends State<_LibraryRightSidebar> {
+  int _sel = -1;
+
+  static const _items = [
+    (icon: Icons.book_rounded,          label: 'Livres',          sub: 'Romans & manuels'),
+    (icon: Icons.quiz_rounded,           label: 'Examens',         sub: 'Sujets & corrigés'),
+    (icon: Icons.description_rounded,    label: 'Supports',        sub: 'Fiches de cours'),
+    (icon: Icons.favorite_rounded,       label: 'Favoris',         sub: 'Mes sauvegardes'),
+    (icon: Icons.download_done_rounded,  label: 'Téléch.',         sub: 'Offline'),
+    (icon: Icons.bar_chart_rounded,      label: 'Stats',           sub: 'Mon profil'),
+  ];
+
+  void _tap(int i) {
+    setState(() => _sel = i);
+    final pages = [
+      const BooksPage(),
+      const ExamSubjectsPage(),
+      const CourseMaterialsPage(),
+      const LibraryFavoritesPage(),
+      const LibraryFavoritesPage(),
+      const LibraryStatsPage(),
+    ];
+    widget.onGo(pages[i]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 148,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A0500),
+        border: Border(left: BorderSide(color: Color(0xFF3E1A00), width: 1)),
+      ),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+          child: Row(children: [
+            Container(
+              width: 20, height: 20,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [_terra, _orange]),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.local_library_rounded, color: _white, size: 11),
+            ),
+            const SizedBox(width: 7),
+            const Expanded(child: Text('Navigation',
+                style: TextStyle(color: Color(0xFFE8DDD0), fontSize: 10.5,
+                    fontWeight: FontWeight.w800, letterSpacing: 0.2),
+                maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ]),
+        ),
+        Container(height: 1, color: const Color(0xFF3E1A00)),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: _items.length,
+            itemBuilder: (_, i) {
+              final item = _items[i];
+              final active = _sel == i;
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _tap(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: active ? _terra.withOpacity(0.90) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(
+                        color: active ? _terra : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(children: [
+                      Icon(item.icon, size: 15,
+                          color: active ? _white : const Color(0xFFB89880)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(item.label, style: TextStyle(
+                            color: active ? _white : const Color(0xFFE8DDD0),
+                            fontSize: 11, fontWeight: active
+                                ? FontWeight.w700 : FontWeight.w500),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(item.sub, style: const TextStyle(
+                            color: Color(0xFF7A5040), fontSize: 9.5),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ])),
+                    ]),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Container(height: 1, color: const Color(0xFF3E1A00)),
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: _gold.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _gold.withOpacity(0.30)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.emoji_events_rounded, size: 14, color: _gold),
+              const SizedBox(width: 7),
+              const Expanded(child: Text('2/6 badges', style: TextStyle(
+                  color: _gold, fontSize: 10, fontWeight: FontWeight.w700))),
+            ]),
           ),
         ),
       ]),
@@ -531,13 +670,16 @@ class _CategoriesGrid extends StatelessWidget {
       (icon: Icons.bar_chart_rounded,    label: 'Statistiques',  sub: 'Mon profil',  grad: [_purple, const Color(0xFF5B21B6)],            page: const LibraryStatsPage()),
     ];
 
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10, mainAxisSpacing: 10,
-      childAspectRatio: 1.0,
-      children: cats.map((c) => GestureDetector(
+    return LayoutBuilder(builder: (_, constraints) {
+      final cols = constraints.maxWidth > 500 ? 6 : 3;
+      final ratio = constraints.maxWidth > 500 ? 1.5 : 1.0;
+      return GridView.count(
+        crossAxisCount: cols,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 10, mainAxisSpacing: 10,
+        childAspectRatio: ratio,
+        children: cats.map((c) => GestureDetector(
         onTap: () => onGo(c.page),
         child: Container(
           decoration: BoxDecoration(
@@ -564,7 +706,8 @@ class _CategoriesGrid extends StatelessWidget {
           ]),
         ),
       )).toList(),
-    );
+      );
+    });
   }
 }
 

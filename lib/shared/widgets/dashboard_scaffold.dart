@@ -39,10 +39,28 @@ class DashboardScaffold extends StatelessWidget {
             const SizedBox(height: 16),
             _StatsGrid(stats: stats),
             const SizedBox(height: 18),
-            for (final s in sections) ...[
-              _SectionCard(section: s),
-              const SizedBox(height: 14),
-            ],
+            LayoutBuilder(builder: (ctx2, c2) {
+              if (c2.maxWidth > 720 && sections.length > 1) {
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    mainAxisExtent: 182,
+                  ),
+                  itemCount: sections.length,
+                  itemBuilder: (_, i) => _SectionCard(section: sections[i]),
+                );
+              }
+              return Column(children: [
+                for (final s in sections) ...[
+                  _SectionCard(section: s),
+                  const SizedBox(height: 14),
+                ],
+              ]);
+            }),
             if (explore != null && explore!.isNotEmpty) ...[
               _SectionLabel('Explorer la plateforme'),
               const SizedBox(height: 10),
