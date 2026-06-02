@@ -6,7 +6,9 @@
   "sections": {
     "setup": "CONFIGURATION",
     "activity": "ACTIVITÉ",
-    "account": "COMPTE"
+    "account": "COMPTE",
+    "finance": "SCOLARITÉ",
+    "tools": "OUTILS"
   },
   "common": {
     "ok": "OK",
@@ -52,10 +54,10 @@
     "dashboard": "Tableau de bord",
     "courses": "Cours",
     "grades": "Notes",
-    "attendance": "Présence",
+    "attendance": "Présences",
     "schedule": "Emploi du temps",
     "messages": "Messages",
-    "children": "Enfants",
+    "children": "Mes Enfants",
     "payments": "Paiements",
     "students": "Élèves",
     "classes": "Classes",
@@ -63,7 +65,17 @@
     "users": "Utilisateurs",
     "billing": "Facturation",
     "library": "Bibliothèque",
-    "qr": "QR"
+    "qr": "QR Code",
+    "bulletin": "Bulletin",
+    "homework": "Devoirs",
+    "features": "Fonctionnalités",
+    "class_stats": "Statistiques",
+    "timetable": "Horaires",
+    "enrollment": "Inscriptions",
+    "notifications": "Notifications",
+    "receipts": "Reçus",
+    "my_payments": "Ma Scolarité",
+    "documents": "Mes Documents"
   },
   "dashboard": {
     "hello": "Bonjour, {name}",

@@ -6,7 +6,9 @@
   "sections": {
     "setup": "MIBONGISELI",
     "activity": "MOSALA",
-    "account": "KONTI"
+    "account": "KONTI",
+    "finance": "MBONGO",
+    "tools": "BISALELI"
   },
   "common": {
     "ok": "Malamu",
@@ -63,7 +65,17 @@
     "users": "Basaleli",
     "billing": "Bafakti",
     "library": "Bibliotek",
-    "qr": "QR"
+    "qr": "QR",
+    "bulletin": "Bulletin",
+    "homework": "Misala ya Ndako",
+    "features": "Bizalisi",
+    "class_stats": "Bituluku",
+    "timetable": "Programe ya Mateya",
+    "enrollment": "Boloko",
+    "notifications": "Bandimisi",
+    "receipts": "Barisiti",
+    "my_payments": "Mbongo na Ngai",
+    "documents": "Mikanda na Ngai"
   },
   "dashboard": {
     "hello": "Mbote, {name}",

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -91,23 +90,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ],
   };
 
-  static const _slides = [
-    _Slide(
-      lottie: 'assets/lottie/school_building.json',
-      title: 'La plateforme scolaire\nde l\'Afrique de demain.',
-      sub: 'Gérez votre établissement,\nsuivez les performances, connectez toute\nla communauté éducative.',
-    ),
-    _Slide(
-      lottie: 'assets/lottie/admin.json',
-      title: 'Un espace dédié\nà chaque acteur.',
-      sub: 'Élèves, parents, enseignants,\nadministrateurs — chaque rôle a son\ninterface optimisée.',
-    ),
-    _Slide(
-      lottie: 'assets/lottie/celebration.json',
-      title: 'Multi-filiales,\nmulti-systèmes.',
-      sub: 'Francophone, anglophone, LMD,\ntechnique — un seul outil pour\ntous les établissements.',
-    ),
-  ];
 
   @override
   void initState() {
@@ -197,11 +179,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         Expanded(
           flex: 58,
-          child: _LeftHero(slides: _slides),
+          child: const _LeftPanel(),
         ),
         Expanded(
           flex: 42,
-          child: _buildFormPanel(context),
+          child: _buildFormPanel(context, showBrand: true),
         ),
       ],
     );
@@ -212,13 +194,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       child: Column(
         children: [
           const _MobileHeader(),
-          Expanded(child: _buildFormPanel(context)),
+          Expanded(child: _buildFormPanel(context, showBrand: false)),
         ],
       ),
     );
   }
 
-  Widget _buildFormPanel(BuildContext context) {
+  Widget _buildFormPanel(BuildContext context, {bool showBrand = true}) {
     if (_showQrScanner) return _QrScanPanel(onDetected: _handleQrDetected,
         onClose: () => setState(() => _showQrScanner = false));
 
@@ -231,8 +213,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _BrandMark(),
-              const SizedBox(height: 24),
+              if (showBrand) ...[
+                _BrandMark(),
+                const SizedBox(height: 24),
+              ],
 
               const Text('Connexion', style: TextStyle(
                 fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
@@ -492,119 +476,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   ]);
 }
 
-// ── Slide data ─────────────────────────────────────────────────────────────
-class _Slide {
-  final String lottie, title, sub;
-  const _Slide({required this.lottie, required this.title, required this.sub});
-}
-
-// ── Left Hero Panel ────────────────────────────────────────────────────────
-class _LeftHero extends StatefulWidget {
-  final List<_Slide> slides;
-  const _LeftHero({required this.slides});
-  @override
-  State<_LeftHero> createState() => _LeftHeroState();
-}
-
-class _LeftHeroState extends State<_LeftHero> with TickerProviderStateMixin {
-  int _idx = 0;
-  Timer? _timer;
-  late AnimationController _fadeCtrl;
-  late Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeInOut);
-    _fadeCtrl.forward();
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 6), (_) => _goTo((_idx + 1) % widget.slides.length));
-  }
-
-  void _goTo(int i) {
-    if (!mounted) return;
-    _fadeCtrl.reverse().then((_) {
-      if (mounted) {
-        setState(() => _idx = i);
-        _fadeCtrl.forward();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _fadeCtrl.dispose();
-    super.dispose();
-  }
+// ── Left Panel (African sidebar style + single Lottie) ─────────────────────
+class _LeftPanel extends StatelessWidget {
+  const _LeftPanel();
 
   @override
   Widget build(BuildContext context) {
-    final slide = widget.slides[_idx];
     return Stack(
       fit: StackFit.expand,
       children: [
-        // African gradient background
+        // African dark brown gradient — same as sidebar
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF071A0A), Color(0xFF0D3B1E), Color(0xFF1B5E20)],
+              colors: [Color(0xFF0D0600), Color(0xFF1A0A00), Color(0xFF2E1100)],
               begin: Alignment.topLeft,
-              end: Alignment.bottomCenter,
+              end: Alignment.bottomRight,
             ),
           ),
         ),
 
-        // African kente/adinkra pattern
-        CustomPaint(painter: _AfricanPatternPainter()),
+        // African hex/adinkra pattern overlay
+        const CustomPaint(painter: _AfricanPatternPainter()),
 
-        // Terracotta accent stripe top
+        // Gold top accent stripe
         Positioned(
           top: 0, left: 0, right: 0,
           child: Container(
             height: 4,
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_terra, _gold, _orange],
+              gradient: LinearGradient(colors: [_terra, _gold, _orange]),
+            ),
+          ),
+        ),
+
+        // Large centered Lottie — boy studying
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 110),
+            child: Center(
+              child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.70,
+                width: double.infinity,
+                child: Lottie.asset(
+                  'assets/lottie/student_login.json',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Lottie.asset(
+                    'assets/lottie/student.json',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
               ),
             ),
           ),
         ),
 
-        // Full-panel Lottie (centered, large)
-        FadeTransition(
-          opacity: _fadeAnim,
-          child: Align(
-            alignment: const Alignment(0, -0.15),
-            child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.52,
-              width: double.infinity,
-              child: Lottie.asset(
-                slide.lottie,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ),
-
-        // Bottom gradient for text readability
+        // Bottom gradient for readability
         Positioned(
           bottom: 0, left: 0, right: 0,
-          height: MediaQuery.sizeOf(context).height * 0.55,
+          height: 140,
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  const Color(0xFF071A0A).withOpacity(.85),
-                  const Color(0xFF071A0A),
+                  const Color(0xFF0D0600).withOpacity(.95),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -613,86 +550,33 @@ class _LeftHeroState extends State<_LeftHero> with TickerProviderStateMixin {
           ),
         ),
 
-        // Bottom content overlay
+        // Bottom logo + tagline
         Positioned(
           bottom: 0, left: 0, right: 0,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(40, 0, 40, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Logo
-                Row(children: [
-                  _LogoImg(size: 44),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Scolaris', style: TextStyle(
-                      color: _white, fontSize: 20, fontWeight: FontWeight.w900,
-                      letterSpacing: .5,
-                    )),
-                    Text(AppConfig.appTagline, style: TextStyle(
-                      color: _gold.withOpacity(.8), fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    )),
-                  ]),
-                ]),
-                const SizedBox(height: 20),
-
-                // Headline
-                FadeTransition(
-                  opacity: _fadeAnim,
-                  child: Text(slide.title, style: const TextStyle(
-                    color: _white, fontSize: 26, fontWeight: FontWeight.w900, height: 1.2,
-                  )),
-                ),
-                const SizedBox(height: 10),
-                FadeTransition(
-                  opacity: _fadeAnim,
-                  child: Text(slide.sub, style: TextStyle(
-                    color: _white.withOpacity(.72), fontSize: 13, height: 1.6,
-                  )),
-                ),
-                const SizedBox(height: 20),
-
-                // Feature pills
-                Wrap(spacing: 8, runSpacing: 8, children: const [
-                  _FeaturePill(icon: Icons.people_rounded, label: '6 rôles'),
-                  _FeaturePill(icon: Icons.wifi_off_rounded, label: 'Hors-ligne'),
-                  _FeaturePill(icon: Icons.translate_rounded, label: '4 langues'),
-                  _FeaturePill(icon: Icons.public_rounded, label: 'Afrique'),
-                ]),
-                const SizedBox(height: 20),
-
-                // Carousel dots
-                Row(children: [
-                  ...List.generate(widget.slides.length, (i) =>
-                    GestureDetector(
-                      onTap: () { _startTimer(); _goTo(i); },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.only(right: 8),
-                        width: i == _idx ? 28 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: i == _idx ? _gold : _white.withOpacity(.25),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text('© ${DateTime.now().year} Scolaris',
-                      style: TextStyle(color: _white.withOpacity(.3), fontSize: 10)),
-                ]),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(36, 0, 36, 28),
+            child: Row(children: [
+              _LogoImg(size: 40),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                const Text('Scolaris', style: TextStyle(
+                  color: _white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: .4,
+                )),
+                Text(AppConfig.appTagline, style: TextStyle(
+                  color: _gold.withOpacity(.72), fontSize: 10, fontStyle: FontStyle.italic,
+                )),
+              ]),
+              const Spacer(),
+              Text('© ${DateTime.now().year} Scolaris',
+                  style: TextStyle(color: _white.withOpacity(.22), fontSize: 10)),
+            ]),
           ),
         ),
       ],
     );
   }
 }
+
 
 // ── Logo Widget ────────────────────────────────────────────────────────────
 class _LogoImg extends StatelessWidget {
@@ -1192,22 +1076,50 @@ class _RoleChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        duration: const Duration(milliseconds: 200),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: selected ? _terra : _white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? _terra : _border),
-          boxShadow: selected ? [BoxShadow(
-            color: _terra.withOpacity(.25), blurRadius: 8, offset: const Offset(0, 3))] : [],
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [_terra, _orange],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : _white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? _terra : _border.withOpacity(.8),
+            width: selected ? 0 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(color: _terra.withOpacity(.35),
+                      blurRadius: 14, offset: const Offset(0, 5)),
+                ]
+              : [
+                  BoxShadow(color: _ink.withOpacity(.04),
+                      blurRadius: 4, offset: const Offset(0, 2)),
+                ],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: selected ? _white : _muted),
-          const SizedBox(width: 6),
+          Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              color: selected
+                  ? _white.withOpacity(.2)
+                  : _terra.withOpacity(.08),
+              shape: BoxShape.circle,
+            ),
+            child: Center(child: Icon(icon, size: 12,
+                color: selected ? _white : _terra)),
+          ),
+          const SizedBox(width: 7),
           Text(label, style: TextStyle(
               color: selected ? _white : _ink,
-              fontSize: 12.5, fontWeight: FontWeight.w600)),
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
         ]),
       ),
     );

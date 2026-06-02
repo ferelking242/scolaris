@@ -6,7 +6,9 @@
   "sections": {
     "setup": "MIPANGILIO",
     "activity": "SHUGHULI",
-    "account": "AKAUNTI"
+    "account": "AKAUNTI",
+    "finance": "ADA",
+    "tools": "ZANA"
   },
   "common": {
     "ok": "Sawa",
@@ -63,7 +65,17 @@
     "users": "Watumiaji",
     "billing": "Bili",
     "library": "Maktaba",
-    "qr": "QR"
+    "qr": "QR",
+    "bulletin": "Ripoti ya Mwanafunzi",
+    "homework": "Kazi za Nyumbani",
+    "features": "Vipengele",
+    "class_stats": "Takwimu",
+    "timetable": "Ratiba ya Masomo",
+    "enrollment": "Usajili",
+    "notifications": "Arifa",
+    "receipts": "Risiti",
+    "my_payments": "Ada Zangu",
+    "documents": "Nyaraka Zangu"
   },
   "dashboard": {
     "hello": "Habari, {name}",

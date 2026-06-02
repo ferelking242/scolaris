@@ -18,6 +18,8 @@ import 'pages/grades_page.dart';
 import 'pages/homework_student_page.dart';
 import 'pages/library/library_page.dart';
 import 'pages/schedule_page.dart';
+import 'pages/student_documents_page.dart';
+import 'pages/student_payments_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
@@ -43,36 +45,92 @@ class StudentHome extends StatelessWidget {
       role: UserRole.student,
       title: 'Scolaris',
       groups: const [
+        // ── Configuration ─────────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.setup', entries: [
-          RoleNavEntry(icon: Icons.home_rounded,      activeIcon: Icons.home_rounded,
-              labelKey: 'nav.dashboard', page: _StudentDashboard()),
-          RoleNavEntry(icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded,
-              labelKey: 'nav.courses',   page: CoursesPage()),
+          RoleNavEntry(
+            icon: Icons.home_rounded,
+            activeIcon: Icons.home_rounded,
+            labelKey: 'nav.dashboard',
+            page: _StudentDashboard(),
+          ),
+          RoleNavEntry(
+            icon: Icons.menu_book_outlined,
+            activeIcon: Icons.menu_book_rounded,
+            labelKey: 'nav.courses',
+            page: CoursesPage(),
+          ),
         ]),
+
+        // ── Activité scolaire ──────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.activity', entries: [
-          RoleNavEntry(icon: Icons.grading_outlined,    activeIcon: Icons.grading_rounded,
-              labelKey: 'nav.grades',    page: GradesPage()),
-          RoleNavEntry(icon: Icons.calendar_month_outlined,
-              activeIcon: Icons.calendar_month_rounded,
-              labelKey: 'nav.schedule',  page: SchedulePage()),
-          RoleNavEntry(icon: Icons.assignment_outlined,
-              activeIcon: Icons.assignment_rounded,
-              labelKey: 'nav.homework',  page: HomeworkStudentPage()),
-          RoleNavEntry(icon: Icons.fact_check_outlined,
-              activeIcon: Icons.fact_check_rounded,
-              labelKey: 'nav.attendance', page: AttendancePage()),
-          RoleNavEntry(icon: Icons.receipt_long_outlined,
-              activeIcon: Icons.receipt_long_rounded,
-              labelKey: 'nav.bulletin',  page: BulletinPage()),
-          RoleNavEntry(icon: Icons.local_library_outlined,
-              activeIcon: Icons.local_library_rounded,
-              labelKey: 'nav.library',   page: LibraryPage()),
+          RoleNavEntry(
+            icon: Icons.grading_outlined,
+            activeIcon: Icons.grading_rounded,
+            labelKey: 'nav.grades',
+            page: GradesPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.calendar_month_outlined,
+            activeIcon: Icons.calendar_month_rounded,
+            labelKey: 'nav.schedule',
+            page: SchedulePage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.assignment_outlined,
+            activeIcon: Icons.assignment_rounded,
+            labelKey: 'nav.homework',
+            page: HomeworkStudentPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.fact_check_outlined,
+            activeIcon: Icons.fact_check_rounded,
+            labelKey: 'nav.attendance',
+            page: AttendancePage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.receipt_long_outlined,
+            activeIcon: Icons.receipt_long_rounded,
+            labelKey: 'nav.bulletin',
+            page: BulletinPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.local_library_outlined,
+            activeIcon: Icons.local_library_rounded,
+            labelKey: 'nav.library',
+            page: LibraryPage(),
+          ),
         ]),
+
+        // ── Scolarité & Finances ───────────────────────────────────────
+        RoleNavGroup(labelKey: 'sections.finance', entries: [
+          RoleNavEntry(
+            icon: Icons.account_balance_wallet_outlined,
+            activeIcon: Icons.account_balance_wallet_rounded,
+            labelKey: 'nav.my_payments',
+            page: StudentPaymentsPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.folder_outlined,
+            activeIcon: Icons.folder_rounded,
+            labelKey: 'nav.documents',
+            page: StudentDocumentsPage(),
+          ),
+        ]),
+
+        // ── Compte & Outils ────────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(icon: Icons.chat_outlined,   activeIcon: Icons.chat_rounded,
-              labelKey: 'nav.messages',  page: MessagingPage()),
-          RoleNavEntry(icon: Icons.apps_outlined,   activeIcon: Icons.apps_rounded,
-              labelKey: 'nav.features',  page: FeaturesHubPage()),
+          RoleNavEntry(
+            icon: Icons.chat_outlined,
+            activeIcon: Icons.chat_rounded,
+            labelKey: 'nav.messages',
+            page: MessagingPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.apps_outlined,
+            activeIcon: Icons.apps_rounded,
+            labelKey: 'nav.features',
+            page: FeaturesHubPage(),
+          ),
         ]),
       ],
     );
