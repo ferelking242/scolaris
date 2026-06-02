@@ -410,12 +410,12 @@ class _MoyenneDonut extends StatelessWidget {
                   sections: [
                     PieChartSectionData(
                       value: avg, color: _gold,
-                      radius: 14, showTitle: false,
+                      radius: 14.0, showTitle: false,
                     ),
                     PieChartSectionData(
                       value: 10 - avg,
                       color: _gold.withOpacity(0.12),
-                      radius: 14, showTitle: false,
+                      radius: 14.0, showTitle: false,
                     ),
                   ],
                 )),
@@ -508,14 +508,14 @@ class _NotesBarChart extends StatelessWidget {
         ]),
         const SizedBox(height: 8),
         Expanded(child: BarChart(BarChartData(
-          maxY: 10,
-          minY: 0,
+          maxY: 10.0,
+          minY: 0.0,
           gridData: FlGridData(
             show: true,
-            horizontalInterval: 5,
+            horizontalInterval: 5.0,
             drawVerticalLine: false,
             getDrawingHorizontalLine: (_) => FlLine(
-                color: _ink.withOpacity(0.06), strokeWidth: 1),
+                color: _ink.withOpacity(0.06), strokeWidth: 1.0),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
@@ -524,7 +524,7 @@ class _NotesBarChart extends StatelessWidget {
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 22,
+              reservedSize: 22.0,
               getTitlesWidget: (v, _) {
                 final i = v.toInt();
                 if (i < 0 || i >= notes.length) return const SizedBox();
@@ -540,7 +540,7 @@ class _NotesBarChart extends StatelessWidget {
               BarChartGroupData(x: i, barRods: [
                 BarChartRodData(
                   toY: notes[i].n,
-                  width: 18,
+                  width: 18.0,
                   borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(6)),
                   gradient: LinearGradient(
@@ -556,7 +556,7 @@ class _NotesBarChart extends StatelessWidget {
           ],
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
-              tooltipRoundedRadius: 8,
+              tooltipRoundedRadius: 8.0,
               getTooltipItem: (g, _, r, __) => BarTooltipItem(
                 '${r.toY}/10',
                 const TextStyle(color: _white, fontSize: 11,

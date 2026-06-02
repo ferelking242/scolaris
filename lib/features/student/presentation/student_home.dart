@@ -566,20 +566,20 @@ class _NoteProgressionChart extends StatelessWidget {
         SizedBox(
           height: 110,
           child: LineChart(LineChartData(
-            minY: 8, maxY: 20,
+            minY: 8.0, maxY: 20.0,
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval: 4,
+              horizontalInterval: 4.0,
               getDrawingHorizontalLine: (_) => FlLine(
-                  color: _ink.withOpacity(0.06), strokeWidth: 1),
+                  color: _ink.withOpacity(0.06), strokeWidth: 1.0),
             ),
             borderData: FlBorderData(show: false),
             titlesData: FlTitlesData(
               leftTitles: const AxisTitles(
                   sideTitles: SideTitles(showTitles: false)),
               rightTitles: AxisTitles(sideTitles: SideTitles(
-                showTitles: true, reservedSize: 28,
+                showTitles: true, reservedSize: 28.0,
                 getTitlesWidget: (v, _) => Text('${v.toInt()}',
                     style: const TextStyle(
                         color: _muted, fontSize: 9, fontWeight: FontWeight.w600)),
@@ -587,7 +587,7 @@ class _NoteProgressionChart extends StatelessWidget {
               topTitles: const AxisTitles(
                   sideTitles: SideTitles(showTitles: false)),
               bottomTitles: AxisTitles(sideTitles: SideTitles(
-                showTitles: true, reservedSize: 22,
+                showTitles: true, reservedSize: 22.0,
                 getTitlesWidget: (v, _) {
                   final i = v.toInt();
                   if (i < 0 || i >= labels.length) return const SizedBox();
@@ -606,9 +606,9 @@ class _NoteProgressionChart extends StatelessWidget {
                 dotData: FlDotData(
                   show: true,
                   getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
-                    radius: 4,
+                    radius: 4.0,
                     color: _gold,
-                    strokeWidth: 2,
+                    strokeWidth: 2.0,
                     strokeColor: _white,
                   ),
                 ),
@@ -624,7 +624,7 @@ class _NoteProgressionChart extends StatelessWidget {
             ],
             lineTouchData: LineTouchData(
               touchTooltipData: LineTouchTooltipData(
-                tooltipRoundedRadius: 8,
+                tooltipRoundedRadius: 8.0,
                 getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
                   '${s.y}/20',
                   const TextStyle(color: _white, fontSize: 11,
@@ -682,13 +682,13 @@ class _AbsenceChart extends StatelessWidget {
             child: SizedBox(
               height: 110,
               child: BarChart(BarChartData(
-                maxY: 4,
-                minY: 0,
+                maxY: 4.0,
+                minY: 0.0,
                 gridData: FlGridData(
                   show: true, drawVerticalLine: false,
-                  horizontalInterval: 2,
+                  horizontalInterval: 2.0,
                   getDrawingHorizontalLine: (_) => FlLine(
-                      color: _ink.withOpacity(0.06), strokeWidth: 1),
+                      color: _ink.withOpacity(0.06), strokeWidth: 1.0),
                 ),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -699,7 +699,7 @@ class _AbsenceChart extends StatelessWidget {
                   topTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(sideTitles: SideTitles(
-                    showTitles: true, reservedSize: 20,
+                    showTitles: true, reservedSize: 20.0,
                     getTitlesWidget: (v, _) {
                       final i = v.toInt();
                       if (i < 0 || i >= labels.length) return const SizedBox();
@@ -712,7 +712,7 @@ class _AbsenceChart extends StatelessWidget {
                     BarChartGroupData(x: e.key, barRods: [
                       BarChartRodData(
                         toY: e.value,
-                        width: 20,
+                        width: 20.0,
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(6)),
                         gradient: LinearGradient(
@@ -726,7 +726,7 @@ class _AbsenceChart extends StatelessWidget {
                     ])).toList(),
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    tooltipRoundedRadius: 8,
+                    tooltipRoundedRadius: 8.0,
                     getTooltipItem: (g, _, r, __) => BarTooltipItem(
                       r.toY == 0 ? 'Présent ✓' : '${r.toY.toInt()} abs',
                       const TextStyle(color: _white, fontSize: 10,
@@ -753,11 +753,11 @@ class _AbsenceChart extends StatelessWidget {
                     sections: [
                       PieChartSectionData(
                           value: presencePct.toDouble(),
-                          color: _green, radius: 12, showTitle: false),
+                          color: _green, radius: 12.0, showTitle: false),
                       PieChartSectionData(
                           value: (100 - presencePct).toDouble(),
                           color: _terra.withOpacity(0.20),
-                          radius: 12, showTitle: false),
+                          radius: 12.0, showTitle: false),
                     ],
                   )),
                   Text('$presencePct%',
