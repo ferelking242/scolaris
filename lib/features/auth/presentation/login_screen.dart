@@ -127,7 +127,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     });
   }
 
-  Future<void> _submit() async {
+  void _fillAndLogin(String email, String password) {
+      setState(() {
+        _emailCtrl.text = email;
+        _passCtrl.text  = password;
+        _error = null;
+      });
+      Future.microtask(_submit);
+    }
+
+    Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     try {
@@ -293,6 +302,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 ),
               ],
 
+              const SizedBox(height: 20),
+              _divider('EAD Congo — Connexion rapide'),
+              const SizedBox(height: 12),
+              _EadQuickLogin(onTap: _fillAndLogin),
               const SizedBox(height: 8),
               Center(
                 child: Text('Mot de passe universel : demo1234',
@@ -1204,3 +1217,129 @@ class _RegisterSchoolBtn extends StatelessWidget {
     );
   }
 }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // EAD Congo — Quick Login Widgets
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  class _EadUser {
+    final String label, subtitle, email, password, centre;
+    final IconData icon;
+    final Color color;
+    const _EadUser({required this.label,required this.subtitle,required this.email,required this.password,required this.icon,required this.color,required this.centre});
+  }
+
+  const _eadPassword = 'EadCongo2025!';
+
+  const _eadUsers = [
+    _EadUser(label:'Ondongo Ferel',subtitle:'Étudiant · GLAR L2 · Brazzaville',email:'ondongo.ferel@ead.cg',password:_eadPassword,icon:Icons.school_rounded,color:Color(0xFF2E7D32),centre:'BZV'),
+    _EadUser(label:'Mabika Gloire',subtitle:'Étudiant · EMI L1 · Brazzaville',email:'mabika.gloire@ead.cg',password:_eadPassword,icon:Icons.engineering_rounded,color:Color(0xFF1565C0),centre:'BZV'),
+    _EadUser(label:'Mouanda Prisca',subtitle:'Étudiante · Gestion M1 · Brazzaville',email:'mouanda.prisca@ead.cg',password:_eadPassword,icon:Icons.business_center_rounded,color:Color(0xFF558B2F),centre:'BZV'),
+    _EadUser(label:'Batchi Kevin',subtitle:'Étudiant · GLAR L2 · Pointe-Noire',email:'batchi.kevin@ead.cg',password:_eadPassword,icon:Icons.computer_rounded,color:Color(0xFF00838F),centre:'PNR'),
+    _EadUser(label:'Moukala Grace',subtitle:'Étudiante · Économie L3 · Pointe-Noire',email:'moukala.grace@ead.cg',password:_eadPassword,icon:Icons.trending_up_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
+    _EadUser(label:'Dr. Djemba Norbert',subtitle:'Enseignant · Réseaux · Brazzaville',email:'prof.djemba@ead.cg',password:_eadPassword,icon:Icons.menu_book_rounded,color:Color(0xFF6A1B9A),centre:'BZV'),
+    _EadUser(label:'Pr. Makaya Ferdinand',subtitle:'Enseignant · Maths · Brazzaville',email:'prof.makaya@ead.cg',password:_eadPassword,icon:Icons.calculate_rounded,color:Color(0xFF0277BD),centre:'BZV'),
+    _EadUser(label:'Dr. Nguila Clémentine',subtitle:'Enseignante · Économie · Pointe-Noire',email:'prof.nguila@ead.cg',password:_eadPassword,icon:Icons.bar_chart_rounded,color:Color(0xFF33691E),centre:'PNR'),
+    _EadUser(label:'Obambi Marie-Claire',subtitle:'Secrétariat · Brazzaville',email:'secretariat.bzv@ead.cg',password:_eadPassword,icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),centre:'BZV'),
+    _EadUser(label:'Mavoungou Théodore',subtitle:'Directeur · Centre BZV',email:'direction.bzv@ead.cg',password:_eadPassword,icon:Icons.workspace_premium_rounded,color:Color(0xFFC17F24),centre:'BZV'),
+    _EadUser(label:'Madzou Emmanuel',subtitle:'Directeur · Centre PNR',email:'direction.pnr@ead.cg',password:_eadPassword,icon:Icons.location_city_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
+    _EadUser(label:'Elenga-Ngaporo Samuel',subtitle:'Directeur Général EAD Congo',email:'dg@ead.cg',password:_eadPassword,icon:Icons.account_balance_rounded,color:Color(0xFF0D47A1),centre:'DG'),
+  ];
+
+  class _EadQuickLogin extends StatefulWidget {
+    final void Function(String email, String password) onTap;
+    const _EadQuickLogin({required this.onTap});
+    @override
+    State<_EadQuickLogin> createState() => _EadQuickLoginState();
+  }
+
+  class _EadQuickLoginState extends State<_EadQuickLogin> {
+    String _filter = 'ALL';
+
+    @override
+    Widget build(BuildContext context) {
+      const centres = ['ALL', 'BZV', 'PNR', 'DG'];
+      final filtered = _filter == 'ALL' ? _eadUsers : _eadUsers.where((u) => u.centre == _filter).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: centres.map((c) {
+                final sel = _filter == c;
+                final lbl = c == 'ALL' ? 'Tous' : c == 'DG' ? 'Direction' : 'Centre $c';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilterChip(
+                    label: Text(lbl, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sel ? Colors.white : _muted)),
+                    selected: sel,
+                    onSelected: (_) => setState(() => _filter = c),
+                    backgroundColor: const Color(0xFFF5F0EC),
+                    selectedColor: _terra,
+                    checkmarkColor: Colors.white,
+                    showCheckmark: false,
+                    side: BorderSide(color: sel ? _terra : _border),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...filtered.map((u) => _EadUserTile(user: u, onTap: () => widget.onTap(u.email, u.password))),
+        ],
+      );
+    }
+  }
+
+  class _EadUserTile extends StatelessWidget {
+    final _EadUser user;
+    final VoidCallback onTap;
+    const _EadUserTile({required this.user, required this.onTap});
+
+    @override
+    Widget build(BuildContext context) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: user.color.withOpacity(.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: user.color.withOpacity(.25)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: user.color.withOpacity(.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(user.icon, color: user.color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _ink)),
+                    const SizedBox(height: 1),
+                    Text(user.subtitle, style: const TextStyle(fontSize: 11, color: _muted)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(color: user.color.withOpacity(.12), borderRadius: BorderRadius.circular(6)),
+                child: Text(user.centre, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.login_rounded, color: user.color, size: 16),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+  
