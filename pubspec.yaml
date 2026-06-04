@@ -68,6 +68,9 @@ dependencies:
   collection: ^1.18.0
   equatable: ^2.0.5
 
+  # URL launcher
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

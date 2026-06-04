@@ -9,6 +9,7 @@ import 'core/config/app_config.dart';
 import 'core/localization/locales.dart';
 import 'core/routing/app_router.dart';
 import 'core/services/offline_storage.dart';
+import 'core/services/settings_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 
@@ -38,8 +39,9 @@ class AkiliApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeControllerProvider);
-    final router = ref.watch(appRouterProvider);
+    final theme    = ref.watch(themeControllerProvider);
+    final router   = ref.watch(appRouterProvider);
+    final settings = ref.watch(settingsProvider);
 
     return ScreenUtilInit(
       designSize: const Size(390, 844),
@@ -55,16 +57,86 @@ class AkiliApp extends ConsumerWidget {
         localizationsDelegates: context.localizationDelegates,
         supportedLocales: context.supportedLocales,
         locale: context.locale,
-        builder: (ctx, child) => ResponsiveBreakpoints.builder(
-          breakpoints: const [
-            Breakpoint(start: 0, end: 480, name: MOBILE),
-            Breakpoint(start: 481, end: 900, name: TABLET),
-            Breakpoint(start: 901, end: 1920, name: DESKTOP),
-            Breakpoint(start: 1921, end: double.infinity, name: '4K'),
-          ],
-          child: child!,
-        ),
+        builder: (ctx, child) {
+          Widget w = ResponsiveBreakpoints.builder(
+            breakpoints: const [
+              Breakpoint(start: 0,    end: 480,             name: MOBILE),
+              Breakpoint(start: 481,  end: 900,             name: TABLET),
+              Breakpoint(start: 901,  end: 1920,            name: DESKTOP),
+              Breakpoint(start: 1921, end: double.infinity, name: '4K'),
+            ],
+            child: child!,
+          );
+
+          // Grande police : +20 %
+          if (settings.grandePolice) {
+            final mq = MediaQuery.of(ctx);
+            w = MediaQuery(
+              data: mq.copyWith(
+                textScaler: TextScaler.linear(
+                  (mq.textScaler.scale(1.0) * 1.2).clamp(1.0, 2.0),
+                ),
+              ),
+              child: w,
+            );
+          }
+
+          // Réduire les animations
+          if (settings.reduireAnimations) {
+            w = Theme(
+              data: Theme.of(ctx).copyWith(
+                pageTransitionsTheme: const PageTransitionsTheme(
+                  builders: {
+                    TargetPlatform.android: _NoAnimPageTransition(),
+                    TargetPlatform.iOS:     _NoAnimPageTransition(),
+                    TargetPlatform.linux:   _NoAnimPageTransition(),
+                    TargetPlatform.macOS:   _NoAnimPageTransition(),
+                    TargetPlatform.windows: _NoAnimPageTransition(),
+                  },
+                ),
+              ),
+              child: w,
+            );
+          }
+
+          // Contraste élevé
+          if (settings.contrasteEleve) {
+            final base = Theme.of(ctx);
+            w = Theme(
+              data: base.copyWith(
+                colorScheme: base.colorScheme.copyWith(
+                  surface:   Colors.white,
+                  onSurface: Colors.black,
+                  primary:   const Color(0xFF5C0000),
+                  onPrimary: Colors.white,
+                ),
+                textTheme: base.textTheme.apply(
+                  bodyColor:    Colors.black,
+                  displayColor: Colors.black,
+                ),
+              ),
+              child: w,
+            );
+          }
+
+          return w;
+        },
       ),
     );
   }
+}
+
+// ── Page transition sans animation ──────────────────────────────────────────
+class _NoAnimPageTransition extends PageTransitionsBuilder {
+  const _NoAnimPageTransition();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }
