@@ -1465,7 +1465,6 @@ class _SettingsItemToggle extends StatelessWidget {
                 fontSize: 14, fontWeight: FontWeight.w500))),
         Switch(
           value: value,
-          activeColor: _terra,
           onChanged: onChanged,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),

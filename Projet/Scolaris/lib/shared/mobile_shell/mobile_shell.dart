@@ -400,7 +400,7 @@ class _SmartHeader extends StatelessWidget {
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: sel ? _terra : Colors.transparent,
+                    color: sel ? Theme.of(context).colorScheme.primary : Colors.transparent,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [

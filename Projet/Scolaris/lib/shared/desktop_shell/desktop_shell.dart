@@ -1262,8 +1262,9 @@ class _SideItemState extends State<_SideItem> {
   @override
   Widget build(BuildContext context) {
     final active = widget.selected;
+    final cs = Theme.of(context).colorScheme;
     final bg = active
-        ? _terra
+        ? cs.primary
         : _hover
             ? _white.withOpacity(.08)
             : Colors.transparent;
