@@ -33,8 +33,7 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailCtrl = TextEditingController(text: 'student@scolaris.app');
   final _passCtrl  = TextEditingController(text: 'demo1234');
   final _form      = GlobalKey<FormState>();
@@ -45,8 +44,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   String _selectedRole    = 'student';
   String? _selectedSubtype = 'lycee';
   bool _showQrScanner  = false;
-
-  late final TabController _tabCtrl;
+  bool _showQrTab      = false;
 
   static const _roles = [
     ('student',      Icons.school_outlined,               'Étudiant'),
@@ -92,17 +90,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
 
   @override
-  void initState() {
-    super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
-    _tabCtrl.addListener(() { if (mounted) setState(() {}); });
-  }
-
-  @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
-    _tabCtrl.dispose();
     super.dispose();
   }
 
@@ -245,13 +235,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   boxShadow: [BoxShadow(color: _ink.withOpacity(.05), blurRadius: 24, offset: const Offset(0, 6))],
                 ),
                 child: Column(children: [
-                  _tabBar(),
+                  _customTabBar(),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
                     child: SizedBox(
                       height: 370,
                       child: IndexedStack(
-                        index: _tabCtrl.index,
+                        index: _showQrTab ? 1 : 0,
                         children: [
                           _buildEmailForm(),
                           _buildQrTab(),
@@ -319,29 +309,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  Widget _tabBar() {
+  Widget _customTabBar() {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F0EC),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F0EC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: TabBar(
-        controller: _tabCtrl,
-        labelColor: _terra,
-        unselectedLabelColor: _muted,
-        indicator: BoxDecoration(
-          color: _white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-          border: Border(bottom: BorderSide(color: _terra, width: 2.5)),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-        tabs: const [
-          Tab(text: 'Connexion'),
-          Tab(text: 'Scanner ID'),
-        ],
-      ),
+      child: Row(children: [
+        Expanded(child: GestureDetector(
+          onTap: () => setState(() => _showQrTab = false),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: !_showQrTab ? _white : Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              border: !_showQrTab
+                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text('Connexion',
+              style: TextStyle(
+                color: !_showQrTab ? _terra : _muted,
+                fontWeight: !_showQrTab ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+              )),
+          ),
+        )),
+        Expanded(child: GestureDetector(
+          onTap: () => setState(() => _showQrTab = true),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: _showQrTab ? _white : Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              border: _showQrTab
+                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text('Scanner ID',
+              style: TextStyle(
+                color: _showQrTab ? _terra : _muted,
+                fontWeight: _showQrTab ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+              )),
+          ),
+        )),
+      ]),
     );
   }
 
@@ -462,7 +477,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         _SecondaryBtn(
           label: 'Saisir mon code manuellement',
           icon: Icons.keyboard_outlined,
-          onTap: () => _tabCtrl.animateTo(0),
+          onTap: () => setState(() => _showQrTab = false),
         ),
       ],
     );
