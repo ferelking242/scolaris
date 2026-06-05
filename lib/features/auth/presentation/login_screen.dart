@@ -251,6 +251,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       height: 370,
                       child: TabBarView(
                         controller: _tabCtrl,
+                        physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildEmailForm(),
                           _buildQrTab(),
