@@ -16,6 +16,17 @@ import 'core/theme/theme_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
+
+  ErrorWidget.builder = (FlutterErrorDetails d) => Container(
+    color: const Color(0xFFFFCCCC),
+    padding: const EdgeInsets.all(6),
+    child: SingleChildScrollView(
+      child: Text(
+        'ERR: ${d.exception}',
+        style: const TextStyle(color: Color(0xFFCC0000), fontSize: 10),
+      ),
+    ),
+  );
   await OfflineStorage.init();
 
   await Supabase.initialize(
