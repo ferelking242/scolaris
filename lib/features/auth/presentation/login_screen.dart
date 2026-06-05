@@ -95,6 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl.addListener(() { if (mounted) setState(() {}); });
   }
 
   @override
@@ -249,9 +250,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
                     child: SizedBox(
                       height: 370,
-                      child: TabBarView(
-                        controller: _tabCtrl,
-                        physics: const NeverScrollableScrollPhysics(),
+                      child: IndexedStack(
+                        index: _tabCtrl.index,
                         children: [
                           _buildEmailForm(),
                           _buildQrTab(),
