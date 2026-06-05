@@ -238,16 +238,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   _customTabBar(),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                    child: SizedBox(
-                      height: 370,
-                      child: IndexedStack(
-                        index: _showQrTab ? 1 : 0,
-                        children: [
-                          _buildEmailForm(),
-                          _buildQrTab(),
-                        ],
-                      ),
-                    ),
+                    child: _showQrTab ? _buildQrTab() : _buildEmailForm(),
                   ),
                 ]),
               ),
