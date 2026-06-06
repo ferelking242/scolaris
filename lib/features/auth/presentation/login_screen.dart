@@ -36,8 +36,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailCtrl = TextEditingController(text: 'student@scolaris.app');
   final _passCtrl  = TextEditingController(text: 'demo1234');
-  final _form      = GlobalKey<FormState>();
-
   bool _loading  = false;
   bool _obscure  = true;
   String? _error;
@@ -128,7 +126,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    final email = _emailCtrl.text.trim();
+    final pass  = _passCtrl.text;
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'E-mail invalide');
+      return;
+    }
+    if (pass.isEmpty) {
+      setState(() => _error = 'Mot de passe requis');
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     try {
       await ref.read(signInUseCaseProvider)(
@@ -352,25 +359,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildEmailForm() {
-    return Form(
-      key: _form,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 20),
-          _fieldLabel('Adresse e-mail'),
-          const SizedBox(height: 6),
-          _STextField(
-            controller: _emailCtrl,
-            hint: 'nom@ecole.com',
-            icon: Icons.mail_outline_rounded,
-            keyboard: TextInputType.emailAddress,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'E-mail requis';
-              if (!v.contains('@')) return 'E-mail invalide';
-              return null;
-            },
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        _fieldLabel('Adresse e-mail'),
+        const SizedBox(height: 6),
+        _STextField(
+          controller: _emailCtrl,
+          hint: 'nom@ecole.com',
+          icon: Icons.mail_outline_rounded,
+          keyboard: TextInputType.emailAddress,
+        ),
           const SizedBox(height: 16),
           Row(children: [
             _fieldLabel('Mot de passe'),
@@ -398,7 +398,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   size: 18, color: _muted),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
-            validator: (v) => (v == null || v.isEmpty) ? 'Mot de passe requis' : null,
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -411,7 +410,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 16),
           _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
         ],
-      ),
     );
   }
 
@@ -939,19 +937,17 @@ class _STextField extends StatelessWidget {
   final bool obscure;
   final Widget? suffix;
   final TextInputType? keyboard;
-  final String? Function(String?)? validator;
   const _STextField({
     required this.controller, required this.hint, required this.icon,
-    this.obscure = false, this.suffix, this.keyboard, this.validator,
+    this.obscure = false, this.suffix, this.keyboard,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
+    return TextField(
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboard,
-      validator: validator,
       style: const TextStyle(fontSize: 14, color: _ink),
       decoration: InputDecoration(
         hintText: hint,
