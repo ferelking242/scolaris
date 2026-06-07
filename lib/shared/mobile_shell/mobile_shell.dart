@@ -262,6 +262,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                 ),
               ),
             ),
+          ),
 
             // 3 ─ Edge bubble
             if (_showEdgeBubble || (_menuCtrl.value > 0 && _menuCtrl.value < 0.15))
