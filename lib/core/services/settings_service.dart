@@ -8,6 +8,7 @@ class SettingsState {
   final bool contrasteEleve;
   final bool reduireAnimations;
   final bool partagerDonnees;
+  final bool afficherBarreOnglets;
 
   const SettingsState({
     this.notificationsPush = true,
@@ -15,6 +16,7 @@ class SettingsState {
     this.contrasteEleve = false,
     this.reduireAnimations = false,
     this.partagerDonnees = true,
+    this.afficherBarreOnglets = false,
   });
 
   SettingsState copyWith({
@@ -23,6 +25,7 @@ class SettingsState {
     bool? contrasteEleve,
     bool? reduireAnimations,
     bool? partagerDonnees,
+    bool? afficherBarreOnglets,
   }) =>
       SettingsState(
         notificationsPush: notificationsPush ?? this.notificationsPush,
@@ -30,6 +33,7 @@ class SettingsState {
         contrasteEleve: contrasteEleve ?? this.contrasteEleve,
         reduireAnimations: reduireAnimations ?? this.reduireAnimations,
         partagerDonnees: partagerDonnees ?? this.partagerDonnees,
+        afficherBarreOnglets: afficherBarreOnglets ?? this.afficherBarreOnglets,
       );
 }
 
@@ -49,6 +53,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
           box.get('reduire_animations', defaultValue: false) as bool,
       partagerDonnees:
           box.get('partager_donnees', defaultValue: true) as bool,
+      afficherBarreOnglets:
+          box.get('afficher_barre_onglets', defaultValue: false) as bool,
     );
   }
 
@@ -75,6 +81,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setPartagerDonnees(bool v) {
     OfflineStorage.settings.put('partager_donnees', v);
     state = state.copyWith(partagerDonnees: v);
+  }
+
+  void setAfficherBarreOnglets(bool v) {
+    OfflineStorage.settings.put('afficher_barre_onglets', v);
+    state = state.copyWith(afficherBarreOnglets: v);
   }
 }
 
