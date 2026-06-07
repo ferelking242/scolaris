@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
@@ -220,6 +221,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                             onAccount: _openAccount,
                             pageIndex: _pageIndex,
                             entries: widget.drawerEntries,
+                            showTabBar: ref.watch(settingsProvider).afficherBarreOnglets,
                             onTabTap: (i) {
                               if (_menuOpen) _closeMenu();
                               setState(() => _pageIndex = i);
@@ -304,12 +306,13 @@ class _SmartHeader extends StatelessWidget {
   final List<RoleNavEntry> entries;
   final ValueChanged<int> onTabTap;
 
+  final bool showTabBar;
   const _SmartHeader({
     required this.title, required this.user,
     required this.onMenu, required this.onSearch,
     required this.onNotifications, required this.onAccount,
     required this.pageIndex, required this.entries,
-    required this.onTabTap,
+    required this.onTabTap, required this.showTabBar,
   });
 
   @override
@@ -375,44 +378,45 @@ class _SmartHeader extends StatelessWidget {
           ]),
         ),
 
-        // ── Tab nav bar ───────────────────────────────────────────────────
-        Container(
-          color: _white,
-          height: 44,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            itemCount: entries.length,
-            itemBuilder: (ctx, i) {
-              final e   = entries[i];
-              final sel = i == pageIndex;
-              return GestureDetector(
-                onTap: () => onTabTap(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: sel ? _terra : Colors.transparent,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+        // ── Tab nav bar (optionnel) ───────────────────────────────────────
+        if (showTabBar) ...[
+          Container(
+            color: _white,
+            height: 44,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              itemCount: entries.length,
+              itemBuilder: (ctx, i) {
+                final e   = entries[i];
+                final sel = i == pageIndex;
+                return GestureDetector(
+                  onTap: () => onTabTap(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: sel ? _terra : Colors.transparent,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(sel ? (e.activeIcon ?? e.icon) : e.icon,
+                          size: 15, color: sel ? _white : _muted),
+                      const SizedBox(width: 6),
+                      Text(e.labelKey.tr(),
+                          style: TextStyle(
+                              color: sel ? _white : _muted,
+                              fontSize: 12.5,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+                    ]),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(sel ? (e.activeIcon ?? e.icon) : e.icon,
-                        size: 15, color: sel ? _white : _muted),
-                    const SizedBox(width: 6),
-                    Text(e.labelKey.tr(),
-                        style: TextStyle(
-                            color: sel ? _white : _muted,
-                            fontSize: 12.5,
-                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
-                  ]),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-
-        Container(height: 1, color: const Color(0xFFEEE5D8)),
+          Container(height: 1, color: const Color(0xFFEEE5D8)),
+        ],
       ],
     );
   }
