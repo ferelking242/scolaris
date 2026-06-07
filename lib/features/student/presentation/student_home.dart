@@ -254,18 +254,8 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ],
             const SizedBox(height: 22),
 
-            // ── 5. Devoirs + Dernières notes (2 cols sur desktop) ──────
-            if (isWide)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildDevoirsSection()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildRecentNotesSection()),
-              ])
-            else ...[
-              _buildDevoirsSection(),
-              const SizedBox(height: 22),
-              _buildRecentNotesSection(),
-            ],
+            // ── 5. Dernières notes ─────────────────────────────────────
+            _buildRecentNotesSection(),
           ]);
         }),
       ),
@@ -628,7 +618,7 @@ class _QuickStats extends StatelessWidget {
     (icon: Icons.star_rounded,         label: 'Moyenne',  val: '15.4', sub: '/20',       c: _gold),
     (icon: Icons.check_circle_rounded, label: 'Présence', val: '96',   sub: ' %',        c: _green),
     (icon: Icons.assignment_rounded,   label: 'Devoirs',  val: '3',    sub: ' en cours', c: _terra),
-    (icon: Icons.leaderboard_rounded,  label: 'Rang',     val: '4e',   sub: ' / 32',     c: _purple),
+    (icon: Icons.leaderboard_rounded,  label: 'Rang',     val: '4e',   sub: ' / 32',     c: _orange),
   ];
 
   @override
@@ -758,30 +748,30 @@ class _SmallBadge extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Raccourcis premium animés
+// Raccourcis minimalistes — flat, pas de dégradé, couleurs thème uniquement
 // ══════════════════════════════════════════════════════════════════════════
 class _PremiumShortcutsGrid extends StatelessWidget {
   final Map<String, VoidCallback> onTap;
   const _PremiumShortcutsGrid({required this.onTap});
 
   static const _items = [
-    (key: 'notes',       icon: Icons.grading_rounded,          label: 'Notes',        sub: 'Résultats',   grad: [Color(0xFFC17F24), Color(0xFFE8A83A)]),
-    (key: 'edt',         icon: Icons.calendar_month_rounded,    label: 'Emploi',       sub: 'du temps',    grad: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
-    (key: 'devoirs',     icon: Icons.assignment_rounded,         label: 'Devoirs',      sub: '2 urgents',   grad: [Color(0xFFD4540A), Color(0xFFEF6C00)]),
-    (key: 'presences',   icon: Icons.fact_check_rounded,         label: 'Présences',    sub: '96% T2',      grad: [Color(0xFF1B5E20), Color(0xFF388E3C)]),
-    (key: 'cours',       icon: Icons.menu_book_rounded,          label: 'Cours',        sub: 'Catalogue',   grad: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
-    (key: 'bibliotheque',icon: Icons.local_library_rounded,      label: 'Biblio.',      sub: 'Ressources',  grad: [Color(0xFF7B341E), Color(0xFFB44000)]),
-    (key: 'messages',    icon: Icons.chat_rounded,               label: 'Messages',     sub: '1 nouveau',   grad: [Color(0xFF7C3AED), Color(0xFFA855F7)]),
-    (key: 'bulletin',    icon: Icons.receipt_long_rounded,        label: 'Bulletin',     sub: 'Trimestriel', grad: [Color(0xFF0891B2), Color(0xFF06B6D4)]),
-    (key: 'features',    icon: Icons.apps_rounded,               label: 'Tout',         sub: 'Explorer',    grad: [Color(0xFF374151), Color(0xFF6B7280)]),
+    (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',      c: _gold),
+    (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',     c: _terra),
+    (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',  c: _green),
+    (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',      c: _terra),
+    (key: 'devoirs',      icon: Icons.assignment_rounded,       label: 'Devoirs',    c: _orange),
+    (key: 'bulletin',     icon: Icons.receipt_long_rounded,     label: 'Bulletin',   c: _gold),
+    (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
+    (key: 'messages',     icon: Icons.chat_rounded,             label: 'Messages',   c: _ink),
+    (key: 'features',     icon: Icons.apps_rounded,             label: 'Tout',       c: _muted),
   ];
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, c) {
       final isWide = c.maxWidth > 600;
-      final cols = isWide ? 5 : 3;
-      final ratio = isWide ? 1.45 : 0.88;
+      final cols  = isWide ? 5 : 3;
+      final ratio = isWide ? 2.0 : 1.35;
       return GridView.count(
         crossAxisCount: cols,
         shrinkWrap: true,
@@ -789,111 +779,49 @@ class _PremiumShortcutsGrid extends StatelessWidget {
         crossAxisSpacing: 10, mainAxisSpacing: 10,
         childAspectRatio: ratio,
         children: _items.map((item) =>
-            _PremiumCard(item: item, onTap: onTap[item.key])).toList(),
+            _ShortcutCard(item: item, onTap: onTap[item.key])).toList(),
       );
     });
   }
 }
 
-class _PremiumCard extends StatefulWidget {
-  final ({String key, IconData icon, String label, String sub, List<Color> grad}) item;
+class _ShortcutCard extends StatelessWidget {
+  final ({String key, IconData icon, String label, Color c}) item;
   final VoidCallback? onTap;
-  const _PremiumCard({required this.item, this.onTap});
-
-  @override
-  State<_PremiumCard> createState() => _PremiumCardState();
-}
-
-class _PremiumCardState extends State<_PremiumCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-  bool _pressed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  const _ShortcutCard({required this.item, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final grad = widget.item.grad;
-    return GestureDetector(
-      onTapDown: (_) { _ctrl.forward(); setState(() => _pressed = true); },
-      onTapUp: (_) { _ctrl.reverse(); setState(() => _pressed = false); widget.onTap?.call(); },
-      onTapCancel: () { _ctrl.reverse(); setState(() => _pressed = false); },
-      child: ScaleTransition(
-        scale: _scale,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+    return Material(
+      color: _white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: grad,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: grad.first.withOpacity(_pressed ? 0.55 : 0.40),
-                blurRadius: _pressed ? 18 : 12,
-                offset: Offset(0, _pressed ? 7 : 5),
-                spreadRadius: -2,
-              ),
-              BoxShadow(
-                color: _white.withOpacity(0.12),
-                blurRadius: 1,
-                offset: const Offset(0, 1),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: item.c.withOpacity(0.15)),
           ),
-          padding: const EdgeInsets.all(11),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icon avec effet lumière
-              Stack(children: [
-                Container(
-                  width: 34, height: 34,
-                  decoration: BoxDecoration(
-                    color: _white.withOpacity(0.22),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _white.withOpacity(0.30)),
-                  ),
-                  child: Icon(widget.item.icon, color: _white, size: 18),
+              Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: item.c.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(9),
                 ),
-                // Effet brillance
-                Positioned(top: 0, right: 0,
-                  child: Container(
-                    width: 10, height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _white.withOpacity(0.30),
-                    ),
-                  ),
-                ),
-              ]),
-              // Labels
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(widget.item.label, style: const TextStyle(
-                    color: _white, fontSize: 11.5, fontWeight: FontWeight.w800,
-                    shadows: [Shadow(color: Color(0x44000000), blurRadius: 4)]),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(widget.item.sub, style: TextStyle(
-                    color: _white.withOpacity(0.72), fontSize: 9,
-                    fontWeight: FontWeight.w600),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
+                child: Icon(item.icon, color: item.c, size: 17),
+              ),
+              const SizedBox(height: 6),
+              Text(item.label,
+                  style: TextStyle(
+                      color: _ink,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -1384,11 +1312,11 @@ class _AnnouncementsCard extends StatelessWidget {
      title: 'Examens de fin de trimestre',
      body: 'Les examens T2 auront lieu du 23 au 27 juin.',
      author: 'Direction', time: 'Il y a 2h'),
-    (icon: Icons.calculate_rounded, color: Color(0xFF6D28D9),
+    (icon: Icons.calculate_rounded, color: Color(0xFFC17F24),
      title: 'Nouveau programme de maths',
      body: 'Le chapitre 9 sur les probabilités est disponible.',
      author: 'M. Dupont', time: 'Il y a 5h'),
-    (icon: Icons.park_rounded, color: Color(0xFF0891B2),
+    (icon: Icons.park_rounded, color: Color(0xFF1B5E20),
      title: 'Sortie botanique SVT',
      body: 'Autorisations parentales avant le 15 juin.',
      author: 'Dr. Yao', time: 'Hier'),
@@ -1443,10 +1371,10 @@ class _EventsCard extends StatelessWidget {
   const _EventsCard();
 
   static const _events = [
-    (title: 'Conseil de classe T2',    date: '12 Juin', type: 'Académique', color: Color(0xFF6D28D9)),
-    (title: 'Sortie botanique SVT',    date: '18 Juin', type: 'Sortie',     color: Color(0xFF0891B2)),
+    (title: 'Conseil de classe T2',    date: '12 Juin', type: 'Académique', color: Color(0xFFC17F24)),
+    (title: 'Sortie botanique SVT',    date: '18 Juin', type: 'Sortie',     color: Color(0xFF1B5E20)),
     (title: 'Examens fin T2',          date: '25 Juin', type: 'Examen',     color: Color(0xFF8B1A00)),
-    (title: 'Journée portes ouvertes', date: '5 Juil',  type: 'École',      color: Color(0xFFC17F24)),
+    (title: 'Journée portes ouvertes', date: '5 Juil',  type: 'École',      color: Color(0xFFD4540A)),
   ];
 
   @override

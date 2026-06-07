@@ -75,7 +75,8 @@
     "notifications": "Arifa",
     "receipts": "Risiti",
     "my_payments": "Ada Zangu",
-    "documents": "Nyaraka Zangu"
+    "documents": "Nyaraka Zangu",
+    "settings": "Mipangilio"
   },
   "dashboard": {
     "hello": "Habari, {name}",

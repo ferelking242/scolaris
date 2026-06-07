@@ -77,7 +77,8 @@
     "my_payments": "My Fees",
     "documents": "My Documents",
     "news": "News",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "settings": "Settings"
   },
   "dashboard": {
     "hello": "Hello, {name}",

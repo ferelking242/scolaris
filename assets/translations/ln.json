@@ -75,7 +75,8 @@
     "notifications": "Bandimisi",
     "receipts": "Barisiti",
     "my_payments": "Mbongo na Ngai",
-    "documents": "Mikanda na Ngai"
+    "documents": "Mikanda na Ngai",
+    "settings": "Bilanga"
   },
   "dashboard": {
     "hello": "Mbote, {name}",

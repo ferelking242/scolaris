@@ -75,7 +75,8 @@
     "notifications": "Notifications",
     "receipts": "Reçus",
     "my_payments": "Ma Scolarité",
-    "documents": "Mes Documents"
+    "documents": "Mes Documents",
+    "settings": "Paramètres"
   },
   "dashboard": {
     "hello": "Bonjour, {name}",

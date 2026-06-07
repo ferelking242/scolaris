@@ -579,7 +579,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 4, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -630,17 +630,18 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                   color: _white.withOpacity(.7), size: 20),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          // X close — même taille que l'avatar
-                          GestureDetector(
-                            onTap: widget.onClose,
-                            child: Container(
-                              width: 44, height: 44,
-                              decoration: BoxDecoration(
-                                color: _white.withOpacity(.10),
-                                shape: BoxShape.circle,
+                          const SizedBox(width: 6),
+                          // X close
+                          Material(
+                            color: _white.withOpacity(.14),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: widget.onClose,
+                              child: const SizedBox(
+                                width: 38, height: 38,
+                                child: Icon(Icons.close_rounded, color: _white, size: 19),
                               ),
-                              child: const Icon(Icons.close_rounded, color: _white, size: 20),
                             ),
                           ),
                         ]),
