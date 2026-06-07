@@ -295,6 +295,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onChanged: (m) =>
                         ref.read(themeControllerProvider.notifier).setMode(m),
                   ),
+                  _SettingsItemToggle(
+                    icon: Icons.tab_rounded,
+                    color: _orange,
+                    label: 'Barre d\'onglets',
+                    value: settings.afficherBarreOnglets,
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).setAfficherBarreOnglets(v),
+                  ),
                 ],
               ),
 
