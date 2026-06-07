@@ -82,9 +82,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _onAnim() {
     final t = _menuAnim.value;
     setState(() {
-      _scale  = 1 - 0.10 * t;
+      _scale  = 1 - 0.12 * t;
       _xShift = 0.68 * t;
-      _yShift = 0.05 * t;   // slight downward push so sidebar top icons are visible
+      _yShift = 0.095 * t;
       _radius = 28 * t;
     });
   }
@@ -149,7 +149,8 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _openAccount() {
     if (_menuOpen) _closeMenu();
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const AccountPage()));
+        MaterialPageRoute(builder: (_) => const _FullPage(
+            title: 'Mon compte', child: AccountPage())));
   }
 
   @override
@@ -196,9 +197,21 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   borderRadius: BorderRadius.circular(_radius),
                   boxShadow: _menuOpen ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
-                      blurRadius: 32,
-                      offset: const Offset(-8, 0),
+                      color: Colors.black.withOpacity(0.38),
+                      blurRadius: 40,
+                      offset: const Offset(-6, 0),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 80,
+                      spreadRadius: -4,
+                      offset: const Offset(-2, 28),
+                    ),
+                    BoxShadow(
+                      color: _terra.withOpacity(0.08),
+                      blurRadius: 60,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 40),
                     ),
                   ] : [],
                 ),
@@ -207,7 +220,8 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   behavior: HitTestBehavior.translucent,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(_radius),
-                    child: Scaffold(
+                    child: Stack(children: [
+                      Scaffold(
                       backgroundColor: _pageBg,
                       body: SafeArea(
                         bottom: true,
@@ -236,7 +250,15 @@ class _MobileShellState extends ConsumerState<MobileShell>
                         ]),
                       ),
                     ),
-                  ),
+                      // Overlay: bloque toute interaction quand le menu est ouvert
+                      if (_menuOpen)
+                        Positioned.fill(
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: (_) => _closeMenu(),
+                          ),
+                        ),
+                  ]),
                 ),
               ),
             ),
@@ -505,6 +527,7 @@ class _SidebarPanel extends StatefulWidget {
 
 class _SidebarPanelState extends State<_SidebarPanel> {
   String _activeKey = '';
+  bool   _accountExpanded = false;
 
   @override
   void initState() {
@@ -551,60 +574,147 @@ class _SidebarPanelState extends State<_SidebarPanel> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top: account icon + X ──────────────────────────────
+                // ── Top: account switcher + X ─────────────────────────
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
-                    child: Row(children: [
-                      // Account circle icon
-                      GestureDetector(
-                        onTap: widget.onAccount,
-                        child: Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _white.withOpacity(.12),
-                            border: Border.all(color: _gold.withOpacity(.4), width: 1.5),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Row: avatar + info + chevron + X
+                        Row(children: [
+                          // Avatar
+                          GestureDetector(
+                            onTap: widget.onAccount,
+                            child: Container(
+                              width: 44, height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _white.withOpacity(.12),
+                                border: Border.all(color: _gold.withOpacity(.4), width: 1.5),
+                              ),
+                              child: Center(child: Text(initials,
+                                  style: const TextStyle(color: _white,
+                                      fontWeight: FontWeight.w800, fontSize: 16))),
+                            ),
                           ),
-                          child: Center(
-                            child: Text(initials,
-                                style: const TextStyle(color: _white,
-                                    fontWeight: FontWeight.w800, fontSize: 16)),
+                          const SizedBox(width: 10),
+                          // Name + role
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(
+                                  user?.fullName ?? 'Utilisateur',
+                                  style: const TextStyle(color: _white,
+                                      fontSize: 14, fontWeight: FontWeight.w700),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  (widget.user?.role.name ?? 'user').toUpperCase(),
+                                  style: TextStyle(color: _gold.withOpacity(.8),
+                                      fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.1),
+                                ),
+                              ]),
+                            ),
                           ),
-                        ),
-                      ),
-                      const Spacer(),
-                      // X close button
-                      GestureDetector(
-                        onTap: widget.onClose,
-                        child: Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: _white.withOpacity(.10),
-                            shape: BoxShape.circle,
+                          // Chevron pour déplie comptes
+                          GestureDetector(
+                            onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                            child: AnimatedRotation(
+                              turns: _accountExpanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 220),
+                              child: Icon(Icons.expand_more_rounded,
+                                  color: _white.withOpacity(.7), size: 20),
+                            ),
                           ),
-                          child: const Icon(Icons.close_rounded, color: _white, size: 18),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
+                          const SizedBox(width: 8),
+                          // X close — même taille que l'avatar
+                          GestureDetector(
+                            onTap: widget.onClose,
+                            child: Container(
+                              width: 44, height: 44,
+                              decoration: BoxDecoration(
+                                color: _white.withOpacity(.10),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, color: _white, size: 20),
+                            ),
+                          ),
+                        ]),
 
-                // ── Role badge ─────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _gold.withOpacity(.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _gold.withOpacity(.3)),
-                    ),
-                    child: Text(
-                      (widget.user?.role.name ?? 'user').toUpperCase(),
-                      style: const TextStyle(color: _gold, fontSize: 10,
-                          fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                        // ── Compte switcher expandable ──────────────────
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          child: _accountExpanded
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: _white.withOpacity(.06),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: _white.withOpacity(.08)),
+                                    ),
+                                    child: Column(children: [
+                                      _AccountTile(
+                                        initials: 'AD',
+                                        name: 'Admin École',
+                                        role: 'admin',
+                                        isActive: false,
+                                        onTap: () {},
+                                      ),
+                                      Container(height: .5, color: _white.withOpacity(.08)),
+                                      _AccountTile(
+                                        initials: 'PR',
+                                        name: 'Prof. Martin',
+                                        role: 'teacher',
+                                        isActive: false,
+                                        onTap: () {},
+                                      ),
+                                      Container(height: .5, color: _white.withOpacity(.08)),
+                                      // Ajouter un compte
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: const BorderRadius.vertical(
+                                              bottom: Radius.circular(14)),
+                                          onTap: () {},
+                                          splashColor: _gold.withOpacity(.1),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 12),
+                                            child: Row(children: [
+                                              Container(
+                                                width: 34, height: 34,
+                                                decoration: BoxDecoration(
+                                                  color: _gold.withOpacity(.15),
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                      color: _gold.withOpacity(.3),
+                                                      style: BorderStyle.solid),
+                                                ),
+                                                child: const Icon(Icons.add_rounded,
+                                                    color: _gold, size: 18),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              const Text('Ajouter un compte',
+                                                  style: TextStyle(
+                                                      color: _gold,
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600)),
+                                            ]),
+                                          ),
+                                        ),
+                                      ),
+                                    ]),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
                 ),
@@ -675,6 +785,57 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                 ),
               ],
             ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Account tile for switcher ─────────────────────────────────────────────
+class _AccountTile extends StatelessWidget {
+  final String initials, name, role;
+  final bool isActive;
+  final VoidCallback onTap;
+  const _AccountTile({
+    required this.initials, required this.name,
+    required this.role, required this.isActive, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: _gold.withOpacity(.1),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(children: [
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive ? _gold.withOpacity(.25) : _white.withOpacity(.10),
+                border: isActive ? Border.all(color: _gold.withOpacity(.5)) : null,
+              ),
+              child: Center(child: Text(initials,
+                  style: TextStyle(
+                      color: isActive ? _gold : _white.withOpacity(.7),
+                      fontSize: 12, fontWeight: FontWeight.w800))),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: TextStyle(
+                  color: isActive ? _white : _white.withOpacity(.8),
+                  fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400)),
+              Text(role.toUpperCase(), style: TextStyle(
+                  color: _gold.withOpacity(.6), fontSize: 9,
+                  fontWeight: FontWeight.w700, letterSpacing: 1.0)),
+            ])),
+            if (isActive)
+              Container(width: 6, height: 6,
+                  decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
           ]),
         ),
       ),
