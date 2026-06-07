@@ -198,194 +198,152 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
       color: _bg,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: LayoutBuilder(builder: (_, constraints) {
+          final isWide = constraints.maxWidth > 680;
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── 1. Hero profil ────────────────────────────────────────
-          _HeroCard(
-            greeting: _greeting, name: name, initials: initials,
-            loading: _loading,
-          ),
-          const SizedBox(height: 14),
-
-          // ── 2. Stats rapides ──────────────────────────────────────
-          _QuickStats(loading: _loading),
-          const SizedBox(height: 20),
-
-          // ── 3. Accès rapide (cartes premium animées) ──────────────
-          _SectionHeader(
-            icon: Icons.flash_on_rounded,
-            title: 'Accès rapide',
-            iconGradient: [_gold, _orange],
-          ),
-          const SizedBox(height: 10),
-          _PremiumShortcutsGrid(onTap: {
-            'notes':         () => _push(const GradesPage()),
-            'edt':           () => _push(const SchedulePage()),
-            'devoirs':       () => _push(const HomeworkStudentPage()),
-            'presences':     () => _push(const AttendancePage()),
-            'cours':         () => _push(const CoursesPage()),
-            'messages':      () => _push(const MessagingPage()),
-            'bulletin':      () => _push(const BulletinPage()),
-            'bibliotheque':  () => _push(const LibraryPage()),
-            'features':      () => _push(const FeaturesHubPage()),
-          }),
-          const SizedBox(height: 22),
-
-          // ── 4. Résumé présences ───────────────────────────────────
-          _SectionHeader(
-            icon: Icons.fact_check_rounded,
-            title: 'Résumé des présences',
-            iconGradient: [_green, const Color(0xFF2E7D32)],
-            action: 'Voir tout',
-            onAction: () => _push(const AttendancePage()),
-          ),
-          const SizedBox(height: 10),
-          _AttendanceSummaryCard(onTap: () => _push(const AttendancePage())),
-          const SizedBox(height: 22),
-
-          // ── 5. EDT du jour ────────────────────────────────────────
-          _SectionHeader(
-            icon: Icons.calendar_today_rounded,
-            title: 'Emploi du temps du jour',
-            iconGradient: [_terra, _orange],
-            action: 'Tout voir',
-            onAction: () => _push(const SchedulePage()),
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: _EdtTimeline(slots: _edt),
-          ),
-          const SizedBox(height: 22),
-
-          // ── 6. Progression des notes ──────────────────────────────
-          _SectionHeader(
-            icon: Icons.show_chart_rounded,
-            title: 'Progression des notes',
-            iconGradient: [_gold, _orange],
-            trailing: _SmallBadge('5 semaines', _green),
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: _NoteProgressionChart(
-              values: _moyenneProgression,
-              labels: _semLabels,
+            // ── 1. Greeting slim ──────────────────────────────────────
+            _SlimGreeting(
+              greeting: _greeting, name: name,
+              initials: initials, loading: _loading,
             ),
-          ),
-          const SizedBox(height: 22),
+            const SizedBox(height: 18),
 
-          // ── 7. Absences graphique ─────────────────────────────────
-          _SectionHeader(
-            icon: Icons.bar_chart_rounded,
-            title: 'Présences · Absences',
-            iconGradient: [_terra, _orange],
-            trailing: _SmallBadge('T2', _terra),
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: _AbsenceChart(absences: _absences, labels: _semLabels),
-          ),
-          const SizedBox(height: 22),
+            // ── 2. Stats rapides ──────────────────────────────────────
+            _QuickStats(loading: _loading),
+            const SizedBox(height: 22),
 
-          // ── 8. Devoirs urgents ────────────────────────────────────
-          _SectionHeader(
-            icon: Icons.assignment_late_rounded,
-            title: 'Devoirs à rendre',
-            iconGradient: [_orange, const Color(0xFFBF360C)],
-            action: 'Voir tout',
-            onAction: () => _push(const HomeworkStudentPage()),
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: Column(children: [
-              for (final d in _devoirs) ...[
-                _DevoirCard(sub: d.sub, titre: d.titre,
-                    echeance: d.echeance, color: d.c,
-                    onTap: () => _push(const HomeworkStudentPage())),
-                const SizedBox(height: 8),
-              ],
-            ]),
-          ),
-          const SizedBox(height: 22),
+            // ── 3. Accès rapide ───────────────────────────────────────
+            _SectionHeader(
+              icon: Icons.apps_rounded,
+              title: 'Accès rapide',
+              iconGradient: [_terra, _orange],
+            ),
+            const SizedBox(height: 10),
+            _PremiumShortcutsGrid(onTap: {
+              'notes':         () => _push(const GradesPage()),
+              'edt':           () => _push(const SchedulePage()),
+              'devoirs':       () => _push(const HomeworkStudentPage()),
+              'presences':     () => _push(const AttendancePage()),
+              'cours':         () => _push(const CoursesPage()),
+              'messages':      () => _push(const MessagingPage()),
+              'bulletin':      () => _push(const BulletinPage()),
+              'bibliotheque':  () => _push(const LibraryPage()),
+              'features':      () => _push(const FeaturesHubPage()),
+            }),
+            const SizedBox(height: 24),
 
-          // ── 9. Dernières notes ────────────────────────────────────
-          _SectionHeader(
-            icon: Icons.grading_rounded,
-            title: 'Dernières notes',
-            iconGradient: [_gold, const Color(0xFFF57F17)],
-            action: 'Toutes les notes',
-            onAction: () => _push(const GradesPage()),
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: Column(children: [
-              for (final n in _recentNotes) ...[
-                _NoteRow(sub: n.sub, note: n.n, max: n.max,
-                    date: n.d, color: n.c,
-                    onTap: () => _push(const GradesPage())),
-                const SizedBox(height: 8),
-              ],
-            ]),
-          ),
-          const SizedBox(height: 22),
+            // ── 4. EDT + Progression notes (2 cols sur desktop) ───────
+            if (isWide)
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _buildEdtSection()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildNotesChartSection()),
+              ])
+            else ...[
+              _buildEdtSection(),
+              const SizedBox(height: 22),
+              _buildNotesChartSection(),
+            ],
+            const SizedBox(height: 22),
 
-          // ── 10. Annonces ──────────────────────────────────────────
-          _SectionHeader(
-            icon: Icons.campaign_rounded,
-            title: 'Dernières annonces',
-            iconGradient: [_purple, const Color(0xFF5B21B6)],
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: const _AnnouncementsCard(),
-          ),
-          const SizedBox(height: 22),
-
-          // ── 11. Calendrier événements ─────────────────────────────
-          _SectionHeader(
-            icon: Icons.event_rounded,
-            title: 'Événements à venir',
-            iconGradient: [_cyan, const Color(0xFF006064)],
-          ),
-          const SizedBox(height: 10),
-          Skeletonizer(
-            enabled: _loading,
-            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-            child: const _EventsCard(),
-          ),
-          const SizedBox(height: 22),
-
-          // ── 12. Bulletin résumé ───────────────────────────────────
-          _BulletinSummaryCard(onTap: () => _push(const BulletinPage())),
-          const SizedBox(height: 22),
-
-          // ── 13. Statistiques hebdo ────────────────────────────────
-          _SectionHeader(
-            icon: Icons.analytics_rounded,
-            title: 'Statistiques hebdomadaires',
-            iconGradient: [_green, _cyan],
-          ),
-          const SizedBox(height: 10),
-          const _WeeklyStatsCard(),
-          const SizedBox(height: 22),
-
-          // ── 14. Citation africaine ────────────────────────────────
-          const _AfricanQuote(),
-        ]),
+            // ── 5. Devoirs + Dernières notes (2 cols sur desktop) ──────
+            if (isWide)
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _buildDevoirsSection()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildRecentNotesSection()),
+              ])
+            else ...[
+              _buildDevoirsSection(),
+              const SizedBox(height: 22),
+              _buildRecentNotesSection(),
+            ],
+          ]);
+        }),
       ),
     );
   }
+
+  Widget _buildEdtSection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _SectionHeader(
+        icon: Icons.calendar_today_rounded,
+        title: 'Emploi du temps du jour',
+        iconGradient: [_terra, _orange],
+        action: 'Tout voir',
+        onAction: () => _push(const SchedulePage()),
+      ),
+      const SizedBox(height: 10),
+      Skeletonizer(
+        enabled: _loading,
+        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+        child: _EdtTimeline(slots: _edt),
+      ),
+    ],
+  );
+
+  Widget _buildNotesChartSection() => Skeletonizer(
+    enabled: _loading,
+    effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+    child: _NoteProgressionChart(
+      values: _moyenneProgression,
+      labels: _semLabels,
+    ),
+  );
+
+  Widget _buildDevoirsSection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _SectionHeader(
+        icon: Icons.assignment_late_rounded,
+        title: 'Devoirs à rendre',
+        iconGradient: [_orange, const Color(0xFFBF360C)],
+        action: 'Voir tout',
+        onAction: () => _push(const HomeworkStudentPage()),
+      ),
+      const SizedBox(height: 10),
+      Skeletonizer(
+        enabled: _loading,
+        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+        child: Column(children: [
+          for (final d in _devoirs) ...[
+            _DevoirCard(sub: d.sub, titre: d.titre,
+                echeance: d.echeance, color: d.c,
+                onTap: () => _push(const HomeworkStudentPage())),
+            const SizedBox(height: 8),
+          ],
+        ]),
+      ),
+    ],
+  );
+
+  Widget _buildRecentNotesSection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _SectionHeader(
+        icon: Icons.grading_rounded,
+        title: 'Dernières notes',
+        iconGradient: [_gold, const Color(0xFFF57F17)],
+        action: 'Toutes',
+        onAction: () => _push(const GradesPage()),
+      ),
+      const SizedBox(height: 10),
+      Skeletonizer(
+        enabled: _loading,
+        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+        child: Column(children: [
+          for (final n in _recentNotes) ...[
+            _NoteRow(sub: n.sub, note: n.n, max: n.max,
+                date: n.d, color: n.c,
+                onTap: () => _push(const GradesPage())),
+            const SizedBox(height: 8),
+          ],
+        ]),
+      ),
+    ],
+  );
 
   String _initials(String name) {
     final p = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
@@ -396,7 +354,54 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Hero profil — design premium social
+// Greeting slim — replaces HeroCard
+// ══════════════════════════════════════════════════════════════════════════
+class _SlimGreeting extends StatelessWidget {
+  final String greeting, name, initials;
+  final bool loading;
+  const _SlimGreeting({
+    required this.greeting, required this.name,
+    required this.initials, required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [_terra, _orange],
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(
+            color: _terra.withOpacity(0.28),
+            blurRadius: 10, offset: const Offset(0, 4),
+          )],
+        ),
+        child: Center(child: Text(initials,
+            style: const TextStyle(color: _white,
+                fontSize: 18, fontWeight: FontWeight.w900))),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(greeting, style: const TextStyle(color: _muted, fontSize: 12)),
+        Text(name, style: const TextStyle(color: _ink,
+            fontSize: 17, fontWeight: FontWeight.w800, height: 1.2)),
+      ])),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        const Text('Terminale A',
+            style: TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+        const Text('Trimestre 2',
+            style: TextStyle(color: _muted, fontSize: 11)),
+      ]),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Hero profil — design premium social (kept for reference)
 // ══════════════════════════════════════════════════════════════════════════
 class _HeroCard extends StatelessWidget {
   final String greeting, name, initials;
@@ -613,9 +618,10 @@ class _QuickStats extends StatelessWidget {
   const _QuickStats({required this.loading});
 
   static const _data = [
-    (icon: Icons.star_rounded,         label: 'Moyenne',  val: '15.4', sub: '/20',      c: _gold),
-    (icon: Icons.check_circle_rounded, label: 'Présence', val: '96',   sub: ' %',       c: _green),
+    (icon: Icons.star_rounded,         label: 'Moyenne',  val: '15.4', sub: '/20',       c: _gold),
+    (icon: Icons.check_circle_rounded, label: 'Présence', val: '96',   sub: ' %',        c: _green),
     (icon: Icons.assignment_rounded,   label: 'Devoirs',  val: '3',    sub: ' en cours', c: _terra),
+    (icon: Icons.leaderboard_rounded,  label: 'Rang',     val: '4e',   sub: ' / 32',     c: _purple),
   ];
 
   @override
@@ -640,24 +646,32 @@ class _QuickStatPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-      decoration: ScolarisSurface.accent(color: d.c, radius: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEEE5D8)),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8, offset: const Offset(0, 2),
+        )],
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           width: 28, height: 28,
           decoration: BoxDecoration(
-              color: d.c.withOpacity(0.18), borderRadius: BorderRadius.circular(8)),
+              color: d.c.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
           child: Icon(d.icon, color: d.c, size: 14),
         ),
         const SizedBox(height: 7),
-        Text(d.label, style: TextStyle(
-            color: d.c.withOpacity(0.75), fontSize: 10, fontWeight: FontWeight.w700)),
+        Text(d.label, style: const TextStyle(
+            color: _muted, fontSize: 10, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
         RichText(text: TextSpan(children: [
           TextSpan(text: d.val,
-              style: TextStyle(color: d.c, fontSize: 18, fontWeight: FontWeight.w900)),
+              style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w900)),
           TextSpan(text: d.sub,
-              style: TextStyle(color: d.c.withOpacity(0.65), fontSize: 10)),
+              style: const TextStyle(color: _muted, fontSize: 10)),
         ])),
       ]),
     );
