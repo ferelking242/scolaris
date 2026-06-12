@@ -75,6 +75,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   int _flatIndex = 0;
   _SideMode _mode = _SideMode.icons;
   String _selectedSchool = 'Pointe-Noire';
+  bool _showSettings = false;
+  bool _showNotifs   = false;
 
   List<DesktopNavItem> get _flatItems =>
       [for (final g in widget.groups) ...g.items];
@@ -82,6 +84,9 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   void _toggle() => setState(() {
     _mode = _mode == _SideMode.full ? _SideMode.icons : _SideMode.full;
   });
+  void _openSettings() => setState(() { _showSettings = true;  _showNotifs = false; });
+  void _openNotifs()   => setState(() { _showNotifs   = true;  _showSettings = false; });
+  void _closeOverlay() => setState(() { _showSettings = false; _showNotifs = false; });
 
   double get _sideW => _mode == _SideMode.full ? 220.0 : 56.0;
 
@@ -117,9 +122,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   groups: widget.groups,
                   collapsed: _mode == _SideMode.icons,
                   currentIndex: _flatIndex,
-                  onSelect: (i) => setState(() => _flatIndex = i),
-                  onSettings: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const Scaffold(body: SettingsPage()))),
+                  onSelect: (i) => setState(() { _flatIndex = i; _showSettings = false; _showNotifs = false; }),
+                  onSettings: _openSettings,
                   onHelp: () => showDialog(
                     context: context,
                     builder: (_) => Dialog(
@@ -142,6 +146,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                     selectedSchool: _selectedSchool,
                     onToggle: _toggle,
                     onSchoolChange: (s) => setState(() => _selectedSchool = s),
+                    onSettings: _openSettings,
+                    onNotifs: _openNotifs,
+                    showingOverlay: _showSettings || _showNotifs,
+                    onCloseOverlay: _closeOverlay,
                   ),
                   Expanded(
                     child: ClipRRect(
@@ -149,7 +157,11 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                           topLeft: Radius.circular(22)),
                       child: Container(
                         color: _bg,
-                        child: _flatItems[_flatIndex].page,
+                        child: _showSettings
+                            ? const SettingsPage()
+                            : _showNotifs
+                                ? const NotificationsPage()
+                                : _flatItems[_flatIndex].page,
                       ),
                     ),
                   ),
@@ -345,6 +357,10 @@ class _Header extends ConsumerStatefulWidget {
   final String selectedSchool;
   final VoidCallback onToggle;
   final ValueChanged<String> onSchoolChange;
+  final VoidCallback? onSettings;
+  final VoidCallback? onNotifs;
+  final bool showingOverlay;
+  final VoidCallback? onCloseOverlay;
 
   const _Header({
     required this.title,
@@ -352,6 +368,10 @@ class _Header extends ConsumerStatefulWidget {
     required this.selectedSchool,
     required this.onToggle,
     required this.onSchoolChange,
+    this.onSettings,
+    this.onNotifs,
+    this.showingOverlay = false,
+    this.onCloseOverlay,
   });
 
   @override
@@ -395,13 +415,15 @@ class _HeaderState extends ConsumerState<_Header> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // ── Toggle sidebar button ──────────────────────────────────────
+          // ── Toggle / Back button ──────────────────────────────────────
           _DarkBtn(
-            icon: widget.mode == _SideMode.full
-                ? Icons.menu_open_rounded
-                : Icons.menu_rounded,
-            tooltip: widget.mode == _SideMode.full ? 'Réduire' : 'Étendre',
-            onTap: widget.onToggle,
+            icon: widget.showingOverlay
+                ? Icons.arrow_back_rounded
+                : (widget.mode == _SideMode.full ? Icons.menu_open_rounded : Icons.menu_rounded),
+            tooltip: widget.showingOverlay
+                ? 'Retour'
+                : (widget.mode == _SideMode.full ? 'Réduire' : 'Étendre'),
+            onTap: widget.showingOverlay ? (widget.onCloseOverlay ?? () {}) : widget.onToggle,
           ),
           const SizedBox(width: 14),
 
@@ -531,13 +553,10 @@ class _HeaderState extends ConsumerState<_Header> {
             content: Material(
               type: MaterialType.transparency,
               child: _NotifPanel(
-                onViewAll: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const Scaffold(
-                        body: NotificationsPage(),
-                      )),
-                ),
+                onViewAll: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  widget.onNotifs?.call();
+                },
               ),
             ),
             child: const _DarkBadgeBtn(
@@ -569,20 +588,17 @@ class _HeaderState extends ConsumerState<_Header> {
             content: Material(
               type: MaterialType.transparency,
               child: _AccountPanel(
-              user: user,
-              onSettings: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const Scaffold(body: SettingsPage())),
+                user: user,
+                onSettings: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  widget.onSettings?.call();
+                },
+                onNotifs: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  widget.onNotifs?.call();
+                },
               ),
-              onNotifs: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: NotificationsPage(),
-                    )),
-              ),
-            )),
+            ),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Row(
