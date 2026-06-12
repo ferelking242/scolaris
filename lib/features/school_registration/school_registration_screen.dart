@@ -576,48 +576,47 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
               ),
 
               // ── Right action panel (Step 4 only) ──────────────────────────
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeInOut,
-                width: showSidePanel ? 260 : 0,
-                child: showSidePanel
-                    ? _RightActionsPanel(
-                        onAddSeries: () => _showAddSeriesSheet(),
-                        onReset: () => _confirmResetStructure(),
-                        onTogglePanel: () => setState(() => _showRightPanel = false),
-                        series: _series,
-                        onToggleSeriesActive: (i, v) => setState(() => _series[i].isActive = v),
-                      )
-                    : null,
-              ),
+              if (_step == 3)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeInOut,
+                  width: _showRightPanel ? 260 : 28,
+                  child: _showRightPanel
+                      ? _RightActionsPanel(
+                          onAddSeries: () => _showAddSeriesSheet(),
+                          onReset: () => _confirmResetStructure(),
+                          onTogglePanel: () => setState(() => _showRightPanel = false),
+                          series: _series,
+                          onToggleSeriesActive: (i, v) => setState(() => _series[i].isActive = v),
+                        )
+                      : GestureDetector(
+                          onTap: () => setState(() => _showRightPanel = true),
+                          child: Container(
+                            width: 28,
+                            decoration: BoxDecoration(
+                              color: _cream,
+                              border: Border(left: BorderSide(color: _border)),
+                            ),
+                            child: Center(
+                              child: RotatedBox(
+                                quarterTurns: 3,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: _terra, borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text('Actions', style: TextStyle(
+                                      color: _white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
             ]),
           ),
         ),
       ),
-
-      // ── Right panel toggle button (Step 4, panel hidden) ─────────────────
-      if (_step == 3 && !_showRightPanel)
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () => setState(() => _showRightPanel = true),
-            child: Container(
-              width: 28,
-              margin: const EdgeInsets.symmetric(vertical: 80),
-              decoration: BoxDecoration(
-                color: _terra,
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
-              ),
-              child: const RotatedBox(
-                quarterTurns: 3,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Text('Actions', style: TextStyle(color: _white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-                ),
-              ),
-            ),
-          ),
-        ),
     ]);
   }
 
