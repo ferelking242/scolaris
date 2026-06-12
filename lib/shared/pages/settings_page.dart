@@ -576,12 +576,64 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
     final settings = ref.watch(settingsProvider);
     final locale   = context.locale;
     final langName = AppLocales.label(locale);
+    final user     = widget.user;
 
     return _SubPageShell(
       title: 'Compte',
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // ── Identité ───────────────────────────────────────────────────
+          if (user != null) ...[
+            _SectionLabel('IDENTITÉ'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _border),
+              ),
+              child: Column(children: [
+                _InfoRow(
+                  label: 'Nom complet',
+                  value: user.fullName,
+                  icon: Icons.badge_outlined,
+                ),
+                Divider(height: 18, color: _border.withOpacity(.5)),
+                _InfoRow(
+                  label: 'Email',
+                  value: user.email,
+                  icon: Icons.alternate_email_rounded,
+                ),
+                Divider(height: 18, color: _border.withOpacity(.5)),
+                _InfoRow(
+                  label: 'Rôle',
+                  value: switch (user.role) {
+                    UserRole.staff   => 'Administration',
+                    UserRole.teacher => 'Enseignant',
+                    UserRole.student => 'Élève',
+                    UserRole.parent  => 'Parent',
+                  },
+                  icon: Icons.school_outlined,
+                ),
+                Divider(height: 18, color: _border.withOpacity(.5)),
+                _InfoRow(
+                  label: 'ID utilisateur',
+                  value: user.id.length >= 8
+                      ? '#${user.id.substring(0, 8).toUpperCase()}'
+                      : '#${user.id.toUpperCase()}',
+                  icon: Icons.fingerprint_rounded,
+                ),
+              ]),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Modification ───────────────────────────────────────────────
+          _SectionLabel('MODIFICATION'),
+          const SizedBox(height: 8),
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
@@ -598,18 +650,72 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
                 label: 'Mot de passe & Sécurité',
                 onTap: () => _showPasswordSheet(context),
               ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Sécurité avancée ───────────────────────────────────────────
+          _SectionLabel('SÉCURITÉ AVANCÉE'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemComingSoon(
+                icon: Icons.verified_user_outlined,
+                color: _green,
+                label: 'Authentification à deux facteurs',
+                description: 'Protection renforcée par code OTP',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.devices_rounded,
+                color: _gold,
+                label: 'Appareils connectés',
+                description: 'Voir et révoquer vos sessions actives',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.history_rounded,
+                color: const Color(0xFF1A237E),
+                label: 'Historique des connexions',
+                description: 'Dernières activités de votre compte',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Notifications ──────────────────────────────────────────────
+          _SectionLabel('NOTIFICATIONS'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
               _SettingsItemToggle(
                 icon: Icons.notifications_outlined,
-                color: _gold,
+                color: _terra,
                 label: 'Notifications push',
                 value: settings.notificationsPush,
                 onChanged: (v) =>
                     ref.read(settingsProvider.notifier).setNotificationsPush(v),
               ),
+              _SettingsItemComingSoon(
+                icon: Icons.email_outlined,
+                color: _orange,
+                label: 'Notifications par email',
+                description: 'Résumés et alertes par email',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Langue ─────────────────────────────────────────────────────
+          _SectionLabel('LANGUE'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
               _SettingsItem(
                 icon: Icons.language_outlined,
-                color: _green,
-                label: 'Langue',
+                color: const Color(0xFF0D47A1),
+                label: 'Langue de l\'interface',
                 trailing: langName,
                 onTap: () => _showLanguagePicker(context),
               ),
@@ -1088,53 +1194,169 @@ class _HuePainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Accessibilité
 // ─────────────────────────────────────────────────────────────────────────────
-class _AccessibilityPage extends ConsumerWidget {
+class _AccessibilityPage extends ConsumerStatefulWidget {
   const _AccessibilityPage();
+  @override
+  ConsumerState<_AccessibilityPage> createState() => _AccessibilityPageState();
+}
+
+class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
+  double _textScale = 1.0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
     return _SubPageShell(
       title: 'Accessibilité',
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionLabel('AFFICHAGE'),
-            const SizedBox(height: 8),
-            _SettingsCard(
-              margin: EdgeInsets.zero,
-              items: [
-                _SettingsItemToggle(
-                  icon: Icons.text_increase_rounded,
-                  color: _terra,
-                  label: 'Grande police',
-                  value: settings.grandePolice,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setGrandePolice(v),
-                ),
-                _SettingsItemToggle(
-                  icon: Icons.contrast_rounded,
-                  color: _orange,
-                  label: 'Contraste élevé',
-                  value: settings.contrasteEleve,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setContrasteEleve(v),
-                ),
-                _SettingsItemToggle(
-                  icon: Icons.animation_rounded,
-                  color: _gold,
-                  label: 'Réduire les animations',
-                  value: settings.reduireAnimations,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setReduireAnimations(v),
-                ),
-              ],
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // ── Taille du texte ────────────────────────────────────────────
+          _SectionLabel('TAILLE DU TEXTE'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            decoration: BoxDecoration(
+              color: _white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
-          ],
-        ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _border),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Aperçu de l\'interface',
+                      style: TextStyle(
+                          color: _muted,
+                          fontSize: 10 * _textScale,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text('Tableau de bord — Scolaris',
+                      style: TextStyle(
+                          color: _ink,
+                          fontSize: 15 * _textScale,
+                          fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text('Terminale S · 28 élèves inscrits · Année 2025–26',
+                      style: TextStyle(
+                          color: _muted,
+                          fontSize: 12 * _textScale,
+                          height: 1.4)),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                const Icon(Icons.text_decrease_rounded, size: 15, color: _muted),
+                Expanded(
+                  child: Slider(
+                    value: _textScale,
+                    min: 0.8, max: 1.4, divisions: 6,
+                    activeColor: _terra,
+                    inactiveColor: _border,
+                    onChanged: (v) => setState(() => _textScale = v),
+                  ),
+                ),
+                const Icon(Icons.text_increase_rounded, size: 20, color: _muted),
+              ]),
+              Center(
+                child: Text(
+                  '${(_textScale * 100).round()} %',
+                  style: const TextStyle(
+                      color: _muted, fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 4),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Affichage ──────────────────────────────────────────────────
+          _SectionLabel('AFFICHAGE'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemToggle(
+                icon: Icons.format_size_rounded,
+                color: _terra,
+                label: 'Grande police',
+                value: settings.grandePolice,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setGrandePolice(v),
+              ),
+              _SettingsItemToggle(
+                icon: Icons.contrast_rounded,
+                color: _orange,
+                label: 'Contraste élevé',
+                value: settings.contrasteEleve,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setContrasteEleve(v),
+              ),
+              _SettingsItemToggle(
+                icon: Icons.animation_rounded,
+                color: _gold,
+                label: 'Réduire les animations',
+                value: settings.reduireAnimations,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setReduireAnimations(v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Interaction ────────────────────────────────────────────────
+          _SectionLabel('INTERACTION'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemComingSoon(
+                icon: Icons.keyboard_rounded,
+                color: const Color(0xFF1A237E),
+                label: 'Navigation clavier complète',
+                description: 'Tab / Flèches pour naviguer dans l\'app',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.record_voice_over_outlined,
+                color: const Color(0xFF00838F),
+                label: 'Lecteur d\'écran',
+                description: 'Synthèse vocale pour les éléments UI',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.touch_app_outlined,
+                color: _muted,
+                label: 'Zone de touche élargie',
+                description: 'Boutons et liens plus faciles à taper',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _gold.withOpacity(.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _gold.withOpacity(.25)),
+            ),
+            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline_rounded, size: 15, color: _gold),
+              SizedBox(width: 10),
+              Expanded(child: Text(
+                'Les options marquées "Bientôt disponible" seront déployées dans une prochaine mise à jour de Scolaris.',
+                style: TextStyle(color: _gold, fontSize: 11.5, height: 1.5),
+              )),
+            ]),
+          ),
+        ]),
       ),
     );
   }
@@ -1151,6 +1373,20 @@ class _PrivacyPage extends ConsumerStatefulWidget {
 }
 
 class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
+  static final _lastLogin = DateTime.now().subtract(const Duration(hours: 2));
+
+  static String _formatRelative(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
+    if (diff.inHours < 24)   return 'Il y a ${diff.inHours} h';
+    return 'Il y a ${diff.inDays} j';
+  }
+
+  static Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
@@ -1159,38 +1395,154 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
       title: 'Confidentialité & Données',
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionLabel('DONNÉES'),
-            const SizedBox(height: 8),
-            _SettingsCard(
-              margin: EdgeInsets.zero,
-              items: [
-                _SettingsItemToggle(
-                  icon: Icons.analytics_outlined,
-                  color: _terra,
-                  label: 'Partager les données d\'usage',
-                  value: settings.partagerDonnees,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setPartagerDonnees(v),
-                ),
-                _SettingsItem(
-                  icon: Icons.download_outlined,
-                  color: _green,
-                  label: 'Exporter mes données',
-                  onTap: () => _showExportSheet(context, widget.user),
-                ),
-                _SettingsItem(
-                  icon: Icons.delete_outline_rounded,
-                  color: const Color(0xFFFF6B6B),
-                  label: 'Supprimer le compte',
-                  onTap: () => _showDeleteDialog(context),
-                ),
-              ],
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // ── Sécurité de session ────────────────────────────────────────
+          _SectionLabel('SESSION'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
-          ],
-        ),
+            child: Row(children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                    color: _green.withOpacity(.1),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.verified_user_outlined, size: 18, color: _green),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Dernière connexion',
+                    style: TextStyle(
+                        color: _ink, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(_formatRelative(_lastLogin),
+                    style: const TextStyle(color: _muted, fontSize: 12)),
+              ])),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                    color: _green.withOpacity(.1),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text('Actif',
+                    style: TextStyle(
+                        color: _green, fontSize: 10.5, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Données ───────────────────────────────────────────────────
+          _SectionLabel('DONNÉES'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemToggle(
+                icon: Icons.analytics_outlined,
+                color: _terra,
+                label: 'Partager les données d\'usage',
+                value: settings.partagerDonnees,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setPartagerDonnees(v),
+              ),
+              _SettingsItem(
+                icon: Icons.download_outlined,
+                color: _green,
+                label: 'Exporter mes données',
+                onTap: () => _showExportSheet(context, widget.user),
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.storage_rounded,
+                color: _gold,
+                label: 'Gérer le stockage local',
+                description: 'Voir et vider le cache hors-ligne',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── Légal ──────────────────────────────────────────────────────
+          _SectionLabel('LÉGAL'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItem(
+                icon: Icons.shield_outlined,
+                color: const Color(0xFF1A237E),
+                label: 'Politique de confidentialité',
+                onTap: () =>
+                    _launchUrl('https://ferelking242.github.io/scolaris/privacy'),
+              ),
+              _SettingsItem(
+                icon: Icons.gavel_rounded,
+                color: const Color(0xFF4A148C),
+                label: 'Conditions d\'utilisation',
+                onTap: () =>
+                    _launchUrl('https://ferelking242.github.io/scolaris/terms'),
+              ),
+              _SettingsItem(
+                icon: Icons.cookie_outlined,
+                color: _gold,
+                label: 'Politique des cookies',
+                onTap: () =>
+                    _launchUrl('https://ferelking242.github.io/scolaris/cookies'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // RGPD banner
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D47A1).withOpacity(.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF0D47A1).withOpacity(.2)),
+            ),
+            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.euro_symbol_rounded, size: 14, color: Color(0xFF0D47A1)),
+              SizedBox(width: 10),
+              Expanded(child: Text(
+                'Scolaris est conforme au RGPD. Vos données sont hébergées '
+                'en Europe sur Supabase et ne sont jamais revendues à des tiers.',
+                style: TextStyle(
+                    color: Color(0xFF0D47A1), fontSize: 11.5, height: 1.5),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Zone critique ──────────────────────────────────────────────
+          _SectionLabel('ZONE CRITIQUE'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItem(
+                icon: Icons.delete_outline_rounded,
+                color: const Color(0xFFFF6B6B),
+                label: 'Supprimer le compte',
+                onTap: () => _showDeleteDialog(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'La suppression du compte nécessite validation de l\'établissement.',
+              style: TextStyle(
+                  color: _muted.withOpacity(.65), fontSize: 11, height: 1.4),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -2259,6 +2611,90 @@ class _ReportSheetState extends State<_ReportSheet> {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Info row — clé / valeur read-only dans une card
+// ─────────────────────────────────────────────────────────────────────────────
+class _InfoRow extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+  const _InfoRow({required this.label, required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Container(
+      width: 32, height: 32,
+      decoration: BoxDecoration(
+          color: _terra.withOpacity(.08),
+          borderRadius: BorderRadius.circular(8)),
+      child: Icon(icon, size: 15, color: _terra),
+    ),
+    const SizedBox(width: 12),
+    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: const TextStyle(color: _muted, fontSize: 10.5, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 1),
+      Text(value,
+          style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w500)),
+    ])),
+  ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Settings item "Bientôt disponible" (disabled, badge)
+// ─────────────────────────────────────────────────────────────────────────────
+class _SettingsItemComingSoon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label, description;
+  const _SettingsItemComingSoon({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+    child: Row(children: [
+      Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: color.withOpacity(.07),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 17, color: color.withOpacity(.5)),
+      ),
+      const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: TextStyle(
+                color: _ink.withOpacity(.45),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 1),
+        Text(description,
+            style: TextStyle(
+                color: _muted.withOpacity(.55), fontSize: 11)),
+      ])),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: _gold.withOpacity(.12),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _gold.withOpacity(.3)),
+        ),
+        child: Text('Bientôt',
+            style: TextStyle(
+                color: _gold.withOpacity(.9),
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .4)),
+      ),
+    ]),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
