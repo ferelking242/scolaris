@@ -286,6 +286,57 @@ class _ProfileBanner extends StatelessWidget {
                 ),
               ),
             ),
+
+            // ── Bouton modifier bannière (haut-droite) ─────────────────
+            Positioned(
+              top: 10, right: 10,
+              child: GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  backgroundColor: _white,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (_) => _MediaSheet(
+                      title: 'Changer la bannière', showTheme: true),
+                ),
+                child: Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(.38),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _white.withOpacity(.25)),
+                  ),
+                  child: const Icon(Icons.photo_camera_rounded,
+                      color: _white, size: 15),
+                ),
+              ),
+            ),
+
+            // ── Bouton caméra avatar (bas-droite) ──────────────────────
+            Positioned(
+              top: _bannerH - _avatarSize / 2 + _avatarSize - 24,
+              left: _avatarLeft + _avatarSize - 24,
+              child: GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  backgroundColor: _white,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (_) => const _MediaSheet(
+                      title: 'Changer la photo de profil', showTheme: false),
+                ),
+                child: Container(
+                  width: 24, height: 24,
+                  decoration: BoxDecoration(
+                    color: _terra,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _bg, width: 2),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: _white, size: 12),
+                ),
+              ),
+            ),
           ],
         ),
 
@@ -594,12 +645,38 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Apparence
 // ─────────────────────────────────────────────────────────────────────────────
-class _AppearancePage extends ConsumerWidget {
+class _AppearancePage extends ConsumerStatefulWidget {
   const _AppearancePage();
+  @override
+  ConsumerState<_AppearancePage> createState() => _AppearancePageState();
+}
+
+class _AppearancePageState extends ConsumerState<_AppearancePage> {
+  static const _presets = [
+    Color(0xFF8B1A00), Color(0xFFD4540A), Color(0xFFC17F24), Color(0xFF1B5E20),
+    Color(0xFF0D47A1), Color(0xFF1A237E), Color(0xFF4A148C), Color(0xFFB71C1C),
+    Color(0xFF880E4F), Color(0xFF004D40), Color(0xFF263238), Color(0xFF212121),
+  ];
+
+  void _openPicker(BuildContext context, Color current) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _HsvPickerSheet(
+        initial: current,
+        onApply: (c) => ref.read(themeControllerProvider.notifier).setAccent(c),
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeControllerProvider).mode;
+  Widget build(BuildContext context) {
+    final ctrl      = ref.watch(themeControllerProvider);
+    final themeMode = ctrl.mode;
+    final accent    = ctrl.accent;
     final settings  = ref.watch(settingsProvider);
     final themeName = themeMode == ThemeMode.dark
         ? 'Sombre'
@@ -609,49 +686,403 @@ class _AppearancePage extends ConsumerWidget {
       title: 'Apparence',
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thème
-            _SectionLabel('THÈME'),
-            const SizedBox(height: 8),
-            _SettingsCard(
-              margin: EdgeInsets.zero,
-              items: [
-                _SettingsItemTheme(
-                  icon: Icons.palette_outlined,
-                  color: _terra,
-                  label: 'Thème de l\'interface',
-                  currentValue: themeName,
-                  themeMode: themeMode,
-                  onChanged: (m) =>
-                      ref.read(themeControllerProvider.notifier).setMode(m),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // Navigation
-            _SectionLabel('NAVIGATION'),
-            const SizedBox(height: 8),
-            _SettingsCard(
-              margin: EdgeInsets.zero,
-              items: [
-                _SettingsItemToggle(
-                  icon: Icons.tab_rounded,
-                  color: _orange,
-                  label: 'Barre d\'onglets',
-                  value: settings.afficherBarreOnglets,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setAfficherBarreOnglets(v),
-                ),
-              ],
+          // ── Thème ──────────────────────────────────────────────────────
+          _SectionLabel('THÈME'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemTheme(
+                icon: Icons.palette_outlined,
+                color: _terra,
+                label: 'Thème de l\'interface',
+                currentValue: themeName,
+                themeMode: themeMode,
+                onChanged: (m) =>
+                    ref.read(themeControllerProvider.notifier).setMode(m),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // ── Couleur d'accent ───────────────────────────────────────────
+          _SectionLabel('COULEUR D\'ACCENT'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
-          ],
-        ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _border),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Couleur actuelle',
+                      style: TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  Text(
+                    '#${accent.red.toRadixString(16).padLeft(2, '0')}'
+                    '${accent.green.toRadixString(16).padLeft(2, '0')}'
+                    '${accent.blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase(),
+                    style: const TextStyle(color: _muted, fontSize: 11.5),
+                  ),
+                ])),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _openPicker(context, accent),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: accent.withOpacity(.25)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.colorize_rounded, size: 13, color: accent),
+                      const SizedBox(width: 5),
+                      Text('Personnalisé',
+                          style: TextStyle(
+                              color: accent, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              const Text('Palettes prédéfinies',
+                  style: TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10, runSpacing: 10,
+                children: _presets.map((c) {
+                  final sel = c.value == accent.value;
+                  return GestureDetector(
+                    onTap: () => ref.read(themeControllerProvider.notifier).setAccent(c),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: sel ? _ink : Colors.transparent, width: 2.5),
+                        boxShadow: [
+                          BoxShadow(
+                              color: c.withOpacity(sel ? .4 : .15),
+                              blurRadius: sel ? 6 : 3),
+                        ],
+                      ),
+                      child: sel
+                          ? const Icon(Icons.check_rounded, color: _white, size: 13)
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 22),
+
+          // ── Navigation ─────────────────────────────────────────────────
+          _SectionLabel('NAVIGATION'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemToggle(
+                icon: Icons.tab_rounded,
+                color: _orange,
+                label: 'Barre d\'onglets',
+                value: settings.afficherBarreOnglets,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setAfficherBarreOnglets(v),
+              ),
+            ],
+          ),
+        ]),
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Media choice bottom sheet (avatar / banner)
+// ─────────────────────────────────────────────────────────────────────────────
+class _MediaSheet extends StatelessWidget {
+  final String title;
+  final bool showTheme;
+  const _MediaSheet({required this.title, required this.showTheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 16),
+        Text(title,
+            style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 20),
+        _MediaOption(
+            icon: Icons.photo_camera_rounded, label: 'Prendre une photo'),
+        const SizedBox(height: 10),
+        _MediaOption(
+            icon: Icons.photo_library_rounded, label: 'Choisir depuis la galerie'),
+        if (showTheme) ...[
+          const SizedBox(height: 10),
+          _MediaOption(
+              icon: Icons.palette_outlined, label: 'Couleur / thème de bannière'),
+        ],
+      ]),
+    );
+  }
+}
+
+class _MediaOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MediaOption({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF5F0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: _terra),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(
+              color: _ink, fontSize: 13.5, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Photoshop-style HSV color picker
+// ─────────────────────────────────────────────────────────────────────────────
+class _HsvPickerSheet extends StatefulWidget {
+  final Color initial;
+  final ValueChanged<Color> onApply;
+  const _HsvPickerSheet({required this.initial, required this.onApply});
+  @override
+  State<_HsvPickerSheet> createState() => _HsvPickerSheetState();
+}
+
+class _HsvPickerSheetState extends State<_HsvPickerSheet> {
+  late double _hue, _sat, _val;
+  late TextEditingController _hexCtrl;
+  double _sqW = 0, _slW = 0;
+  static const double _sqH = 180;
+
+  @override
+  void initState() {
+    super.initState();
+    final h = HSVColor.fromColor(widget.initial);
+    _hue = h.hue; _sat = h.saturation; _val = h.value;
+    _hexCtrl = TextEditingController(text: _toHex(_current));
+  }
+
+  @override
+  void dispose() { _hexCtrl.dispose(); super.dispose(); }
+
+  Color get _current => HSVColor.fromAHSV(1.0, _hue, _sat, _val).toColor();
+
+  String _toHex(Color c) =>
+      '#${c.red.toRadixString(16).padLeft(2, '0')}'
+      '${c.green.toRadixString(16).padLeft(2, '0')}'
+      '${c.blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+
+  void _fromHex(String v) {
+    final h = v.replaceAll('#', '').trim();
+    if (h.length != 6) return;
+    try {
+      final c = Color(int.parse('FF$h', radix: 16));
+      final hsv = HSVColor.fromColor(c);
+      setState(() { _hue = hsv.hue; _sat = hsv.saturation; _val = hsv.value; });
+    } catch (_) {}
+  }
+
+  void _svPan(Offset local) {
+    if (_sqW == 0) return;
+    setState(() {
+      _sat = (local.dx / _sqW).clamp(0.0, 1.0);
+      _val = (1.0 - local.dy / _sqH).clamp(0.0, 1.0);
+      _hexCtrl.text = _toHex(_current);
+    });
+  }
+
+  void _huePan(double x) {
+    if (_slW == 0) return;
+    setState(() {
+      _hue = (x / _slW * 360.0).clamp(0.0, 360.0);
+      _hexCtrl.text = _toHex(_current);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final color  = _current;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, math.max(bottom, 24) + 8),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 14),
+        Row(children: [
+          Container(width: 22, height: 22,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle,
+                  border: Border.all(color: _border))),
+          const SizedBox(width: 10),
+          const Text('Couleur d\'accent',
+              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w800)),
+          const Spacer(),
+          GestureDetector(onTap: () => Navigator.pop(context),
+              child: const Icon(Icons.close_rounded, color: _muted, size: 20)),
+        ]),
+        const SizedBox(height: 16),
+
+        LayoutBuilder(builder: (_, c) {
+          _sqW = c.maxWidth;
+          return GestureDetector(
+            onPanDown:   (d) => _svPan(d.localPosition),
+            onPanUpdate: (d) => _svPan(d.localPosition),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: CustomPaint(
+                size: Size(_sqW, _sqH),
+                painter: _SvPainter(hue: _hue, sat: _sat, val: _val),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 12),
+
+        LayoutBuilder(builder: (_, c) {
+          _slW = c.maxWidth;
+          return GestureDetector(
+            onPanDown:   (d) => _huePan(d.localPosition.dx),
+            onPanUpdate: (d) => _huePan(d.localPosition.dx),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: CustomPaint(
+                size: Size(_slW, 22),
+                painter: _HuePainter(hue: _hue),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 14),
+
+        Row(children: [
+          Container(width: 40, height: 40,
+              decoration: BoxDecoration(color: color,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _border))),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _hexCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Hex', prefixText: '#',
+                isDense: true, border: OutlineInputBorder(),
+              ),
+              onChanged: _fromHex,
+            ),
+          ),
+        ]),
+        const SizedBox(height: 16),
+
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color, foregroundColor: _white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () { Navigator.pop(context); widget.onApply(color); },
+            child: const Text('Appliquer',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _SvPainter extends CustomPainter {
+  final double hue, sat, val;
+  const _SvPainter({required this.hue, required this.sat, required this.val});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final hc   = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
+    canvas.drawRect(rect,
+        Paint()..shader = LinearGradient(colors: [Colors.white, hc]).createShader(rect));
+    canvas.drawRect(rect,
+        Paint()..shader = const LinearGradient(
+          colors: [Colors.transparent, Colors.black],
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        ).createShader(rect));
+    final cx = sat * size.width;
+    final cy = (1 - val) * size.height;
+    canvas.drawCircle(Offset(cx, cy), 9,
+        Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2.5);
+    canvas.drawCircle(Offset(cx, cy), 7,
+        Paint()..color = HSVColor.fromAHSV(1, hue, sat, val).toColor());
+  }
+
+  @override
+  bool shouldRepaint(_SvPainter o) =>
+      o.hue != hue || o.sat != sat || o.val != val;
+}
+
+class _HuePainter extends CustomPainter {
+  final double hue;
+  const _HuePainter({required this.hue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const colors = [
+      Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
+      Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF), Color(0xFFFF0000),
+    ];
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(rect,
+        Paint()..shader = const LinearGradient(colors: colors).createShader(rect));
+    final x  = (hue / 360 * size.width).clamp(2.0, size.width - 2);
+    final rr = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x - 2, 0, 4, size.height), const Radius.circular(2));
+    canvas.drawRRect(rr,
+        Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawRRect(rr, Paint()..color = Colors.black.withOpacity(.25));
+  }
+
+  @override
+  bool shouldRepaint(_HuePainter o) => o.hue != hue;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
