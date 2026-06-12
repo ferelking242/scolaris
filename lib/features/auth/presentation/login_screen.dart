@@ -43,6 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _selectedSubtype = 'lycee';
   bool _showQrScanner  = false;
   bool _showQrTab      = false;
+  int  _demoTapCount  = 0;
 
   static const _roles = [
     ('student',      Icons.school_outlined,               'Étudiant'),
@@ -225,9 +226,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 24),
               ],
 
-              const Text('Connexion', style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
-              )),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _demoTapCount++;
+                  if (_demoTapCount == 2) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔒 Encore une fois…'),
+                      duration: Duration(seconds: 1),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  } else if (_demoTapCount == 3) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔓 Section développeur déverrouillée'),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }),
+                child: const Text('Connexion', style: TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                )),
+              ),
               const SizedBox(height: 3),
               Text('Accédez à votre espace Scolaris',
                   style: TextStyle(color: _muted, fontSize: 13)),
@@ -250,56 +269,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ]),
               ),
 
-              const SizedBox(height: 20),
-              _divider('Comptes démo — accès rapide'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 7, runSpacing: 7,
-                children: [
-                  for (final r in _roles)
-                    _RoleChip(
-                      label: r.$3, icon: r.$2,
-                      selected: _selectedRole == r.$1,
-                      onTap: () => _selectRole(r.$1),
-                    ),
-                ],
-              ),
-
-              // ── Sous-profil ───────────────────────────────────────────────
-              if (_subTypeMap.containsKey(_selectedRole)) ...[
+              if (_demoTapCount >= 3) ...[
+                const SizedBox(height: 20),
+                _divider('Comptes démo — accès rapide'),
                 const SizedBox(height: 12),
-                Row(children: [
-                  const Icon(Icons.subdirectory_arrow_right_rounded,
-                      size: 13, color: Color(0xFFB08060)),
-                  const SizedBox(width: 4),
-                  Text('Sous-profil',
-                      style: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w700,
-                          color: Color(0xFFB08060))),
-                ]),
-                const SizedBox(height: 8),
                 Wrap(
-                  spacing: 6, runSpacing: 6,
+                  spacing: 7, runSpacing: 7,
                   children: [
-                    for (final s in _subTypeMap[_selectedRole]!)
-                      _SubTypeChip(
-                        label: s.$2, icon: s.$3,
-                        selected: _selectedSubtype == s.$1,
-                        onTap: () => _selectSubtype(s.$1),
+                    for (final r in _roles)
+                      _RoleChip(
+                        label: r.$3, icon: r.$2,
+                        selected: _selectedRole == r.$1,
+                        onTap: () => _selectRole(r.$1),
                       ),
                   ],
                 ),
-              ],
 
-              const SizedBox(height: 20),
-              _divider('EAD Congo — Connexion rapide'),
-              const SizedBox(height: 12),
-              _EadQuickLogin(onTap: _fillAndLogin),
-              const SizedBox(height: 8),
-              Center(
-                child: Text('Mot de passe universel : demo1234',
-                    style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
-              ),
+                // ── Sous-profil ─────────────────────────────────────────────
+                if (_subTypeMap.containsKey(_selectedRole)) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    const Icon(Icons.subdirectory_arrow_right_rounded,
+                        size: 13, color: Color(0xFFB08060)),
+                    const SizedBox(width: 4),
+                    const Text('Sous-profil',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700,
+                            color: Color(0xFFB08060))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6, runSpacing: 6,
+                    children: [
+                      for (final s in _subTypeMap[_selectedRole]!)
+                        _SubTypeChip(
+                          label: s.$2, icon: s.$3,
+                          selected: _selectedSubtype == s.$1,
+                          onTap: () => _selectSubtype(s.$1),
+                        ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+                _divider('EAD Congo — Connexion rapide'),
+                const SizedBox(height: 12),
+                _EadQuickLogin(onTap: _fillAndLogin),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text('Mot de passe universel : demo1234',
+                      style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
+                ),
+              ],
             ],
           ),
         );
