@@ -184,6 +184,11 @@ class MockLibraryData {
   static List<CourseMaterial> get downloadedMaterials =>
       materials.where((m) => m.isDownloaded).toList();
 
+  /// Estimation du stockage occupé hors-ligne (en Mo) — les tailles réelles
+  /// ne sont pas suivies, on approxime à partir du nombre d'éléments.
+  static double get downloadedSizeMb =>
+      downloadedBooks.length * 4.5 + downloadedMaterials.length * 1.8;
+
   static List<ReadingEntry> get readingHistory => recentlyRead;
 
   static List<LibraryBook> recommendedForClasse(String classe) =>

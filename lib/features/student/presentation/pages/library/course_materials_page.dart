@@ -126,7 +126,8 @@ class _CourseMaterialsPageState extends State<CourseMaterialsPage> {
 
   List<CourseMaterial> _placeholders() => List.generate(5, (i) => CourseMaterial(
     id: 'p$i', title: 'Chargement du support…', subject: 'Matière',
-    classe: '5e', teacher: 'Prof. …', size: '— MB', addedDate: '-- --- 2026',
+    type: 'Fiche', classe: '5e', uploadedBy: 'Prof. …', year: 2026,
+    size: '— MB', addedDate: '-- --- 2026',
     color: _cyan, icon: Icons.description_rounded,
   ));
 }

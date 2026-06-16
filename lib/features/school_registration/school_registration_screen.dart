@@ -402,6 +402,19 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         },
       });
 
+      // Compte de connexion du fondateur (admin de l'école).
+      // L'école existe déjà ci-dessus → le trigger handle_new_user peut créer
+      // users + profiles (FK school_id satisfaite) à partir des métadonnées.
+      await sb.auth.signUp(
+        email: _s2Email.text.trim(),
+        password: _s2Pass.text,
+        data: {
+          'full_name': _s2Name.text.trim(),
+          'role'     : 'admin',
+          'school_id': schoolId,
+        },
+      );
+
       for (final b in _branches) {
         if (b.city.isNotEmpty || b.address.isNotEmpty) {
           await sb.from('school_branches').insert({
@@ -462,12 +475,35 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             const SizedBox(height: 20),
             const Text('École créée avec succès !', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _green.withOpacity(.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _green.withOpacity(.25)),
+              ),
+              child: Column(children: [
+                const Icon(Icons.mark_email_unread_outlined, color: _green, size: 28),
+                const SizedBox(height: 8),
+                const Text('Vérifiez votre email', textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 4),
+                Text(
+                  'Un lien d\'activation a été envoyé à\n${_s2Email.text.trim()}.\n'
+                  'Cliquez dessus pour activer votre compte administrateur, '
+                  'puis connectez-vous pour gérer votre école.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
+                ),
+              ]),
+            ),
             const SizedBox(height: 8),
-            Text('ID : ${id.substring(0, 8)}…', textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: _muted)),
-            const SizedBox(height: 28),
+            Text('ID école : ${id.substring(0, 8)}…', textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: _muted)),
+            const SizedBox(height: 24),
             SizedBox(width: double.infinity,
-              child: _PrimaryBtn(label: 'Retour à la connexion', loading: false,
+              child: _PrimaryBtn(label: 'Aller à la connexion', loading: false,
                   onTap: () { Navigator.pop(context); context.go('/login'); })),
           ]),
         ),

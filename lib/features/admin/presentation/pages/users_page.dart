@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -55,6 +58,24 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     );
   }
 
+  void _openInvite() {
+    final schoolId = ref.read(authSessionProvider)?.schoolId;
+    if (schoolId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Aucune école associée à votre compte.'),
+        backgroundColor: _terra,
+      ));
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) => _InviteMemberDialog(
+        schoolId: schoolId,
+        onCreated: () => ref.invalidate(usersProvider),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(usersProvider);
@@ -77,7 +98,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           subtitle: '${allUsers.length} comptes tous rôles',
           actions: [
             ActionButton(
-                label: 'Inviter', icon: Icons.send_outlined, onTap: () {}),
+                label: 'Inviter', icon: Icons.send_outlined, onTap: _openInvite),
             const SizedBox(width: 8),
             ActionButton(
                 label: 'Inscrire un élève',
@@ -278,4 +299,166 @@ class _IconBtn extends StatelessWidget {
           child: Icon(icon, size: 16, color: muted),
         ),
       );
+}
+
+// ── Formulaire « Inviter un membre » ──────────────────────────────────────────
+class _InviteMemberDialog extends StatefulWidget {
+  final String schoolId;
+  final VoidCallback onCreated;
+  const _InviteMemberDialog({required this.schoolId, required this.onCreated});
+  @override
+  State<_InviteMemberDialog> createState() => _InviteMemberDialogState();
+}
+
+class _InviteMemberDialogState extends State<_InviteMemberDialog> {
+  // Libellé affiché → valeur du rôle en base
+  static const _roles = <String, String>{
+    'Enseignant'        : 'teacher',
+    'Comptable / Finance': 'finance',
+    'Surveillant'       : 'surveillance',
+    'Secrétaire'        : 'staff_custom',
+    'Direction / Admin' : 'admin',
+  };
+
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  late final TextEditingController _pass =
+      TextEditingController(text: _generatePassword());
+  String _role = 'teacher';
+  bool _loading = false;
+  String? _error;
+
+  static String _generatePassword() {
+    final n = DateTime.now().microsecondsSinceEpoch % 10000;
+    return 'Scolaris-${n.toString().padLeft(4, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _pass.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() { _loading = true; _error = null; });
+    final messenger = ScaffoldMessenger.of(context);
+    // Client secondaire : crée le compte sans toucher la session de l'admin.
+    final client = SupabaseClient(AppConfig.supabaseUrl, AppConfig.supabaseAnonKey);
+    try {
+      await client.auth.signUp(
+        email: _email.text.trim(),
+        password: _pass.text,
+        data: {
+          'full_name': _name.text.trim(),
+          'role'     : _role,
+          'school_id': widget.schoolId,
+        },
+      );
+      widget.onCreated();
+      if (!mounted) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+            '${_name.text.trim()} invité(e). Mot de passe temporaire : ${_pass.text}'),
+        backgroundColor: _green,
+        duration: const Duration(seconds: 8),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      await client.dispose();
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Inviter un membre',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 380,
+        child: Form(
+          key: _formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(
+              controller: _name,
+              decoration: const InputDecoration(
+                  labelText: 'Nom complet', prefixIcon: Icon(Icons.person_outline)),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Nom requis' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                  labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Email requis';
+                if (!v.contains('@')) return 'Email invalide';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _role,
+              decoration: const InputDecoration(
+                  labelText: 'Rôle', prefixIcon: Icon(Icons.badge_outlined)),
+              items: [
+                for (final e in _roles.entries)
+                  DropdownMenuItem(value: e.value, child: Text(e.key)),
+              ],
+              onChanged: (v) => setState(() => _role = v ?? 'teacher'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pass,
+              decoration: InputDecoration(
+                labelText: 'Mot de passe temporaire',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Régénérer',
+                  onPressed: () =>
+                      setState(() => _pass.text = _generatePassword()),
+                ),
+              ),
+              validator: (v) =>
+                  (v == null || v.length < 6) ? '6 caractères minimum' : null,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!,
+                  style: const TextStyle(color: _terra, fontSize: 12.5)),
+            ],
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          style: FilledButton.styleFrom(backgroundColor: _terra),
+          child: _loading
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : const Text('Créer le compte'),
+        ),
+      ],
+    );
+  }
 }

@@ -120,7 +120,7 @@ class PrintService {
     final win = html.window.open(url, '_blank');
     if (win != null) {
       Future.delayed(const Duration(milliseconds: 800), () {
-        win.print();
+        (win as html.Window).print();
         html.Url.revokeObjectUrl(url);
       });
     }

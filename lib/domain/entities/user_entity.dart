@@ -12,6 +12,7 @@ enum UserRole {
   static UserRole fromString(String value) {
     switch (value.toLowerCase()) {
       case 'staff':
+      case 'staff_custom':
       case 'admin':
       case 'secretaire':
       case 'secretariat':
