@@ -68,4 +68,30 @@ class AppTheme {
       fontFamily: 'Roboto',
     );
   }
+
+  // Mode Noir Pur — AMOLED true black pour les écrans OLED
+  static ThemeData pureBlack({Color? accent}) {
+    final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
+    return FlexThemeData.dark(
+      colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.dark),
+      surfaceMode: FlexSurfaceMode.highScaffoldLowSurface,
+      blendLevel: 40,
+      darkIsTrueBlack: true,
+      appBarStyle: FlexAppBarStyle.background,
+      appBarOpacity: 1.0,
+      subThemesData: const FlexSubThemesData(
+        useM2StyleDividerInM3: false,
+        defaultRadius: 12,
+        inputDecoratorRadius: 12,
+        cardRadius: 16,
+        dialogRadius: 20,
+        chipRadius: 10,
+        tooltipRadius: 8,
+        navigationBarHeight: 64,
+      ),
+      visualDensity: FlexColorScheme.comfortablePlatformDensity,
+      useMaterial3: true,
+      fontFamily: 'Roboto',
+    );
+  }
 }
