@@ -52,7 +52,9 @@ class AkiliApp extends ConsumerWidget {
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(accent: theme.accent),
-        darkTheme: AppTheme.dark(accent: theme.accent),
+        darkTheme: theme.pureBlack
+            ? AppTheme.pureBlack(accent: theme.accent)
+            : AppTheme.dark(accent: theme.accent),
         themeMode: theme.mode,
         routerConfig: router,
         localizationsDelegates: context.localizationDelegates,
