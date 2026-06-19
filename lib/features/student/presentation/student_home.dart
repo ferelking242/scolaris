@@ -152,19 +152,21 @@ class _StudentDashboard extends ConsumerStatefulWidget {
 
 class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 
-  // Mock EDT (pas de table Supabase pour l'EDT pour l'instant)
+  // EDT EMI — Ferel Ondongo (aujourd'hui = Jeudi par défaut si hors semaine)
   static const _edt = [
-    (h: '08:00', sub: 'Mathématiques', room: 'A12',  c: _terra),
-    (h: '10:00', sub: 'Français',      room: 'B04',  c: _gold),
-    (h: '14:00', sub: 'Sciences',      room: 'Labo', c: _green),
-    (h: '16:00', sub: 'Histoire',      room: 'C01',  c: _cyan),
+    (h: '07h30', sub: 'Chimie',            room: 'L-002',      c: _green),
+    (h: '09h15', sub: 'Électronique',      room: 'Labo Élec',  c: _gold),
+    (h: '11h00', sub: 'Histoire-Géo',      room: 'C-201',      c: Color(0xFFDB2777)),
+    (h: '14h00', sub: 'Philosophie',       room: 'B-201',      c: Color(0xFF78716C)),
+    (h: '15h45', sub: 'Anglais',           room: 'B-101',      c: _cyan),
   ];
 
-  // Mock devoirs (pas de table Supabase pour les devoirs pour l'instant)
+  // Devoirs EMI — Ferel Ondongo
   static const _devoirs = [
-    (sub: 'Mathématiques', titre: 'Exercices page 124',         echeance: 'Demain',   c: _gold),
-    (sub: 'Physique',      titre: 'Résumé chapitre 8',          echeance: 'Dans 2j',  c: _cyan),
-    (sub: 'SVT',           titre: 'Schéma cellule eucaryote',   echeance: 'Dans 4j',  c: _green),
+    (sub: 'Mathématiques',   titre: 'Intégrales — Exercices 8.4-8.7',         echeance: 'Demain',   c: _gold),
+    (sub: 'Électronique',    titre: 'Rapport TP — Circuits RLC',               echeance: 'Dans 2j',  c: _cyan),
+    (sub: 'Algorithmique',   titre: 'Programme tri rapide en Python',          echeance: 'Dans 3j',  c: _purple),
+    (sub: 'Sciences Phys.',  titre: 'Compte-rendu — Lois de Kirchhoff',       echeance: 'Dans 5j',  c: _green),
   ];
 
   String get _greeting {
@@ -216,7 +218,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final isLoadingAbs     = absAsync.isLoading;
     final isLoadingAnn     = announceAsync.isLoading;
 
-    final classeLabel = profile?.classe ?? profile?.niveau ?? 'Terminale A';
+    final classeLabel = profile?.classe ?? profile?.niveau ?? 'Tle EMI';
 
     return Container(
       color: _bg,
@@ -634,10 +636,11 @@ class _RecentNotesSection extends StatelessWidget {
   final void Function(Widget) onNavigate;
   const _RecentNotesSection({required this.recentGrades, required this.loading, required this.onNavigate});
 
+  // Notes récentes EMI — Ferel Ondongo (si Supabase vide)
   static const _mockNotes = [
-    (sub: 'Mathématiques', n: 17.5, max: 20.0, c: _gold,  d: '28 Mai'),
-    (sub: 'Physique',      n: 13.0, max: 20.0, c: _terra, d: '25 Mai'),
-    (sub: 'Histoire',      n: 15.5, max: 20.0, c: _green, d: '22 Mai'),
+    (sub: 'Mathématiques',      n: 17.5, max: 20.0, c: Color(0xFF6D28D9), d: '14 Jun'),
+    (sub: 'Algorithmique',      n: 18.0, max: 20.0, c: Color(0xFF1E3A5F), d: '03 Jun'),
+    (sub: 'Électronique',       n: 16.5, max: 20.0, c: Color(0xFFB45309), d: '06 Jun'),
   ];
 
   @override
