@@ -41,16 +41,27 @@ class _AttStat {
 class _AttendancePageState extends ConsumerState<AttendancePage> {
   bool _loading = true;
 
+  // Présences par défaut Ferel Ondongo EMI — S2 (40 jours écoulés)
   _AttendanceSummary _summary = const _AttendanceSummary(
-    joursTotal: 0, presents: 0, absents: 0, retards: 0,
-    tauxPresence: 0.0, tauxAbsence: 0.0,
+    joursTotal: 40, presents: 36, absents: 2, retards: 2,
+    tauxPresence: 90.0, tauxAbsence: 5.0,
   );
-  List<_AttStat> _weekly = [];
+  // Données de présence hebdomadaires — Ferel Ondongo EMI (S2 : 8 semaines)
+  final List<_AttStat> _weekly = [
+    _AttStat(label: 'S1',  presents: 5, absents: 0, retards: 0),
+    _AttStat(label: 'S2',  presents: 4, absents: 1, retards: 0),
+    _AttStat(label: 'S3',  presents: 5, absents: 0, retards: 0),
+    _AttStat(label: 'S4',  presents: 5, absents: 0, retards: 0),
+    _AttStat(label: 'S5',  presents: 4, absents: 0, retards: 1),
+    _AttStat(label: 'S6',  presents: 5, absents: 0, retards: 0),
+    _AttStat(label: 'S7',  presents: 3, absents: 1, retards: 1),
+    _AttStat(label: 'S8',  presents: 5, absents: 0, retards: 0),
+  ];
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1000),
+    Future.delayed(const Duration(milliseconds: 600),
         () { if (mounted) setState(() => _loading = false); });
   }
 
