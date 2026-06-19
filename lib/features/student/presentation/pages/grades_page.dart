@@ -94,26 +94,132 @@ class GradesPage extends ConsumerWidget {
   }
 }
 
+// Notes mock EMI — Ferel Ondongo (affichées si Supabase vide)
+const _mockEmiGrades = [
+  (sub: 'Mathématiques',      type: 'Devoir',      period: 'T2', score: 17.5, max: 20.0, date: '14 Jun'),
+  (sub: 'Sciences Physiques', type: 'Interrogation',period: 'T2', score: 15.0, max: 20.0, date: '11 Jun'),
+  (sub: 'Électronique',       type: 'TP',           period: 'T2', score: 16.5, max: 20.0, date: '06 Jun'),
+  (sub: 'Algorithmique',      type: 'Devoir',       period: 'T2', score: 18.0, max: 20.0, date: '03 Jun'),
+  (sub: 'Chimie',             type: 'Interrogation',period: 'T2', score: 13.5, max: 20.0, date: '28 Mai'),
+  (sub: 'Français',           type: 'Rédaction',    period: 'T2', score: 14.0, max: 20.0, date: '25 Mai'),
+  (sub: 'Philosophie',        type: 'Dissertation',  period: 'T2', score: 15.5, max: 20.0, date: '20 Mai'),
+  (sub: 'Anglais',            type: 'Expression',    period: 'T2', score: 16.0, max: 20.0, date: '16 Mai'),
+  (sub: 'Mathématiques',      type: 'Contrôle',      period: 'T1', score: 16.0, max: 20.0, date: '12 Avr'),
+  (sub: 'Sciences Physiques', type: 'TP',            period: 'T1', score: 14.5, max: 20.0, date: '08 Avr'),
+  (sub: 'Électronique',       type: 'Contrôle',      period: 'T1', score: 15.0, max: 20.0, date: '02 Avr'),
+  (sub: 'Algorithmique',      type: 'Projet',        period: 'T1', score: 19.0, max: 20.0, date: '25 Mar'),
+  (sub: 'Histoire-Géo',       type: 'Devoir',        period: 'T1', score: 13.0, max: 20.0, date: '18 Mar'),
+  (sub: 'Chimie',             type: 'TP',            period: 'T1', score: 14.0, max: 20.0, date: '10 Mar'),
+  (sub: 'EPS',                type: 'Pratique',      period: 'T1', score: 17.0, max: 20.0, date: '05 Mar'),
+];
+
 class _EmptyGrades extends StatelessWidget {
   const _EmptyGrades();
+
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.grading_rounded, size: 48, color: _gold),
-              SizedBox(height: 12),
-              Text('Aucune note disponible',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _terra)),
-              SizedBox(height: 4),
-              Text('Vos notes apparaîtront ici.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
-            ],
+  Widget build(BuildContext context) {
+    final avg = _mockEmiGrades.fold<double>(0, (s, g) => s + g.score) /
+        _mockEmiGrades.length;
+    final best = _mockEmiGrades.reduce((a, b) => a.score >= b.score ? a : b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Banner EMI
+        Container(
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [Color(0xFF0F766E), Color(0xFF059669)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(14),
           ),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.precision_manufacturing_rounded,
+                  color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Ferel Ondongo — Filière EMI',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+              Text('Terminale · Électronique, Math & Informatique',
+                  style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 10.5)),
+            ])),
+          ]),
         ),
-      );
+        // Métriques
+        Row(children: [
+          Expanded(child: _MetricCard(
+              label: 'Moyenne générale', value: avg.toStringAsFixed(1),
+              unit: '/ 20', icon: Icons.grading_rounded,
+              color: avg >= 14 ? _green : avg >= 10 ? _gold : _terra)),
+          const SizedBox(width: 10),
+          Expanded(child: _MetricCard(
+              label: 'Meilleure matière', value: best.sub.split(' ').first,
+              unit: '${best.score.toStringAsFixed(1)}/20', icon: Icons.emoji_events_outlined,
+              color: _green)),
+          const SizedBox(width: 10),
+          Expanded(child: _MetricCard(
+              label: 'Nombre de notes', value: '${_mockEmiGrades.length}',
+              unit: 'enregistrées', icon: Icons.format_list_numbered_rounded,
+              color: _terra)),
+        ]),
+        const SizedBox(height: 16),
+        // Liste
+        _MockGradesList(),
+      ],
+    );
+  }
+}
+
+class _MockGradesList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DataPanel(
+      title: 'Toutes les notes — EMI',
+      child: DataTablePanel(
+        columns: const ['Matière', 'Type', 'Période', 'Note', '/ Max'],
+        flex: const [3, 2, 2, 2, 1],
+        rows: [
+          for (final g in _mockEmiGrades)
+            [
+              Text(g.sub, style: const TextStyle(
+                  color: ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              Text(g.type, style: const TextStyle(fontSize: 12, color: muted)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: g.period == 'T2'
+                      ? const Color(0xFF0891B2).withOpacity(0.10)
+                      : const Color(0xFFC17F24).withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(g.period, style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700,
+                    color: g.period == 'T2'
+                        ? const Color(0xFF0891B2)
+                        : const Color(0xFFC17F24))),
+              ),
+              Text(
+                g.score.toStringAsFixed(1),
+                style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w900,
+                  color: g.score / g.max >= 0.7 ? _green
+                      : g.score / g.max >= 0.5 ? _gold
+                      : _terra,
+                ),
+              ),
+              Text(g.max.toStringAsFixed(0), style: const TextStyle(fontSize: 12, color: muted)),
+            ],
+        ],
+      ),
+    );
+  }
 }
 
 class _GradesList extends StatelessWidget {
