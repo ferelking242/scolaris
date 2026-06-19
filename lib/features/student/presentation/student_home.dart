@@ -189,7 +189,9 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
   @override
   Widget build(BuildContext context) {
     final user     = ref.watch(authSessionProvider);
-    final name     = user?.fullName ?? 'Étudiant';
+    // Mode démo : afficher Ferel Ondongo sans login
+    final isDemo   = user == null;
+    final name     = user?.fullName ?? 'Ferel Ondongo';
     final initials = _initials(name);
 
     final gradesAsync  = ref.watch(myGradesProvider);
@@ -202,21 +204,23 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final annonces= announceAsync.value ?? <SbAnnouncement>[];
     final profile = profileAsync.value;
 
-    final avg = grades.isEmpty
-        ? 0.0
+    // Stats mock EMI pour le mode démo (sinon données réelles Supabase)
+    final avg = isDemo || grades.isEmpty
+        ? 15.7  // moyenne mock Ferel Ondongo
         : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
 
-    final absents = absences.where((a) => a.status == 'absent').length;
-    final retards = absences.where((a) => a.status == 'late').length;
-    const joursTotal = 90;
-    final presents   = (joursTotal - absents - retards).clamp(0, joursTotal);
-    final tauxPres   = joursTotal > 0 ? (presents / joursTotal * 100) : 0.0;
+    final absents = isDemo ? 2 : absences.where((a) => a.status == 'absent').length;
+    final retards = isDemo ? 2 : absences.where((a) => a.status == 'late').length;
+    const joursTotal = 40;
+    final presents   = isDemo ? 36 : (joursTotal - absents - retards).clamp(0, joursTotal);
+    final tauxPres   = isDemo ? 90.0 : (joursTotal > 0 ? (presents / joursTotal * 100) : 0.0);
 
     final recentGrades = grades.take(3).toList();
 
-    final isLoadingGrades  = gradesAsync.isLoading;
-    final isLoadingAbs     = absAsync.isLoading;
-    final isLoadingAnn     = announceAsync.isLoading;
+    // En mode démo, ne pas montrer le skeleton de chargement
+    final isLoadingGrades  = isDemo ? false : gradesAsync.isLoading;
+    final isLoadingAbs     = isDemo ? false : absAsync.isLoading;
+    final isLoadingAnn     = isDemo ? false : announceAsync.isLoading;
 
     final classeLabel = profile?.classe ?? profile?.niveau ?? 'Tle EMI';
 
