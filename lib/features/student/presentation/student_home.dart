@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
@@ -46,7 +47,6 @@ class StudentHome extends StatelessWidget {
       role: UserRole.student,
       title: 'Scolaris',
       groups: const [
-        // ── Configuration ─────────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.setup', entries: [
           RoleNavEntry(
             icon: Icons.home_rounded,
@@ -62,7 +62,6 @@ class StudentHome extends StatelessWidget {
           ),
         ]),
 
-        // ── Activité scolaire ──────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.activity', entries: [
           RoleNavEntry(
             icon: Icons.grading_outlined,
@@ -102,7 +101,6 @@ class StudentHome extends StatelessWidget {
           ),
         ]),
 
-        // ── Scolarité & Finances ───────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.finance', entries: [
           RoleNavEntry(
             icon: Icons.account_balance_wallet_outlined,
@@ -118,7 +116,6 @@ class StudentHome extends StatelessWidget {
           ),
         ]),
 
-        // ── Compte & Outils ────────────────────────────────────────────
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(
             icon: Icons.chat_outlined,
@@ -154,23 +151,8 @@ class _StudentDashboard extends ConsumerStatefulWidget {
 }
 
 class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
-  bool _loading = true;
 
-  static const _moyenneProgression = [12.5, 13.8, 14.2, 14.8, 15.4];
-  static const _semLabels = ['S1', 'S2', 'S3', 'S4', 'S5'];
-  static const _absences = [2.0, 1.0, 0.0, 1.0, 0.0];
-
-  static const _recentNotes = [
-    (sub: 'Mathématiques', n: 17.5, max: 20.0, c: _gold,  d: '28 Mai'),
-    (sub: 'Physique',      n: 13.0, max: 20.0, c: _terra, d: '25 Mai'),
-    (sub: 'Histoire',      n: 15.5, max: 20.0, c: _green, d: '22 Mai'),
-  ];
-
-  static const _devoirs = [
-    (sub: 'Mathématiques', titre: 'Exercices page 124', echeance: 'Demain',    c: _gold),
-    (sub: 'Physique',      titre: 'Résumé chapitre 8',  echeance: 'Dans 2j',   c: _cyan),
-  ];
-
+  // Mock EDT (pas de table Supabase pour l'EDT pour l'instant)
   static const _edt = [
     (h: '08:00', sub: 'Mathématiques', room: 'A12',  c: _terra),
     (h: '10:00', sub: 'Français',      room: 'B04',  c: _gold),
@@ -178,12 +160,12 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     (h: '16:00', sub: 'Histoire',      room: 'C01',  c: _cyan),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 900),
-        () { if (mounted) setState(() => _loading = false); });
-  }
+  // Mock devoirs (pas de table Supabase pour les devoirs pour l'instant)
+  static const _devoirs = [
+    (sub: 'Mathématiques', titre: 'Exercices page 124',         echeance: 'Demain',   c: _gold),
+    (sub: 'Physique',      titre: 'Résumé chapitre 8',          echeance: 'Dans 2j',  c: _cyan),
+    (sub: 'SVT',           titre: 'Schéma cellule eucaryote',   echeance: 'Dans 4j',  c: _green),
+  ];
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -195,32 +177,78 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
   void _push(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
+  String _initials(String name) {
+    final p = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
+    if (p.isEmpty) return 'E';
+    if (p.length == 1) return p[0][0].toUpperCase();
+    return (p[0][0] + p[1][0]).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final user     = ref.watch(authSessionProvider);
     final name     = user?.fullName ?? 'Étudiant';
     final initials = _initials(name);
 
+    final gradesAsync  = ref.watch(myGradesProvider);
+    final absAsync     = ref.watch(myAbsencesProvider);
+    final announceAsync= ref.watch(announcementsProvider);
+    final profileAsync = ref.watch(myStudentProfileProvider);
+
+    final grades  = gradesAsync.value ?? <SbGrade>[];
+    final absences= absAsync.value    ?? <SbAbsence>[];
+    final annonces= announceAsync.value ?? <SbAnnouncement>[];
+    final profile = profileAsync.value;
+
+    final avg = grades.isEmpty
+        ? 0.0
+        : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+
+    final absents = absences.where((a) => a.status == 'absent').length;
+    final retards = absences.where((a) => a.status == 'late').length;
+    const joursTotal = 90;
+    final presents   = (joursTotal - absents - retards).clamp(0, joursTotal);
+    final tauxPres   = joursTotal > 0 ? (presents / joursTotal * 100) : 0.0;
+
+    final recentGrades = grades.take(3).toList();
+
+    final isLoadingGrades  = gradesAsync.isLoading;
+    final isLoadingAbs     = absAsync.isLoading;
+    final isLoadingAnn     = announceAsync.isLoading;
+
+    final classeLabel = profile?.classe ?? profile?.niveau ?? 'Terminale A';
+
     return Container(
       color: _bg,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         child: LayoutBuilder(builder: (_, constraints) {
-          final isWide = constraints.maxWidth > 680;
+          final w = constraints.maxWidth;
+          final isDesktop = w > 900;
+          final isTablet  = w > 600;
+
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // ── 1. Greeting slim ──────────────────────────────────────
+            // ── 1. Greeting ──────────────────────────────────────────────
             _SlimGreeting(
-              greeting: _greeting, name: name,
-              initials: initials, loading: _loading,
+              greeting: _greeting,
+              name: name,
+              initials: initials,
+              classeLabel: classeLabel,
+              loading: isLoadingGrades,
             ),
             const SizedBox(height: 18),
 
-            // ── 2. Stats rapides ──────────────────────────────────────
-            _QuickStats(loading: _loading),
+            // ── 2. Stats rapides (données réelles) ───────────────────────
+            _QuickStatsRow(
+              avg: avg,
+              tauxPresence: tauxPres,
+              devoirsEnCours: _devoirs.length,
+              loading: isLoadingGrades || isLoadingAbs,
+            ),
             const SizedBox(height: 22),
 
-            // ── 3. Accès rapide ───────────────────────────────────────
+            // ── 3. Accès rapide ──────────────────────────────────────────
             _SectionHeader(
               icon: Icons.apps_rounded,
               title: 'Accès rapide',
@@ -240,57 +268,222 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             }),
             const SizedBox(height: 24),
 
-            // ── 4. EDT + Progression notes (2 cols sur desktop) ───────
-            if (isWide)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildEdtSection()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildNotesChartSection()),
-              ])
-            else ...[
-              _buildEdtSection(),
-              const SizedBox(height: 22),
-              _buildNotesChartSection(),
-            ],
-            const SizedBox(height: 22),
-
-            // ── 5. Dernières notes ─────────────────────────────────────
-            _buildRecentNotesSection(),
+            // ── 4. Layout principal (1, 2 ou 3 colonnes) ────────────────
+            if (isDesktop)
+              _DesktopLayout(
+                absences: absences,
+                recentGrades: recentGrades,
+                grades: grades,
+                avg: avg,
+                devoirs: _devoirs,
+                edt: _edt,
+                annonces: annonces,
+                isLoadingGrades: isLoadingGrades,
+                isLoadingAbs: isLoadingAbs,
+                isLoadingAnn: isLoadingAnn,
+                onNavigate: _push,
+              )
+            else if (isTablet)
+              _TabletLayout(
+                absences: absences,
+                recentGrades: recentGrades,
+                grades: grades,
+                avg: avg,
+                devoirs: _devoirs,
+                edt: _edt,
+                annonces: annonces,
+                isLoadingGrades: isLoadingGrades,
+                isLoadingAbs: isLoadingAbs,
+                isLoadingAnn: isLoadingAnn,
+                onNavigate: _push,
+              )
+            else
+              _MobileLayout(
+                absences: absences,
+                recentGrades: recentGrades,
+                grades: grades,
+                avg: avg,
+                devoirs: _devoirs,
+                edt: _edt,
+                annonces: annonces,
+                isLoadingGrades: isLoadingGrades,
+                isLoadingAbs: isLoadingAbs,
+                isLoadingAnn: isLoadingAnn,
+                onNavigate: _push,
+              ),
           ]);
         }),
       ),
     );
   }
+}
 
-  Widget _buildEdtSection() => Column(
+// ══════════════════════════════════════════════════════════════════════════
+// Layouts
+// ══════════════════════════════════════════════════════════════════════════
+
+class _DesktopLayout extends StatelessWidget {
+  final List<SbAbsence> absences;
+  final List<SbGrade> recentGrades, grades;
+  final double avg;
+  final List<({String sub, String titre, String echeance, Color c})> devoirs;
+  final List<({String h, String sub, String room, Color c})> edt;
+  final List<SbAnnouncement> annonces;
+  final bool isLoadingGrades, isLoadingAbs, isLoadingAnn;
+  final void Function(Widget) onNavigate;
+
+  const _DesktopLayout({
+    required this.absences, required this.recentGrades, required this.grades,
+    required this.avg, required this.devoirs, required this.edt,
+    required this.annonces, required this.isLoadingGrades,
+    required this.isLoadingAbs, required this.isLoadingAnn,
+    required this.onNavigate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Colonne gauche
+      Expanded(flex: 2, child: Column(children: [
+        _EdtSection(edt: edt, loading: isLoadingGrades, onNavigate: onNavigate),
+        const SizedBox(height: 16),
+        _DevoirsSection(devoirs: devoirs, loading: false, onNavigate: onNavigate),
+        const SizedBox(height: 16),
+        _AttendanceSummaryWidget(absences: absences, loading: isLoadingAbs, onNavigate: onNavigate),
+      ])),
+      const SizedBox(width: 16),
+      // Colonne centre
+      Expanded(flex: 3, child: Column(children: [
+        _NotesProgressionSection(grades: grades, avg: avg, loading: isLoadingGrades, onNavigate: onNavigate),
+        const SizedBox(height: 16),
+        _RecentNotesSection(recentGrades: recentGrades, loading: isLoadingGrades, onNavigate: onNavigate),
+      ])),
+      const SizedBox(width: 16),
+      // Colonne droite
+      Expanded(flex: 2, child: Column(children: [
+        _AnnoncesSection(annonces: annonces, loading: isLoadingAnn),
+        const SizedBox(height: 16),
+        const _WeeklyStatsCard(),
+      ])),
+    ]);
+  }
+}
+
+class _TabletLayout extends StatelessWidget {
+  final List<SbAbsence> absences;
+  final List<SbGrade> recentGrades, grades;
+  final double avg;
+  final List<({String sub, String titre, String echeance, Color c})> devoirs;
+  final List<({String h, String sub, String room, Color c})> edt;
+  final List<SbAnnouncement> annonces;
+  final bool isLoadingGrades, isLoadingAbs, isLoadingAnn;
+  final void Function(Widget) onNavigate;
+
+  const _TabletLayout({
+    required this.absences, required this.recentGrades, required this.grades,
+    required this.avg, required this.devoirs, required this.edt,
+    required this.annonces, required this.isLoadingGrades,
+    required this.isLoadingAbs, required this.isLoadingAnn,
+    required this.onNavigate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: _EdtSection(edt: edt, loading: isLoadingGrades, onNavigate: onNavigate)),
+        const SizedBox(width: 16),
+        Expanded(child: _NotesProgressionSection(grades: grades, avg: avg, loading: isLoadingGrades, onNavigate: onNavigate)),
+      ]),
+      const SizedBox(height: 16),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: _DevoirsSection(devoirs: devoirs, loading: false, onNavigate: onNavigate)),
+        const SizedBox(width: 16),
+        Expanded(child: _AttendanceSummaryWidget(absences: absences, loading: isLoadingAbs, onNavigate: onNavigate)),
+      ]),
+      const SizedBox(height: 16),
+      _RecentNotesSection(recentGrades: recentGrades, loading: isLoadingGrades, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _AnnoncesSection(annonces: annonces, loading: isLoadingAnn),
+    ]);
+  }
+}
+
+class _MobileLayout extends StatelessWidget {
+  final List<SbAbsence> absences;
+  final List<SbGrade> recentGrades, grades;
+  final double avg;
+  final List<({String sub, String titre, String echeance, Color c})> devoirs;
+  final List<({String h, String sub, String room, Color c})> edt;
+  final List<SbAnnouncement> annonces;
+  final bool isLoadingGrades, isLoadingAbs, isLoadingAnn;
+  final void Function(Widget) onNavigate;
+
+  const _MobileLayout({
+    required this.absences, required this.recentGrades, required this.grades,
+    required this.avg, required this.devoirs, required this.edt,
+    required this.annonces, required this.isLoadingGrades,
+    required this.isLoadingAbs, required this.isLoadingAnn,
+    required this.onNavigate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      _EdtSection(edt: edt, loading: isLoadingGrades, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _DevoirsSection(devoirs: devoirs, loading: false, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _AttendanceSummaryWidget(absences: absences, loading: isLoadingAbs, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _NotesProgressionSection(grades: grades, avg: avg, loading: isLoadingGrades, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _RecentNotesSection(recentGrades: recentGrades, loading: isLoadingGrades, onNavigate: onNavigate),
+      const SizedBox(height: 16),
+      _AnnoncesSection(annonces: annonces, loading: isLoadingAnn),
+    ]);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Sections extraites
+// ══════════════════════════════════════════════════════════════════════════
+
+class _EdtSection extends StatelessWidget {
+  final List<({String h, String sub, String room, Color c})> edt;
+  final bool loading;
+  final void Function(Widget) onNavigate;
+  const _EdtSection({required this.edt, required this.loading, required this.onNavigate});
+
+  @override
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _SectionHeader(
         icon: Icons.calendar_today_rounded,
-        title: 'Emploi du temps du jour',
+        title: 'Emploi du temps',
         iconGradient: [_terra, _orange],
         action: 'Tout voir',
-        onAction: () => _push(const SchedulePage()),
+        onAction: () => onNavigate(const SchedulePage()),
       ),
       const SizedBox(height: 10),
       Skeletonizer(
-        enabled: _loading,
+        enabled: loading,
         effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-        child: _EdtTimeline(slots: _edt),
+        child: _EdtTimeline(slots: edt),
       ),
     ],
   );
+}
 
-  Widget _buildNotesChartSection() => Skeletonizer(
-    enabled: _loading,
-    effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-    child: _NoteProgressionChart(
-      values: _moyenneProgression,
-      labels: _semLabels,
-    ),
-  );
+class _DevoirsSection extends StatelessWidget {
+  final List<({String sub, String titre, String echeance, Color c})> devoirs;
+  final bool loading;
+  final void Function(Widget) onNavigate;
+  const _DevoirsSection({required this.devoirs, required this.loading, required this.onNavigate});
 
-  Widget _buildDevoirsSection() => Column(
+  @override
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _SectionHeader(
@@ -298,375 +491,400 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
         title: 'Devoirs à rendre',
         iconGradient: [_orange, const Color(0xFFBF360C)],
         action: 'Voir tout',
-        onAction: () => _push(const HomeworkStudentPage()),
+        onAction: () => onNavigate(const HomeworkStudentPage()),
       ),
       const SizedBox(height: 10),
       Skeletonizer(
-        enabled: _loading,
+        enabled: loading,
         effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
         child: Column(children: [
-          for (final d in _devoirs) ...[
-            _DevoirCard(sub: d.sub, titre: d.titre,
-                echeance: d.echeance, color: d.c,
-                onTap: () => _push(const HomeworkStudentPage())),
+          for (final d in devoirs) ...[
+            _DevoirCard(
+              sub: d.sub, titre: d.titre,
+              echeance: d.echeance, color: d.c,
+              onTap: () => onNavigate(const HomeworkStudentPage()),
+            ),
             const SizedBox(height: 8),
           ],
         ]),
       ),
     ],
   );
-
-  Widget _buildRecentNotesSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _SectionHeader(
-        icon: Icons.grading_rounded,
-        title: 'Dernières notes',
-        iconGradient: [_gold, const Color(0xFFF57F17)],
-        action: 'Toutes',
-        onAction: () => _push(const GradesPage()),
-      ),
-      const SizedBox(height: 10),
-      Skeletonizer(
-        enabled: _loading,
-        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-        child: Column(children: [
-          for (final n in _recentNotes) ...[
-            _NoteRow(sub: n.sub, note: n.n, max: n.max,
-                date: n.d, color: n.c,
-                onTap: () => _push(const GradesPage())),
-            const SizedBox(height: 8),
-          ],
-        ]),
-      ),
-    ],
-  );
-
-  String _initials(String name) {
-    final p = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
-    if (p.isEmpty) return 'E';
-    if (p.length == 1) return p[0][0].toUpperCase();
-    return (p[0][0] + p[1][0]).toUpperCase();
-  }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// Greeting slim — replaces HeroCard
-// ══════════════════════════════════════════════════════════════════════════
-class _SlimGreeting extends StatelessWidget {
-  final String greeting, name, initials;
+class _AttendanceSummaryWidget extends StatelessWidget {
+  final List<SbAbsence> absences;
   final bool loading;
-  const _SlimGreeting({
-    required this.greeting, required this.name,
-    required this.initials, required this.loading,
-  });
+  final void Function(Widget) onNavigate;
+  const _AttendanceSummaryWidget({required this.absences, required this.loading, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Container(
-        width: 48, height: 48,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [_terra, _orange],
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(
-            color: _terra.withOpacity(0.28),
-            blurRadius: 10, offset: const Offset(0, 4),
-          )],
-        ),
-        child: Center(child: Text(initials,
-            style: const TextStyle(color: _white,
-                fontSize: 18, fontWeight: FontWeight.w900))),
-      ),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(greeting, style: const TextStyle(color: _muted, fontSize: 12)),
-        Text(name, style: const TextStyle(color: _ink,
-            fontSize: 17, fontWeight: FontWeight.w800, height: 1.2)),
-      ])),
-      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        const Text('Terminale A',
-            style: TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
-        const Text('Trimestre 2',
-            style: TextStyle(color: _muted, fontSize: 11)),
-      ]),
-    ]);
-  }
-}
+    final absents  = absences.where((a) => a.status == 'absent').length;
+    final retards  = absences.where((a) => a.status == 'late').length;
+    const joursTotal = 90;
+    final presents = (joursTotal - absents - retards).clamp(0, joursTotal);
+    final taux     = joursTotal > 0 ? (presents / joursTotal * 100) : 0.0;
 
-// ══════════════════════════════════════════════════════════════════════════
-// Hero profil — design premium social (kept for reference)
-// ══════════════════════════════════════════════════════════════════════════
-class _HeroCard extends StatelessWidget {
-  final String greeting, name, initials;
-  final bool loading;
-  const _HeroCard({
-    required this.greeting, required this.name,
-    required this.initials, required this.loading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A0500), _dark, _terra],
-          stops: [0.0, 0.40, 1.0],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.fact_check_rounded,
+          title: 'Présences',
+          iconGradient: [_green, const Color(0xFF2E7D32)],
+          action: 'Détail',
+          onAction: () => onNavigate(const AttendancePage()),
         ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(color: _terra.withOpacity(0.45),
-              blurRadius: 32, offset: const Offset(0, 14), spreadRadius: -6),
-          BoxShadow(color: _dark.withOpacity(0.25),
-              blurRadius: 6, offset: const Offset(0, 3)),
-        ],
-      ),
-      child: Stack(children: [
-        // Cercle décoratif en arrière-plan
-        Positioned(right: -30, top: -30,
-          child: Container(
-            width: 130, height: 130,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _white.withOpacity(0.04),
-            ),
-          ),
-        ),
-        Positioned(right: 40, bottom: -20,
-          child: Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _gold.withOpacity(0.08),
-            ),
-          ),
-        ),
-
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Avatar
-              _AvatarCircle(initials: initials),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(greeting, style: TextStyle(
-                    color: _white.withOpacity(0.60), fontSize: 12)),
-                const SizedBox(height: 2),
-                Text(name, style: const TextStyle(color: _white,
-                    fontSize: 20, fontWeight: FontWeight.w900, height: 1.1)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  _Badge(label: 'Terminale A',
-                      bg: _gold.withOpacity(0.22), border: _gold.withOpacity(0.50), fg: _gold),
-                  _Badge(label: '• Trimestre 2',
-                      bg: _white.withOpacity(0.12), border: _white.withOpacity(0.25),
-                      fg: _white.withOpacity(0.85)),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+          child: GestureDetector(
+            onTap: () => onNavigate(const AttendancePage()),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: ScolarisSurface.card(radius: 14),
+              child: Column(children: [
+                Row(children: [
+                  _AttCell(icon: Icons.check_circle_rounded, label: 'Présents',  val: '$presents', color: _green),
+                  _AttDivider(),
+                  _AttCell(icon: Icons.cancel_rounded,       label: 'Absents',   val: '$absents',  color: _terra),
+                  _AttDivider(),
+                  _AttCell(icon: Icons.access_time_rounded,  label: 'Retards',   val: '$retards',  color: _gold),
+                  _AttDivider(),
+                  _AttCell(icon: Icons.percent_rounded,      label: 'Taux',      val: '${taux.toStringAsFixed(0)}%', color: _cyan),
                 ]),
-              ])),
-            ]),
-
-            const SizedBox(height: 16),
-
-            // Infos profil row
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: _white.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _white.withOpacity(0.15)),
-              ),
-              child: Row(children: [
-                _ProfileInfo(icon: Icons.badge_outlined, label: 'ID', value: 'ETU-2026-0042'),
-                _ProfileDivider(),
-                _ProfileInfo(icon: Icons.leaderboard_outlined, label: 'Rang', value: '4e / 32'),
-                _ProfileDivider(),
-                _ProfileInfo(icon: Icons.radio_button_checked_rounded, label: 'Statut', value: 'Actif',
-                    valueColor: _green),
-              ]),
-            ),
-            const SizedBox(height: 12),
-
-            // Barre examen
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: _white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _white.withOpacity(0.12)),
-              ),
-              child: Row(children: [
-                Icon(Icons.timer_outlined, color: _gold, size: 15),
-                const SizedBox(width: 6),
-                if (loading)
-                  Container(width: 140, height: 14, decoration: BoxDecoration(
-                    color: _white.withOpacity(0.2), borderRadius: BorderRadius.circular(6)))
-                else
-                  RichText(text: TextSpan(
-                    style: TextStyle(color: _white.withOpacity(0.75), fontSize: 12),
-                    children: const [
-                      TextSpan(text: 'Examens dans '),
-                      TextSpan(text: '47 jours',
-                          style: TextStyle(color: _gold,
-                              fontWeight: FontWeight.w800, fontSize: 14)),
-                    ],
-                  )),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [_gold, Color(0xFFE8A83A)],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: _gold.withOpacity(0.40),
-                        blurRadius: 8, offset: const Offset(0, 3))],
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: LinearProgressIndicator(
+                    value: taux / 100,
+                    minHeight: 7,
+                    backgroundColor: _terra.withOpacity(0.12),
+                    valueColor: const AlwaysStoppedAnimation<Color>(_green),
                   ),
-                  child: const Text('Réviser',
-                      style: TextStyle(color: _dark, fontSize: 11,
-                          fontWeight: FontWeight.w800)),
                 ),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(child: Text('${taux.toStringAsFixed(1)}% sur $joursTotal jours',
+                      style: const TextStyle(color: _muted, fontSize: 10))),
+                  const Text('Voir →', style: TextStyle(color: _terra, fontSize: 11, fontWeight: FontWeight.w700)),
+                ]),
               ]),
             ),
-          ]),
+          ),
         ),
-      ]),
+      ],
     );
   }
 }
 
-class _ProfileInfo extends StatelessWidget {
-  final IconData icon;
-  final String label, value;
-  final Color? valueColor;
-  const _ProfileInfo({required this.icon, required this.label, required this.value, this.valueColor});
+class _NotesProgressionSection extends StatelessWidget {
+  final List<SbGrade> grades;
+  final double avg;
+  final bool loading;
+  final void Function(Widget) onNavigate;
+  const _NotesProgressionSection({required this.grades, required this.avg, required this.loading, required this.onNavigate});
 
-  @override
-  Widget build(BuildContext context) => Expanded(child: Column(children: [
-    Icon(icon, size: 12, color: _white.withOpacity(0.50)),
-    const SizedBox(height: 3),
-    Text(label, style: TextStyle(color: _white.withOpacity(0.50), fontSize: 9, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 2),
-    Text(value, style: TextStyle(
-        color: valueColor ?? _white,
-        fontSize: 10, fontWeight: FontWeight.w800),
-        maxLines: 1, overflow: TextOverflow.ellipsis),
-  ]));
-}
-
-class _ProfileDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1, height: 30, color: _white.withOpacity(0.15),
-    margin: const EdgeInsets.symmetric(horizontal: 8),
-  );
-}
-
-class _AvatarCircle extends StatelessWidget {
-  final String initials;
-  const _AvatarCircle({required this.initials});
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 64, height: 64,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE8A83A), _gold],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+    final groupedByPeriod = <String, List<SbGrade>>{};
+    for (final g in grades) {
+      final key = g.period ?? 'T1';
+      groupedByPeriod.putIfAbsent(key, () => []).add(g);
+    }
+    final periods = groupedByPeriod.keys.toList()..sort();
+    final chartValues = periods.isEmpty
+        ? [avg, avg]
+        : periods.map((p) {
+            final gs = groupedByPeriod[p]!;
+            return gs.fold<double>(0, (s, g) => s + g.outOf20) / gs.length;
+          }).toList();
+    final chartLabels = periods.isEmpty ? ['T1', 'T2'] : periods;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.trending_up_rounded,
+          title: 'Progression des notes',
+          iconGradient: [_gold, const Color(0xFFF57F17)],
+          action: 'Toutes',
+          onAction: () => onNavigate(const GradesPage()),
         ),
-        border: Border.all(color: _white, width: 3),
-        boxShadow: [BoxShadow(color: _gold.withOpacity(0.50),
-            blurRadius: 14, offset: const Offset(0, 5))],
-      ),
-      child: Center(child: Text(initials,
-          style: const TextStyle(color: _dark, fontSize: 22,
-              fontWeight: FontWeight.w900))),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+          child: _NoteProgressionChart(
+            values: chartValues,
+            labels: chartLabels,
+            avgActuel: avg,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _Badge extends StatelessWidget {
-  final String label;
-  final Color bg, border, fg;
-  const _Badge({required this.label, required this.bg,
-      required this.border, required this.fg});
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-        color: bg, borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border)),
-    child: Text(label, style: TextStyle(
-        color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Stats rapides
-// ══════════════════════════════════════════════════════════════════════════
-class _QuickStats extends StatelessWidget {
+class _RecentNotesSection extends StatelessWidget {
+  final List<SbGrade> recentGrades;
   final bool loading;
-  const _QuickStats({required this.loading});
+  final void Function(Widget) onNavigate;
+  const _RecentNotesSection({required this.recentGrades, required this.loading, required this.onNavigate});
 
-  static const _data = [
-    (icon: Icons.star_rounded,         label: 'Moyenne',  val: '15.4', sub: '/20',       c: _gold),
-    (icon: Icons.check_circle_rounded, label: 'Présence', val: '96',   sub: ' %',        c: _green),
-    (icon: Icons.assignment_rounded,   label: 'Devoirs',  val: '3',    sub: ' en cours', c: _terra),
-    (icon: Icons.leaderboard_rounded,  label: 'Rang',     val: '4e',   sub: ' / 32',     c: _orange),
+  static const _mockNotes = [
+    (sub: 'Mathématiques', n: 17.5, max: 20.0, c: _gold,  d: '28 Mai'),
+    (sub: 'Physique',      n: 13.0, max: 20.0, c: _terra, d: '25 Mai'),
+    (sub: 'Histoire',      n: 15.5, max: 20.0, c: _green, d: '22 Mai'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.grading_rounded,
+          title: 'Dernières notes',
+          iconGradient: [_gold, const Color(0xFFF57F17)],
+          action: 'Toutes',
+          onAction: () => onNavigate(const GradesPage()),
+        ),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+          child: recentGrades.isEmpty
+              ? Column(children: [
+                  for (final n in _mockNotes) ...[
+                    _NoteRow(sub: n.sub, note: n.n, max: n.max,
+                        date: n.d, color: n.c, onTap: () => onNavigate(const GradesPage())),
+                    const SizedBox(height: 8),
+                  ],
+                ])
+              : Column(children: [
+                  for (final g in recentGrades) ...[
+                    _NoteRow(
+                      sub: g.subjectName ?? g.title ?? 'Matière',
+                      note: g.score, max: g.maxScore,
+                      date: g.gradedAt != null
+                          ? '${g.gradedAt!.day}/${g.gradedAt!.month}'
+                          : '',
+                      color: g.outOf20 >= 14 ? _green : g.outOf20 >= 10 ? _gold : _terra,
+                      onTap: () => onNavigate(const GradesPage()),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ]),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnnoncesSection extends StatelessWidget {
+  final List<SbAnnouncement> annonces;
+  final bool loading;
+  const _AnnoncesSection({required this.annonces, required this.loading});
+
+  static const _mockAnnonces = [
+    (icon: Icons.event_note_rounded,  color: _terra,
+     title: 'Examens de fin de trimestre',
+     body:  'Les examens T2 auront lieu du 23 au 27 juin.',
+     author: 'Direction', time: 'Il y a 2h'),
+    (icon: Icons.calculate_rounded,   color: _gold,
+     title: 'Nouveau programme de maths',
+     body:  'Le chapitre 9 sur les probabilités est disponible.',
+     author: 'M. Dupont', time: 'Il y a 5h'),
+    (icon: Icons.park_rounded,        color: _green,
+     title: 'Sortie botanique SVT',
+     body:  'Autorisations parentales avant le 15 juin.',
+     author: 'Dr. Yao', time: 'Hier'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.campaign_rounded,
+          title: 'Annonces',
+          iconGradient: [_purple, const Color(0xFF5B21B6)],
+        ),
+        const SizedBox(height: 10),
+        Skeletonizer(
+          enabled: loading,
+          effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+          child: annonces.isEmpty
+              ? Column(children: [
+                  for (final a in _mockAnnonces)
+                    _AnnonceCard(
+                      icon: a.icon, color: a.color,
+                      title: a.title, body: a.body,
+                      author: a.author, time: a.time,
+                    ),
+                ])
+              : Column(children: [
+                  for (final a in annonces.take(3))
+                    _AnnonceCard(
+                      icon: a.isPinned ? Icons.push_pin_rounded : Icons.campaign_rounded,
+                      color: _purple,
+                      title: a.title,
+                      body: a.content ?? '',
+                      author: a.authorName ?? 'Direction',
+                      time: a.createdAt != null
+                          ? '${a.createdAt!.day}/${a.createdAt!.month}'
+                          : '',
+                    ),
+                ]),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Greeting slim
+// ══════════════════════════════════════════════════════════════════════════
+class _SlimGreeting extends StatelessWidget {
+  final String greeting, name, initials, classeLabel;
+  final bool loading;
+  const _SlimGreeting({
+    required this.greeting, required this.name,
+    required this.initials, required this.classeLabel,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2A0A00), _dark, _terra],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(
+          color: _terra.withOpacity(0.30),
+          blurRadius: 18, offset: const Offset(0, 6),
+        )],
+      ),
+      child: Row(children: [
+        Container(
+          width: 52, height: 52,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE8A83A), _gold],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _white.withOpacity(0.25), width: 2),
+            boxShadow: [BoxShadow(
+              color: _gold.withOpacity(0.45),
+              blurRadius: 10, offset: const Offset(0, 4),
+            )],
+          ),
+          child: Center(child: Text(initials,
+              style: const TextStyle(color: _dark, fontSize: 20, fontWeight: FontWeight.w900))),
+        ),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(greeting, style: TextStyle(color: _white.withOpacity(0.55), fontSize: 11)),
+          Text(name, style: const TextStyle(color: _white,
+              fontSize: 18, fontWeight: FontWeight.w900, height: 1.2)),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _gold.withOpacity(0.20),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _gold.withOpacity(0.45)),
+            ),
+            child: Text(classeLabel, style: const TextStyle(
+                color: _gold, fontSize: 11, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(height: 4),
+          Text('Trimestre 2', style: TextStyle(
+              color: _white.withOpacity(0.55), fontSize: 10)),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Stats rapides (données réelles)
+// ══════════════════════════════════════════════════════════════════════════
+class _QuickStatsRow extends StatelessWidget {
+  final double avg, tauxPresence;
+  final int devoirsEnCours;
+  final bool loading;
+  const _QuickStatsRow({
+    required this.avg, required this.tauxPresence,
+    required this.devoirsEnCours, required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final avgColor = avg >= 14 ? _green : avg >= 10 ? _gold : _terra;
+    final presColor = tauxPresence >= 90 ? _green : tauxPresence >= 75 ? _gold : _terra;
+
+    final data = [
+      (icon: Icons.star_rounded,         label: 'Moyenne',  val: avg > 0 ? avg.toStringAsFixed(1) : '—', sub: '/20',       c: avgColor),
+      (icon: Icons.check_circle_rounded, label: 'Présence', val: tauxPresence > 0 ? '${tauxPresence.toStringAsFixed(0)}' : '—', sub: ' %', c: presColor),
+      (icon: Icons.assignment_rounded,   label: 'Devoirs',  val: '$devoirsEnCours', sub: ' à rendre', c: _orange),
+    ];
+
     return Row(children: [
-      for (int i = 0; i < _data.length; i++) ...[
+      for (int i = 0; i < data.length; i++) ...[
         Expanded(child: Skeletonizer(
           enabled: loading,
           effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-          child: _QuickStatPill(d: _data[i]),
+          child: _QuickStatCard(d: data[i]),
         )),
-        if (i < _data.length - 1) const SizedBox(width: 10),
+        if (i < data.length - 1) const SizedBox(width: 10),
       ],
     ]);
   }
 }
 
-class _QuickStatPill extends StatelessWidget {
+class _QuickStatCard extends StatelessWidget {
   final ({IconData icon, String label, String val, String sub, Color c}) d;
-  const _QuickStatPill({required this.d});
+  const _QuickStatCard({required this.d});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEEE5D8)),
+        border: Border.all(color: d.c.withOpacity(0.18)),
         boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(0.04),
-          blurRadius: 8, offset: const Offset(0, 2),
+          color: d.c.withOpacity(0.08),
+          blurRadius: 10, offset: const Offset(0, 3),
         )],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          width: 28, height: 28,
+          width: 32, height: 32,
           decoration: BoxDecoration(
-              color: d.c.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-          child: Icon(d.icon, color: d.c, size: 14),
+              color: d.c.withOpacity(0.12), borderRadius: BorderRadius.circular(9)),
+          child: Icon(d.icon, color: d.c, size: 16),
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 8),
         Text(d.label, style: const TextStyle(
             color: _muted, fontSize: 10, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
         RichText(text: TextSpan(children: [
           TextSpan(text: d.val,
-              style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w900)),
+              style: TextStyle(color: d.c, fontSize: 22, fontWeight: FontWeight.w900)),
           TextSpan(text: d.sub,
               style: const TextStyle(color: _muted, fontSize: 10)),
         ])),
@@ -676,7 +894,7 @@ class _QuickStatPill extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Section header avec icône
+// Section header
 // ══════════════════════════════════════════════════════════════════════════
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
@@ -684,14 +902,12 @@ class _SectionHeader extends StatelessWidget {
   final List<Color> iconGradient;
   final String? action;
   final VoidCallback? onAction;
-  final Widget? trailing;
   const _SectionHeader({
     required this.icon,
     required this.title,
     required this.iconGradient,
     this.action,
     this.onAction,
-    this.trailing,
   });
 
   @override
@@ -712,7 +928,6 @@ class _SectionHeader extends StatelessWidget {
       Expanded(child: Text(title, style: const TextStyle(
           fontSize: 14.5, color: _ink, fontWeight: FontWeight.w800,
           letterSpacing: -0.2))),
-      if (trailing != null) trailing!,
       if (action != null) ...[
         const SizedBox(width: 8),
         GestureDetector(
@@ -732,23 +947,8 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _SmallBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _SmallBadge(this.label, this.color);
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-        color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.30))),
-    child: Text(label, style: TextStyle(
-        color: color, fontSize: 10, fontWeight: FontWeight.w700)),
-  );
-}
-
 // ══════════════════════════════════════════════════════════════════════════
-// Raccourcis minimalistes — flat, pas de dégradé, couleurs thème uniquement
+// Raccourcis
 // ══════════════════════════════════════════════════════════════════════════
 class _PremiumShortcutsGrid extends StatelessWidget {
   final Map<String, VoidCallback> onTap;
@@ -771,7 +971,7 @@ class _PremiumShortcutsGrid extends StatelessWidget {
     return LayoutBuilder(builder: (_, c) {
       final isWide = c.maxWidth > 600;
       final cols  = isWide ? 5 : 3;
-      final ratio = isWide ? 2.0 : 1.35;
+      final ratio = isWide ? 2.2 : 1.35;
       return GridView.count(
         crossAxisCount: cols,
         shrinkWrap: true,
@@ -801,7 +1001,7 @@ class _ShortcutCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: item.c.withOpacity(0.15)),
+            border: Border.all(color: item.c.withOpacity(0.18)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -817,11 +1017,8 @@ class _ShortcutCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(item.label,
                   style: TextStyle(
-                      color: _ink,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+                      color: _ink, fontSize: 11, fontWeight: FontWeight.w700),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -831,112 +1028,41 @@ class _ShortcutCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Résumé présences
-// ══════════════════════════════════════════════════════════════════════════
-class _AttendanceSummaryCard extends ConsumerWidget {
-  final VoidCallback onTap;
-  const _AttendanceSummaryCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final absencesAsync = ref.watch(myAbsencesProvider);
-    final absences = absencesAsync.value ?? [];
-    final absents = absences.where((a) => a.status == 'absent').length;
-    final retards = absences.where((a) => a.status == 'late').length;
-    const joursTotal = 90;
-    final presents = (joursTotal - absents - retards).clamp(0, joursTotal);
-    final taux = joursTotal > 0 ? (presents / joursTotal * 100) : 0.0;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: ScolarisSurface.card(radius: 16),
-        child: Column(children: [
-          Row(children: [
-            _AttPresCell(icon: Icons.check_circle_rounded, label: 'Présents',
-                val: '$presents', color: _green),
-            _AttDivider(),
-            _AttPresCell(icon: Icons.cancel_rounded, label: 'Absents',
-                val: '$absents', color: _terra),
-            _AttDivider(),
-            _AttPresCell(icon: Icons.access_time_rounded, label: 'Retards',
-                val: '$retards', color: _gold),
-            _AttDivider(),
-            _AttPresCell(icon: Icons.percent_rounded, label: 'Taux',
-                val: '${taux.toStringAsFixed(0)}%', color: _cyan),
-          ]),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: taux / 100,
-              minHeight: 8,
-              backgroundColor: _terra.withOpacity(0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(_green),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(children: [
-            Text('${taux.toStringAsFixed(1)}% de présence sur $joursTotal jours',
-                style: const TextStyle(color: _muted, fontSize: 11)),
-            const Spacer(),
-            Text('Voir le détail →',
-                style: const TextStyle(color: _terra, fontSize: 11, fontWeight: FontWeight.w700)),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
-
-class _AttPresCell extends StatelessWidget {
-  final IconData icon;
-  final String label, val;
-  final Color color;
-  const _AttPresCell({required this.icon, required this.label, required this.val, required this.color});
-
-  @override
-  Widget build(BuildContext context) => Expanded(child: Column(children: [
-    Icon(icon, size: 18, color: color),
-    const SizedBox(height: 4),
-    Text(val, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w900)),
-    Text(label, style: const TextStyle(fontSize: 9.5, color: _muted, fontWeight: FontWeight.w600)),
-  ]));
-}
-
-class _AttDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1, height: 40, color: const Color(0xFFDDCCBB),
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Courbe progression des notes
+// Progression des notes (graphe)
 // ══════════════════════════════════════════════════════════════════════════
 class _NoteProgressionChart extends StatelessWidget {
   final List<double> values;
   final List<String> labels;
-  const _NoteProgressionChart({required this.values, required this.labels});
+  final double avgActuel;
+  const _NoteProgressionChart({required this.values, required this.labels, required this.avgActuel});
 
   @override
   Widget build(BuildContext context) {
     final spots = values.asMap().entries
         .map((e) => FlSpot(e.key.toDouble(), e.value))
         .toList();
-    final trend = values.last - values.first;
+    final trend = values.length >= 2 ? values.last - values.first : 0.0;
     final trendUp = trend >= 0;
+    final avgColor = avgActuel >= 14 ? _green : avgActuel >= 10 ? _gold : _terra;
 
     return Container(
       decoration: ScolarisSurface.card(radius: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('Progression des notes', style: TextStyle(
-              color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
-          const Spacer(),
-          Container(
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Progression des notes', style: TextStyle(
+                color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
+            if (avgActuel > 0) ...[
+              const SizedBox(height: 2),
+              RichText(text: TextSpan(children: [
+                const TextSpan(text: 'Moyenne : ', style: TextStyle(color: _muted, fontSize: 10)),
+                TextSpan(text: '${avgActuel.toStringAsFixed(1)}/20',
+                    style: TextStyle(color: avgColor, fontSize: 11, fontWeight: FontWeight.w800)),
+              ])),
+            ],
+          ])),
+          if (values.length >= 2) Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
                 color: (trendUp ? _green : _terra).withOpacity(0.10),
@@ -952,16 +1078,13 @@ class _NoteProgressionChart extends StatelessWidget {
             ]),
           ),
         ]),
-        const SizedBox(height: 4),
-        Text('Moyenne générale sur ${values.length} semaines',
-            style: const TextStyle(color: _muted, fontSize: 10)),
         const SizedBox(height: 12),
         SizedBox(
-          height: 110,
+          height: 120,
           child: LineChart(LineChartData(
-            minY: 8.0, maxY: 20.0,
+            minY: 0.0, maxY: 20.0,
             gridData: FlGridData(show: true, drawVerticalLine: false,
-              horizontalInterval: 4.0,
+              horizontalInterval: 5.0,
               getDrawingHorizontalLine: (_) => FlLine(
                   color: _ink.withOpacity(0.06), strokeWidth: 1.0)),
             borderData: FlBorderData(show: false),
@@ -998,7 +1121,8 @@ class _NoteProgressionChart extends StatelessWidget {
             lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
               tooltipRoundedRadius: 8.0,
               getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
-                '${s.y}/20', const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w700),
+                '${s.y.toStringAsFixed(1)}/20',
+                const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w700),
               )).toList(),
             )),
           )),
@@ -1009,115 +1133,7 @@ class _NoteProgressionChart extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Bar chart absences
-// ══════════════════════════════════════════════════════════════════════════
-class _AbsenceChart extends StatelessWidget {
-  final List<double> absences;
-  final List<String> labels;
-  const _AbsenceChart({required this.absences, required this.labels});
-
-  @override
-  Widget build(BuildContext context) {
-    final totalAbs     = absences.reduce((a, b) => a + b);
-    final totalHours   = absences.length * 5.0;
-    final presencePct  = ((totalHours - totalAbs) / totalHours * 100).round();
-
-    return Container(
-      decoration: ScolarisSurface.card(radius: 16),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Expanded(child: Text('Absences par semaine', style: TextStyle(
-              color: _ink, fontSize: 13, fontWeight: FontWeight.w800))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-                color: _green.withOpacity(0.10), borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _green.withOpacity(0.30))),
-            child: Text('$presencePct% présent',
-                style: const TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w800)),
-          ),
-        ]),
-        const SizedBox(height: 4),
-        Text('Total absences · ${totalAbs.toInt()} heure(s) ce trimestre',
-            style: const TextStyle(color: _muted, fontSize: 10)),
-        const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 3, child: SizedBox(
-            height: 110,
-            child: BarChart(BarChartData(
-              maxY: 4.0, minY: 0.0,
-              gridData: FlGridData(show: true, drawVerticalLine: false,
-                horizontalInterval: 2.0,
-                getDrawingHorizontalLine: (_) => FlLine(
-                    color: _ink.withOpacity(0.06), strokeWidth: 1.0)),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(sideTitles: SideTitles(
-                  showTitles: true, reservedSize: 20.0,
-                  getTitlesWidget: (v, _) {
-                    final i = v.toInt();
-                    if (i < 0 || i >= labels.length) return const SizedBox();
-                    return Text(labels[i], style: const TextStyle(
-                        color: _muted, fontSize: 9, fontWeight: FontWeight.w600));
-                  },
-                )),
-              ),
-              barGroups: absences.asMap().entries.map((e) =>
-                  BarChartGroupData(x: e.key, barRods: [
-                    BarChartRodData(
-                      toY: e.value, width: 20.0,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                      gradient: LinearGradient(
-                        colors: e.value > 0
-                            ? [_terra, _orange] : [_green.withOpacity(0.5), _green],
-                        begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                      ),
-                    ),
-                  ])).toList(),
-              barTouchData: BarTouchData(touchTooltipData: BarTouchTooltipData(
-                tooltipRoundedRadius: 8.0,
-                getTooltipItem: (g, _, r, __) => BarTooltipItem(
-                  r.toY == 0 ? 'Présent ✓' : '${r.toY.toInt()} abs',
-                  const TextStyle(color: _white, fontSize: 10, fontWeight: FontWeight.w700),
-                ),
-              )),
-            )),
-          )),
-          const SizedBox(width: 14),
-          SizedBox(width: 90, height: 110,
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              SizedBox(width: 70, height: 70,
-                child: Stack(alignment: Alignment.center, children: [
-                  PieChart(PieChartData(
-                    startDegreeOffset: -90, sectionsSpace: 0, centerSpaceRadius: 24,
-                    sections: [
-                      PieChartSectionData(value: presencePct.toDouble(),
-                          color: _green, radius: 12.0, showTitle: false),
-                      PieChartSectionData(value: (100 - presencePct).toDouble(),
-                          color: _terra.withOpacity(0.20), radius: 12.0, showTitle: false),
-                    ],
-                  )),
-                  Text('$presencePct%', style: const TextStyle(
-                      color: _green, fontSize: 12, fontWeight: FontWeight.w900)),
-                ]),
-              ),
-              const SizedBox(height: 6),
-              const Text('Présence', style: TextStyle(
-                  color: _muted, fontSize: 10, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ]),
-      ]),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// EDT du jour
+// EDT du jour (horizontal scroll)
 // ══════════════════════════════════════════════════════════════════════════
 class _EdtTimeline extends StatelessWidget {
   final List<({String h, String sub, String room, Color c})> slots;
@@ -1126,7 +1142,7 @@ class _EdtTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 106,
+      height: 110,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: slots.length,
@@ -1135,18 +1151,18 @@ class _EdtTimeline extends StatelessWidget {
           final s = slots[i];
           final first = i == 0;
           return Container(
-            width: 92,
+            width: 96,
             decoration: first
                 ? BoxDecoration(
                     gradient: LinearGradient(
-                        colors: [s.c, s.c.withOpacity(0.72)],
+                        colors: [s.c, s.c.withOpacity(0.75)],
                         begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [BoxShadow(color: s.c.withOpacity(0.40),
                         blurRadius: 12, offset: const Offset(0, 5))],
                   )
                 : ScolarisSurface.accent(color: s.c, radius: 16),
-            padding: const EdgeInsets.all(11),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1155,17 +1171,17 @@ class _EdtTimeline extends StatelessWidget {
                   Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(
-                        color: first ? _white.withOpacity(0.25) : s.c.withOpacity(0.18),
+                        color: first ? _white.withOpacity(0.22) : s.c.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(8)),
                     child: Icon(Icons.school_rounded, size: 14, color: first ? _white : s.c),
                   ),
                   if (first)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
                           color: _white.withOpacity(0.22),
                           borderRadius: BorderRadius.circular(4)),
-                      child: const Text('Actif', style: TextStyle(
+                      child: const Text('En cours', style: TextStyle(
                           color: _white, fontSize: 7, fontWeight: FontWeight.w800)),
                     ),
                 ]),
@@ -1173,9 +1189,18 @@ class _EdtTimeline extends StatelessWidget {
                   Text(s.sub, style: TextStyle(
                       color: first ? _white : _ink, fontSize: 11, fontWeight: FontWeight.w800),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(s.h, style: TextStyle(
-                      color: first ? _white.withOpacity(0.80) : s.c,
-                      fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Row(children: [
+                    Icon(Icons.access_time_rounded, size: 9,
+                        color: first ? _white.withOpacity(0.70) : s.c),
+                    const SizedBox(width: 3),
+                    Text(s.h, style: TextStyle(
+                        color: first ? _white.withOpacity(0.80) : s.c,
+                        fontSize: 10, fontWeight: FontWeight.w600)),
+                  ]),
+                  Text('Salle ${s.room}', style: TextStyle(
+                      color: first ? _white.withOpacity(0.60) : _muted,
+                      fontSize: 9)),
                 ]),
               ],
             ),
@@ -1196,13 +1221,16 @@ class _DevoirCard extends StatelessWidget {
   const _DevoirCard({required this.sub, required this.titre,
       required this.echeance, required this.color, required this.onTap});
 
+  bool get _isUrgent => echeance.toLowerCase().contains('demain') ||
+      echeance.toLowerCase().contains('aujourd');
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: ScolarisSurface.card(radius: 13),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Row(children: [
           Container(
             width: 44, height: 44,
@@ -1215,19 +1243,33 @@ class _DevoirCard extends StatelessWidget {
             ),
             child: Icon(Icons.assignment_outlined, color: color, size: 20),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(sub, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
             const SizedBox(height: 3),
-            Text(titre, style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+            Text(titre, style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 3),
             Row(children: [
-              Icon(Icons.schedule_rounded, size: 10, color: _muted),
-              const SizedBox(width: 4),
-              Text(echeance, style: const TextStyle(color: _muted, fontSize: 11)),
+              Icon(Icons.schedule_rounded, size: 10, color: _isUrgent ? _terra : _muted),
+              const SizedBox(width: 3),
+              Text(echeance, style: TextStyle(
+                  color: _isUrgent ? _terra : _muted,
+                  fontSize: 11, fontWeight: _isUrgent ? FontWeight.w700 : FontWeight.w400)),
             ]),
           ])),
-          Icon(Icons.chevron_right_rounded, color: _muted.withOpacity(0.50), size: 20),
+          if (_isUrgent)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: _terra.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text('Urgent', style: TextStyle(
+                  color: _terra, fontSize: 9, fontWeight: FontWeight.w800)),
+            )
+          else
+            Icon(Icons.chevron_right_rounded, color: _muted.withOpacity(0.50), size: 20),
         ]),
       ),
     );
@@ -1247,7 +1289,7 @@ class _NoteRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = note / max;
+    final pct = max > 0 ? (note / max) : 0.0;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1263,13 +1305,14 @@ class _NoteRow extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
               ),
-              Text(note.toStringAsFixed(1),
+              Text(note.toStringAsFixed(note == note.roundToDouble() ? 0 : 1),
                   style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900)),
             ]),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(sub, style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+            Text(sub, style: const TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 5),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -1302,196 +1345,87 @@ class _NoteRow extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Annonces
+// Annonce card
 // ══════════════════════════════════════════════════════════════════════════
-class _AnnouncementsCard extends StatelessWidget {
-  const _AnnouncementsCard();
-
-  static const _items = [
-    (icon: Icons.event_note_rounded, color: Color(0xFF8B1A00),
-     title: 'Examens de fin de trimestre',
-     body: 'Les examens T2 auront lieu du 23 au 27 juin.',
-     author: 'Direction', time: 'Il y a 2h'),
-    (icon: Icons.calculate_rounded, color: Color(0xFFC17F24),
-     title: 'Nouveau programme de maths',
-     body: 'Le chapitre 9 sur les probabilités est disponible.',
-     author: 'M. Dupont', time: 'Il y a 5h'),
-    (icon: Icons.park_rounded, color: Color(0xFF1B5E20),
-     title: 'Sortie botanique SVT',
-     body: 'Autorisations parentales avant le 15 juin.',
-     author: 'Dr. Yao', time: 'Hier'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: _items.map((a) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: a.color.withOpacity(0.20)),
-          boxShadow: [BoxShadow(color: a.color.withOpacity(0.08),
-              blurRadius: 8, offset: const Offset(0, 3))],
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [a.color, a.color.withOpacity(0.70)]),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(a.icon, color: _white, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(a.title, style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 3),
-            Text(a.body, style: const TextStyle(fontSize: 11.5, color: _muted, height: 1.4)),
-            const SizedBox(height: 6),
-            Row(children: [
-              Text(a.author, style: TextStyle(fontSize: 10.5, color: a.color, fontWeight: FontWeight.w700)),
-              const SizedBox(width: 6),
-              const Text('·', style: TextStyle(color: _muted, fontSize: 10)),
-              const SizedBox(width: 6),
-              Text(a.time, style: const TextStyle(fontSize: 10.5, color: _muted)),
-            ]),
-          ])),
-        ]),
-      )).toList(),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Événements
-// ══════════════════════════════════════════════════════════════════════════
-class _EventsCard extends StatelessWidget {
-  const _EventsCard();
-
-  static const _events = [
-    (title: 'Conseil de classe T2',    date: '12 Juin', type: 'Académique', color: Color(0xFFC17F24)),
-    (title: 'Sortie botanique SVT',    date: '18 Juin', type: 'Sortie',     color: Color(0xFF1B5E20)),
-    (title: 'Examens fin T2',          date: '25 Juin', type: 'Examen',     color: Color(0xFF8B1A00)),
-    (title: 'Journée portes ouvertes', date: '5 Juil',  type: 'École',      color: Color(0xFFD4540A)),
-  ];
+class _AnnonceCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title, body, author, time;
+  const _AnnonceCard({
+    required this.icon, required this.color,
+    required this.title, required this.body,
+    required this.author, required this.time,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: ScolarisSurface.card(radius: 16),
-      child: Column(
-        children: _events.asMap().entries.map((e) {
-          final ev = e.value;
-          final last = e.key == _events.length - 1;
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-            decoration: BoxDecoration(
-              border: last ? null : Border(
-                  bottom: BorderSide(color: const Color(0xFFDDCCBB).withOpacity(0.50))),
-            ),
-            child: Row(children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: ev.color.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: ev.color.withOpacity(0.25)),
-                ),
-                child: Center(child: Text(ev.date.split(' ')[0],
-                    style: TextStyle(color: ev.color, fontSize: 10, fontWeight: FontWeight.w900))),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(ev.title, style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: ev.color.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(ev.type, style: TextStyle(
-                        color: ev.color, fontSize: 9.5, fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(ev.date, style: const TextStyle(fontSize: 11, color: _muted)),
-                ]),
-              ])),
-              Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _muted.withOpacity(0.50)),
-            ]),
-          );
-        }).toList(),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: color.withOpacity(0.18)),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.07),
+            blurRadius: 8, offset: const Offset(0, 3))],
       ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color, color.withOpacity(0.70)]),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, color: _white, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w700),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 3),
+          Text(body, style: const TextStyle(fontSize: 11.5, color: _muted, height: 1.4),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
+          Row(children: [
+            Text(author, style: TextStyle(fontSize: 10.5, color: color, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 6),
+            const Text('·', style: TextStyle(color: _muted, fontSize: 10)),
+            const SizedBox(width: 6),
+            Text(time, style: const TextStyle(fontSize: 10.5, color: _muted)),
+          ]),
+        ])),
+      ]),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Bulletin résumé card
+// Attendance helpers
 // ══════════════════════════════════════════════════════════════════════════
-class _BulletinSummaryCard extends StatelessWidget {
-  final VoidCallback onTap;
-  const _BulletinSummaryCard({required this.onTap});
+class _AttCell extends StatelessWidget {
+  final IconData icon;
+  final String label, val;
+  final Color color;
+  const _AttCell({required this.icon, required this.label, required this.val, required this.color});
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [Color(0xFF0D3B1E), _green],
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: _green.withOpacity(0.35),
-              blurRadius: 20, offset: const Offset(0, 8), spreadRadius: -4)],
-        ),
-        padding: const EdgeInsets.all(18),
-        child: Row(children: [
-          const Icon(Icons.receipt_long_rounded, color: _gold, size: 24),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Bulletin Trimestriel',
-                style: TextStyle(color: _white, fontSize: 14, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Row(children: [
-              _TrimBadge('T1 · 13.2', active: false),
-              const SizedBox(width: 8),
-              _TrimBadge('T2 · 15.4', active: true),
-              const SizedBox(width: 8),
-              _TrimBadge('T3 · —', active: false),
-            ]),
-          ])),
-          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 22),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Expanded(child: Column(children: [
+    Icon(icon, size: 18, color: color),
+    const SizedBox(height: 4),
+    Text(val, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w900)),
+    Text(label, style: const TextStyle(fontSize: 9.5, color: _muted, fontWeight: FontWeight.w600)),
+  ]));
 }
 
-class _TrimBadge extends StatelessWidget {
-  final String label;
-  final bool active;
-  const _TrimBadge(this.label, {required this.active});
+class _AttDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: active ? _gold.withOpacity(0.25) : _white.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: active ? _gold.withOpacity(0.60) : _white.withOpacity(0.20)),
-    ),
-    child: Text(label, style: TextStyle(
-        color: active ? _gold : _white.withOpacity(0.70),
-        fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w500)),
+    width: 1, height: 40, color: const Color(0xFFDDCCBB),
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Statistiques hebdomadaires
+// Stats hebdomadaires
 // ══════════════════════════════════════════════════════════════════════════
 class _WeeklyStatsCard extends StatelessWidget {
   const _WeeklyStatsCard();
@@ -1518,8 +1452,10 @@ class _WeeklyStatsCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: _green.withOpacity(0.10), borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text('Semaine 24', style: TextStyle(
-                color: _green, fontSize: 10, fontWeight: FontWeight.w700)),
+            child: Text(
+              'Semaine ${_currentWeek()}',
+              style: const TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w700),
+            ),
           ),
         ]),
         const SizedBox(height: 14),
@@ -1553,54 +1489,11 @@ class _WeeklyStatsCard extends StatelessWidget {
       ]),
     );
   }
-}
 
-// ══════════════════════════════════════════════════════════════════════════
-// Citation africaine
-// ══════════════════════════════════════════════════════════════════════════
-class _AfricanQuote extends StatelessWidget {
-  const _AfricanQuote();
-
-  static const _quotes = [
-    (q: 'L\'éducation est l\'arme la plus puissante pour changer le monde.', a: 'Nelson Mandela'),
-    (q: 'Chaque enfant qui apprend, chaque homme qui sait, enrichit toute la communauté.', a: 'Ubuntu'),
-    (q: 'La connaissance est comme un jardin : si elle n\'est pas cultivée, elle ne peut pas être récoltée.', a: 'Proverbe Guinéen'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final quote = _quotes[DateTime.now().weekday % _quotes.length];
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_dark.withOpacity(0.92), _terra.withOpacity(0.85)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: _terra.withOpacity(0.25),
-            blurRadius: 16, offset: const Offset(0, 6), spreadRadius: -3)],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('"', style: TextStyle(
-            color: _gold, fontSize: 36, fontWeight: FontWeight.w900, height: 0.8)),
-        const SizedBox(height: 8),
-        Text(quote.q, style: TextStyle(
-            color: _white.withOpacity(0.90), fontSize: 13, height: 1.6,
-            fontStyle: FontStyle.italic)),
-        const SizedBox(height: 10),
-        Row(children: [
-          const Spacer(),
-          Container(
-            width: 24, height: 2,
-            decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(width: 8),
-          Text(quote.a, style: TextStyle(
-              color: _gold, fontSize: 11, fontWeight: FontWeight.w700)),
-        ]),
-      ]),
-    );
+  static String _currentWeek() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, 1, 1);
+    final diff  = now.difference(start).inDays;
+    return '${(diff / 7).ceil()}';
   }
 }
-
