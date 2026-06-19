@@ -52,9 +52,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (atRegisterSchool) return null;
 
+      // Mode démo : sans authentification → dashboard étudiant directement
       if (user == null) {
-        if (atLogin) return null;
-        return AppRoutes.login;
+        if (atLogin) return null; // page login accessible explicitement
+        if (loc == AppRoutes.student) return null; // déjà sur le dashboard
+        return AppRoutes.student; // splash + autres routes → dashboard démo
       }
 
       if (atLogin || atSplash) return roleHome(user);
