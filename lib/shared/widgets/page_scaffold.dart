@@ -59,21 +59,14 @@ class CollapsingPageScaffold extends StatelessWidget {
                   const EdgeInsets.only(left: 20, bottom: 14, right: 16),
               expandedTitleScale: 1.85,
               collapseMode: CollapseMode.pin,
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
+              title: Text(
+                title,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
               ),
               background: Container(color: cs.surface),
             ),
