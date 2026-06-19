@@ -20,8 +20,8 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage> {
-  // Demo: student is in Tle C. A real app would read this from auth.
-  String _filiere = kFilieres[0];
+  // Ferel Ondongo — filière EMI (index 0 dans kFilieres)
+  String _filiere = kFilieres[0]; // 'EMI'
   late final List<TSession> _allSessions;
   int _mobileDayIdx = 0;
 
