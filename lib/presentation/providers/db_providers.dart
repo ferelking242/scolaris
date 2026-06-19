@@ -17,6 +17,12 @@ final studentsByClassProvider = FutureProvider.family<List<SbStudent>, String>(
   (ref, classe) async => SupabaseDbSource.getStudents(classe: classe),
 );
 
+final myStudentProfileProvider = FutureProvider<SbStudent?>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return null;
+  return SupabaseDbSource.getStudentByProfileId(session.id);
+});
+
 // ── Classes ───────────────────────────────────────────────────────────────────
 final classesProvider = FutureProvider<List<SbClass>>((ref) async {
   return SupabaseDbSource.getClasses();
