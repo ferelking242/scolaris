@@ -328,7 +328,9 @@ class _MaterialCardState extends State<_MaterialCard> {
     final m = widget.material;
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-          PdfReaderPage(title: m.title, color: m.color, totalPages: 24))),
+          PdfReaderPage(title: m.title, color: m.color, totalPages: 24,
+              resourceId: m.id, resourceType: ResourceType.material,
+              subject: m.subject))),
       child: Container(
         decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(16),
             border: Border.all(color: m.color.withOpacity(0.18)),

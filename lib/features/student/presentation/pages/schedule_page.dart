@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/data/timetable_data.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/timetable_data.dart' show SubjectMeta, getSubjectMeta;
 
 const _bg     = Color(0xFFF5EEE6);
 const _white  = Colors.white;
@@ -12,214 +15,189 @@ const _border = Color(0xFFDDCCBB);
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-class SchedulePage extends StatefulWidget {
-  const SchedulePage({super.key});
-  @override
-  State<SchedulePage> createState() => _SchedulePageState();
+const _joursAll = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+/// Créneau horaire (dérivé dynamiquement des cours réels de la classe).
+class _Slot {
+  final String start, end;
+  const _Slot(this.start, this.end);
 }
 
-class _SchedulePageState extends State<SchedulePage> {
-  // Demo: student is in Tle C. A real app would read this from auth.
-  String _filiere = kFilieres[0];
-  late final List<TSession> _allSessions;
-  int _mobileDayIdx = 0;
+// ─── Page ─────────────────────────────────────────────────────────────────────
+class SchedulePage extends ConsumerWidget {
+  const SchedulePage({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    _allSessions = buildMockSessions();
-    // Start on current weekday (Mon=0 … Fri=4), clamp to 0-4
-    final wd = DateTime.now().weekday; // 1=Mon … 7=Sun
-    _mobileDayIdx = (wd >= 1 && wd <= 5) ? wd - 1 : 0;
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(myStudentProfileProvider);
 
-  List<TSession> get _sessions =>
-      _allSessions.where((s) => s.filieres.contains(_filiere)).toList();
-
-  TSession? _at(String jour, TSlot slot) =>
-      _sessions.where((s) => s.jour == jour && s.slot == slot).firstOrNull;
-
-  int _courseCount() => _sessions.length;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
       color: _bg,
-      child: Column(children: [
-        _Header(
-          filiere: _filiere,
-          courseCount: _courseCount(),
-          onFiliereChanged: (f) => setState(() => _filiere = f),
-        ),
-        Expanded(
-          child: LayoutBuilder(builder: (ctx, box) {
-            return box.maxWidth >= 680
-                ? _WeekTableView(sessions: _sessions, filiere: _filiere)
-                : _MobileDayView(
-                    sessions: _sessions,
-                    dayIdx: _mobileDayIdx,
-                    onDayChanged: (i) => setState(() => _mobileDayIdx = i),
-                  );
-          }),
-        ),
-      ]),
-    );
-  }
-}
-
-// ─── Header ───────────────────────────────────────────────────────────────────
-class _Header extends StatelessWidget {
-  final String filiere;
-  final int courseCount;
-  final ValueChanged<String> onFiliereChanged;
-  const _Header({required this.filiere, required this.courseCount, required this.onFiliereChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _white,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            width: 38, height: 38,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
-              borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.calendar_today_rounded, color: _white, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Emploi du Temps', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-            Text('$courseCount cours cette semaine · $filiere',
-                style: const TextStyle(fontSize: 11.5, color: _muted)),
-          ])),
-          // Filière picker
-          GestureDetector(
-            onTap: () => _showFilierePicker(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _terra.withOpacity(.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _terra.withOpacity(.25)),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(filiere, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _terra)),
-                const SizedBox(width: 4),
-                const Icon(Icons.unfold_more_rounded, size: 14, color: _terra),
-              ]),
+      child: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => _ErrorState(message: '$e'),
+        data: (profile) {
+          final classId = profile?.classId;
+          if (classId == null || classId.isEmpty) {
+            return const _NoClassState();
+          }
+          final schedulesAsync = ref.watch(schedulesForClassProvider(classId));
+          return schedulesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => _ErrorState(message: '$e'),
+            data: (schedules) => _ScheduleView(
+              schedules: schedules,
+              className: profile?.classe ?? 'Ma classe',
             ),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        // Weekday quick stats
-        _WeekStats(filiere: filiere),
-        const SizedBox(height: 10),
-        const Divider(height: 1, color: _border),
-      ]),
-    );
-  }
-
-  void _showFilierePicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-            color: _white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Center(child: Container(margin: const EdgeInsets.only(top: 10),
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)))),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 14, 20, 4),
-            child: Text('Changer de filière', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-          ),
-          const Divider(height: 1),
-          ...kFilieres.map((f) {
-            final meta = getSubjectMeta(f);
-            final sel  = f == filiere;
-            return ListTile(
-              leading: Container(width: 10, height: 10,
-                  decoration: BoxDecoration(color: meta.color, shape: BoxShape.circle)),
-              title: Text(f, style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
-                  color: sel ? _terra : _ink, fontSize: 14)),
-              trailing: sel ? const Icon(Icons.check_rounded, color: _terra, size: 18) : null,
-              onTap: () { Navigator.pop(context); onFiliereChanged(f); },
-            );
-          }),
-          const SizedBox(height: 12),
-        ]),
+          );
+        },
       ),
     );
   }
 }
 
-class _WeekStats extends StatelessWidget {
-  final String filiere;
-  const _WeekStats({required this.filiere});
+// ─── Vue emploi du temps ───────────────────────────────────────────────────────
+class _ScheduleView extends StatefulWidget {
+  final List<SbSchedule> schedules;
+  final String className;
+  const _ScheduleView({required this.schedules, required this.className});
+
   @override
-  Widget build(BuildContext context) {
-    final sessions = buildMockSessions().where((s) => s.filieres.contains(filiere)).toList();
-    final byDay = <String, int>{};
-    for (final j in kJoursWeek) byDay[j] = sessions.where((s) => s.jour == j).length;
-    return Row(children: kJoursWeek.map((j) {
-      final count = byDay[j] ?? 0;
-      final today = j == _todayJour();
-      return Expanded(
-        child: Container(
-          margin: const EdgeInsets.only(right: 4),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: today ? _terra.withOpacity(.1) : _bg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: today ? _terra : _border.withOpacity(.5)),
-          ),
-          child: Column(children: [
-            Text(j.substring(0, 3).toUpperCase(),
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
-                    color: today ? _terra : _muted, letterSpacing: 0.4)),
-            const SizedBox(height: 2),
-            Text('$count', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900,
-                color: today ? _terra : _ink)),
-          ]),
-        ),
-      );
-    }).toList());
+  State<_ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<_ScheduleView> {
+  int _mobileDayIdx = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final wd = DateTime.now().weekday; // 1=Lun … 7=Dim
+    _mobileDayIdx = (wd >= 1 && wd <= 6) ? wd - 1 : 0;
   }
 
-  String _todayJour() {
-    final wd = DateTime.now().weekday; // 1=Mon
-    if (wd >= 1 && wd <= 5) return kJoursWeek[wd - 1];
-    return '';
+  /// Nombre de jours affichés : 5 (Lun-Ven) ou 6 si des cours le samedi.
+  int get _dayCount {
+    final maxDay = widget.schedules.fold<int>(
+        5, (m, s) => s.dayOfWeek > m ? s.dayOfWeek : m);
+    return maxDay.clamp(5, 6);
+  }
+
+  List<String> get _jours => _joursAll.take(_dayCount).toList();
+
+  /// Créneaux distincts, triés par heure de début.
+  List<_Slot> get _slots {
+    final map = <String, _Slot>{};
+    for (final s in widget.schedules) {
+      map[s.startTime] = _Slot(s.startTime, s.endTime);
+    }
+    final list = map.values.toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slots = _slots;
+    return Column(children: [
+      _Header(
+        className: widget.className,
+        courseCount: widget.schedules.length,
+      ),
+      if (slots.isEmpty)
+        const Expanded(child: _EmptySchedule())
+      else
+        Expanded(
+          child: LayoutBuilder(builder: (ctx, box) {
+            return box.maxWidth >= 680
+                ? _WeekTableView(
+                    schedules: widget.schedules, jours: _jours, slots: slots)
+                : _MobileDayView(
+                    schedules: widget.schedules,
+                    jours: _jours,
+                    slots: slots,
+                    dayIdx: _mobileDayIdx.clamp(0, _dayCount - 1),
+                    onDayChanged: (i) => setState(() => _mobileDayIdx = i),
+                  );
+          }),
+        ),
+    ]);
+  }
+}
+
+int _todayDay() {
+  final wd = DateTime.now().weekday;
+  return (wd >= 1 && wd <= 6) ? wd : 0; // 1-based, 0 = week-end
+}
+
+SbSchedule? _at(List<SbSchedule> schedules, int day, _Slot slot) =>
+    schedules
+        .where((s) => s.dayOfWeek == day && s.startTime == slot.start)
+        .firstOrNull;
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  final String className;
+  final int courseCount;
+  const _Header({required this.className, required this.courseCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Row(children: [
+        Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
+            borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.calendar_today_rounded, color: _white, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Emploi du Temps',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
+          Text('$courseCount cours cette semaine',
+              style: const TextStyle(fontSize: 11.5, color: _muted)),
+        ])),
+        // Classe réelle de l'élève (lecture seule).
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _terra.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _terra.withValues(alpha: .25)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.class_rounded, size: 14, color: _terra),
+            const SizedBox(width: 5),
+            Text(className,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _terra)),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 
 // ─── Full week table (PC + tablet) ───────────────────────────────────────────
 class _WeekTableView extends StatelessWidget {
-  final List<TSession> sessions;
-  final String filiere;
-  const _WeekTableView({required this.sessions, required this.filiere});
-
-  TSession? _at(String jour, TSlot slot) =>
-      sessions.where((s) => s.jour == jour && s.slot == slot).firstOrNull;
-
-  bool _isToday(String jour) {
-    final wd = DateTime.now().weekday;
-    if (wd < 1 || wd > 5) return false;
-    return kJoursWeek[wd - 1] == jour;
-  }
+  final List<SbSchedule> schedules;
+  final List<String> jours;
+  final List<_Slot> slots;
+  const _WeekTableView(
+      {required this.schedules, required this.jours, required this.slots});
 
   @override
   Widget build(BuildContext context) {
     const timeW = 58.0;
     const rowH  = 96.0;
-    final today = _todayJour();
+    final today = _todayDay();
 
     return SingleChildScrollView(
       child: Column(children: [
+        const Divider(height: 1, color: _border),
         // ── Day header row ──
         Container(
           color: _white,
@@ -228,15 +206,15 @@ class _WeekTableView extends StatelessWidget {
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Center(child: Text('Heure',
                         style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
-                            color: _muted.withOpacity(.6)))))),
-            ...kJoursWeek.map((j) {
-              final isTod = j == today;
+                            color: _muted.withValues(alpha: .6)))))),
+            ...List.generate(jours.length, (idx) {
+              final isTod = (idx + 1) == today;
               return Expanded(
                 child: Container(
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: isTod ? _terra.withOpacity(.06) : null,
+                    color: isTod ? _terra.withValues(alpha: .06) : null,
                     border: const Border(left: BorderSide(color: _border)),
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -245,7 +223,7 @@ class _WeekTableView extends StatelessWidget {
                         width: 6, height: 6, margin: const EdgeInsets.only(bottom: 3),
                         decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle),
                       ),
-                    Text(j,
+                    Text(jours[idx],
                         style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800,
                             color: isTod ? _terra : _ink)),
                   ]),
@@ -257,11 +235,10 @@ class _WeekTableView extends StatelessWidget {
         const Divider(height: 1, color: _border),
 
         // ── Slot rows ──
-        ...kStdSlots.map((slot) => Column(children: [
+        ...slots.map((slot) => Column(children: [
           SizedBox(
             height: rowH,
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              // Time
               Container(
                 width: timeW, color: _white,
                 alignment: Alignment.center,
@@ -269,16 +246,15 @@ class _WeekTableView extends StatelessWidget {
                   Text(slot.start, style: const TextStyle(
                       fontSize: 11.5, fontWeight: FontWeight.w800, color: _ink)),
                   Text(slot.end, style: TextStyle(
-                      fontSize: 10, color: _muted.withOpacity(.65))),
+                      fontSize: 10, color: _muted.withValues(alpha: .65))),
                 ]),
               ),
-              // Day cells
-              ...kJoursWeek.map((jour) {
-                final session = _at(jour, slot);
-                final isTod   = jour == today;
+              ...List.generate(jours.length, (idx) {
+                final day = idx + 1;
+                final session = _at(schedules, day, slot);
                 return Expanded(child: _TableCell(
                   session: session,
-                  isToday: isTod,
+                  isToday: day == today,
                 ));
               }),
             ]),
@@ -286,23 +262,16 @@ class _WeekTableView extends StatelessWidget {
           const Divider(height: 1, color: _border),
         ])),
 
-        // Legend
-        _Legend(sessions: sessions),
+        _Legend(schedules: schedules),
         const SizedBox(height: 16),
       ]),
     );
-  }
-
-  String _todayJour() {
-    final wd = DateTime.now().weekday;
-    if (wd >= 1 && wd <= 5) return kJoursWeek[wd - 1];
-    return '';
   }
 }
 
 // ─── Table cell ───────────────────────────────────────────────────────────────
 class _TableCell extends StatelessWidget {
-  final TSession? session;
+  final SbSchedule? session;
   final bool isToday;
   const _TableCell({this.session, required this.isToday});
 
@@ -311,19 +280,20 @@ class _TableCell extends StatelessWidget {
     if (session == null) {
       return Container(
         decoration: BoxDecoration(
-          color: isToday ? _terra.withOpacity(.025) : _white,
+          color: isToday ? _terra.withValues(alpha: .025) : _white,
           border: const Border(left: BorderSide(color: _border)),
         ),
       );
     }
 
     final s    = session!;
-    final meta = getSubjectMeta(s.matiere);
+    final name = s.subjectName ?? 'Cours';
+    final meta = getSubjectMeta(name);
     final seed = s.id.hashCode;
 
     return Container(
       decoration: BoxDecoration(
-        color: isToday ? _terra.withOpacity(.025) : _white,
+        color: isToday ? _terra.withValues(alpha: .025) : _white,
         border: const Border(left: BorderSide(color: _border)),
       ),
       padding: const EdgeInsets.all(4),
@@ -334,22 +304,17 @@ class _TableCell extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                meta.color,
-                meta.color.withOpacity(.82),
-              ],
+              colors: [meta.color, meta.color.withValues(alpha: .82)],
             ),
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
-              BoxShadow(color: meta.color.withOpacity(.2), blurRadius: 4, offset: const Offset(0, 1)),
+              BoxShadow(color: meta.color.withValues(alpha: .2), blurRadius: 4, offset: const Offset(0, 1)),
             ],
           ),
           child: Stack(children: [
-            // Subject pattern background
             Positioned.fill(child: CustomPaint(
               painter: _StudentSymbolsPainter(meta, seed),
             )),
-            // Today highlight glow
             if (isToday)
               Positioned(top: 0, left: 0, right: 0,
                 child: Container(
@@ -359,47 +324,33 @@ class _TableCell extends StatelessWidget {
                     borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                   ),
                 )),
-            // Content
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Subject name
-                  Text(s.matiere,
+                  Text(name,
                       style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w900,
                           color: _white, height: 1.2),
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
-                  // Teacher
-                  Row(children: [
-                    const Icon(Icons.person_outline_rounded, size: 9, color: Color(0xCCFFFFFF)),
-                    const SizedBox(width: 2),
-                    Expanded(child: Text(s.enseignant,
-                        style: const TextStyle(fontSize: 9, color: Color(0xCCFFFFFF)),
-                        maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ]),
+                  if (s.teacherName != null)
+                    Row(children: [
+                      const Icon(Icons.person_outline_rounded, size: 9, color: Color(0xCCFFFFFF)),
+                      const SizedBox(width: 2),
+                      Expanded(child: Text(s.teacherName!,
+                          style: const TextStyle(fontSize: 9, color: Color(0xCCFFFFFF)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ]),
                   const SizedBox(height: 2),
-                  // Room
-                  Row(children: [
-                    const Icon(Icons.room_outlined, size: 9, color: Color(0xBBFFFFFF)),
-                    const SizedBox(width: 2),
-                    Text(s.salle, style: const TextStyle(fontSize: 9, color: Color(0xBBFFFFFF))),
-                    if (s.filieres.length > 1) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('${s.filieres.length} fil.', style: const TextStyle(
-                            fontSize: 8, color: _white, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ]),
+                  if (s.room != null)
+                    Row(children: [
+                      const Icon(Icons.room_outlined, size: 9, color: Color(0xBBFFFFFF)),
+                      const SizedBox(width: 2),
+                      Text(s.room!, style: const TextStyle(fontSize: 9, color: Color(0xBBFFFFFF))),
+                    ]),
                 ],
               ),
             ),
@@ -410,7 +361,7 @@ class _TableCell extends StatelessWidget {
   }
 }
 
-// ─── Student symbols painter (vibrant, larger symbols) ────────────────────────
+// ─── Student symbols painter ──────────────────────────────────────────────────
 class _StudentSymbolsPainter extends CustomPainter {
   final SubjectMeta meta;
   final int seed;
@@ -428,7 +379,7 @@ class _StudentSymbolsPainter extends CustomPainter {
       final ang = (rng.nextDouble() - 0.5) * 0.8;
       final op  = 0.12 + rng.nextDouble() * 0.1;
       tp.text = TextSpan(text: sym, style: TextStyle(
-          fontSize: sz, color: Colors.white.withOpacity(op),
+          fontSize: sz, color: Colors.white.withValues(alpha: op),
           fontWeight: FontWeight.w900));
       tp.layout();
       canvas.save();
@@ -445,12 +396,17 @@ class _StudentSymbolsPainter extends CustomPainter {
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
 class _Legend extends StatelessWidget {
-  final List<TSession> sessions;
-  const _Legend({required this.sessions});
+  final List<SbSchedule> schedules;
+  const _Legend({required this.schedules});
 
   @override
   Widget build(BuildContext context) {
-    final subjects = sessions.map((s) => s.matiere).toSet().toList()..sort();
+    final subjects = schedules
+        .map((s) => s.subjectName)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
     if (subjects.isEmpty) return const SizedBox.shrink();
     return Container(
       color: _white,
@@ -465,9 +421,9 @@ class _Legend extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: meta.color.withOpacity(.1),
+                color: meta.color.withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: meta.color.withOpacity(.25)),
+                border: Border.all(color: meta.color.withValues(alpha: .25)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(meta.icon, size: 11, color: meta.color),
@@ -485,41 +441,48 @@ class _Legend extends StatelessWidget {
 
 // ─── Mobile day view ─────────────────────────────────────────────────────────
 class _MobileDayView extends StatelessWidget {
-  final List<TSession> sessions;
+  final List<SbSchedule> schedules;
+  final List<String> jours;
+  final List<_Slot> slots;
   final int dayIdx;
   final ValueChanged<int> onDayChanged;
-  const _MobileDayView({required this.sessions, required this.dayIdx, required this.onDayChanged});
+  const _MobileDayView({
+    required this.schedules,
+    required this.jours,
+    required this.slots,
+    required this.dayIdx,
+    required this.onDayChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final today  = _todayJour();
-    final jour   = kJoursWeek[dayIdx];
-    final daySlots = sessions.where((s) => s.jour == jour).toList()
-      ..sort((a, b) => a.slot.startMin.compareTo(b.slot.startMin));
+    final today = _todayDay();
+    final day   = dayIdx + 1;
+    final daySessions = schedules.where((s) => s.dayOfWeek == day).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     return Column(children: [
       // Day tabs
       Container(
         color: _white,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Row(children: kJoursWeek.asMap().entries.map((e) {
-          final j      = e.value;
-          final sel    = e.key == dayIdx;
-          final isTod  = j == today;
-          final count  = sessions.where((s) => s.jour == j).length;
+        child: Row(children: List.generate(jours.length, (i) {
+          final sel   = i == dayIdx;
+          final isTod = (i + 1) == today;
+          final count = schedules.where((s) => s.dayOfWeek == i + 1).length;
           return Expanded(child: GestureDetector(
-            onTap: () => onDayChanged(e.key),
+            onTap: () => onDayChanged(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 140),
               margin: const EdgeInsets.symmetric(horizontal: 2),
               padding: const EdgeInsets.symmetric(vertical: 7),
               decoration: BoxDecoration(
-                color: sel ? _terra : (isTod ? _terra.withOpacity(.08) : _bg),
+                color: sel ? _terra : (isTod ? _terra.withValues(alpha: .08) : _bg),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: sel ? _terra : (isTod ? _terra.withOpacity(.3) : _border)),
+                border: Border.all(color: sel ? _terra : (isTod ? _terra.withValues(alpha: .3) : _border)),
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(j.substring(0, 3).toUpperCase(),
+                Text(jours[i].substring(0, 3).toUpperCase(),
                     style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800,
                         color: sel ? _white : (isTod ? _terra : _muted), letterSpacing: 0.3)),
                 const SizedBox(height: 2),
@@ -528,92 +491,68 @@ class _MobileDayView extends StatelessWidget {
               ]),
             ),
           ));
-        }).toList()),
+        })),
       ),
       const Divider(height: 1, color: _border),
 
       // Day sessions
       Expanded(
-        child: daySlots.isEmpty
+        child: daySessions.isEmpty
             ? Center(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.event_available_rounded, size: 40, color: _border),
+                  const Icon(Icons.event_available_rounded, size: 40, color: _border),
                   const SizedBox(height: 10),
                   const Text('Aucun cours ce jour', style: TextStyle(color: _muted, fontSize: 14)),
                 ]),
               )
             : ListView.separated(
                 padding: const EdgeInsets.all(14),
-                itemCount: kStdSlots.length,
+                itemCount: daySessions.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final slot   = kStdSlots[i];
-                  final session = sessions.where((s) => s.jour == jour && s.slot == slot).firstOrNull;
-                  return _MobileCard(slot: slot, session: session);
-                },
+                itemBuilder: (_, i) => _MobileCard(session: daySessions[i]),
               ),
       ),
     ]);
-  }
-
-  String _todayJour() {
-    final wd = DateTime.now().weekday;
-    if (wd >= 1 && wd <= 5) return kJoursWeek[wd - 1];
-    return '';
   }
 }
 
 // ─── Mobile session card ──────────────────────────────────────────────────────
 class _MobileCard extends StatelessWidget {
-  final TSlot slot;
-  final TSession? session;
-  const _MobileCard({required this.slot, this.session});
+  final SbSchedule session;
+  const _MobileCard({required this.session});
 
   @override
   Widget build(BuildContext context) {
+    final s = session;
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Time column
       SizedBox(
         width: 52,
         child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           const SizedBox(height: 10),
-          Text(slot.start, style: const TextStyle(
+          Text(s.startTime, style: const TextStyle(
               fontSize: 12, fontWeight: FontWeight.w800, color: _ink)),
-          Text(slot.end, style: TextStyle(
-              fontSize: 10, color: _muted.withOpacity(.65))),
+          Text(s.endTime, style: TextStyle(
+              fontSize: 10, color: _muted.withValues(alpha: .65))),
         ]),
       ),
       const SizedBox(width: 10),
-      Expanded(
-        child: session == null
-            ? Container(
-                height: 62,
-                decoration: BoxDecoration(
-                  color: _white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _border),
-                ),
-                child: Center(child: Text('Libre', style: TextStyle(
-                    color: _muted.withOpacity(.4), fontSize: 12,
-                    fontStyle: FontStyle.italic))),
-              )
-            : _buildSessionCard(session!),
-      ),
+      Expanded(child: _buildSessionCard(s)),
     ]);
   }
 
-  Widget _buildSessionCard(TSession s) {
-    final meta = getSubjectMeta(s.matiere);
+  Widget _buildSessionCard(SbSchedule s) {
+    final name = s.subjectName ?? 'Cours';
+    final meta = getSubjectMeta(name);
     final seed = s.id.hashCode;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 80,
+        constraints: const BoxConstraints(minHeight: 80),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [meta.color, meta.color.withOpacity(.8)],
+            colors: [meta.color, meta.color.withValues(alpha: .8)],
           ),
         ),
         child: Stack(children: [
@@ -626,48 +565,37 @@ class _MobileCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(s.matiere, style: const TextStyle(
+                  Text(name, style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w900, color: _white)),
                   const SizedBox(height: 3),
-                  Row(children: [
-                    const Icon(Icons.person_outline_rounded, size: 11, color: Color(0xCCFFFFFF)),
-                    const SizedBox(width: 3),
-                    Expanded(child: Text(s.enseignant,
-                        style: const TextStyle(fontSize: 11, color: Color(0xCCFFFFFF)),
-                        maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ]),
+                  if (s.teacherName != null)
+                    Row(children: [
+                      const Icon(Icons.person_outline_rounded, size: 11, color: Color(0xCCFFFFFF)),
+                      const SizedBox(width: 3),
+                      Expanded(child: Text(s.teacherName!,
+                          style: const TextStyle(fontSize: 11, color: Color(0xCCFFFFFF)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ]),
                   const SizedBox(height: 2),
-                  Row(children: [
-                    const Icon(Icons.room_outlined, size: 11, color: Color(0xBBFFFFFF)),
-                    const SizedBox(width: 3),
-                    Text(s.salle, style: const TextStyle(fontSize: 11, color: Color(0xBBFFFFFF))),
-                    if (s.filieres.length > 1) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(s.filieres.join(' · '), style: const TextStyle(
-                            fontSize: 9, color: _white, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ]),
+                  if (s.room != null)
+                    Row(children: [
+                      const Icon(Icons.room_outlined, size: 11, color: Color(0xBBFFFFFF)),
+                      const SizedBox(width: 3),
+                      Text(s.room!, style: const TextStyle(fontSize: 11, color: Color(0xBBFFFFFF))),
+                    ]),
                 ],
               )),
-              // Time badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.2),
+                  color: Colors.white.withValues(alpha: .2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(children: [
-                  Text(s.slot.start, style: const TextStyle(
+                  Text(s.startTime, style: const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w900, color: _white)),
-                  Container(width: 14, height: 1, color: Colors.white.withOpacity(.5)),
-                  Text(s.slot.end, style: const TextStyle(
+                  Container(width: 14, height: 1, color: Colors.white.withValues(alpha: .5)),
+                  Text(s.endTime, style: const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF))),
                 ]),
               ),
@@ -677,4 +605,64 @@ class _MobileCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── États (vide / pas de classe / erreur) ─────────────────────────────────────
+class _EmptySchedule extends StatelessWidget {
+  const _EmptySchedule();
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.calendar_month_rounded, size: 48, color: _border),
+          const SizedBox(height: 12),
+          const Text('Emploi du temps non publié',
+              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          const Text('Il apparaîtra ici dès que l\'école l\'aura mis en ligne.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, fontSize: 12.5)),
+        ]),
+      );
+}
+
+class _NoClassState extends StatelessWidget {
+  const _NoClassState();
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.class_outlined, size: 48, color: _border),
+            const SizedBox(height: 12),
+            const Text('Aucune classe assignée',
+                style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            const Text('Contacte l\'administration pour être affecté à une classe.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _muted, fontSize: 12.5)),
+          ]),
+        ),
+      );
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  const _ErrorState({required this.message});
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
+            const SizedBox(height: 12),
+            Text('Erreur de chargement',
+                style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(message,
+                textAlign: TextAlign.center,
+                maxLines: 3, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _muted, fontSize: 12)),
+          ]),
+        ),
+      );
 }

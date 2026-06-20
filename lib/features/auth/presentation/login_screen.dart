@@ -34,7 +34,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailCtrl = TextEditingController(text: 'student@scolaris.app');
+  final _emailCtrl = TextEditingController(text: 'admin@ead-bzv.cg');
   final _passCtrl  = TextEditingController(text: 'demo1234');
   bool _loading  = false;
   bool _obscure  = true;
@@ -430,7 +430,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _dividerSmall('ou'),
           const SizedBox(height: 16),
           _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
+          const SizedBox(height: 18),
+          _divider('Connexion rapide (démo · demo1234)'),
+          const SizedBox(height: 10),
+          _demoQuickRow(),
         ],
+    );
+  }
+
+  // Connexion rapide aux comptes démo EAD Brazzaville (mot de passe demo1234).
+  Widget _demoQuickRow() {
+    const accounts = <(String, String, IconData, Color)>[
+      ('Admin',  'admin@ead-bzv.cg',  Icons.admin_panel_settings_outlined, _terra),
+      ('Prof',   'prof@ead-bzv.cg',   Icons.menu_book_outlined,            Color(0xFF0277BD)),
+      ('Élève',  'eleve@ead-bzv.cg',  Icons.school_outlined,               _green),
+      ('Parent', 'parent@ead-bzv.cg', Icons.family_restroom_outlined,      Color(0xFF7C3AED)),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final a in accounts)
+          GestureDetector(
+            onTap: _loading ? null : () => _fillAndLogin(a.$2, 'demo1234'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: a.$4.withOpacity(.07),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: a.$4.withOpacity(.30)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(a.$3, size: 15, color: a.$4),
+                const SizedBox(width: 6),
+                Text(a.$1, style: TextStyle(
+                    color: a.$4, fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
+      ],
     );
   }
 

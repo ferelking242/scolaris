@@ -134,12 +134,23 @@ class PdfReaderPage extends StatefulWidget {
   final int totalPages;
   final int initialPage;
 
+  // Identité de la ressource ouverte — permet d'enregistrer le suivi de lecture
+  // (« reprendre » + statistiques) et de gérer le favori. Optionnel : si non
+  // fourni (ex. ouverture depuis un résultat de recherche brut), le lecteur
+  // reste purement local.
+  final String? resourceId;
+  final ResourceType? resourceType;
+  final String? subject;
+
   const PdfReaderPage({
     super.key,
     required this.title,
     required this.color,
     required this.totalPages,
     this.initialPage = 1,
+    this.resourceId,
+    this.resourceType,
+    this.subject,
   });
 
   @override
@@ -164,10 +175,21 @@ class _PdfReaderPageState extends State<PdfReaderPage>
   late final Animation<double>   _settingsFade;
   final _pageCtrl = TextEditingController();
 
+  // Suivi de lecture / favori.
+  late final DateTime _openedAt;
+  bool _favorited = false;
+  bool get _trackable =>
+      widget.resourceId != null && widget.resourceType != null;
+
   @override
   void initState() {
     super.initState();
+    _openedAt = DateTime.now();
     _page = widget.initialPage.clamp(1, widget.totalPages);
+    if (_trackable) {
+      _favorited =
+          MockLibraryData.isFavorite(widget.resourceType!, widget.resourceId!);
+    }
 
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 220));
@@ -190,11 +212,30 @@ class _PdfReaderPageState extends State<PdfReaderPage>
 
   @override
   void dispose() {
+    // Enregistre la progression de lecture (fire-and-forget, persistée via RLS).
+    if (_trackable) {
+      MockLibraryData.recordReading(
+        type: widget.resourceType!,
+        id: widget.resourceId!,
+        title: widget.title,
+        subject: widget.subject,
+        progress: (_page / widget.totalPages).clamp(0, 1).toDouble(),
+        pagesRead: _page,
+        addMinutes: DateTime.now().difference(_openedAt).inMinutes,
+      );
+    }
     _fadeCtrl.dispose();
     _settingsCtrl.dispose();
     _pageCtrl.dispose();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
     super.dispose();
+  }
+
+  void _toggleFavorite() {
+    if (!_trackable) return;
+    setState(() => _favorited = !_favorited);
+    MockLibraryData.toggleFavorite(widget.resourceType!, widget.resourceId!);
+    _snack(_favorited ? '❤️ Ajouté aux favoris' : 'Retiré des favoris');
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -459,6 +500,9 @@ class _PdfReaderPageState extends State<PdfReaderPage>
                 totalPages: widget.totalPages,
                 topPad: topPad,
                 bookmarked: _bookmarkedNow,
+                showFavorite: _trackable,
+                favorited: _favorited,
+                onFavorite: _toggleFavorite,
                 onBack: () => Navigator.pop(context),
                 onBookmark: _toggleBookmark,
                 onSettings: _openSettings,
@@ -540,12 +584,18 @@ class _GlassTopBar extends StatelessWidget {
   final int page, totalPages;
   final double topPad;
   final bool bookmarked;
+  final bool showFavorite;
+  final bool favorited;
+  final VoidCallback? onFavorite;
   final VoidCallback onBack, onBookmark, onSettings;
 
   const _GlassTopBar({
     required this.color, required this.title,
     required this.page, required this.totalPages,
     required this.topPad, required this.bookmarked,
+    this.showFavorite = false,
+    this.favorited = false,
+    this.onFavorite,
     required this.onBack, required this.onBookmark, required this.onSettings,
   });
 
@@ -623,6 +673,18 @@ class _GlassTopBar extends StatelessWidget {
                 ]),
               ]),
             ),
+
+            // Favori (ressource)
+            if (showFavorite) ...[
+              _GlassIconBtn(
+                icon: favorited
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: favorited ? const Color(0xFFFF5A7A) : Colors.white,
+                onTap: onFavorite ?? () {},
+              ),
+              const SizedBox(width: 2),
+            ],
 
             // Bookmark
             _GlassIconBtn(

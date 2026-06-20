@@ -9,10 +9,12 @@ import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
 import '../pages/notifications_page.dart';
 import '../pages/search_page.dart';
 import '../widgets/responsive_role_shell.dart';
+import '../widgets/subscription_alert_banner.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const _pageBg    = Color(0xFFF5EEE6);
@@ -155,6 +157,13 @@ class _MobileShellState extends ConsumerState<MobileShell>
 
   @override
   Widget build(BuildContext context) {
+    // Intention de navigation émise par une page (ex. actions rapides du dashboard).
+    ref.listen<String?>(navIntentProvider, (_, next) {
+      if (next != null) {
+        _navigateTo(next);
+        ref.read(navIntentProvider.notifier).state = null;
+      }
+    });
     final size = MediaQuery.sizeOf(context);
     final user = ref.watch(authSessionProvider);
 
@@ -241,6 +250,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
                               setState(() => _pageIndex = i);
                             },
                           ),
+                          // Réservée à l'admin (staff) : seul lui paie et peut
+                          // agir sur l'abonnement de l'école.
+                          if (widget.role == UserRole.staff)
+                            const SubscriptionAlertBanner(),
                           Expanded(
                             child: KeyedSubtree(
                               key: ValueKey(_pageIndex),

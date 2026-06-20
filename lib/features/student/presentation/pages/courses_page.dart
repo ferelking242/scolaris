@@ -38,24 +38,45 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
   @override
   Widget build(BuildContext context) {
     final subjectsAsync = ref.watch(subjectsProvider);
+
+    // Dynamique : les cours de l'élève = les matières de SA classe (via son EDT).
+    // Reflète naturellement son niveau. Repli sur le catalogue si pas de classe.
+    final profile = ref.watch(myStudentProfileProvider).valueOrNull;
+    final classId = profile?.classId;
+    final scheduleAsync = (classId != null && classId.isNotEmpty)
+        ? ref.watch(schedulesForClassProvider(classId))
+        : const AsyncValue<List<SbSchedule>>.data([]);
+    final mySubjectIds = (scheduleAsync.valueOrNull ?? const <SbSchedule>[])
+        .map((s) => s.subjectId)
+        .whereType<String>()
+        .toSet();
+
     return subjectsAsync.when(
       loading: () => const PageScaffold(
-        title: 'Catalogue des cours',
+        title: 'Mes cours',
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
-        title: 'Catalogue des cours',
+        title: 'Mes cours',
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (subjects) {
+        // Périmètre : mes matières (si EDT disponible) sinon catalogue complet.
+        final personal = mySubjectIds.isNotEmpty;
+        final scoped = personal
+            ? subjects.where((s) => mySubjectIds.contains(s.id)).toList()
+            : subjects;
+
         final matieres = [
           'Toutes',
-          ...subjects.map((s) => s.name).toSet().toList()..sort(),
+          ...scoped.map((s) => s.name).toSet().toList()..sort(),
         ];
-        final filtered = _filtered(subjects);
+        final filtered = _filtered(scoped);
         return PageScaffold(
-          title: 'Catalogue des cours',
-          subtitle: '${subjects.length} cours dans l\'établissement',
+          title: personal ? 'Mes cours' : 'Catalogue des cours',
+          subtitle: personal
+              ? '${scoped.length} matière(s)${profile?.classe != null ? ' · ${profile!.classe}' : ''}'
+              : '${subjects.length} cours dans l\'établissement',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

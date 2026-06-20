@@ -65,6 +65,17 @@ class AppUser {
   /// Sous-titre du rôle (ex: "Secrétaire", "DG", "Surveillant") — pour affichage
   final String? roleTitle;
 
+  /// Permissions granulaires du personnel (clés de StaffPermissions).
+  /// La clé "*" = accès total (Direction / fondateur). Vide pour les rôles
+  /// non-staff (leur accès est défini par le rôle lui-même).
+  final Set<String> permissions;
+
+  final String? phone;
+  final DateTime? createdAt;
+  /// Dernière activité connue AVANT la session courante (pour « dernière
+  /// connexion »). Mise à jour à chaque connexion.
+  final DateTime? lastSeenAt;
+
   const AppUser({
     required this.id,
     required this.email,
@@ -74,6 +85,10 @@ class AppUser {
     this.avatarUrl,
     this.schoolAccentArgb,
     this.roleTitle,
+    this.permissions = const {},
+    this.phone,
+    this.createdAt,
+    this.lastSeenAt,
   });
 
   AppUser copyWith({
@@ -85,6 +100,10 @@ class AppUser {
     String? avatarUrl,
     int? schoolAccentArgb,
     String? roleTitle,
+    Set<String>? permissions,
+    String? phone,
+    DateTime? createdAt,
+    DateTime? lastSeenAt,
   }) =>
       AppUser(
         id: id ?? this.id,
@@ -95,7 +114,18 @@ class AppUser {
         avatarUrl: avatarUrl ?? this.avatarUrl,
         schoolAccentArgb: schoolAccentArgb ?? this.schoolAccentArgb,
         roleTitle: roleTitle ?? this.roleTitle,
+        permissions: permissions ?? this.permissions,
+        phone: phone ?? this.phone,
+        createdAt: createdAt ?? this.createdAt,
+        lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       );
 
   String get displayRole => roleTitle ?? role.label;
+
+  /// Accès total (Direction / fondateur).
+  bool get hasFullAccess => permissions.contains('*');
+
+  /// Le membre a-t-il la capacité [permissionKey] ? (true si accès total.)
+  bool can(String permissionKey) =>
+      hasFullAccess || permissions.contains(permissionKey);
 }

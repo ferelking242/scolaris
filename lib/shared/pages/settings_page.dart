@@ -9,11 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/localization/locales.dart';
-import '../../core/services/offline_storage.dart';
+import '../../core/permissions/staff_permissions.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../features/admin/presentation/pages/admin_school_page.dart';
 import '../../presentation/providers/auth_providers.dart';
 import 'account_page.dart';
 
@@ -86,6 +87,30 @@ class SettingsPage extends ConsumerWidget {
                     subtitle: 'Profil, mot de passe, notifications',
                     onTap: () => _push(context, _AccountSettingsPage(user: user)),
                   ),
+                  // Mon École : réservé à qui gère la config (Direction).
+                  if (user?.can(StaffPermissions.schoolConfig) ?? false)
+                    _SettingsNavRow(
+                      icon: Icons.apartment_rounded,
+                      color: const Color(0xFF0D47A1),
+                      title: 'Mon École',
+                      subtitle: 'Nom, logo, année scolaire, coordonnées',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            backgroundColor: _bg,
+                            appBar: AppBar(
+                              backgroundColor: _sh1,
+                              foregroundColor: _white,
+                              elevation: 0,
+                              title: const Text('Mon École',
+                                  style: TextStyle(
+                                      fontSize: 15, fontWeight: FontWeight.w700)),
+                            ),
+                            body: const AdminSchoolPage(),
+                          ),
+                        )),
+                    ),
                   _SettingsNavRow(
                     icon: Icons.palette_outlined,
                     color: _orange,
@@ -573,7 +598,6 @@ class _AccountSettingsPage extends ConsumerStatefulWidget {
 class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
     final locale   = context.locale;
     final langName = AppLocales.label(locale);
     final user     = widget.user;
@@ -688,13 +712,11 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
-              _SettingsItemToggle(
+              _SettingsItemComingSoon(
                 icon: Icons.notifications_outlined,
                 color: _terra,
                 label: 'Notifications push',
-                value: settings.notificationsPush,
-                onChanged: (v) =>
-                    ref.read(settingsProvider.notifier).setNotificationsPush(v),
+                description: 'Alertes en temps réel (web & mobile)',
               ),
               _SettingsItemComingSoon(
                 icon: Icons.email_outlined,
@@ -940,45 +962,38 @@ class _MediaSheet extends StatelessWidget {
         Text(title,
             style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 20),
-        _MediaOption(
-            icon: Icons.photo_camera_rounded, label: 'Prendre une photo'),
-        const SizedBox(height: 10),
-        _MediaOption(
-            icon: Icons.photo_library_rounded, label: 'Choisir depuis la galerie'),
-        if (showTheme) ...[
-          const SizedBox(height: 10),
-          _MediaOption(
-              icon: Icons.palette_outlined, label: 'Couleur / thème de bannière'),
-        ],
-      ]),
-    );
-  }
-}
-
-class _MediaOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _MediaOption({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAF5F0),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _border),
+        // Upload d'image pas encore disponible (nécessite Supabase Storage).
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _gold.withOpacity(.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _gold.withOpacity(.25)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.schedule_rounded, size: 20, color: _gold),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Bientôt disponible',
+                      style: TextStyle(
+                          color: _ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'L\'import de photo arrivera dans une prochaine version. '
+                    'En attendant, votre avatar affiche vos initiales.',
+                    style: TextStyle(
+                        color: _muted, fontSize: 11.5, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ]),
         ),
-        child: Row(children: [
-          Icon(icon, size: 18, color: _terra),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(
-              color: _ink, fontSize: 13.5, fontWeight: FontWeight.w500)),
-        ]),
-      ),
+      ]),
     );
   }
 }
@@ -1201,11 +1216,10 @@ class _AccessibilityPage extends ConsumerStatefulWidget {
 }
 
 class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
-  double _textScale = 1.0;
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
+    final textScale = settings.textScale;
 
     return _SubPageShell(
       title: 'Accessibilité',
@@ -1236,19 +1250,19 @@ class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
                   Text('Aperçu de l\'interface',
                       style: TextStyle(
                           color: _muted,
-                          fontSize: 10 * _textScale,
+                          fontSize: 10 * textScale,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text('Tableau de bord — Scolaris',
                       style: TextStyle(
                           color: _ink,
-                          fontSize: 15 * _textScale,
+                          fontSize: 15 * textScale,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text('Terminale S · 28 élèves inscrits · Année 2025–26',
                       style: TextStyle(
                           color: _muted,
-                          fontSize: 12 * _textScale,
+                          fontSize: 12 * textScale,
                           height: 1.4)),
                 ]),
               ),
@@ -1257,18 +1271,19 @@ class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
                 const Icon(Icons.text_decrease_rounded, size: 15, color: _muted),
                 Expanded(
                   child: Slider(
-                    value: _textScale,
+                    value: textScale,
                     min: 0.8, max: 1.4, divisions: 6,
                     activeColor: _terra,
                     inactiveColor: _border,
-                    onChanged: (v) => setState(() => _textScale = v),
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).setTextScale(v),
                   ),
                 ),
                 const Icon(Icons.text_increase_rounded, size: 20, color: _muted),
               ]),
               Center(
                 child: Text(
-                  '${(_textScale * 100).round()} %',
+                  '${(textScale * 100).round()} %',
                   style: const TextStyle(
                       color: _muted, fontSize: 11, fontWeight: FontWeight.w700),
                 ),
@@ -1373,18 +1388,12 @@ class _PrivacyPage extends ConsumerStatefulWidget {
 }
 
 class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
-  static final _lastLogin = DateTime.now().subtract(const Duration(hours: 2));
-
   static String _formatRelative(DateTime dt) {
     final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return 'À l\'instant';
     if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
     if (diff.inHours < 24)   return 'Il y a ${diff.inHours} h';
     return 'Il y a ${diff.inDays} j';
-  }
-
-  static Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -1421,7 +1430,10 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
                     style: TextStyle(
                         color: _ink, fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(_formatRelative(_lastLogin),
+                Text(
+                    widget.user?.lastSeenAt != null
+                        ? _formatRelative(widget.user!.lastSeenAt!)
+                        : 'Première connexion',
                     style: const TextStyle(color: _muted, fontSize: 12)),
               ])),
               Container(
@@ -1473,26 +1485,23 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.shield_outlined,
                 color: const Color(0xFF1A237E),
                 label: 'Politique de confidentialité',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/privacy'),
+                description: 'Document en cours de publication',
               ),
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.gavel_rounded,
                 color: const Color(0xFF4A148C),
                 label: 'Conditions d\'utilisation',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/terms'),
+                description: 'Document en cours de publication',
               ),
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.cookie_outlined,
                 color: _gold,
                 label: 'Politique des cookies',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/cookies'),
+                description: 'Document en cours de publication',
               ),
             ],
           ),
@@ -1605,18 +1614,25 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
     final user = widget.user;
     if (user == null) return;
     try {
-      await OfflineStorage.queueAction('delete_account_request', {
-        'user_id': user.id,
-        'email': user.email,
-        'name': user.fullName,
-        'requested_at': DateTime.now().toIso8601String(),
-      });
+      // Demande envoyée par email (canal réel) à l'administration / support.
+      final subject = Uri.encodeComponent('Demande de suppression de compte');
+      final body = Uri.encodeComponent(
+        'Bonjour,\n\n'
+        'Je demande la suppression de mon compte Scolaris.\n\n'
+        'Nom : ${user.fullName}\n'
+        'Email : ${user.email}\n'
+        'ID : ${user.id}\n\n'
+        'Merci de traiter cette demande.');
+      final uri = Uri.parse('mailto:support@scolaris.app?subject=$subject&body=$body');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       if (!context.mounted) return;
-      _showSnack(context, '✅ Demande soumise. L\'administration vous contactera.',
+      _showSnack(context, 'Votre logiciel mail va s\'ouvrir pour confirmer la demande.',
           color: _green);
     } catch (e) {
       if (!context.mounted) return;
-      _showSnack(context, 'Erreur lors de l\'envoi de la demande.',
+      _showSnack(context, 'Impossible d\'ouvrir le logiciel mail.',
           color: const Color(0xFFFF6B6B));
     }
   }
@@ -2492,19 +2508,23 @@ class _ReportSheetState extends State<_ReportSheet> {
     }
     setState(() => _loading = true);
     try {
-      await OfflineStorage.queueAction('bug_report', {
-        'type': _type,
-        'description': desc,
-        'user_id': widget.user?.id,
-        'email': widget.user?.email,
-        'reported_at': DateTime.now().toIso8601String(),
-        'app_version': AppConfig.appVersion,
-      });
+      // Envoi par email (canal réel) — pas de backend de tickets pour l'instant.
+      final subject = Uri.encodeComponent('Signalement Scolaris — $_type');
+      final body = Uri.encodeComponent(
+        '$desc\n\n'
+        '-----------------------------\n'
+        'Utilisateur : ${widget.user?.email ?? "?"}\n'
+        'ID : ${widget.user?.id ?? "?"}\n'
+        'Version : ${AppConfig.appVersion}');
+      final uri = Uri.parse('mailto:support@scolaris.app?subject=$subject&body=$body');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: const Text('✅ Signalement envoyé. Merci pour votre retour !',
+          content: const Text('Votre logiciel mail va s\'ouvrir pour envoyer le signalement.',
               style: TextStyle(fontWeight: FontWeight.w600)),
           backgroundColor: _green,
           behavior: SnackBarBehavior.floating,

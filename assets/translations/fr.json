@@ -61,9 +61,11 @@
     "payments": "Paiements",
     "students": "Élèves",
     "classes": "Classes",
+    "subjects": "Matières",
     "reports": "Rapports",
     "users": "Utilisateurs",
     "billing": "Facturation",
+    "subscription": "Mon abonnement",
     "library": "Bibliothèque",
     "qr": "QR Code",
     "bulletin": "Bulletin",
@@ -76,7 +78,8 @@
     "receipts": "Reçus",
     "my_payments": "Ma Scolarité",
     "documents": "Mes Documents",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "school": "Mon École"
   },
   "dashboard": {
     "hello": "Bonjour, {name}",

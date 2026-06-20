@@ -33,6 +33,10 @@ class AuthSession extends StateNotifier<AppUser?> {
     });
   }
   final Ref _ref;
+
+  /// Mise à jour locale (optimiste) après édition du profil — le stream auth
+  /// ne ré-émet pas sur une simple modif de la ligne `users`.
+  void setUser(AppUser? u) => state = u;
 }
 
 final authSessionProvider =

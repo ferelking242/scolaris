@@ -248,7 +248,9 @@ class _FavBooksTab extends StatelessWidget {
         final b = books[i];
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-              PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages))),
+              PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages,
+                  resourceId: b.id, resourceType: ResourceType.book,
+                  subject: b.subject))),
           child: Container(
             decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: b.coverColor.withOpacity(0.20)),
@@ -331,7 +333,9 @@ class _FavExamsTab extends StatelessWidget {
         final e = exams[i];
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-              PdfReaderPage(title: e.title, color: e.color, totalPages: 12))),
+              PdfReaderPage(title: e.title, color: e.color, totalPages: 12,
+                  resourceId: e.id, resourceType: ResourceType.examSubject,
+                  subject: e.subject))),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(16),
@@ -389,7 +393,9 @@ class _FavMaterialsTab extends StatelessWidget {
         final m = mats[i];
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-              PdfReaderPage(title: m.title, color: m.color, totalPages: 24))),
+              PdfReaderPage(title: m.title, color: m.color, totalPages: 24,
+                  resourceId: m.id, resourceType: ResourceType.material,
+                  subject: m.subject))),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: _white, borderRadius: BorderRadius.circular(16),

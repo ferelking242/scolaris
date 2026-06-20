@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
+import '../../../shared/data/features_catalog.dart';
+import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/pages/settings_page.dart';
+import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
 import 'pages/attendance_page.dart';
@@ -18,6 +22,7 @@ import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/homework_student_page.dart';
 import 'pages/library/library_page.dart';
+import 'pages/notifications_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/student_documents_page.dart';
 import 'pages/student_payments_page.dart';
@@ -37,110 +42,145 @@ const _bg     = Color(0xFFEDD8BE);
 // ══════════════════════════════════════════════════════════════════════════
 // Shell (navigation)
 // ══════════════════════════════════════════════════════════════════════════
-class StudentHome extends StatelessWidget {
+class StudentHome extends ConsumerWidget {
   const StudentHome({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Niveau réel (type d'école / classe) + offre → menu dynamique.
+    final level = ref.watch(studentSchoolLevelProvider).valueOrNull
+        ?? SchoolLevel.lycee;
+    final planCode = ref.watch(currentPlanCodeProvider).valueOrNull;
+
     return ResponsiveRoleShell(
       role: UserRole.student,
       title: 'Scolaris',
-      groups: const [
-        // ── Configuration ─────────────────────────────────────────────
-        RoleNavGroup(labelKey: 'sections.setup', entries: [
-          RoleNavEntry(
-            icon: Icons.home_rounded,
-            activeIcon: Icons.home_rounded,
-            labelKey: 'nav.dashboard',
-            page: _StudentDashboard(),
-          ),
-          RoleNavEntry(
-            icon: Icons.menu_book_outlined,
-            activeIcon: Icons.menu_book_rounded,
-            labelKey: 'nav.courses',
-            page: CoursesPage(),
-          ),
-        ]),
+      groups: _groups(level: level, planCode: planCode),
+    );
+  }
 
-        // ── Activité scolaire ──────────────────────────────────────────
-        RoleNavGroup(labelKey: 'sections.activity', entries: [
-          RoleNavEntry(
-            icon: Icons.grading_outlined,
-            activeIcon: Icons.grading_rounded,
-            labelKey: 'nav.grades',
-            page: GradesPage(),
-          ),
-          RoleNavEntry(
-            icon: Icons.calendar_month_outlined,
-            activeIcon: Icons.calendar_month_rounded,
-            labelKey: 'nav.schedule',
-            page: SchedulePage(),
-          ),
-          RoleNavEntry(
-            icon: Icons.assignment_outlined,
-            activeIcon: Icons.assignment_rounded,
-            labelKey: 'nav.homework',
-            page: HomeworkStudentPage(),
-          ),
-          RoleNavEntry(
-            icon: Icons.fact_check_outlined,
-            activeIcon: Icons.fact_check_rounded,
-            labelKey: 'nav.attendance',
-            page: AttendancePage(),
-          ),
-          RoleNavEntry(
+  /// Construit les groupes de navigation en fonction du niveau scolaire et de
+  /// l'offre. Le bulletin n'existe qu'au collège/lycée ; la bibliothèque et la
+  /// messagerie sont des features Pro (gating défensif via [PlanGate]).
+  List<RoleNavGroup> _groups({
+    required SchoolLevel level,
+    required String? planCode,
+  }) {
+    final hasBulletin =
+        level == SchoolLevel.college || level == SchoolLevel.lycee;
+
+    return [
+      // ── Configuration ─────────────────────────────────────────────
+      const RoleNavGroup(labelKey: 'sections.setup', entries: [
+        RoleNavEntry(
+          icon: Icons.home_rounded,
+          activeIcon: Icons.home_rounded,
+          labelKey: 'nav.dashboard',
+          page: _StudentDashboard(),
+        ),
+        RoleNavEntry(
+          icon: Icons.menu_book_outlined,
+          activeIcon: Icons.menu_book_rounded,
+          labelKey: 'nav.courses',
+          page: CoursesPage(),
+        ),
+      ]),
+
+      // ── Activité scolaire ──────────────────────────────────────────
+      RoleNavGroup(labelKey: 'sections.activity', entries: [
+        const RoleNavEntry(
+          icon: Icons.grading_outlined,
+          activeIcon: Icons.grading_rounded,
+          labelKey: 'nav.grades',
+          page: GradesPage(),
+        ),
+        const RoleNavEntry(
+          icon: Icons.calendar_month_outlined,
+          activeIcon: Icons.calendar_month_rounded,
+          labelKey: 'nav.schedule',
+          page: SchedulePage(),
+        ),
+        const RoleNavEntry(
+          icon: Icons.assignment_outlined,
+          activeIcon: Icons.assignment_rounded,
+          labelKey: 'nav.homework',
+          page: HomeworkStudentPage(),
+        ),
+        const RoleNavEntry(
+          icon: Icons.fact_check_outlined,
+          activeIcon: Icons.fact_check_rounded,
+          labelKey: 'nav.attendance',
+          page: AttendancePage(),
+        ),
+        if (hasBulletin)
+          const RoleNavEntry(
             icon: Icons.receipt_long_outlined,
             activeIcon: Icons.receipt_long_rounded,
             labelKey: 'nav.bulletin',
             page: BulletinPage(),
           ),
-          RoleNavEntry(
-            icon: Icons.local_library_outlined,
-            activeIcon: Icons.local_library_rounded,
-            labelKey: 'nav.library',
-            page: LibraryPage(),
+        const RoleNavEntry(
+          icon: Icons.local_library_outlined,
+          activeIcon: Icons.local_library_rounded,
+          labelKey: 'nav.library',
+          page: PlanGate(
+            minPlan: 'pro',
+            featureLabel: 'Bibliothèque',
+            description: 'Catalogue, manuels et bibliothèque numérique.',
+            child: LibraryPage(),
           ),
-        ]),
+        ),
+      ]),
 
-        // ── Scolarité & Finances ───────────────────────────────────────
-        RoleNavGroup(labelKey: 'sections.finance', entries: [
-          RoleNavEntry(
-            icon: Icons.account_balance_wallet_outlined,
-            activeIcon: Icons.account_balance_wallet_rounded,
-            labelKey: 'nav.my_payments',
-            page: StudentPaymentsPage(),
-          ),
-          RoleNavEntry(
-            icon: Icons.folder_outlined,
-            activeIcon: Icons.folder_rounded,
-            labelKey: 'nav.documents',
-            page: StudentDocumentsPage(),
-          ),
-        ]),
+      // ── Scolarité & Finances ───────────────────────────────────────
+      const RoleNavGroup(labelKey: 'sections.finance', entries: [
+        RoleNavEntry(
+          icon: Icons.account_balance_wallet_outlined,
+          activeIcon: Icons.account_balance_wallet_rounded,
+          labelKey: 'nav.my_payments',
+          page: StudentPaymentsPage(),
+        ),
+        RoleNavEntry(
+          icon: Icons.folder_outlined,
+          activeIcon: Icons.folder_rounded,
+          labelKey: 'nav.documents',
+          page: StudentDocumentsPage(),
+        ),
+      ]),
 
-        // ── Compte & Outils ────────────────────────────────────────────
-        RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(
-            icon: Icons.chat_outlined,
-            activeIcon: Icons.chat_rounded,
-            labelKey: 'nav.messages',
-            page: MessagingPage(),
+      // ── Compte & Outils ────────────────────────────────────────────
+      const RoleNavGroup(labelKey: 'sections.account', entries: [
+        RoleNavEntry(
+          icon: Icons.notifications_outlined,
+          activeIcon: Icons.notifications_rounded,
+          labelKey: 'nav.notifications',
+          page: NotificationsPage(),
+        ),
+        RoleNavEntry(
+          icon: Icons.chat_outlined,
+          activeIcon: Icons.chat_rounded,
+          labelKey: 'nav.messages',
+          page: PlanGate(
+            minPlan: 'pro',
+            featureLabel: 'Messagerie',
+            description: 'Chat interne sécurisé avec l\'école.',
+            child: MessagingPage(),
           ),
-          RoleNavEntry(
-            icon: Icons.apps_outlined,
-            activeIcon: Icons.apps_rounded,
-            labelKey: 'nav.features',
-            page: FeaturesHubPage(),
-          ),
-          RoleNavEntry(
-            icon: Icons.settings_outlined,
-            activeIcon: Icons.settings_rounded,
-            labelKey: 'nav.settings',
-            page: SettingsPage(),
-          ),
-        ]),
-      ],
-    );
+        ),
+        RoleNavEntry(
+          icon: Icons.apps_outlined,
+          activeIcon: Icons.apps_rounded,
+          labelKey: 'nav.features',
+          page: FeaturesHubPage(),
+        ),
+        RoleNavEntry(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings_rounded,
+          labelKey: 'nav.settings',
+          page: SettingsPage(),
+        ),
+      ]),
+    ];
   }
 }
 
@@ -154,37 +194,6 @@ class _StudentDashboard extends ConsumerStatefulWidget {
 }
 
 class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
-  bool _loading = true;
-
-  static const _moyenneProgression = [12.5, 13.8, 14.2, 14.8, 15.4];
-  static const _semLabels = ['S1', 'S2', 'S3', 'S4', 'S5'];
-  static const _absences = [2.0, 1.0, 0.0, 1.0, 0.0];
-
-  static const _recentNotes = [
-    (sub: 'Mathématiques', n: 17.5, max: 20.0, c: _gold,  d: '28 Mai'),
-    (sub: 'Physique',      n: 13.0, max: 20.0, c: _terra, d: '25 Mai'),
-    (sub: 'Histoire',      n: 15.5, max: 20.0, c: _green, d: '22 Mai'),
-  ];
-
-  static const _devoirs = [
-    (sub: 'Mathématiques', titre: 'Exercices page 124', echeance: 'Demain',    c: _gold),
-    (sub: 'Physique',      titre: 'Résumé chapitre 8',  echeance: 'Dans 2j',   c: _cyan),
-  ];
-
-  static const _edt = [
-    (h: '08:00', sub: 'Mathématiques', room: 'A12',  c: _terra),
-    (h: '10:00', sub: 'Français',      room: 'B04',  c: _gold),
-    (h: '14:00', sub: 'Sciences',      room: 'Labo', c: _green),
-    (h: '16:00', sub: 'Histoire',      room: 'C01',  c: _cyan),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 900),
-        () { if (mounted) setState(() => _loading = false); });
-  }
-
   String get _greeting {
     final h = DateTime.now().hour;
     if (h < 12) return 'Bonjour';
@@ -201,6 +210,72 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final name     = user?.fullName ?? 'Étudiant';
     final initials = _initials(name);
 
+    // Dynamique : niveau réel + classe de l'élève.
+    final level   = ref.watch(studentSchoolLevelProvider).valueOrNull
+        ?? SchoolLevel.lycee;
+    final profile = ref.watch(myStudentProfileProvider).valueOrNull;
+    final hasBulletin =
+        level == SchoolLevel.college || level == SchoolLevel.lycee;
+
+    // ── Données réelles de l'élève ──────────────────────────────────────
+    final gradesAsync = ref.watch(myGradesProvider);
+    final grades      = gradesAsync.valueOrNull ?? const <SbGrade>[];
+    final absences    = ref.watch(myAbsencesProvider).valueOrNull ?? const <SbAbsence>[];
+    final assignments = ref.watch(myAssignmentsProvider).valueOrNull ?? const <SbAssignment>[];
+    final submissions = ref.watch(mySubmissionsProvider).valueOrNull ?? const <SbSubmission>[];
+
+    final classId = profile?.classId;
+    final scheduleAsync = (classId != null && classId.isNotEmpty)
+        ? ref.watch(schedulesForClassProvider(classId))
+        : const AsyncValue<List<SbSchedule>>.data([]);
+    final schedules = scheduleAsync.valueOrNull ?? const <SbSchedule>[];
+
+    final loading = gradesAsync.isLoading || scheduleAsync.isLoading;
+
+    // Moyenne générale (/20)
+    final moyenne = grades.isEmpty
+        ? null
+        : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+
+    // Devoirs à rendre : non remis, échéance future
+    final submittedIds =
+        submissions.where((s) => s.isSubmitted).map((s) => s.assignmentId).toSet();
+    final aRendre = assignments
+        .where((a) =>
+            !submittedIds.contains(a.id) && a.deadline.isAfter(DateTime.now()))
+        .length;
+
+    // EDT du jour
+    final todayDay = DateTime.now().weekday; // 1=Lun … 7=Dim
+    final edt = (schedules.where((s) => s.dayOfWeek == todayDay).toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime)))
+        .map((s) => (
+              h: s.startTime,
+              sub: s.subjectName ?? 'Cours',
+              room: s.room ?? '',
+              c: getSubjectMeta(s.subjectName ?? '').color,
+            ))
+        .toList();
+
+    // Progression : moyenne glissante sur les dernières notes
+    final graded = [...grades]..sort((a, b) =>
+        (a.gradedAt ?? DateTime(2000)).compareTo(b.gradedAt ?? DateTime(2000)));
+    final running = <double>[];
+    double acc = 0;
+    for (var i = 0; i < graded.length; i++) {
+      acc += graded[i].outOf20;
+      running.add(acc / (i + 1));
+    }
+    final progression =
+        running.length > 6 ? running.sublist(running.length - 6) : running;
+    final progLabels = List.generate(progression.length, (i) => '${i + 1}');
+
+    // Dernières notes (3 plus récentes)
+    final recent = ([...grades]..sort((a, b) =>
+            (b.gradedAt ?? DateTime(2000)).compareTo(a.gradedAt ?? DateTime(2000))))
+        .take(3)
+        .toList();
+
     return Container(
       color: _bg,
       child: SingleChildScrollView(
@@ -212,12 +287,20 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             // ── 1. Greeting slim ──────────────────────────────────────
             _SlimGreeting(
               greeting: _greeting, name: name,
-              initials: initials, loading: _loading,
+              initials: initials, loading: loading,
+              classLabel: profile?.classe,
+              levelLabel: level.label,
             ),
             const SizedBox(height: 18),
 
             // ── 2. Stats rapides ──────────────────────────────────────
-            _QuickStats(loading: _loading),
+            _QuickStats(
+              loading: loading,
+              moyenne: moyenne,
+              absences: absences.length,
+              aRendre: aRendre,
+              notes: grades.length,
+            ),
             const SizedBox(height: 22),
 
             // ── 3. Accès rapide ───────────────────────────────────────
@@ -227,120 +310,148 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               iconGradient: [_terra, _orange],
             ),
             const SizedBox(height: 10),
-            _PremiumShortcutsGrid(onTap: {
-              'notes':         () => _push(const GradesPage()),
-              'edt':           () => _push(const SchedulePage()),
-              'devoirs':       () => _push(const HomeworkStudentPage()),
-              'presences':     () => _push(const AttendancePage()),
-              'cours':         () => _push(const CoursesPage()),
-              'messages':      () => _push(const MessagingPage()),
-              'bulletin':      () => _push(const BulletinPage()),
-              'bibliotheque':  () => _push(const LibraryPage()),
-              'features':      () => _push(const FeaturesHubPage()),
-            }),
+            _PremiumShortcutsGrid(
+              showBulletin: hasBulletin,
+              onTap: {
+                'notes':         () => _push(const GradesPage()),
+                'edt':           () => _push(const SchedulePage()),
+                'devoirs':       () => _push(const HomeworkStudentPage()),
+                'presences':     () => _push(const AttendancePage()),
+                'cours':         () => _push(const CoursesPage()),
+                'messages':      () => _push(const MessagingPage()),
+                if (hasBulletin)
+                  'bulletin':    () => _push(const BulletinPage()),
+                'bibliotheque':  () => _push(const PlanGate(
+                      minPlan: 'pro',
+                      featureLabel: 'Bibliothèque',
+                      description: 'Catalogue, manuels et bibliothèque numérique.',
+                      child: LibraryPage(),
+                    )),
+                'notifications': () => _push(const NotificationsPage()),
+                'features':      () => _push(const FeaturesHubPage()),
+              },
+            ),
             const SizedBox(height: 24),
 
             // ── 4. EDT + Progression notes (2 cols sur desktop) ───────
             if (isWide)
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildEdtSection()),
+                Expanded(child: _buildEdtSection(edt, loading)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildNotesChartSection()),
+                Expanded(child: _buildNotesChartSection(progression, progLabels, loading)),
               ])
             else ...[
-              _buildEdtSection(),
+              _buildEdtSection(edt, loading),
               const SizedBox(height: 22),
-              _buildNotesChartSection(),
+              _buildNotesChartSection(progression, progLabels, loading),
             ],
             const SizedBox(height: 22),
 
             // ── 5. Dernières notes ─────────────────────────────────────
-            _buildRecentNotesSection(),
+            _buildRecentNotesSection(recent, loading),
           ]);
         }),
       ),
     );
   }
 
-  Widget _buildEdtSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _SectionHeader(
-        icon: Icons.calendar_today_rounded,
-        title: 'Emploi du temps du jour',
-        iconGradient: [_terra, _orange],
-        action: 'Tout voir',
-        onAction: () => _push(const SchedulePage()),
-      ),
-      const SizedBox(height: 10),
-      Skeletonizer(
-        enabled: _loading,
-        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-        child: _EdtTimeline(slots: _edt),
-      ),
-    ],
-  );
+  // Données de remplissage pendant le chargement (shimmer).
+  static const _edtSkeleton = [
+    (h: '08:00', sub: 'Cours', room: 'A1', c: _terra),
+    (h: '10:00', sub: 'Cours', room: 'B2', c: _gold),
+    (h: '14:00', sub: 'Cours', room: 'C3', c: _green),
+  ];
+  static const _progSkeleton = [12.0, 13.0, 13.5, 14.0, 14.5, 15.0];
+  static const _progSkeletonLabels = ['1', '2', '3', '4', '5', '6'];
 
-  Widget _buildNotesChartSection() => Skeletonizer(
-    enabled: _loading,
-    effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-    child: _NoteProgressionChart(
-      values: _moyenneProgression,
-      labels: _semLabels,
-    ),
-  );
+  Widget _buildEdtSection(
+      List<({String h, String sub, String room, Color c})> edt, bool loading) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.calendar_today_rounded,
+          title: 'Emploi du temps du jour',
+          iconGradient: [_terra, _orange],
+          action: 'Tout voir',
+          onAction: () => _push(const SchedulePage()),
+        ),
+        const SizedBox(height: 10),
+        if (!loading && edt.isEmpty)
+          _MiniEmpty(icon: Icons.event_available_rounded, label: 'Pas de cours aujourd\'hui')
+        else
+          Skeletonizer(
+            enabled: loading,
+            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+            child: _EdtTimeline(slots: loading ? _edtSkeleton : edt),
+          ),
+      ],
+    );
+  }
 
-  Widget _buildDevoirsSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _SectionHeader(
-        icon: Icons.assignment_late_rounded,
-        title: 'Devoirs à rendre',
-        iconGradient: [_orange, const Color(0xFFBF360C)],
-        action: 'Voir tout',
-        onAction: () => _push(const HomeworkStudentPage()),
+  Widget _buildNotesChartSection(
+      List<double> values, List<String> labels, bool loading) {
+    if (!loading && values.length < 2) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+        _MiniEmpty(icon: Icons.show_chart_rounded, label: 'Pas assez de notes pour la courbe'),
+      ]);
+    }
+    return Skeletonizer(
+      enabled: loading,
+      effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+      child: _NoteProgressionChart(
+        values: loading ? _progSkeleton : values,
+        labels: loading ? _progSkeletonLabels : labels,
       ),
-      const SizedBox(height: 10),
-      Skeletonizer(
-        enabled: _loading,
-        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-        child: Column(children: [
-          for (final d in _devoirs) ...[
-            _DevoirCard(sub: d.sub, titre: d.titre,
-                echeance: d.echeance, color: d.c,
-                onTap: () => _push(const HomeworkStudentPage())),
-            const SizedBox(height: 8),
-          ],
-        ]),
-      ),
-    ],
-  );
+    );
+  }
 
-  Widget _buildRecentNotesSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _SectionHeader(
-        icon: Icons.grading_rounded,
-        title: 'Dernières notes',
-        iconGradient: [_gold, const Color(0xFFF57F17)],
-        action: 'Toutes',
-        onAction: () => _push(const GradesPage()),
-      ),
-      const SizedBox(height: 10),
-      Skeletonizer(
-        enabled: _loading,
-        effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-        child: Column(children: [
-          for (final n in _recentNotes) ...[
-            _NoteRow(sub: n.sub, note: n.n, max: n.max,
-                date: n.d, color: n.c,
-                onTap: () => _push(const GradesPage())),
-            const SizedBox(height: 8),
-          ],
-        ]),
-      ),
-    ],
-  );
+  Widget _buildRecentNotesSection(List<SbGrade> recent, bool loading) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.grading_rounded,
+          title: 'Dernières notes',
+          iconGradient: [_gold, const Color(0xFFF57F17)],
+          action: 'Toutes',
+          onAction: () => _push(const GradesPage()),
+        ),
+        const SizedBox(height: 10),
+        if (!loading && recent.isEmpty)
+          const _MiniEmpty(icon: Icons.grading_rounded, label: 'Aucune note pour l\'instant')
+        else
+          Skeletonizer(
+            enabled: loading,
+            effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
+            child: Column(children: [
+              for (final g in (loading ? _skeletonGrades : recent)) ...[
+                _NoteRow(
+                  sub: g.subjectName ?? g.title ?? '—',
+                  note: g.score, max: g.maxScore,
+                  date: _fmtShort(g.gradedAt),
+                  color: g.outOf20 >= 14 ? _green : g.outOf20 >= 10 ? _gold : _terra,
+                  onTap: () => _push(const GradesPage()),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ]),
+          ),
+      ],
+    );
+  }
+
+  static final _skeletonGrades = [
+    SbGrade(id: '1', studentId: '', subjectName: 'Matière', score: 15, maxScore: 20),
+    SbGrade(id: '2', studentId: '', subjectName: 'Matière', score: 13, maxScore: 20),
+    SbGrade(id: '3', studentId: '', subjectName: 'Matière', score: 16, maxScore: 20),
+  ];
+
+  static String _fmtShort(DateTime? d) {
+    if (d == null) return '';
+    const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    return '${d.day} ${mois[d.month - 1]}';
+  }
 
   String _initials(String name) {
     final p = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
@@ -356,9 +467,12 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 class _SlimGreeting extends StatelessWidget {
   final String greeting, name, initials;
   final bool loading;
+  final String? classLabel;
+  final String? levelLabel;
   const _SlimGreeting({
     required this.greeting, required this.name,
     required this.initials, required this.loading,
+    this.classLabel, this.levelLabel,
   });
 
   @override
@@ -387,12 +501,15 @@ class _SlimGreeting extends StatelessWidget {
         Text(name, style: const TextStyle(color: _ink,
             fontSize: 17, fontWeight: FontWeight.w800, height: 1.2)),
       ])),
-      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        const Text('Terminale A',
-            style: TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
-        const Text('Trimestre 2',
-            style: TextStyle(color: _muted, fontSize: 11)),
-      ]),
+      if (classLabel != null || levelLabel != null)
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(classLabel?.isNotEmpty == true ? classLabel! : (levelLabel ?? ''),
+              style: const TextStyle(
+                  color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+          if (levelLabel != null && classLabel?.isNotEmpty == true)
+            Text(levelLabel!,
+                style: const TextStyle(color: _muted, fontSize: 11)),
+        ]),
     ]);
   }
 }
@@ -612,28 +729,66 @@ class _Badge extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 class _QuickStats extends StatelessWidget {
   final bool loading;
-  const _QuickStats({required this.loading});
-
-  static const _data = [
-    (icon: Icons.star_rounded,         label: 'Moyenne',  val: '15.4', sub: '/20',       c: _gold),
-    (icon: Icons.check_circle_rounded, label: 'Présence', val: '96',   sub: ' %',        c: _green),
-    (icon: Icons.assignment_rounded,   label: 'Devoirs',  val: '3',    sub: ' en cours', c: _terra),
-    (icon: Icons.leaderboard_rounded,  label: 'Rang',     val: '4e',   sub: ' / 32',     c: _orange),
-  ];
+  final double? moyenne;
+  final int absences;
+  final int aRendre;
+  final int notes;
+  const _QuickStats({
+    required this.loading,
+    required this.moyenne,
+    required this.absences,
+    required this.aRendre,
+    required this.notes,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final data = [
+      (icon: Icons.star_rounded, label: 'Moyenne',
+       val: loading ? '00.0' : (moyenne?.toStringAsFixed(1) ?? '—'),
+       sub: '/20', c: _gold),
+      (icon: Icons.event_busy_rounded, label: 'Absences',
+       val: loading ? '0' : '$absences', sub: absences > 1 ? ' jours' : ' jour',
+       c: absences == 0 ? _green : _terra),
+      (icon: Icons.assignment_rounded, label: 'Devoirs',
+       val: loading ? '0' : '$aRendre', sub: ' à rendre', c: _terra),
+      (icon: Icons.grading_rounded, label: 'Notes',
+       val: loading ? '0' : '$notes', sub: ' reçues', c: _orange),
+    ];
     return Row(children: [
-      for (int i = 0; i < _data.length; i++) ...[
+      for (int i = 0; i < data.length; i++) ...[
         Expanded(child: Skeletonizer(
           enabled: loading,
           effect: const ShimmerEffect(baseColor: Color(0xFFDDD6CE), highlightColor: Color(0xFFEFEAE3)),
-          child: _QuickStatPill(d: _data[i]),
+          child: _QuickStatPill(d: data[i]),
         )),
-        if (i < _data.length - 1) const SizedBox(width: 10),
+        if (i < data.length - 1) const SizedBox(width: 10),
       ],
     ]);
   }
+}
+
+// Petit bloc « vide » réutilisé par les sections du dashboard.
+class _MiniEmpty extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MiniEmpty({required this.icon, required this.label});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEEE5D8)),
+        ),
+        child: Column(children: [
+          Icon(icon, color: _muted.withOpacity(.5), size: 28),
+          const SizedBox(height: 8),
+          Text(label, textAlign: TextAlign.center,
+              style: const TextStyle(color: _muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+        ]),
+      );
 }
 
 class _QuickStatPill extends StatelessWidget {
@@ -752,7 +907,8 @@ class _SmallBadge extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 class _PremiumShortcutsGrid extends StatelessWidget {
   final Map<String, VoidCallback> onTap;
-  const _PremiumShortcutsGrid({required this.onTap});
+  final bool showBulletin;
+  const _PremiumShortcutsGrid({required this.onTap, this.showBulletin = true});
 
   static const _items = [
     (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',      c: _gold),
@@ -762,12 +918,17 @@ class _PremiumShortcutsGrid extends StatelessWidget {
     (key: 'devoirs',      icon: Icons.assignment_rounded,       label: 'Devoirs',    c: _orange),
     (key: 'bulletin',     icon: Icons.receipt_long_rounded,     label: 'Bulletin',   c: _gold),
     (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
+    (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),
     (key: 'messages',     icon: Icons.chat_rounded,             label: 'Messages',   c: _ink),
     (key: 'features',     icon: Icons.apps_rounded,             label: 'Tout',       c: _muted),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Filtre dynamique : le bulletin n'existe qu'au collège/lycée.
+    final items = _items
+        .where((i) => i.key != 'bulletin' || showBulletin)
+        .toList();
     return LayoutBuilder(builder: (_, c) {
       final isWide = c.maxWidth > 600;
       final cols  = isWide ? 5 : 3;
@@ -778,7 +939,7 @@ class _PremiumShortcutsGrid extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10, mainAxisSpacing: 10,
         childAspectRatio: ratio,
-        children: _items.map((item) =>
+        children: items.map((item) =>
             _ShortcutCard(item: item, onTap: onTap[item.key])).toList(),
       );
     });

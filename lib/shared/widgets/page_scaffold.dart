@@ -68,6 +68,172 @@ class PageScaffold extends StatelessWidget {
   }
 }
 
+/// En-tête riche pour les pages de détail ouvertes en route isolée.
+///
+/// Règle le double défaut des anciennes pages : un `AppBar` quasi vide (pas de
+/// bouton retour visible) + un titre redondant rendu par `PageScaffold`.
+/// Ici : un seul bandeau dégradé terracotta avec bouton retour clair, badge
+/// d'icône, titre, sous-titre et actions optionnelles.
+class GradientHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+
+  /// Actions placées sous le titre (ex. bouton « Générer »).
+  final List<Widget> actions;
+
+  const GradientHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.icon,
+    this.actions = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, topInset + 10, 16, 18),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_terra, _orange],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        boxShadow: [BoxShadow(
+          color: Color(0x338B1A00), blurRadius: 16, offset: Offset(0, 6))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            // Bouton retour — affordance claire (pastille translucide).
+            _HeaderIconButton(
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Retour',
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 21),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 18,
+                          fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!,
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: .85),
+                            fontSize: 12.5, height: 1.3)),
+                  ],
+                ],
+              ),
+            ),
+          ]),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(children: [
+              for (final a in actions) ...[a, const SizedBox(width: 8)],
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _HeaderIconButton({
+    required this.icon, required this.tooltip, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: .15),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip,
+          child: SizedBox(
+            width: 40, height: 40,
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton d'action posé sur le bandeau dégradé (fond clair translucide).
+class HeaderActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  /// `true` = bouton plein blanc (action principale), sinon contour translucide.
+  final bool filled;
+  const HeaderActionButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    this.onTap,
+    this.filled = false,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled ? 1 : .45,
+      child: Material(
+        color: filled ? Colors.white : Colors.white.withValues(alpha: .15),
+        borderRadius: BorderRadius.circular(11),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: onTap,
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: filled
+                  ? null
+                  : Border.all(color: Colors.white.withValues(alpha: .35)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 16, color: filled ? _terra : Colors.white),
+              const SizedBox(width: 7),
+              Text(label,
+                  style: TextStyle(
+                      color: filled ? _terra : Colors.white,
+                      fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class DataPanel extends StatelessWidget {
   final String? title;
   final List<Widget> headerActions;

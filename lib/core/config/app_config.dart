@@ -12,10 +12,9 @@ class AppConfig {
       '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheHd2Z3F1c3h5aG15YW5zYXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MzQwNDUsImV4cCI6MjA5MzIxMDA0NX0'
       '.1zSf0ryZlL5KZkDGJ6VHmigaxwlapeScQaSVbKkerTs';
 
-  static const String supabaseServiceKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
-      '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheHd2Z3F1c3h5aG15YW5zYXdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzYzNDA0NSwiZXhwIjoyMDkzMjEwMDQ1fQ'
-      '.kN3RQV2FateS_Wp3JrHILlBH-vHXUZHWNGaciJ-hPzU';
+  // La clé `service_role` ne doit JAMAIS être dans le client (elle ignore la
+  // RLS). La création de comptes passe désormais par l'Edge Function
+  // `create-account`, qui détient cette clé côté serveur uniquement.
 
   static bool get hasSupabaseConfig => true;
 

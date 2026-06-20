@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
+import '../../../../shared/widgets/online_payment_sheet.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
@@ -13,126 +17,261 @@ const _muted  = Color(0xFF7A5C44);
 const _white  = Colors.white;
 const _bg     = Color(0xFFEDD8BE);
 
+enum PayStatut { paye, enAttente, enRetard }
+
 class StudentPaymentsPage extends ConsumerWidget {
   const StudentPaymentsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authSessionProvider);
+    final user        = ref.watch(authSessionProvider);
+    final invoicesAsync = ref.watch(myInvoicesProvider);
+    final level       = ref.watch(studentSchoolLevelProvider).valueOrNull
+        ?? SchoolLevel.lycee;
+    final onlinePay   = ref.watch(onlinePaymentEnabledProvider).valueOrNull ?? false;
+    final school      = ref.watch(schoolProvider).valueOrNull;
 
-    const tranches = [
-      _Tranche(
-        label: '1ère Tranche',
-        montant: 75000,
-        statut: PayStatut.paye,
-        date: '15 Sep 2025',
-        recu: 'SCO-2025-001',
-      ),
-      _Tranche(
-        label: '2ème Tranche',
-        montant: 75000,
-        statut: PayStatut.paye,
-        date: '12 Jan 2026',
-        recu: 'SCO-2026-042',
-      ),
-      _Tranche(
-        label: '3ème Tranche',
-        montant: 75000,
-        statut: PayStatut.enAttente,
-        date: 'Avant le 15 Avr 2026',
-        recu: null,
-      ),
-    ];
-
-    const totalAnnuel = 225000;
-    const totalPaye   = 150000;
-    const restant     = totalAnnuel - totalPaye;
+    final isHigherEd = level == SchoolLevel.universite ||
+        level == SchoolLevel.master ||
+        level == SchoolLevel.doctorat;
+    // Libellés adaptés au type d'école.
+    final feesTitle = isHigherEd ? 'Frais universitaires' : 'Tranches de scolarité';
+    final headerTitle = isHigherEd ? 'Frais d\'études' : 'Scolarité';
+    final year = school?.academicYear ?? '';
 
     return Container(
       color: _bg,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Carte résumé ──────────────────────────────────────────
-            _SummaryCard(
-              name: user?.fullName ?? 'Étudiant',
-              totalAnnuel: totalAnnuel,
-              totalPaye: totalPaye,
-              restant: restant,
+      child: invoicesAsync.when(
+        loading: () => const Center(
+            child: Padding(padding: EdgeInsets.only(top: 80),
+                child: CircularProgressIndicator())),
+        error: (e, _) => Center(
+            child: Padding(padding: const EdgeInsets.all(32),
+                child: Text('Erreur : $e',
+                    style: const TextStyle(color: _terra)))),
+        data: (invoices) {
+          final currency = invoices.isNotEmpty ? invoices.first.currency : 'FCFA';
+          final total = invoices.fold<double>(0, (s, i) => s + i.amount);
+          final paye  = invoices
+              .where((i) => i.status.toLowerCase() == 'paid')
+              .fold<double>(0, (s, i) => s + i.amount);
+          final restant = (total - paye).clamp(0, double.infinity).toDouble();
+
+          // Échéancier : trié par date d'échéance (puis non datées à la fin).
+          final sorted = [...invoices]..sort((a, b) {
+            final da = a.dueDate, db = b.dueDate;
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return da.compareTo(db);
+          });
+          final unpaid = sorted.where((i) {
+            final s = i.status.toLowerCase();
+            return s != 'paid' && s != 'cancelled';
+          }).toList();
+          final hasUnpaid = unpaid.isNotEmpty;
+          // Échéance la plus urgente (en retard d'abord, sinon la plus proche).
+          final urgent = unpaid.isEmpty ? null : unpaid.first;
+
+          // Règle une liste de factures en ligne, puis rafraîchit.
+          Future<void> pay(List<SbInvoice> list) async {
+            final ok = await showOnlinePaymentSheet(context, ref, list);
+            if (ok) ref.invalidate(myInvoicesProvider);
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SummaryCard(
+                  name: user?.fullName ?? 'Étudiant',
+                  headerTitle: headerTitle,
+                  year: year,
+                  currency: currency,
+                  totalAnnuel: total,
+                  totalPaye: paye,
+                  restant: restant,
+                ),
+                const SizedBox(height: 16),
+
+                // ── Rappel : prochaine échéance / retard ───────────────────
+                if (urgent != null) ...[
+                  _ReminderBanner(
+                    invoice: urgent,
+                    currency: currency,
+                    online: onlinePay,
+                    onPay: () => pay([urgent]),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (invoices.isEmpty)
+                  const _EmptyInvoices()
+                else ...[
+                  _SectionTitle(
+                    icon: Icons.receipt_long_rounded,
+                    label: feesTitle,
+                    gradient: const [_terra, _orange],
+                  ),
+                  const SizedBox(height: 12),
+                  for (final inv in sorted) ...[
+                    _TrancheCard(
+                      invoice: inv,
+                      currency: currency,
+                      onPay: (onlinePay && _isUnpaid(inv)) ? () => pay([inv]) : null,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // ── Tout régler en une fois ────────────────────────────
+                  if (hasUnpaid) ...[
+                    const SizedBox(height: 8),
+                    _PayCta(
+                      online: onlinePay,
+                      count: unpaid.length,
+                      onPay: () => pay(unpaid),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  _SectionTitle(
+                    icon: Icons.history_rounded,
+                    label: 'Historique des paiements',
+                    gradient: const [_gold, _orange],
+                  ),
+                  const SizedBox(height: 12),
+                  _HistoriqueCard(
+                    paid: invoices
+                        .where((i) => i.status.toLowerCase() == 'paid')
+                        .toList(),
+                    currency: currency,
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+                _SectionTitle(
+                  icon: Icons.info_outline_rounded,
+                  label: 'Informations',
+                  gradient: const [_green, Color(0xFF2E7D32)],
+                ),
+                const SizedBox(height: 12),
+                _InfoCard(online: onlinePay),
+              ],
             ),
-            const SizedBox(height: 24),
-
-            // ── Section titre ─────────────────────────────────────────
-            _SectionTitle(
-              icon: Icons.receipt_long_rounded,
-              label: 'Tranches de scolarité',
-              gradient: const [_terra, _orange],
-            ),
-            const SizedBox(height: 12),
-
-            // ── Tranches ──────────────────────────────────────────────
-            for (final t in tranches) ...[
-              _TrancheCard(tranche: t),
-              const SizedBox(height: 10),
-            ],
-
-            const SizedBox(height: 24),
-
-            // ── Historique ────────────────────────────────────────────
-            _SectionTitle(
-              icon: Icons.history_rounded,
-              label: 'Historique des paiements',
-              gradient: const [_gold, _orange],
-            ),
-            const SizedBox(height: 12),
-            _HistoriqueCard(),
-
-            const SizedBox(height: 24),
-
-            // ── Infos utiles ──────────────────────────────────────────
-            _SectionTitle(
-              icon: Icons.info_outline_rounded,
-              label: 'Informations',
-              gradient: const [_green, Color(0xFF2E7D32)],
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-// ── Enums & data ──────────────────────────────────────────────────────────
-enum PayStatut { paye, enAttente, enRetard }
+// ── Formatage ──────────────────────────────────────────────────────────────
+String _fmtMoney(double n) {
+  final s = n.round().toString();
+  final buf = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+    buf.write(s[i]);
+  }
+  return buf.toString();
+}
 
-class _Tranche {
-  final String label;
-  final int montant;
-  final PayStatut statut;
-  final String date;
-  final String? recu;
-  const _Tranche({
-    required this.label, required this.montant, required this.statut,
-    required this.date, required this.recu,
+String _fmtDate(DateTime? d) {
+  if (d == null) return '—';
+  const mois = [
+    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
+  ];
+  return '${d.day} ${mois[d.month - 1]} ${d.year}';
+}
+
+bool _isUnpaid(SbInvoice i) {
+  final s = i.status.toLowerCase();
+  return s != 'paid' && s != 'cancelled';
+}
+
+// ── Bannière de rappel (prochaine échéance / retard) ────────────────────────
+class _ReminderBanner extends StatelessWidget {
+  final SbInvoice invoice;
+  final String currency;
+  final bool online;
+  final VoidCallback onPay;
+  const _ReminderBanner({
+    required this.invoice,
+    required this.currency,
+    required this.online,
+    required this.onPay,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    final due = invoice.dueDate;
+    final now = DateTime.now();
+    final overdue = due != null && due.isBefore(DateTime(now.year, now.month, now.day));
+    final days = due == null ? null : due.difference(DateTime(now.year, now.month, now.day)).inDays;
+    final color = overdue ? _terra : _gold;
+
+    final String msg;
+    if (overdue) {
+      msg = 'En retard de ${days!.abs()} jour${days.abs() > 1 ? "s" : ""}';
+    } else if (days == 0) {
+      msg = 'À régler aujourd\'hui';
+    } else if (days != null) {
+      msg = 'À régler avant le ${_fmtDate(due)}';
+    } else {
+      msg = 'À régler';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: .3)),
+      ),
+      child: Row(children: [
+        Icon(overdue ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
+            color: color, size: 22),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(invoice.description ?? 'Échéance à venir',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text('$msg · ${_fmtMoney(invoice.amount)} $currency',
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+        ])),
+        if (online) ...[
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: onPay,
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Payer'),
+          ),
+        ],
+      ]),
+    );
+  }
 }
 
 // ── Summary Card ──────────────────────────────────────────────────────────
 class _SummaryCard extends StatelessWidget {
-  final String name;
-  final int totalAnnuel, totalPaye, restant;
+  final String name, headerTitle, year, currency;
+  final double totalAnnuel, totalPaye, restant;
   const _SummaryCard({
-    required this.name, required this.totalAnnuel,
+    required this.name, required this.headerTitle, required this.year,
+    required this.currency, required this.totalAnnuel,
     required this.totalPaye, required this.restant,
   });
 
   @override
   Widget build(BuildContext context) {
-    final progress = totalPaye / totalAnnuel;
+    final progress = totalAnnuel > 0 ? (totalPaye / totalAnnuel) : 0.0;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -144,7 +283,7 @@ class _SummaryCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: _terra.withOpacity(0.4), blurRadius: 28, offset: const Offset(0, 12)),
+          BoxShadow(color: _terra.withValues(alpha: 0.4), blurRadius: 28, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -152,26 +291,24 @@ class _SummaryCard extends StatelessWidget {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
-              color: _white.withOpacity(.15), shape: BoxShape.circle,
+              color: _white.withValues(alpha: .15), shape: BoxShape.circle,
             ),
             child: const Center(child: Icon(Icons.account_balance_wallet_rounded, color: _white, size: 22)),
           ),
           const SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Scolarité 2025-2026',
-                style: TextStyle(color: _white.withOpacity(.7), fontSize: 11)),
+            Text(year.isEmpty ? headerTitle : '$headerTitle $year',
+                style: TextStyle(color: _white.withValues(alpha: .7), fontSize: 11)),
             Text(name, style: const TextStyle(
                 color: _white, fontSize: 16, fontWeight: FontWeight.w800)),
           ]),
         ]),
         const SizedBox(height: 20),
-
-        // Barre de progression
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: _white.withOpacity(.15),
+            backgroundColor: _white.withValues(alpha: .15),
             valueColor: const AlwaysStoppedAnimation<Color>(_gold),
             minHeight: 8,
           ),
@@ -179,33 +316,21 @@ class _SummaryCard extends StatelessWidget {
         const SizedBox(height: 10),
         Row(children: [
           Text('${(progress * 100).toStringAsFixed(0)}% payé',
-              style: TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w700)),
+              style: const TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w700)),
           const Spacer(),
-          Text('${_fmt(restant)} FCFA restant',
-              style: TextStyle(color: _white.withOpacity(.7), fontSize: 11)),
+          Text('${_fmtMoney(restant)} $currency restant',
+              style: TextStyle(color: _white.withValues(alpha: .7), fontSize: 11)),
         ]),
         const SizedBox(height: 16),
-
-        // Stats row
         Row(children: [
-          _StatPill(label: 'Total annuel', value: '${_fmt(totalAnnuel)} FCFA', color: _white.withOpacity(.85)),
+          _StatPill(label: 'Total', value: '${_fmtMoney(totalAnnuel)} $currency', color: _white.withValues(alpha: .85)),
           const SizedBox(width: 10),
-          _StatPill(label: 'Payé', value: '${_fmt(totalPaye)} FCFA', color: _gold),
+          _StatPill(label: 'Payé', value: '${_fmtMoney(totalPaye)} $currency', color: _gold),
           const SizedBox(width: 10),
-          _StatPill(label: 'Restant', value: '${_fmt(restant)} FCFA', color: const Color(0xFFFFB74D)),
+          _StatPill(label: 'Restant', value: '${_fmtMoney(restant)} $currency', color: const Color(0xFFFFB74D)),
         ]),
       ]),
     );
-  }
-
-  String _fmt(int n) {
-    final s = n.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
-      buf.write(s[i]);
-    }
-    return buf.toString();
   }
 }
 
@@ -217,12 +342,12 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     decoration: BoxDecoration(
-      color: _white.withOpacity(.08),
+      color: _white.withValues(alpha: .08),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: _white.withOpacity(.12)),
+      border: Border.all(color: _white.withValues(alpha: .12)),
     ),
     child: Column(children: [
-      Text(label, style: TextStyle(color: _white.withOpacity(.55), fontSize: 9,
+      Text(label, style: TextStyle(color: _white.withValues(alpha: .55), fontSize: 9,
           fontWeight: FontWeight.w600)),
       const SizedBox(height: 3),
       Text(value, style: TextStyle(color: color, fontSize: 10,
@@ -233,126 +358,238 @@ class _StatPill extends StatelessWidget {
 
 // ── Tranche Card ──────────────────────────────────────────────────────────
 class _TrancheCard extends StatelessWidget {
-  final _Tranche tranche;
-  const _TrancheCard({required this.tranche});
+  final SbInvoice invoice;
+  final String currency;
+  final VoidCallback? onPay;
+  const _TrancheCard({required this.invoice, required this.currency, this.onPay});
 
-  Color get _statusColor {
-    switch (tranche.statut) {
-      case PayStatut.paye:       return _green;
-      case PayStatut.enAttente:  return _gold;
-      case PayStatut.enRetard:   return _terra;
+  PayStatut get _statut {
+    switch (invoice.status.toLowerCase()) {
+      case 'paid':    return PayStatut.paye;
+      case 'overdue': return PayStatut.enRetard;
+      default:        return PayStatut.enAttente;
     }
   }
 
-  String get _statusLabel {
-    switch (tranche.statut) {
-      case PayStatut.paye:       return 'Payé';
-      case PayStatut.enAttente:  return 'En attente';
-      case PayStatut.enRetard:   return 'En retard';
-    }
-  }
+  Color get _statusColor => switch (_statut) {
+        PayStatut.paye      => _green,
+        PayStatut.enAttente => _gold,
+        PayStatut.enRetard  => _terra,
+      };
 
-  IconData get _statusIcon {
-    switch (tranche.statut) {
-      case PayStatut.paye:       return Icons.check_circle_rounded;
-      case PayStatut.enAttente:  return Icons.schedule_rounded;
-      case PayStatut.enRetard:   return Icons.warning_rounded;
-    }
-  }
+  String get _statusLabel => switch (_statut) {
+        PayStatut.paye      => 'Payé',
+        PayStatut.enAttente => 'En attente',
+        PayStatut.enRetard  => 'En retard',
+      };
+
+  IconData get _statusIcon => switch (_statut) {
+        PayStatut.paye      => Icons.check_circle_rounded,
+        PayStatut.enAttente => Icons.schedule_rounded,
+        PayStatut.enRetard  => Icons.warning_rounded,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final label = invoice.description ?? invoice.invoiceNumber ?? 'Frais';
+    final dateLabel = _statut == PayStatut.paye
+        ? 'Réglé'
+        : 'Échéance ${_fmtDate(invoice.dueDate)}';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _statusColor.withOpacity(.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8, offset: const Offset(0, 3))],
+        border: Border.all(color: _statusColor.withValues(alpha: .2)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Row(children: [
         Container(
           width: 44, height: 44,
           decoration: BoxDecoration(
-            color: _statusColor.withOpacity(.12),
+            color: _statusColor.withValues(alpha: .12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(child: Icon(_statusIcon, color: _statusColor, size: 22)),
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tranche.label, style: const TextStyle(
+          Text(label, style: const TextStyle(
               color: _ink, fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 3),
-          Text(tranche.date, style: TextStyle(color: _muted, fontSize: 12)),
-          if (tranche.recu != null) ...[
+          Text(dateLabel, style: const TextStyle(color: _muted, fontSize: 12)),
+          if (invoice.invoiceNumber != null) ...[
             const SizedBox(height: 2),
-            Text('Reçu: ${tranche.recu}', style: TextStyle(
-                color: _muted.withOpacity(.7), fontSize: 10, fontStyle: FontStyle.italic)),
+            Text('Réf: ${invoice.invoiceNumber}', style: TextStyle(
+                color: _muted.withValues(alpha: .7), fontSize: 10, fontStyle: FontStyle.italic)),
           ],
         ])),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('75 000 FCFA', style: const TextStyle(
+          Text('${_fmtMoney(invoice.amount)} $currency', style: const TextStyle(
               color: _ink, fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: _statusColor.withOpacity(.1),
+              color: _statusColor.withValues(alpha: .1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _statusColor.withOpacity(.3)),
+              border: Border.all(color: _statusColor.withValues(alpha: .3)),
             ),
             child: Text(_statusLabel, style: TextStyle(
                 color: _statusColor, fontSize: 10, fontWeight: FontWeight.w700)),
           ),
+          if (onPay != null) ...[
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: onPay,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _green,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Payer', style: TextStyle(
+                    color: _white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
         ]),
       ]),
     );
   }
 }
 
-// ── Historique Card ───────────────────────────────────────────────────────
-class _HistoriqueCard extends StatelessWidget {
-  static const _history = [
-    (date: '12 Jan 2026', montant: '75 000 FCFA', mode: 'Mobile Money', ref: 'TXN-20260112'),
-    (date: '15 Sep 2025', montant: '75 000 FCFA', mode: 'Espèces', ref: 'TXN-20250915'),
-  ];
+// ── CTA Paiement en ligne (Pro/Max) ────────────────────────────────────────
+class _PayCta extends StatelessWidget {
+  final bool online;
+  final int count;
+  final VoidCallback onPay;
+  const _PayCta({required this.online, required this.count, required this.onPay});
 
   @override
   Widget build(BuildContext context) {
+    if (online) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: onPay,
+          icon: const Icon(Icons.smartphone_rounded, size: 18),
+          label: Text(count > 1
+              ? 'Tout régler ($count échéances) — Mobile Money'
+              : 'Payer en ligne (Mobile Money)'),
+          style: FilledButton.styleFrom(
+            backgroundColor: _green,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+    }
+    // Offre sans paiement en ligne → on oriente vers le règlement manuel.
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _gold.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _gold.withValues(alpha: .25)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.storefront_rounded, color: _gold, size: 20),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text('Règlement à la caisse de l\'établissement (espèces, virement).',
+              style: TextStyle(color: _ink, fontSize: 12.5, height: 1.35)),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Empty ──────────────────────────────────────────────────────────────────
+class _EmptyInvoices extends StatelessWidget {
+  const _EmptyInvoices();
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEEE5D8)),
+        ),
+        child: Column(children: [
+          Container(
+            width: 64, height: 64,
+            decoration: BoxDecoration(
+              color: _green.withValues(alpha: .08), shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_outline_rounded, color: _green, size: 30),
+          ),
+          const SizedBox(height: 12),
+          const Text('Aucun frais en attente',
+              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          const Text('Tes frais de scolarité apparaîtront ici.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, fontSize: 12.5)),
+        ]),
+      );
+}
+
+// ── Historique Card ───────────────────────────────────────────────────────
+class _HistoriqueCard extends StatelessWidget {
+  final List<SbInvoice> paid;
+  final String currency;
+  const _HistoriqueCard({required this.paid, required this.currency});
+
+  @override
+  Widget build(BuildContext context) {
+    if (paid.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEEE5D8)),
+        ),
+        child: const Text('Aucun paiement enregistré pour le moment.',
+            style: TextStyle(color: _muted, fontSize: 12.5)),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: _white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)],
       ),
       child: Column(
-        children: List.generate(_history.length, (i) {
-          final h = _history[i];
+        children: List.generate(paid.length, (i) {
+          final h = paid[i];
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              border: i < _history.length - 1
-                  ? Border(bottom: BorderSide(color: const Color(0xFFEEE5D8)))
+              border: i < paid.length - 1
+                  ? const Border(bottom: BorderSide(color: Color(0xFFEEE5D8)))
                   : null,
             ),
             child: Row(children: [
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(
-                  color: _green.withOpacity(.1),
+                  color: _green.withValues(alpha: .1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.check_circle_outline_rounded, color: _green, size: 18),
+                child: const Icon(Icons.check_circle_outline_rounded, color: _green, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(h.montant, style: const TextStyle(
+                Text('${_fmtMoney(h.amount)} $currency', style: const TextStyle(
                     color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
-                Text('${h.mode} · ${h.ref}',
-                    style: TextStyle(color: _muted, fontSize: 11)),
+                Text(h.description ?? h.invoiceNumber ?? 'Paiement',
+                    style: const TextStyle(color: _muted, fontSize: 11),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
-              Text(h.date, style: TextStyle(color: _muted, fontSize: 11)),
+              Text(_fmtDate(h.dueDate), style: const TextStyle(color: _muted, fontSize: 11)),
             ]),
           );
         }),
@@ -363,34 +600,41 @@ class _HistoriqueCard extends StatelessWidget {
 
 // ── Info Card ─────────────────────────────────────────────────────────────
 class _InfoCard extends StatelessWidget {
+  final bool online;
+  const _InfoCard({required this.online});
   @override
   Widget build(BuildContext context) {
+    final modes = [
+      if (online) 'Mobile Money (M-PESA, Airtel, Orange)',
+      'Espèces à la caisse',
+      'Virement bancaire',
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _green.withOpacity(.06),
+        color: _green.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _green.withOpacity(.2)),
+        border: Border.all(color: _green.withValues(alpha: .2)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
+        Row(children: const [
           Icon(Icons.info_outline_rounded, color: _green, size: 18),
-          const SizedBox(width: 8),
-          const Text('Modes de paiement acceptés',
+          SizedBox(width: 8),
+          Text('Modes de paiement acceptés',
               style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 10),
-        for (final mode in ['Mobile Money (M-PESA, Airtel)', 'Espèces à la caisse', 'Virement bancaire']) ...[
+        for (final mode in modes) ...[
           Row(children: [
-            Icon(Icons.circle, size: 5, color: _green),
+            const Icon(Icons.circle, size: 5, color: _green),
             const SizedBox(width: 8),
-            Text(mode, style: TextStyle(color: _muted, fontSize: 12)),
+            Text(mode, style: const TextStyle(color: _muted, fontSize: 12)),
           ]),
           const SizedBox(height: 4),
         ],
         const SizedBox(height: 8),
         Text('Pour tout litige, contactez le bureau de la comptabilité.',
-            style: TextStyle(color: _muted.withOpacity(.7), fontSize: 11,
+            style: TextStyle(color: _muted.withValues(alpha: .7), fontSize: 11,
                 fontStyle: FontStyle.italic)),
       ]),
     );

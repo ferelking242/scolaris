@@ -9,6 +9,8 @@ class SettingsState {
   final bool reduireAnimations;
   final bool partagerDonnees;
   final bool afficherBarreOnglets;
+  /// Échelle de texte choisie via le curseur d'accessibilité (0.8 → 1.4).
+  final double textScale;
 
   const SettingsState({
     this.notificationsPush = true,
@@ -17,6 +19,7 @@ class SettingsState {
     this.reduireAnimations = false,
     this.partagerDonnees = true,
     this.afficherBarreOnglets = false,
+    this.textScale = 1.0,
   });
 
   SettingsState copyWith({
@@ -26,6 +29,7 @@ class SettingsState {
     bool? reduireAnimations,
     bool? partagerDonnees,
     bool? afficherBarreOnglets,
+    double? textScale,
   }) =>
       SettingsState(
         notificationsPush: notificationsPush ?? this.notificationsPush,
@@ -34,6 +38,7 @@ class SettingsState {
         reduireAnimations: reduireAnimations ?? this.reduireAnimations,
         partagerDonnees: partagerDonnees ?? this.partagerDonnees,
         afficherBarreOnglets: afficherBarreOnglets ?? this.afficherBarreOnglets,
+        textScale: textScale ?? this.textScale,
       );
 }
 
@@ -55,6 +60,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
           box.get('partager_donnees', defaultValue: true) as bool,
       afficherBarreOnglets:
           box.get('afficher_barre_onglets', defaultValue: false) as bool,
+      textScale:
+          (box.get('text_scale', defaultValue: 1.0) as num).toDouble(),
     );
   }
 
@@ -86,6 +93,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setAfficherBarreOnglets(bool v) {
     OfflineStorage.settings.put('afficher_barre_onglets', v);
     state = state.copyWith(afficherBarreOnglets: v);
+  }
+
+  void setTextScale(double v) {
+    final clamped = v.clamp(0.8, 1.4);
+    OfflineStorage.settings.put('text_scale', clamped);
+    state = state.copyWith(textScale: clamped);
   }
 }
 

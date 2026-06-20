@@ -61,9 +61,11 @@
     "payments": "Bofuti",
     "students": "Bayekoli",
     "classes": "Bakelasi",
+    "subjects": "Matiere",
     "reports": "Balapole",
     "users": "Basaleli",
     "billing": "Bafakti",
+    "subscription": "Abonema",
     "library": "Bibliotek",
     "qr": "QR",
     "bulletin": "Bulletin",
@@ -76,7 +78,8 @@
     "receipts": "Barisiti",
     "my_payments": "Mbongo na Ngai",
     "documents": "Mikanda na Ngai",
-    "settings": "Bilanga"
+    "settings": "Bilanga",
+    "school": "Sukulu na Ngai"
   },
   "dashboard": {
     "hello": "Mbote, {name}",

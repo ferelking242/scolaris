@@ -24,6 +24,10 @@ class _Result {
   final Color? badgeColor;
   final double? rating;
   final bool isDownloaded;
+  // Identité de la ressource (pour le suivi de lecture / favori dans le lecteur).
+  final String resourceId;
+  final ResourceType resourceType;
+  final String subject;
   const _Result({
     required this.type,
     required this.title,
@@ -31,6 +35,9 @@ class _Result {
     required this.line2,
     required this.color,
     required this.icon,
+    required this.resourceId,
+    required this.resourceType,
+    required this.subject,
     this.badge,
     this.badgeColor,
     this.rating,
@@ -113,6 +120,7 @@ class _LibraryAdvancedSearchPageState
           line1: b.author,
           line2: '${b.subject} · ${b.classe} · ${b.pages} p.',
           color: b.coverColor, icon: Icons.book_rounded,
+          resourceId: b.id, resourceType: ResourceType.book, subject: b.subject,
           badge: b.isFavorite ? 'Favori' : null,
           badgeColor: const Color(0xFFB72653),
           rating: b.rating,
@@ -135,6 +143,8 @@ class _LibraryAdvancedSearchPageState
           line1: '${e.levelLabel} · ${e.year} · ${e.session}',
           line2: e.subject,
           color: e.color, icon: Icons.quiz_rounded,
+          resourceId: e.id, resourceType: ResourceType.examSubject,
+          subject: e.subject,
           badge: e.hasCorrection ? 'Corrigé' : null,
           badgeColor: _success,
           isDownloaded: e.isDownloaded,
@@ -155,6 +165,7 @@ class _LibraryAdvancedSearchPageState
           line1: '${m.subject} · ${m.teacher}',
           line2: '${m.size} · ${m.addedDate}',
           color: m.color, icon: m.icon,
+          resourceId: m.id, resourceType: ResourceType.material, subject: m.subject,
           badge: m.isDownloaded ? 'Téléchargé' : null,
           badgeColor: _muted,
           isDownloaded: m.isDownloaded,
@@ -318,7 +329,10 @@ class _LibraryAdvancedSearchPageState
                           MaterialPageRoute(builder: (_) => PdfReaderPage(
                               title: r.title,
                               color: r.color,
-                              totalPages: 100))),
+                              totalPages: 100,
+                              resourceId: r.resourceId,
+                              resourceType: r.resourceType,
+                              subject: r.subject))),
                     ),
                   ),
                 ])
@@ -331,7 +345,10 @@ class _LibraryAdvancedSearchPageState
                       MaterialPageRoute(builder: (_) => PdfReaderPage(
                           title: r.title,
                           color: r.color,
-                          totalPages: 100))),
+                          totalPages: 100,
+                          resourceId: r.resourceId,
+                          resourceType: r.resourceType,
+                          subject: r.subject))),
                 ),
         ),
       ]),

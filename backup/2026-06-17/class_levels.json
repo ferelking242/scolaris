@@ -1,0 +1,5470 @@
+[
+  {
+    "id": "668fb64f-a73a-4fa2-8e3f-9c43efad846f",
+    "system_type": "francophone_africa",
+    "cycle": "prescolaire",
+    "cycle_label": "Préscolaire",
+    "name": "Petite Section",
+    "short_name": "PS",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD"
+    ],
+    "metadata": {
+      "age": "3-4 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e64649c2-8c0d-46f4-b2fa-38cf6a069b3e",
+    "system_type": "francophone_africa",
+    "cycle": "prescolaire",
+    "cycle_label": "Préscolaire",
+    "name": "Moyenne Section",
+    "short_name": "MS",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD"
+    ],
+    "metadata": {
+      "age": "4-5 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b60cf2c6-97bb-4e71-8b04-61f6c276bdb9",
+    "system_type": "francophone_africa",
+    "cycle": "prescolaire",
+    "cycle_label": "Préscolaire",
+    "name": "Grande Section",
+    "short_name": "GS",
+    "order_num": 3,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD"
+    ],
+    "metadata": {
+      "age": "5-6 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "be75c433-3c6d-447a-ad43-1a75bf862ea2",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CP1",
+    "short_name": "CP1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "688efc62-603a-4955-af96-ca96057d76cd",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CP2",
+    "short_name": "CP2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "bcc5df94-0eca-4807-a868-7641d8fb48a6",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CE1",
+    "short_name": "CE1",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6206994d-cf1c-458b-a537-130ee46c5f52",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CE2",
+    "short_name": "CE2",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9e64d0de-a929-4da0-b1d0-6b0e1a573692",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CM1",
+    "short_name": "CM1",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "16e2a24a-b8bf-4fb9-9c80-21e7cb6d0112",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CM2",
+    "short_name": "CM2",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "78b199c5-3da0-43e7-b90a-4a4c6af08561",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CP",
+    "short_name": "CP",
+    "order_num": 16,
+    "series": null,
+    "country_hint": [
+      "SN",
+      "MR"
+    ],
+    "metadata": {
+      "note": "Sénégal, Mauritanie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9428313e-688e-4e6d-b4da-753d9b459008",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CI",
+    "short_name": "CI",
+    "order_num": 17,
+    "series": null,
+    "country_hint": [
+      "MG"
+    ],
+    "metadata": {
+      "note": "Cours Inférieur — Madagascar"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e66c2fba-817e-4eec-b3fb-1160db0522db",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CE",
+    "short_name": "CE",
+    "order_num": 18,
+    "series": null,
+    "country_hint": [
+      "MG"
+    ],
+    "metadata": {
+      "note": "Cours Élémentaire — Madagascar"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b5c68984-1921-4f72-883e-189c455508d7",
+    "system_type": "francophone_africa",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CM",
+    "short_name": "CM",
+    "order_num": 19,
+    "series": null,
+    "country_hint": [
+      "MG"
+    ],
+    "metadata": {
+      "note": "Cours Moyen — Madagascar"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "13d48613-0c9e-4589-9fde-93e9605c5410",
+    "system_type": "francophone_africa",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "6ème",
+    "short_name": "6e",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE",
+      "MG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b1087789-bf59-4246-82e4-ec0b04838bc3",
+    "system_type": "francophone_africa",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "5ème",
+    "short_name": "5e",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE",
+      "MG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b02b97ba-b118-4b0c-9de2-086257b562c8",
+    "system_type": "francophone_africa",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "4ème",
+    "short_name": "4e",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE",
+      "MG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9958b8fb-ec03-45d7-af5f-5a7c32ef675c",
+    "system_type": "francophone_africa",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "3ème",
+    "short_name": "3e",
+    "order_num": 23,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE",
+      "MG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "050621b0-67aa-4cbf-8552-1b653c3cb423",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde (Tronc Commun)",
+    "short_name": "2TC",
+    "order_num": 29,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG"
+    ],
+    "metadata": {
+      "note": "Avant spécialisation série"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "39c9ee6b-039e-4473-9f2a-6a9bc75c6e0e",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde A",
+    "short_name": "2A",
+    "order_num": 30,
+    "series": "A",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Lettres & Philosophie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3427dcb6-50e5-4cc6-9b05-75e8bd1d237c",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère A",
+    "short_name": "1A",
+    "order_num": 31,
+    "series": "A",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Lettres & Philosophie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "062dceea-78f2-4390-9cdd-73595c05a16d",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale A",
+    "short_name": "TleA",
+    "order_num": 32,
+    "series": "A",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Lettres & Philosophie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d6b3169e-e2e2-420c-8b0f-b093d2876948",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde B",
+    "short_name": "2B",
+    "order_num": 33,
+    "series": "B",
+    "country_hint": [
+      "SN",
+      "ML",
+      "BF",
+      "BJ"
+    ],
+    "metadata": {
+      "label": "Économie & Sciences Sociales"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f6e956c9-c4d7-4b4d-9e61-c800765303ec",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère B",
+    "short_name": "1B",
+    "order_num": 34,
+    "series": "B",
+    "country_hint": [
+      "SN",
+      "ML",
+      "BF",
+      "BJ"
+    ],
+    "metadata": {
+      "label": "Économie & Sciences Sociales"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d7dca6c4-cc09-4f15-877c-35b257fb3bdf",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale B",
+    "short_name": "TleB",
+    "order_num": 35,
+    "series": "B",
+    "country_hint": [
+      "SN",
+      "ML",
+      "BF",
+      "BJ"
+    ],
+    "metadata": {
+      "label": "Économie & Sciences Sociales"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "04ec758a-52f5-4497-b2da-3f6c033035e6",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde C",
+    "short_name": "2C",
+    "order_num": 36,
+    "series": "C",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Maths & Physique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a5766213-34cc-4a6e-94d6-4bb3e68c4e96",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère C",
+    "short_name": "1C",
+    "order_num": 37,
+    "series": "C",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Maths & Physique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f18dae71-9143-4b59-b342-0bb4d6b60111",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale C",
+    "short_name": "TleC",
+    "order_num": 38,
+    "series": "C",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Maths & Physique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5ca2b37e-4291-44e4-b7e2-f77c604b271f",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde D",
+    "short_name": "2D",
+    "order_num": 39,
+    "series": "D",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Sciences Nat. & Vie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f0afab5a-5099-43f6-b28a-0ae737023809",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère D",
+    "short_name": "1D",
+    "order_num": 40,
+    "series": "D",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Sciences Nat. & Vie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3bd28119-4b8d-4f06-9c56-73553d6f651b",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale D",
+    "short_name": "TleD",
+    "order_num": 41,
+    "series": "D",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "BJ",
+      "TG",
+      "CF",
+      "TD",
+      "GN",
+      "NE"
+    ],
+    "metadata": {
+      "label": "Sciences Nat. & Vie"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "81fa1637-32b5-46db-a5c1-e65de0397d4c",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde E",
+    "short_name": "2E",
+    "order_num": 42,
+    "series": "E",
+    "country_hint": [
+      "CM",
+      "SN",
+      "CI"
+    ],
+    "metadata": {
+      "label": "Maths & Technique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "fa2b40c5-c981-44d9-853d-48fab773ff23",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère E",
+    "short_name": "1E",
+    "order_num": 43,
+    "series": "E",
+    "country_hint": [
+      "CM",
+      "SN",
+      "CI"
+    ],
+    "metadata": {
+      "label": "Maths & Technique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "41ec005c-2511-4e41-b76c-9547d45b7d32",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale E",
+    "short_name": "TleE",
+    "order_num": 44,
+    "series": "E",
+    "country_hint": [
+      "CM",
+      "SN",
+      "CI"
+    ],
+    "metadata": {
+      "label": "Maths & Technique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "03e4a29e-82d8-41d0-aebe-65c60a9ffdd8",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde F",
+    "short_name": "2F",
+    "order_num": 45,
+    "series": "F",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Technique Industrielle"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b4a3cb33-9851-4f7f-80b0-e70f1eab9807",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère F",
+    "short_name": "1F",
+    "order_num": 46,
+    "series": "F",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Technique Industrielle"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "316b95ff-d2ae-40c0-afb6-3f365ed1e916",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale F",
+    "short_name": "TleF",
+    "order_num": 47,
+    "series": "F",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Technique Industrielle"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "c7b59d2d-25d0-44e3-b0e7-4f36e80290ac",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde G",
+    "short_name": "2G",
+    "order_num": 48,
+    "series": "G",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN"
+    ],
+    "metadata": {
+      "label": "Gestion & Commerce"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d9423519-cd46-444f-846b-1f394872071b",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère G",
+    "short_name": "1G",
+    "order_num": 49,
+    "series": "G",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN"
+    ],
+    "metadata": {
+      "label": "Gestion & Commerce"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "736e653a-69d6-461a-8f56-3808359fe810",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale G",
+    "short_name": "TleG",
+    "order_num": 50,
+    "series": "G",
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN"
+    ],
+    "metadata": {
+      "label": "Gestion & Commerce"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e23b0141-e195-4aa3-8130-da61e21c3508",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2nde H",
+    "short_name": "2H",
+    "order_num": 51,
+    "series": "H",
+    "country_hint": [
+      "SN",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Informatique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "32896d14-bb77-4689-917a-f3f9385bbe87",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère H",
+    "short_name": "1H",
+    "order_num": 52,
+    "series": "H",
+    "country_hint": [
+      "SN",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Informatique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "ba9a46c2-7d6e-4fee-a421-9b2e8119ea27",
+    "system_type": "francophone_africa",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "Terminale H",
+    "short_name": "TleH",
+    "order_num": 53,
+    "series": "H",
+    "country_hint": [
+      "SN",
+      "CM"
+    ],
+    "metadata": {
+      "label": "Informatique"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "91dbb99c-efc2-474a-b2ff-52bdd527290b",
+    "system_type": "francophone_france",
+    "cycle": "prescolaire",
+    "cycle_label": "Maternelle",
+    "name": "Petite Section (PS)",
+    "short_name": "PS",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "age": "3-4 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "ae34290d-76e7-4082-8ba8-5c7265e9525e",
+    "system_type": "francophone_france",
+    "cycle": "prescolaire",
+    "cycle_label": "Maternelle",
+    "name": "Moyenne Section (MS)",
+    "short_name": "MS",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "age": "4-5 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "fcebdd12-a5fc-44b9-b5a4-6eea6e3b9ccc",
+    "system_type": "francophone_france",
+    "cycle": "prescolaire",
+    "cycle_label": "Maternelle",
+    "name": "Grande Section (GS)",
+    "short_name": "GS",
+    "order_num": 3,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "age": "5-6 ans"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e63fc582-149f-4ed2-a5ed-bc2a9c728207",
+    "system_type": "francophone_france",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CP",
+    "short_name": "CP",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "cycle": "Cycle 2"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a495c7bd-3a35-456b-951b-1839c3a03e79",
+    "system_type": "francophone_france",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CE1",
+    "short_name": "CE1",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "cycle": "Cycle 2"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3988ceca-f6d2-4619-adc4-fb76936082af",
+    "system_type": "francophone_france",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CE2",
+    "short_name": "CE2",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "cycle": "Cycle 2"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "eaaab338-5a80-44e1-8925-4454923e1ddb",
+    "system_type": "francophone_france",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CM1",
+    "short_name": "CM1",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "cycle": "Cycle 3"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "dab5fe3e-b7f4-41b2-a8bf-2931c4720746",
+    "system_type": "francophone_france",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "CM2",
+    "short_name": "CM2",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "cycle": "Cycle 3"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "bd33671c-0abe-4ad6-bf28-d00508a86038",
+    "system_type": "francophone_france",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "6ème",
+    "short_name": "6e",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a29ef795-73ed-4f46-bf5a-c644f69343b4",
+    "system_type": "francophone_france",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "5ème",
+    "short_name": "5e",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "8cfa1117-e7af-4ff6-ace8-4dd9bd6b418d",
+    "system_type": "francophone_france",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "4ème",
+    "short_name": "4e",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "57da4b57-1cce-4c17-ad15-47eeb0320dc9",
+    "system_type": "francophone_france",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "3ème",
+    "short_name": "3e",
+    "order_num": 23,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "1b679ff3-6dc2-4462-8b36-cefa3385725c",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Général",
+    "name": "2nde Générale",
+    "short_name": "2de",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "81cb8ff1-4498-437e-94a6-f99561b79c99",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Général",
+    "name": "1ère Générale",
+    "short_name": "1ère",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b32abdb9-5ed0-4a85-9626-cda4b18464b7",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Général",
+    "name": "Terminale Générale",
+    "short_name": "Tle",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "2d735445-0125-40b1-955c-8282509acce3",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "2nde Technologique",
+    "short_name": "2de T",
+    "order_num": 33,
+    "series": "TECHNO",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6d48f799-6a76-474d-94ab-f7ac77474885",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "1ère STMG",
+    "short_name": "1STMG",
+    "order_num": 34,
+    "series": "STMG",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "label": "Sciences & Technologies Mgt Gestion"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9c1e1788-5f75-429e-b5c0-55de9e97a64b",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "Terminale STMG",
+    "short_name": "TleSTMG",
+    "order_num": 35,
+    "series": "STMG",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "50b6620e-07ff-4c59-8db5-b380e3048bdf",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "1ère STI2D",
+    "short_name": "1STI2D",
+    "order_num": 36,
+    "series": "STI2D",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "label": "Sciences & Tech. Industrie Dev. Durable"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "32b7ad8b-ad4e-4f4e-b193-5ef152e2b472",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "Terminale STI2D",
+    "short_name": "TleSTI2D",
+    "order_num": 37,
+    "series": "STI2D",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "ba0fd49c-86ae-498b-8a9f-f579de176b94",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "1ère ST2S",
+    "short_name": "1ST2S",
+    "order_num": 38,
+    "series": "ST2S",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": {
+      "label": "Sciences & Technologies Santé & Social"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "4e6bbe5b-6c26-4db0-b77c-52ca326b3e84",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Techno",
+    "name": "Terminale ST2S",
+    "short_name": "TleST2S",
+    "order_num": 39,
+    "series": "ST2S",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "7cfcdafc-297a-4ffe-9c4f-8301890867d3",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Pro",
+    "name": "2nde Pro",
+    "short_name": "2de Pro",
+    "order_num": 40,
+    "series": "PRO",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6aa94924-02c4-46e7-9c9d-5829b7f65808",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Pro",
+    "name": "1ère Pro",
+    "short_name": "1ère Pro",
+    "order_num": 41,
+    "series": "PRO",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "fdc76909-5171-41b6-89eb-659c43ded6d2",
+    "system_type": "francophone_france",
+    "cycle": "lycee",
+    "cycle_label": "Lycée Pro",
+    "name": "Terminale Pro",
+    "short_name": "Tle Pro",
+    "order_num": 42,
+    "series": "PRO",
+    "country_hint": [
+      "FR"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a341f775-2a52-4d6c-8297-74c97c8c5951",
+    "system_type": "anglophone_nigeria",
+    "cycle": "prescolaire",
+    "cycle_label": "Pre-Primary",
+    "name": "Nursery 1",
+    "short_name": "N1",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "2214a959-c693-45cc-a444-6919441f0950",
+    "system_type": "anglophone_nigeria",
+    "cycle": "prescolaire",
+    "cycle_label": "Pre-Primary",
+    "name": "Nursery 2",
+    "short_name": "N2",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5177fa96-7c69-44b4-96c5-ee61fed609b1",
+    "system_type": "anglophone_nigeria",
+    "cycle": "prescolaire",
+    "cycle_label": "Pre-Primary",
+    "name": "Kindergarten",
+    "short_name": "KG",
+    "order_num": 3,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d3e12d3a-8c60-4a90-bd62-ab0d450ecc82",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 1",
+    "short_name": "P1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3f791ba6-02a4-4688-84e0-7a73f2fad955",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 2",
+    "short_name": "P2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a87a524f-2636-482e-986d-0bb7807a9b9e",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 3",
+    "short_name": "P3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f7e35d52-be2f-461a-8f04-e5b949ed5511",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 4",
+    "short_name": "P4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "4ec0ba2d-98c4-4372-9466-f978dca6466b",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 5",
+    "short_name": "P5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "eaa497ab-6b0d-41ae-8c8b-9a2f035407a6",
+    "system_type": "anglophone_nigeria",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 6",
+    "short_name": "P6",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6d96ba88-91b3-4062-b451-318da6c2a6cc",
+    "system_type": "anglophone_nigeria",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "JSS 1",
+    "short_name": "JSS1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0ed256eb-19c2-46cd-8521-295a6fc0f1f5",
+    "system_type": "anglophone_nigeria",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "JSS 2",
+    "short_name": "JSS2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5550dd27-3b98-4e00-a29c-d06169a38f52",
+    "system_type": "anglophone_nigeria",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "JSS 3",
+    "short_name": "JSS3",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b9bc5331-44a3-47e5-b606-36f7b304b1cc",
+    "system_type": "anglophone_nigeria",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "SSS 1",
+    "short_name": "SSS1",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3aadd7f2-8286-464a-967f-31c928138e61",
+    "system_type": "anglophone_nigeria",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "SSS 2",
+    "short_name": "SSS2",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "932fad1e-c8f6-42ff-892d-da36e16b1e5f",
+    "system_type": "anglophone_nigeria",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "SSS 3",
+    "short_name": "SSS3",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "NG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "75bbbe2c-95f0-41dc-bd5e-5297a7c758b5",
+    "system_type": "anglophone_ghana",
+    "cycle": "prescolaire",
+    "cycle_label": "Kindergarten",
+    "name": "KG 1",
+    "short_name": "KG1",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "bb16f748-0fa1-46ae-97fe-39776509794f",
+    "system_type": "anglophone_ghana",
+    "cycle": "prescolaire",
+    "cycle_label": "Kindergarten",
+    "name": "KG 2",
+    "short_name": "KG2",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "196702fa-17e7-48ea-a69d-0a245c3482a1",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 1",
+    "short_name": "P1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "2547e2e1-9198-4115-aad7-9a67745e92fd",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 2",
+    "short_name": "P2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "8cc660f6-8bf9-4ae9-9c8f-3dbf404e1a6e",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 3",
+    "short_name": "P3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d5d928ec-77c2-43b8-bc44-122d30e8cbc9",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 4",
+    "short_name": "P4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "cc8789ca-b25f-4909-ae5d-699f5ec1abcf",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 5",
+    "short_name": "P5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f19a662a-6abe-4d95-9336-eb0297642f92",
+    "system_type": "anglophone_ghana",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Primary 6",
+    "short_name": "P6",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "caa12bb2-912d-4682-a02c-32c52a999ecd",
+    "system_type": "anglophone_ghana",
+    "cycle": "college",
+    "cycle_label": "JHS",
+    "name": "JHS 1",
+    "short_name": "JHS1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "81e1fe4c-ebf4-4c17-8a86-4ee7eb0cbb7f",
+    "system_type": "anglophone_ghana",
+    "cycle": "college",
+    "cycle_label": "JHS",
+    "name": "JHS 2",
+    "short_name": "JHS2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e110268b-8168-49c9-bd9e-fd0c3957c1dc",
+    "system_type": "anglophone_ghana",
+    "cycle": "college",
+    "cycle_label": "JHS",
+    "name": "JHS 3",
+    "short_name": "JHS3",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "911cff35-8213-4fc7-8c50-3345acf6f101",
+    "system_type": "anglophone_ghana",
+    "cycle": "lycee",
+    "cycle_label": "SHS",
+    "name": "SHS 1",
+    "short_name": "SHS1",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "69e9facf-b4f4-4c4d-90c0-994ab21f5304",
+    "system_type": "anglophone_ghana",
+    "cycle": "lycee",
+    "cycle_label": "SHS",
+    "name": "SHS 2",
+    "short_name": "SHS2",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b08a553e-e9dd-4574-aed2-209751c817ba",
+    "system_type": "anglophone_ghana",
+    "cycle": "lycee",
+    "cycle_label": "SHS",
+    "name": "SHS 3",
+    "short_name": "SHS3",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "GH"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9cbadd48-054b-42a4-8ffb-ab3a72efd1c4",
+    "system_type": "anglophone_kenya",
+    "cycle": "prescolaire",
+    "cycle_label": "Pre-Primary",
+    "name": "PP 1",
+    "short_name": "PP1",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "af183735-e3db-4bc9-9feb-2b52592d816f",
+    "system_type": "anglophone_kenya",
+    "cycle": "prescolaire",
+    "cycle_label": "Pre-Primary",
+    "name": "PP 2",
+    "short_name": "PP2",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "afb53fc0-3c34-4ef4-bb4c-504699bcd44e",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 1",
+    "short_name": "G1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "beb255d3-a4a6-43e2-bb72-97b7a2290b09",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 2",
+    "short_name": "G2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b09f617a-6e10-4dee-a32d-fda78c5bfaef",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 3",
+    "short_name": "G3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "cb17caa5-3b3f-4827-a920-10887995f81a",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 4",
+    "short_name": "G4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f666a763-04eb-4a2c-b82a-d61683659800",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 5",
+    "short_name": "G5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "872aa743-9aa9-410f-8800-cca552f81dc9",
+    "system_type": "anglophone_kenya",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Grade 6",
+    "short_name": "G6",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6737aadd-a6e1-4e3d-a045-6e597dbba582",
+    "system_type": "anglophone_kenya",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "Grade 7",
+    "short_name": "G7",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f25ae841-0a33-4133-9408-a4ed387677aa",
+    "system_type": "anglophone_kenya",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "Grade 8",
+    "short_name": "G8",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "545cb3ff-252a-456f-8222-a606dd1df030",
+    "system_type": "anglophone_kenya",
+    "cycle": "college",
+    "cycle_label": "Junior Secondary",
+    "name": "Grade 9",
+    "short_name": "G9",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "155c9cf7-41eb-4300-b514-362715ec8f0f",
+    "system_type": "anglophone_kenya",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "Grade 10",
+    "short_name": "G10",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e19b9663-02c5-4fef-89f2-20699f94b782",
+    "system_type": "anglophone_kenya",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "Grade 11",
+    "short_name": "G11",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "7fa2b496-3c2b-4d0f-885c-9e946d9497c3",
+    "system_type": "anglophone_kenya",
+    "cycle": "lycee",
+    "cycle_label": "Senior Secondary",
+    "name": "Grade 12",
+    "short_name": "G12",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "640e8e27-e8d9-4027-b6c5-36c8e0828280",
+    "system_type": "anglophone_cameroon",
+    "cycle": "prescolaire",
+    "cycle_label": "Nursery",
+    "name": "Nursery 1",
+    "short_name": "N1",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "52e12778-7980-44db-866e-a9d9cafcb37d",
+    "system_type": "anglophone_cameroon",
+    "cycle": "prescolaire",
+    "cycle_label": "Nursery",
+    "name": "Nursery 2",
+    "short_name": "N2",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e95ba5d5-fa9a-48f0-ab0f-7f5a5f437dab",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 1",
+    "short_name": "C1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "f8ddda66-81c2-43e6-9682-8e6595e27273",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 2",
+    "short_name": "C2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0d1c7aac-505a-4bb2-82be-26d88df19dbc",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 3",
+    "short_name": "C3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "adbf41cf-016a-422f-ba4c-2e132c065fde",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 4",
+    "short_name": "C4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "69e5e063-02f6-4b15-8676-243f53f01bd3",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 5",
+    "short_name": "C5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6316b879-1399-493f-ac0b-7f729e1e3259",
+    "system_type": "anglophone_cameroon",
+    "cycle": "primaire",
+    "cycle_label": "Primary",
+    "name": "Class 6",
+    "short_name": "C6",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "1017d424-1686-4f32-a60d-9fe6a5df090b",
+    "system_type": "anglophone_cameroon",
+    "cycle": "college",
+    "cycle_label": "O-Levels",
+    "name": "Form 1",
+    "short_name": "F1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0fb0e1ef-ef4b-424a-97f7-753aa400b692",
+    "system_type": "anglophone_cameroon",
+    "cycle": "college",
+    "cycle_label": "O-Levels",
+    "name": "Form 2",
+    "short_name": "F2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0fe214af-1b7c-46fd-98ab-ed19fac5939f",
+    "system_type": "anglophone_cameroon",
+    "cycle": "college",
+    "cycle_label": "O-Levels",
+    "name": "Form 3",
+    "short_name": "F3",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "747c5789-3452-4a37-b209-6a8369f93547",
+    "system_type": "anglophone_cameroon",
+    "cycle": "college",
+    "cycle_label": "O-Levels",
+    "name": "Form 4",
+    "short_name": "F4",
+    "order_num": 23,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "316dbc10-7b2c-4fcf-9b5f-21a29b9912f9",
+    "system_type": "anglophone_cameroon",
+    "cycle": "college",
+    "cycle_label": "O-Levels",
+    "name": "Form 5",
+    "short_name": "F5",
+    "order_num": 24,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "c0fc3d73-7d2e-4384-9af0-2784e0d665ff",
+    "system_type": "anglophone_cameroon",
+    "cycle": "lycee",
+    "cycle_label": "A-Levels",
+    "name": "Lower Sixth",
+    "short_name": "LS",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "31cccd2d-d790-4a52-8613-86cbcec874b4",
+    "system_type": "anglophone_cameroon",
+    "cycle": "lycee",
+    "cycle_label": "A-Levels",
+    "name": "Upper Sixth",
+    "short_name": "US",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "82d671a7-c4cb-453c-bba4-a85638ed7708",
+    "system_type": "anglophone_southafrica",
+    "cycle": "prescolaire",
+    "cycle_label": "Grade R",
+    "name": "Grade R",
+    "short_name": "GrR",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "16d6be03-ce67-4448-b38b-c5409513bd93",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Foundation Phase",
+    "name": "Grade 1",
+    "short_name": "G1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "56c12fca-1670-4bdc-939d-e365c9e8d192",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Foundation Phase",
+    "name": "Grade 2",
+    "short_name": "G2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "47919501-2e63-4cc8-89ef-47d8579a39bc",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Foundation Phase",
+    "name": "Grade 3",
+    "short_name": "G3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "08dbd2d8-cc20-4c5a-8064-81c2da87c4e0",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Intermediate Phase",
+    "name": "Grade 4",
+    "short_name": "G4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "767c5374-74a0-495a-806b-3102454f9ca6",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Intermediate Phase",
+    "name": "Grade 5",
+    "short_name": "G5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "4b0d4738-d0d2-4073-81fa-eadce256ba48",
+    "system_type": "anglophone_southafrica",
+    "cycle": "primaire",
+    "cycle_label": "Intermediate Phase",
+    "name": "Grade 6",
+    "short_name": "G6",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "2c8a0c5c-6f41-4747-987a-3f51983b4371",
+    "system_type": "anglophone_southafrica",
+    "cycle": "college",
+    "cycle_label": "Senior Phase",
+    "name": "Grade 7",
+    "short_name": "G7",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "88266479-e1d8-482b-ba84-bae9d76dab23",
+    "system_type": "anglophone_southafrica",
+    "cycle": "college",
+    "cycle_label": "Senior Phase",
+    "name": "Grade 8",
+    "short_name": "G8",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "7ad34a33-ae85-41ba-98bc-fd90516980df",
+    "system_type": "anglophone_southafrica",
+    "cycle": "college",
+    "cycle_label": "Senior Phase",
+    "name": "Grade 9",
+    "short_name": "G9",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6477f106-230c-4c37-95ee-ca28215ef87b",
+    "system_type": "anglophone_southafrica",
+    "cycle": "lycee",
+    "cycle_label": "FET Phase",
+    "name": "Grade 10",
+    "short_name": "G10",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "484c0b85-9d6a-47e8-863f-41798a44c976",
+    "system_type": "anglophone_southafrica",
+    "cycle": "lycee",
+    "cycle_label": "FET Phase",
+    "name": "Grade 11",
+    "short_name": "G11",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "8703858a-d101-48b8-9efa-ad0ed2b29eeb",
+    "system_type": "anglophone_southafrica",
+    "cycle": "lycee",
+    "cycle_label": "FET Phase",
+    "name": "Grade 12 (Matric)",
+    "short_name": "Matric",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "ZA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "21fbc9f8-6232-4425-bdc1-90526fbafab5",
+    "system_type": "arabophone",
+    "cycle": "prescolaire",
+    "cycle_label": "Préscolaire",
+    "name": "1ère année Maternelle",
+    "short_name": "M1",
+    "order_num": 1,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0c3f0d69-0127-4380-bd01-4a4a4cb45519",
+    "system_type": "arabophone",
+    "cycle": "prescolaire",
+    "cycle_label": "Préscolaire",
+    "name": "2ème année Maternelle",
+    "short_name": "M2",
+    "order_num": 2,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "7fc1f112-06b3-4142-9934-541f8b8a443b",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "1ère Année Primaire",
+    "short_name": "1AP",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d44dbe86-e62d-4edb-ad70-dab918da7c71",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "2ème Année Primaire",
+    "short_name": "2AP",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "322c0ded-bb52-47a2-a062-0ec7ddc3d4e6",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "3ème Année Primaire",
+    "short_name": "3AP",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "73204d74-6249-4143-9a2c-08ecf1faffe4",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "4ème Année Primaire",
+    "short_name": "4AP",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5801ec03-4156-4118-b20e-0e4b380ca0d0",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "5ème Année Primaire",
+    "short_name": "5AP",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "89713125-a84b-44bd-bce2-060d1aaf9a32",
+    "system_type": "arabophone",
+    "cycle": "primaire",
+    "cycle_label": "Primaire",
+    "name": "6ème Année Primaire",
+    "short_name": "6AP",
+    "order_num": 15,
+    "series": null,
+    "country_hint": [
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "39b75064-a1ad-4c83-bd2f-bddfec4aa574",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "1ère Année Collège",
+    "short_name": "1AC",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "b3a76139-b64a-43a1-b515-8376dca2c976",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "2ème Année Collège",
+    "short_name": "2AC",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "93260308-32c4-4028-afa2-ebf7f3c34e41",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "3ème Année Collège",
+    "short_name": "3AC",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "6997cc9d-9ca1-4ad7-8dfc-ada9268dad89",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "1ère Année Moyenne",
+    "short_name": "1AM",
+    "order_num": 23,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "79636a51-6923-4cbb-bdc7-fd80d84baf38",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "2ème Année Moyenne",
+    "short_name": "2AM",
+    "order_num": 24,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "8432e79d-a2af-47ea-a1ca-8bbdf27f513a",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "3ème Année Moyenne",
+    "short_name": "3AM",
+    "order_num": 25,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a258a556-cede-40c3-b2cc-013a86aab88e",
+    "system_type": "arabophone",
+    "cycle": "college",
+    "cycle_label": "Collège",
+    "name": "4ème Année Moyenne",
+    "short_name": "4AM",
+    "order_num": 26,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "73f33f2c-a5bc-47b8-adff-09d135f7d155",
+    "system_type": "arabophone",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère Année Bac",
+    "short_name": "1Bac",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "16414b40-ba73-423d-82be-886765ce1b29",
+    "system_type": "arabophone",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2ème Année Bac",
+    "short_name": "2Bac",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "eaca11ae-52f4-457c-a6e4-75205b6c9717",
+    "system_type": "arabophone",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "1ère Année Secondaire",
+    "short_name": "1AS",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d649fbb3-4319-425d-9a89-15e3d5520f05",
+    "system_type": "arabophone",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "2ème Année Secondaire",
+    "short_name": "2AS",
+    "order_num": 33,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "ce2f6517-bd27-4aea-af2f-c9092eabffb1",
+    "system_type": "arabophone",
+    "cycle": "lycee",
+    "cycle_label": "Lycée",
+    "name": "3ème Année Secondaire",
+    "short_name": "3AS",
+    "order_num": 34,
+    "series": null,
+    "country_hint": [
+      "DZ"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5da6e795-72d0-4b2a-8070-f7cf09543c4e",
+    "system_type": "lmd",
+    "cycle": "universite_l",
+    "cycle_label": "Licence",
+    "name": "Licence 1 (L1)",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "GN",
+      "NE",
+      "BJ",
+      "TG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "1b95cf0f-57f1-4562-88c8-bc04d2da209e",
+    "system_type": "lmd",
+    "cycle": "universite_l",
+    "cycle_label": "Licence",
+    "name": "Licence 2 (L2)",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "GN",
+      "NE",
+      "BJ",
+      "TG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "98ed0aa1-0f04-4eb4-8826-37114e17a408",
+    "system_type": "lmd",
+    "cycle": "universite_l",
+    "cycle_label": "Licence",
+    "name": "Licence 3 (L3)",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "GN",
+      "NE",
+      "BJ",
+      "TG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "98642b77-fcab-4c9c-bd93-42888f5635a3",
+    "system_type": "lmd",
+    "cycle": "universite_m",
+    "cycle_label": "Master",
+    "name": "Master 1 (M1)",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "GN",
+      "NE",
+      "BJ",
+      "TG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "a1d6c946-5f92-449b-8fce-4af8817627cf",
+    "system_type": "lmd",
+    "cycle": "universite_m",
+    "cycle_label": "Master",
+    "name": "Master 2 (M2)",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "GN",
+      "NE",
+      "BJ",
+      "TG"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5bc6619c-c234-4d43-8680-049763b7517c",
+    "system_type": "lmd",
+    "cycle": "universite_d",
+    "cycle_label": "Doctorat",
+    "name": "Doctorat 1ère année (D1)",
+    "short_name": "D1",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "076290b0-a094-4d2b-a917-d31b14800186",
+    "system_type": "lmd",
+    "cycle": "universite_d",
+    "cycle_label": "Doctorat",
+    "name": "Doctorat 2ème année (D2)",
+    "short_name": "D2",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "8a8ba400-82ac-4d68-8fb2-1d4fd11d266b",
+    "system_type": "lmd",
+    "cycle": "universite_d",
+    "cycle_label": "Doctorat",
+    "name": "Doctorat 3ème année (D3)",
+    "short_name": "D3",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CM",
+      "SN",
+      "CI",
+      "GA",
+      "BF",
+      "ML",
+      "FR",
+      "MA",
+      "DZ",
+      "TN"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "ec670827-bb31-475d-b30d-09509e644d73",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_l",
+    "cycle_label": "DEUG",
+    "name": "DEUG 1",
+    "short_name": "DEUG1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": {
+      "note": "Diplôme Études Universitaires Générales"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3f229f97-f681-4a33-b6b1-84c9e5a07e5e",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_l",
+    "cycle_label": "DEUG",
+    "name": "DEUG 2",
+    "short_name": "DEUG2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "3f8e67bc-e278-46c7-ada6-bc3879d716e3",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_l",
+    "cycle_label": "Licence",
+    "name": "Licence",
+    "short_name": "LIC",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5ff81fd4-e9be-475c-a331-acbd807bf625",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_m",
+    "cycle_label": "Maîtrise",
+    "name": "Maîtrise",
+    "short_name": "MAI",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "401a601e-d529-4d5d-bf5a-2724fb33e205",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_m",
+    "cycle_label": "DEA/DESS",
+    "name": "DEA",
+    "short_name": "DEA",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": {
+      "note": "Diplôme Études Approfondies"
+    },
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "64e54672-62fd-4f06-8455-067ec7d6960c",
+    "system_type": "ancien_systeme_univ",
+    "cycle": "universite_d",
+    "cycle_label": "Doctorat",
+    "name": "Doctorat d'État",
+    "short_name": "DOC",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "CG",
+      "CD",
+      "CI",
+      "GA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "0f000995-4a03-4ae7-90b6-3815c3083229",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Maths Sup",
+    "short_name": "Sup",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "SN",
+      "CI"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "deff1250-45b2-4175-a722-a10bb546dca4",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Maths Spé",
+    "short_name": "Spé",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "SN",
+      "CI"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "1eac18a0-c90e-448c-968f-08dad4cc668e",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Prépa ECS",
+    "short_name": "ECS",
+    "order_num": 12,
+    "series": "ECS",
+    "country_hint": [
+      "FR",
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "82998718-46fd-4744-8b2e-3d5e2f116b72",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Prépa ECE",
+    "short_name": "ECE",
+    "order_num": 13,
+    "series": "ECE",
+    "country_hint": [
+      "FR",
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "430f20d1-27d5-4550-9758-d8976510a3da",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Hypokhâgne (Lettres Sup)",
+    "short_name": "HK",
+    "order_num": 14,
+    "series": "L",
+    "country_hint": [
+      "FR",
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "11f809ba-ffda-4fee-83c9-e0e9617cbdca",
+    "system_type": "grande_ecole",
+    "cycle": "prepa",
+    "cycle_label": "Prépa",
+    "name": "Khâgne (Lettres Spé)",
+    "short_name": "K",
+    "order_num": 15,
+    "series": "L",
+    "country_hint": [
+      "FR",
+      "MA"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "aead0970-68f8-412d-bc04-eea93e504424",
+    "system_type": "grande_ecole",
+    "cycle": "universite_l",
+    "cycle_label": "Grande École",
+    "name": "1ère année ingénieur",
+    "short_name": "GE1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "SN",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "e4937fc1-b66f-47ff-a405-dbd34d243601",
+    "system_type": "grande_ecole",
+    "cycle": "universite_l",
+    "cycle_label": "Grande École",
+    "name": "2ème année ingénieur",
+    "short_name": "GE2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "SN",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "16a02b49-5132-4a6d-bf2f-2c5b000f8936",
+    "system_type": "grande_ecole",
+    "cycle": "universite_m",
+    "cycle_label": "Grande École",
+    "name": "3ème année ingénieur (diplôme)",
+    "short_name": "GE3",
+    "order_num": 22,
+    "series": null,
+    "country_hint": [
+      "FR",
+      "MA",
+      "DZ",
+      "TN",
+      "SN",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "9127a08d-3654-47a1-b384-87b9a8089d91",
+    "system_type": "anglophone_university",
+    "cycle": "universite_l",
+    "cycle_label": "Undergraduate",
+    "name": "Year 1 / 100 Level",
+    "short_name": "Y1",
+    "order_num": 10,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "fa7b5f87-02c4-4a37-8620-9ea1d8c7b25c",
+    "system_type": "anglophone_university",
+    "cycle": "universite_l",
+    "cycle_label": "Undergraduate",
+    "name": "Year 2 / 200 Level",
+    "short_name": "Y2",
+    "order_num": 11,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "5cbde1cf-70ca-4a20-9837-ebd6cc9d63bd",
+    "system_type": "anglophone_university",
+    "cycle": "universite_l",
+    "cycle_label": "Undergraduate",
+    "name": "Year 3 / 300 Level",
+    "short_name": "Y3",
+    "order_num": 12,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "80fb7a32-8abf-4415-8706-1e317b98e1ed",
+    "system_type": "anglophone_university",
+    "cycle": "universite_l",
+    "cycle_label": "Undergraduate",
+    "name": "Year 4 / 400 Level",
+    "short_name": "Y4",
+    "order_num": 13,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d001ad36-7b32-4bd2-a602-175dfa977249",
+    "system_type": "anglophone_university",
+    "cycle": "universite_l",
+    "cycle_label": "Undergraduate",
+    "name": "Year 5 / 500 Level (Med/Law)",
+    "short_name": "Y5",
+    "order_num": 14,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "700e947b-ff74-4855-9c46-8349e8b6d7a8",
+    "system_type": "anglophone_university",
+    "cycle": "universite_m",
+    "cycle_label": "Postgraduate",
+    "name": "Masters Year 1",
+    "short_name": "MYR1",
+    "order_num": 20,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "91aa3a51-3143-469e-9df7-144f1111668b",
+    "system_type": "anglophone_university",
+    "cycle": "universite_m",
+    "cycle_label": "Postgraduate",
+    "name": "Masters Year 2",
+    "short_name": "MYR2",
+    "order_num": 21,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "46bf7b24-e397-469f-9ac4-ca80b4fce4f3",
+    "system_type": "anglophone_university",
+    "cycle": "universite_d",
+    "cycle_label": "Postgraduate",
+    "name": "PhD Year 1",
+    "short_name": "PHD1",
+    "order_num": 30,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "4d549a22-5dde-4d8c-b3ff-7a370ac276a9",
+    "system_type": "anglophone_university",
+    "cycle": "universite_d",
+    "cycle_label": "Postgraduate",
+    "name": "PhD Year 2",
+    "short_name": "PHD2",
+    "order_num": 31,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "d4169b50-2e12-40e2-a247-6ca8c4933bc1",
+    "system_type": "anglophone_university",
+    "cycle": "universite_d",
+    "cycle_label": "Postgraduate",
+    "name": "PhD Year 3",
+    "short_name": "PHD3",
+    "order_num": 32,
+    "series": null,
+    "country_hint": [
+      "NG",
+      "GH",
+      "KE",
+      "ZA",
+      "CM"
+    ],
+    "metadata": null,
+    "created_at": "2026-06-03T08:28:41.607048+00:00"
+  },
+  {
+    "id": "73aa4909-1ecb-4071-900f-86eb9699bbb1",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L1 EMI",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "EMI",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "full": "Entretien des Machines Industrielles",
+      "ecole": "ENSP",
+      "filiere": "EMI"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f5437935-8b24-484d-af29-ce8b45023cac",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L2 EMI",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "EMI",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "EMI"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "007c72bf-e20b-4be5-b982-305381af33d0",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L3 EMI",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "EMI",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "EMI"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "20dbdebd-85f6-4311-b4e2-84cf0165cf6b",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M1 EMI",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "EMI",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "EMI"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "60e9db36-18d1-484c-8c09-5eefcfe77a14",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M2 EMI",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "EMI",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "EMI"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "2a352422-9370-4f31-9498-ed8ba0b9dc0d",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L1 GLAR",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "GLAR",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "full": "Génie Logiciel & Audit Réseaux",
+      "ecole": "ENSP",
+      "filiere": "GLAR"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "9327f27e-4a4a-486b-86b5-498cf43e0dc5",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L2 GLAR",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "GLAR",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GLAR"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "495ac375-3876-426e-9c89-c8e4a3483d8e",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L3 GLAR",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "GLAR",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GLAR"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c562c86a-ccbe-408e-b122-bda8e067462f",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M1 GLAR",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "GLAR",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GLAR"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "3bf579d9-60b5-46fb-961d-7612e3c9b216",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M2 GLAR",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "GLAR",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GLAR"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "1d7144d2-1d97-4d04-817d-2ce55743a50e",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L1 GC",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "GC",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GC"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "6378eca2-c2e1-491a-b70d-16df783b1db6",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L2 GC",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "GC",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GC"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "0b083b43-da6e-4083-a9c3-df0d108aa466",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L3 GC",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "GC",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GC"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "fdf720d2-685f-43d3-854a-c18117e1e331",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M1 GC",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "GC",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GC"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "8a68c278-49f5-4a2b-999e-abd51dcb3415",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M2 GC",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "GC",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GC"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "ff84104a-c4e4-4034-ab23-1514705b3518",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L1 GE",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "GE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "b4811ea5-daf5-4484-83e8-340f05e6492c",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L2 GE",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "GE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c9dc371d-daf8-4a3f-ace1-8d25f15ea84d",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L3 GE",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "GE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "ca08b6f9-da20-4f90-b0fd-dea0f44bebc0",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M1 GE",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "GE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "6c190b0e-e246-42fe-86b1-3290eb03d7fc",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M2 GE",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "GE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "GE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "40f379e3-0c99-43fe-823c-0350ef875003",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L1 TELE",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "TELE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "TELE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "1466bfb3-2a7b-4a47-9e45-5b6665999e51",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L2 TELE",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "TELE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "TELE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "06a9aa4d-cd4f-4263-9733-63beb51c07df",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_l",
+    "cycle_label": "ENSP — L",
+    "name": "L3 TELE",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "TELE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "TELE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "094aed22-97b7-4674-9a3c-efbd04460a05",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M1 TELE",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "TELE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "TELE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "21f65f36-5ff0-4309-864c-edc05a4213b5",
+    "system_type": "lmd_congo_ensp",
+    "cycle": "universite_m",
+    "cycle_label": "ENSP — M",
+    "name": "M2 TELE",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "TELE",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENSP",
+      "filiere": "TELE"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "dd2afce7-bea6-465f-ba84-e2a4a9e9a154",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L1 RH",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "RH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "RH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "893a926a-d9df-4a39-a838-13cb9bc29b34",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L2 RH",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "RH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "RH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "129ba636-1d55-4702-9933-c75477cda0ed",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L3 RH",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "RH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "RH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "1c53180d-2a96-4a8f-9719-656bae9fad8a",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M1 RH",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "RH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "RH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f95932dc-69db-43e3-b7a6-e11505ffd605",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M2 RH",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "RH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "RH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "21e29db2-6eee-4c6d-9af1-7d1b66d30fa4",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L1 ADM",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "ADM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "ADM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c80b93da-ce49-47b1-a4d0-f736674dbc2c",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L2 ADM",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "ADM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "ADM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "9c187384-46e8-4412-ad13-3107c0808c66",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L3 ADM",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "ADM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "ADM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "e5522aa5-4752-4dae-ae41-4ff8f33cfb76",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M1 ADM",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "ADM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "ADM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "2a12c40c-c302-43e9-84b5-a115b9aba141",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M2 ADM",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "ADM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "ADM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "b714715a-1520-4302-b83f-eee17d93c9dc",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L1 DIP",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "DIP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "DIP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c5b0760c-7a52-4d84-a53f-f6d1f4031f87",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L2 DIP",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "DIP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "DIP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "3484654b-d4a3-455c-8a87-7217d4bd5082",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L3 DIP",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "DIP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "DIP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f2d136f6-1d50-482f-ac30-417ad25368e1",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M1 DIP",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "DIP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "DIP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "b0c1c0cd-72b5-41dd-ade9-ffc82722d280",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M2 DIP",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "DIP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "DIP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f1d128cf-d170-4d8e-a15c-419d8f38869b",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L1 MAG",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "MAG",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "MAG"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "8de88652-4398-4f24-8eb8-dd8aecc74ef6",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L2 MAG",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "MAG",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "MAG"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "8f2b9109-1ed9-46b3-8127-73b2864503ff",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_l",
+    "cycle_label": "ENAM — L",
+    "name": "L3 MAG",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "MAG",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "MAG"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f7f3f3fd-fc9f-4e8d-9db7-810102fbe79e",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M1 MAG",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "MAG",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "MAG"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "376e90cd-c4b6-43c0-b84b-c79a87061f32",
+    "system_type": "lmd_congo_enam",
+    "cycle": "universite_m",
+    "cycle_label": "ENAM — M",
+    "name": "M2 MAG",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "MAG",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "ENAM",
+      "filiere": "MAG"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "3176d65f-5325-4154-b027-ae78770ee02d",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L1 ECO",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "ECO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "ECO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "51ef2451-5976-4e29-8816-39679e10653b",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L2 ECO",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "ECO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "ECO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "0bc26a38-60aa-413c-b6f9-8e008e8e892c",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L3 ECO",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "ECO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "ECO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f962212f-808c-4886-b26c-8a74f66a1ef7",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M1 ECO",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "ECO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "ECO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "9b650ce5-603e-4245-a383-e24aecabffa5",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M2 ECO",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "ECO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "ECO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "26c59eb4-b685-44ea-9428-0c6bd03503e2",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L1 GES",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "GES",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "GES"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "5ecf8368-81b1-4994-b2bc-aea0c83f4181",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L2 GES",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "GES",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "GES"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "24ae40d5-899f-412d-bae9-97ebf2ec1f85",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L3 GES",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "GES",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "GES"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "de594b0a-53df-431d-901a-e2bd384e08fd",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M1 GES",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "GES",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "GES"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "69f28977-f5e3-4f21-a615-1ce5beab6a40",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M2 GES",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "GES",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "GES"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "e2e73061-9158-49e2-9066-4f9375ab1a0c",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L1 CPT",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "CPT",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "CPT"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "77345e7e-e5bb-47b9-9e8f-ec2936fcd650",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L2 CPT",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "CPT",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "CPT"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "098840e7-1d85-41c4-b488-a47ddeae6fe3",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_l",
+    "cycle_label": "FSEG — L",
+    "name": "L3 CPT",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "CPT",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "CPT"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "a2dbf3bf-924b-441b-97ac-f524bf827bd4",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M1 CPT",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "CPT",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "CPT"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "a473f1b5-c7ad-4f84-89ce-cfb5e11f00a8",
+    "system_type": "lmd_congo_fseg",
+    "cycle": "universite_m",
+    "cycle_label": "FSEG — M",
+    "name": "M2 CPT",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "CPT",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSEG",
+      "filiere": "CPT"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "336a7512-80d8-4a12-a271-76f404d9ea08",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L1 LM",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "LM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "LM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "71f0e941-ffcb-4fe9-9c9e-b70ffb0d5608",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L2 LM",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "LM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "LM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "8835798e-4605-48a7-a4f9-e6b43f371637",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L3 LM",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "LM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "LM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "997c8ab8-931b-4ea4-936c-7c9988cd39ca",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M1 LM",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "LM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "LM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "415d12c0-07d1-4afc-ae4f-2f30519274d4",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M2 LM",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "LM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "LM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "1bd0fc14-880a-4c8e-83ee-8da9ae549d1d",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L1 HIST",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "HIST",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "HIST"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "edf87fa1-703d-4ec4-99fb-0a22edf1ee7b",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L2 HIST",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "HIST",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "HIST"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "0c7c66b8-24f6-4c13-abf1-4d13b9d3526d",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L3 HIST",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "HIST",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "HIST"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "a9b0f151-9f3a-4288-b7cd-282abfc5bb5e",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M1 HIST",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "HIST",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "HIST"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "11ae3c63-bc62-4a4b-8af9-36e339ed8899",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M2 HIST",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "HIST",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "HIST"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c6df22d6-aa00-4d92-a0d5-212a879b8eab",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L1 ANGL",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "ANGL",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "ANGL"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "238cb3e9-4e1a-4e3c-b5d8-976eea9a762c",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L2 ANGL",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "ANGL",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "ANGL"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "4ae8707e-6cf4-48dd-ba10-d5ecd6b11e4b",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_l",
+    "cycle_label": "FLSH — L",
+    "name": "L3 ANGL",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "ANGL",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "ANGL"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f5b26bc4-f72b-46a1-9af4-99c63ba894ae",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M1 ANGL",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "ANGL",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "ANGL"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "cc47b4aa-c563-4dac-afbe-85f2084d594b",
+    "system_type": "lmd_congo_flsh",
+    "cycle": "universite_m",
+    "cycle_label": "FLSH — M",
+    "name": "M2 ANGL",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "ANGL",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FLSH",
+      "filiere": "ANGL"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "d6088a88-dc24-45c8-b144-a2add96a631e",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L1 DP",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "DP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "9a56255a-8164-4656-b4fd-3cd22489566f",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L2 DP",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "DP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "4b666fef-2626-4019-8d3a-f7386dabb5d0",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L3 DP",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "DP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "0d03b144-60a8-4a88-a2ef-43a82364d175",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_m",
+    "cycle_label": "FDD — M",
+    "name": "M1 DP",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "DP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "e60389ad-583c-45db-91bd-126f2585a62d",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_m",
+    "cycle_label": "FDD — M",
+    "name": "M2 DP",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "DP",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DP"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "7e557485-7cd1-4574-a97d-00b1f7ceef00",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L1 DPU",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "DPU",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DPU"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f8e7fdbe-2a76-4929-84f4-58e24387baee",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L2 DPU",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "DPU",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DPU"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "4055f030-60c1-4af0-88ed-d5d233d514dc",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_l",
+    "cycle_label": "FDD — L",
+    "name": "L3 DPU",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "DPU",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DPU"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "951bf0b5-f30f-46ba-bba9-506918550648",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_m",
+    "cycle_label": "FDD — M",
+    "name": "M1 DPU",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "DPU",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DPU"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "2362ac6c-ef68-4a57-9bf4-7597d5b4d64f",
+    "system_type": "lmd_congo_fdd",
+    "cycle": "universite_m",
+    "cycle_label": "FDD — M",
+    "name": "M2 DPU",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "DPU",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FDD",
+      "filiere": "DPU"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "3e80da9a-b44d-493d-b584-3a57cc191117",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L1 MATH",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "MATH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "MATH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "20098098-6e54-493b-b08b-376781cf3a1b",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L2 MATH",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "MATH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "MATH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "4f274ace-0b35-40e6-9eb2-414e20f25a6f",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L3 MATH",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "MATH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "MATH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "529f1526-fd42-4546-a826-25a51ac12954",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M1 MATH",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "MATH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "MATH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "2a86f32d-2d97-451c-9322-f030bbe98c15",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M2 MATH",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "MATH",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "MATH"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "c86405f5-8971-49a5-ae28-38e8cb619fa1",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L1 PHYS",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "PHYS",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "PHYS"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "51e02d2d-4ce8-4a25-9916-81965636ac04",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L2 PHYS",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "PHYS",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "PHYS"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f15e3f5b-f313-4fd5-93ba-2c1deb641720",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L3 PHYS",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "PHYS",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "PHYS"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "b66f7246-8af8-4641-a653-fcc8d00f8987",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M1 PHYS",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "PHYS",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "PHYS"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "bb5c0c69-fe4d-4ff6-b607-8eb6854f037e",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M2 PHYS",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "PHYS",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "PHYS"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "fc9c2e39-c91d-4f05-bded-e170c4b28417",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L1 INFO",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "INFO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "INFO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "a3390c77-9f77-4ca2-8639-33df1abb8b16",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L2 INFO",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "INFO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "INFO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "ab07be7e-a744-49a5-a585-f07003a216a1",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_l",
+    "cycle_label": "FST — L",
+    "name": "L3 INFO",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "INFO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "INFO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "dffb70ed-a07d-49fd-8c3f-da5639780750",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M1 INFO",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "INFO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "INFO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "27e195e5-813b-46de-943f-b5c072dbbe01",
+    "system_type": "lmd_congo_fst",
+    "cycle": "universite_m",
+    "cycle_label": "FST — M",
+    "name": "M2 INFO",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "INFO",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FST",
+      "filiere": "INFO"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "8552a478-a5ca-4791-b390-d0ada1705c29",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "PCEM1",
+    "short_name": "PCEM1",
+    "order_num": 10,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "full": "Médecine Générale",
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "f12dcd55-9a26-4180-bccc-06f1a16a95d5",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "PCEM2",
+    "short_name": "PCEM2",
+    "order_num": 11,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "635bec43-9c44-4bff-9abd-af7b629f3dfc",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "D1 Médecine",
+    "short_name": "D1",
+    "order_num": 12,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "ee92c7b9-caeb-4822-bdb2-5ef152a3bb94",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "D2 Médecine",
+    "short_name": "D2",
+    "order_num": 13,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "6ef895b4-9032-4a7f-8ff5-3e3fde04a3cf",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "D3 Médecine",
+    "short_name": "D3",
+    "order_num": 14,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "3908a4dd-852c-4af0-9896-a8a12776c81c",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Médecine",
+    "name": "D4 Médecine",
+    "short_name": "D4",
+    "order_num": 15,
+    "series": "MED",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "MED"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "344c2976-c2ec-4b28-8d8a-6fbfaba3f07d",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Pharmacie",
+    "name": "L1 PHARM",
+    "short_name": "L1",
+    "order_num": 10,
+    "series": "PHARM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "PHARM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "b3faa443-c5ca-44e0-85d4-f60ba736cc24",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Pharmacie",
+    "name": "L2 PHARM",
+    "short_name": "L2",
+    "order_num": 11,
+    "series": "PHARM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "PHARM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "34ca67f2-24bd-4346-b94c-676fb590afee",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_l",
+    "cycle_label": "FSSA — Pharmacie",
+    "name": "L3 PHARM",
+    "short_name": "L3",
+    "order_num": 12,
+    "series": "PHARM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "PHARM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "1e463525-083e-4f5d-b8e2-4ef93757a874",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_m",
+    "cycle_label": "FSSA — Pharmacie",
+    "name": "M1 PHARM",
+    "short_name": "M1",
+    "order_num": 20,
+    "series": "PHARM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "PHARM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  },
+  {
+    "id": "2210c69a-6f7f-42bf-abf7-31cd3cc2c306",
+    "system_type": "lmd_congo_fssa",
+    "cycle": "universite_m",
+    "cycle_label": "FSSA — Pharmacie",
+    "name": "M2 PHARM",
+    "short_name": "M2",
+    "order_num": 21,
+    "series": "PHARM",
+    "country_hint": [
+      "CG"
+    ],
+    "metadata": {
+      "ecole": "FSSA",
+      "filiere": "PHARM"
+    },
+    "created_at": "2026-06-03T08:41:07.333894+00:00"
+  }
+]

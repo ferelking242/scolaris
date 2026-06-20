@@ -945,7 +945,8 @@ class _HomeTab extends StatelessWidget {
                     entry: h,
                     onTap: () => onGo(PdfReaderPage(
                         title: h.title, color: h.color, totalPages: 200,
-                        initialPage: (h.progress * 200).round())),
+                        initialPage: (h.progress * 200).round(),
+                        resourceId: h.resourceId, resourceType: h.type)),
                   );
                 },
               ),
@@ -987,7 +988,10 @@ class _HomeTab extends StatelessWidget {
                     onTap: () => onGo(PdfReaderPage(
                         title: books[i].title,
                         color: books[i].coverColor,
-                        totalPages: books[i].pages)));
+                        totalPages: books[i].pages,
+                        resourceId: books[i].id,
+                        resourceType: ResourceType.book,
+                        subject: books[i].subject)));
               },
             ),
           ),
@@ -1012,7 +1016,10 @@ class _HomeTab extends StatelessWidget {
                 .map((e) => _ExamTile(
                       exam: e,
                       onTap: () => onGo(PdfReaderPage(
-                          title: e.title, color: e.color, totalPages: 12)),
+                          title: e.title, color: e.color, totalPages: 12,
+                          resourceId: e.id,
+                          resourceType: ResourceType.examSubject,
+                          subject: e.subject)),
                     )),
           ]),
         ),
@@ -1034,7 +1041,10 @@ class _HomeTab extends StatelessWidget {
             ...MockLibraryData.materials.take(4).map((m) => _MaterialTile(
                   material: m,
                   onTap: () => onGo(PdfReaderPage(
-                      title: m.title, color: m.color, totalPages: 24)),
+                      title: m.title, color: m.color, totalPages: 24,
+                      resourceId: m.id,
+                      resourceType: ResourceType.material,
+                      subject: m.subject)),
                 )),
           ]),
         ),
@@ -1283,7 +1293,10 @@ class _BooksTab extends StatelessWidget {
                       onTap: () => onGo(PdfReaderPage(
                           title: books[i].title,
                           color: books[i].coverColor,
-                          totalPages: books[i].pages)),
+                          totalPages: books[i].pages,
+                          resourceId: books[i].id,
+                          resourceType: ResourceType.book,
+                          subject: books[i].subject)),
                     ),
                   ),
                 ),
@@ -1369,7 +1382,10 @@ class _ExamsTab extends StatelessWidget {
                     onTap: () => onGo(PdfReaderPage(
                         title: exams[i].title,
                         color: exams[i].color,
-                        totalPages: 12)),
+                        totalPages: 12,
+                        resourceId: exams[i].id,
+                        resourceType: ResourceType.examSubject,
+                        subject: exams[i].subject)),
                   ),
                 ),
         ),
@@ -1433,7 +1449,10 @@ class _MaterialsTab extends StatelessWidget {
                     onTap: () => onGo(PdfReaderPage(
                         title: mats[i].title,
                         color: mats[i].color,
-                        totalPages: 24)),
+                        totalPages: 24,
+                        resourceId: mats[i].id,
+                        resourceType: ResourceType.material,
+                        subject: mats[i].subject)),
                   ),
                 ),
         ),
@@ -1478,7 +1497,9 @@ class _FavoritesTab extends StatelessWidget {
                       book: b,
                       onTap: () => onGo(PdfReaderPage(
                           title: b.title, color: b.coverColor,
-                          totalPages: b.pages)),
+                          totalPages: b.pages,
+                          resourceId: b.id, resourceType: ResourceType.book,
+                          subject: b.subject)),
                     ),
                   )),
                   const SizedBox(height: 16),
@@ -1489,7 +1510,9 @@ class _FavoritesTab extends StatelessWidget {
                   ...favExams.map((e) => _ExamTile(
                     exam: e,
                     onTap: () => onGo(PdfReaderPage(
-                        title: e.title, color: e.color, totalPages: 12)),
+                        title: e.title, color: e.color, totalPages: 12,
+                        resourceId: e.id, resourceType: ResourceType.examSubject,
+                        subject: e.subject)),
                   )),
                   const SizedBox(height: 16),
                 ],
@@ -1499,7 +1522,9 @@ class _FavoritesTab extends StatelessWidget {
                   ...favMats.map((m) => _MaterialTile(
                     material: m,
                     onTap: () => onGo(PdfReaderPage(
-                        title: m.title, color: m.color, totalPages: 24)),
+                        title: m.title, color: m.color, totalPages: 24,
+                        resourceId: m.id, resourceType: ResourceType.material,
+                        subject: m.subject)),
                   )),
                 ],
               ]),

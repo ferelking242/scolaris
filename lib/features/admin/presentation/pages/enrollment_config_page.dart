@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/enrollment_config.dart';
 import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -10,24 +13,39 @@ const _gold    = Color(0xFFC17F24);
 const _ink     = Color(0xFF1A0A00);
 const _muted   = Color(0xFF7A5C44);
 const _white   = Colors.white;
-const _bg      = Color(0xFFF5EEE6);
 const _borderC = Color(0xFFDDCCBB);
 
-class EnrollmentConfigPage extends StatefulWidget {
+class EnrollmentConfigPage extends ConsumerStatefulWidget {
   const EnrollmentConfigPage({super.key});
   @override
-  State<EnrollmentConfigPage> createState() => _EnrollmentConfigPageState();
+  ConsumerState<EnrollmentConfigPage> createState() =>
+      _EnrollmentConfigPageState();
 }
 
-class _EnrollmentConfigPageState extends State<EnrollmentConfigPage> {
+class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
   late EnrollmentConfig _config;
   bool _saved = false;
-  String _activeTab = 'config';
+  bool _saving = false;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _config = EnrollmentConfig.defaults();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final json = await ref.read(enrollmentConfigProvider.future);
+      if (json != null && mounted) {
+        setState(() => _config = EnrollmentConfig.fromJson(json));
+      }
+    } catch (_) {
+      // garde la config par défaut si la lecture échoue
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _toggleField(String id, bool enabled) {
@@ -48,23 +66,49 @@ class _EnrollmentConfigPageState extends State<EnrollmentConfigPage> {
     });
   }
 
-  void _save() {
-    setState(() => _saved = true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(children: [
-          Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
-          SizedBox(width: 8),
-          Text('Configuration sauvegardée avec succès'),
-        ]),
-        backgroundColor: _green,
+  Future<void> _save() async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (schoolId == null) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Aucune école associée à votre compte.'),
+        backgroundColor: _terra,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    Future.delayed(const Duration(seconds: 2),
-        () => setState(() => _saved = false));
+      ));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await SupabaseDbSource.saveEnrollmentConfig(schoolId, _config.toJson());
+      ref.invalidate(enrollmentConfigProvider);
+      if (!mounted) return;
+      setState(() => _saved = true);
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text('Configuration sauvegardée avec succès'),
+          ]),
+          backgroundColor: _green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 2),
+          () { if (mounted) setState(() => _saved = false); });
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Échec de la sauvegarde : $e'),
+          backgroundColor: _terra,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   void _preview() {
@@ -86,6 +130,12 @@ class _EnrollmentConfigPageState extends State<EnrollmentConfigPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const PageScaffold(
+        title: 'Page d\'Inscription — Configuration',
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     final cats = EnrollmentFields.categories;
     final enabledCount = _config.enabledFields.length;
     final requiredCount =
@@ -102,10 +152,12 @@ class _EnrollmentConfigPageState extends State<EnrollmentConfigPage> {
         ),
         const SizedBox(width: 8),
         ActionButton(
-          label: _saved ? 'Sauvegardé !' : 'Sauvegarder',
+          label: _saving
+              ? 'Enregistrement…'
+              : (_saved ? 'Sauvegardé !' : 'Sauvegarder'),
           icon: _saved ? Icons.check_rounded : Icons.save_rounded,
           primary: true,
-          onTap: _save,
+          onTap: _saving ? () {} : _save,
         ),
       ],
       child: Column(

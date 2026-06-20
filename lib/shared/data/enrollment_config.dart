@@ -397,6 +397,44 @@ class EnrollmentConfig {
     return EnrollmentConfig(fields: map);
   }
 
+  /// Sérialise pour la base (colonne `schools.enrollment_config`).
+  Map<String, dynamic> toJson() => {
+        'fields': {
+          for (final e in fields.entries)
+            e.key: {'enabled': e.value.enabled, 'required': e.value.required},
+        },
+        'welcomeMessage': welcomeMessage,
+        'allowOnlineSubmission': allowOnlineSubmission,
+        'requirePaymentAtRegistration': requirePaymentAtRegistration,
+      };
+
+  /// Reconstruit depuis la base en partant des valeurs par défaut (un champ
+  /// ajouté au code plus tard apparaît même s'il n'est pas dans le JSON stocké).
+  /// `alwaysRequired` reste forcé même si le JSON dit le contraire.
+  factory EnrollmentConfig.fromJson(Map<String, dynamic> json) {
+    final cfg = EnrollmentConfig.defaults();
+    final storedFields = json['fields'];
+    if (storedFields is Map) {
+      for (final f in EnrollmentFields.all) {
+        final s = storedFields[f.id];
+        if (s is Map) {
+          final st = cfg.fields[f.id]!;
+          if (!f.alwaysRequired) {
+            st.enabled = s['enabled'] == true;
+            st.required = s['required'] == true && st.enabled;
+          }
+        }
+      }
+    }
+    return EnrollmentConfig(
+      fields: cfg.fields,
+      welcomeMessage: json['welcomeMessage'] as String?,
+      allowOnlineSubmission: json['allowOnlineSubmission'] as bool? ?? true,
+      requirePaymentAtRegistration:
+          json['requirePaymentAtRegistration'] as bool? ?? false,
+    );
+  }
+
   List<EnrollmentField> get enabledFields => EnrollmentFields.all
       .where((f) => fields[f.id]?.enabled == true)
       .toList();

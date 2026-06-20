@@ -11,11 +11,17 @@ class RoleNavEntry {
   final IconData? activeIcon;
   final String labelKey;
   final Widget page;
+
+  /// Permission staff requise pour voir cette entrée (clé de StaffPermissions).
+  /// `null` = visible par tout membre ayant accès au shell (ex. tableau de bord).
+  final String? permission;
+
   const RoleNavEntry({
     required this.icon,
     this.activeIcon,
     required this.labelKey,
     required this.page,
+    this.permission,
   });
 }
 

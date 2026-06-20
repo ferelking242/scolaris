@@ -379,7 +379,9 @@ class _ExamCardState extends State<_ExamCard> {
     final c = widget.color;
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-          PdfReaderPage(title: e.title, color: c, totalPages: 12))),
+          PdfReaderPage(title: e.title, color: c, totalPages: 12,
+              resourceId: e.id, resourceType: ResourceType.examSubject,
+              subject: e.subject))),
       child: Container(
         decoration: BoxDecoration(
           color: _white, borderRadius: BorderRadius.circular(16),

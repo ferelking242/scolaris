@@ -69,13 +69,15 @@ class AkiliApp extends ConsumerWidget {
             child: child!,
           );
 
-          // Grande police : +20 %
-          if (settings.grandePolice) {
+          // Échelle de texte : curseur d'accessibilité × bonus « grande police ».
+          final effectiveScale =
+              settings.textScale * (settings.grandePolice ? 1.2 : 1.0);
+          if (effectiveScale != 1.0) {
             final mq = MediaQuery.of(ctx);
             w = MediaQuery(
               data: mq.copyWith(
                 textScaler: TextScaler.linear(
-                  (mq.textScaler.scale(1.0) * 1.2).clamp(1.0, 2.0),
+                  (mq.textScaler.scale(1.0) * effectiveScale).clamp(0.8, 2.0),
                 ),
               ),
               child: w,

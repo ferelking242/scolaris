@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../presentation/providers/db_providers.dart';
 
 const _terra  = ScolarisPalette.terracotta;
-const _orange = ScolarisPalette.orange;
-const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _ink    = Color(0xFF1A0A00);
 const _muted  = Color(0xFF7A5C44);
@@ -13,123 +14,71 @@ const _border = Color(0xFFDDCCBB);
 const _white  = Colors.white;
 const _bg     = Color(0xFFF5EEE6);
 
-// ── Notification types ────────────────────────────────────────────────────────
-enum _NotifType { info, alerte, resultat, rappel, urgence }
+// ── Priorité (mappée sur l'enum announcement_priority) ───────────────────────
+enum _Priority { normal, important, urgent }
 
-extension _NotifTypeX on _NotifType {
-  String get label {
-    switch (this) {
-      case _NotifType.info:      return 'Info';
-      case _NotifType.alerte:    return 'Alerte';
-      case _NotifType.resultat:  return 'Résultat';
-      case _NotifType.rappel:    return 'Rappel';
-      case _NotifType.urgence:   return 'Urgence';
-    }
-  }
-  IconData get icon {
-    switch (this) {
-      case _NotifType.info:      return Icons.info_outline_rounded;
-      case _NotifType.alerte:    return Icons.warning_amber_rounded;
-      case _NotifType.resultat:  return Icons.grade_outlined;
-      case _NotifType.rappel:    return Icons.alarm_rounded;
-      case _NotifType.urgence:   return Icons.crisis_alert_rounded;
-    }
-  }
-  Color get color {
-    switch (this) {
-      case _NotifType.info:      return const Color(0xFF0EA5E9);
-      case _NotifType.alerte:    return const Color(0xFFF59E0B);
-      case _NotifType.resultat:  return ScolarisPalette.forestGreen;
-      case _NotifType.rappel:    return ScolarisPalette.orange;
-      case _NotifType.urgence:   return ScolarisPalette.terracotta;
-    }
-  }
+extension _PriorityX on _Priority {
+  String get db => switch (this) {
+        _Priority.normal => 'normal',
+        _Priority.important => 'important',
+        _Priority.urgent => 'urgent',
+      };
+  String get label => switch (this) {
+        _Priority.normal => 'Normal',
+        _Priority.important => 'Important',
+        _Priority.urgent => 'Urgent',
+      };
+  IconData get icon => switch (this) {
+        _Priority.normal => Icons.info_outline_rounded,
+        _Priority.important => Icons.priority_high_rounded,
+        _Priority.urgent => Icons.crisis_alert_rounded,
+      };
+  Color get color => switch (this) {
+        _Priority.normal => const Color(0xFF0EA5E9),
+        _Priority.important => const Color(0xFFF59E0B),
+        _Priority.urgent => ScolarisPalette.terracotta,
+      };
+  static _Priority fromDb(String? s) => switch (s) {
+        'important' => _Priority.important,
+        'urgent' => _Priority.urgent,
+        _ => _Priority.normal,
+      };
 }
 
-// ── Target ────────────────────────────────────────────────────────────────────
+// ── Destinataires (mappés sur l'enum announcement_target) ────────────────────
 enum _Target { tous, eleves, enseignants, parents, classe }
 
 extension _TargetX on _Target {
-  String get label {
-    switch (this) {
-      case _Target.tous:         return 'Tous';
-      case _Target.eleves:       return 'Élèves';
-      case _Target.enseignants:  return 'Enseignants';
-      case _Target.parents:      return 'Parents';
-      case _Target.classe:       return 'Par classe';
-    }
-  }
-  IconData get icon {
-    switch (this) {
-      case _Target.tous:         return Icons.groups_rounded;
-      case _Target.eleves:       return Icons.school_rounded;
-      case _Target.enseignants:  return Icons.menu_book_rounded;
-      case _Target.parents:      return Icons.family_restroom_rounded;
-      case _Target.classe:       return Icons.class_rounded;
-    }
-  }
+  String get db => switch (this) {
+        _Target.tous => 'all',
+        _Target.eleves => 'students',
+        _Target.enseignants => 'teachers',
+        _Target.parents => 'parents',
+        _Target.classe => 'students',
+      };
+  String get label => switch (this) {
+        _Target.tous => 'Tous',
+        _Target.eleves => 'Élèves',
+        _Target.enseignants => 'Enseignants',
+        _Target.parents => 'Parents',
+        _Target.classe => 'Par classe',
+      };
+  IconData get icon => switch (this) {
+        _Target.tous => Icons.groups_rounded,
+        _Target.eleves => Icons.school_rounded,
+        _Target.enseignants => Icons.menu_book_rounded,
+        _Target.parents => Icons.family_restroom_rounded,
+        _Target.classe => Icons.class_rounded,
+      };
+  static String labelForRole(String? role) => switch (role) {
+        'all' => 'Tous',
+        'students' => 'Élèves',
+        'teachers' => 'Enseignants',
+        'parents' => 'Parents',
+        'admin' => 'Administration',
+        _ => '—',
+      };
 }
-
-// ── Sent notification model ────────────────────────────────────────────────────
-class _SentNotif {
-  final _NotifType type;
-  final _Target target;
-  final String targetDetail;
-  final String title;
-  final String message;
-  final DateTime sentAt;
-  const _SentNotif({
-    required this.type,
-    required this.target,
-    required this.targetDetail,
-    required this.title,
-    required this.message,
-    required this.sentAt,
-  });
-}
-
-// ── Mock history ──────────────────────────────────────────────────────────────
-final _mockHistory = <_SentNotif>[
-  _SentNotif(
-    type: _NotifType.rappel,
-    target: _Target.tous,
-    targetDetail: 'Toute l\'école',
-    title: 'Réunion parents-professeurs',
-    message: 'La réunion annuelle aura lieu le 28 mai 2026 à 15h00 en salle polyvalente.',
-    sentAt: DateTime(2026, 5, 20, 9, 14),
-  ),
-  _SentNotif(
-    type: _NotifType.resultat,
-    target: _Target.eleves,
-    targetDetail: 'Terminale C',
-    title: 'Résultats du 2e semestre',
-    message: 'Les résultats du semestre 2 sont maintenant disponibles dans votre espace élève.',
-    sentAt: DateTime(2026, 5, 18, 14, 30),
-  ),
-  _SentNotif(
-    type: _NotifType.alerte,
-    target: _Target.parents,
-    targetDetail: '4e A · 4e B',
-    title: 'Absence non justifiée',
-    message: 'Votre enfant présente des absences non justifiées. Veuillez contacter la direction.',
-    sentAt: DateTime(2026, 5, 15, 8, 5),
-  ),
-  _SentNotif(
-    type: _NotifType.info,
-    target: _Target.enseignants,
-    targetDetail: 'Corps enseignant',
-    title: 'Conseil pédagogique',
-    message: 'Le conseil pédagogique de fin d\'année se tient le 30 mai 2026.',
-    sentAt: DateTime(2026, 5, 10, 11, 0),
-  ),
-];
-
-const _classes = [
-  'CP A', 'CP B', 'CE1 A', 'CE1 B', 'CE2 A', 'CE2 B',
-  'CM1 A', 'CM1 B', 'CM2 A', 'CM2 B',
-  '6e A', '6e B', '5e A', '5e B', '4e A', '4e B', '3e A', '3e B',
-  '2nde A', '2nde C', '1ère A', '1ère C', 'Tle A', 'Tle C', 'Tle D',
-];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 class NotificationCenterPage extends ConsumerStatefulWidget {
@@ -147,12 +96,10 @@ class _NotificationCenterPageState
   final _messageCtrl = TextEditingController();
   final _formKey     = GlobalKey<FormState>();
 
-  _NotifType _type        = _NotifType.info;
-  _Target    _target      = _Target.tous;
-  List<String> _selClasses = [];
+  _Priority _priority = _Priority.normal;
+  _Target   _target   = _Target.tous;
+  final Set<String> _selClassIds = {};
   bool _sending = false;
-
-  final List<_SentNotif> _history = List.from(_mockHistory);
 
   @override
   void initState() {
@@ -168,57 +115,72 @@ class _NotificationCenterPageState
     super.dispose();
   }
 
+  void _toast(String msg, Color bg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: bg,
+      content: Text(msg, style: const TextStyle(color: _white)),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
   Future<void> _send() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_target == _Target.classe && _selClasses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: _terra,
-          content: const Text('Sélectionnez au moins une classe.',
-              style: TextStyle(color: _white)),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+    if (_target == _Target.classe && _selClassIds.isEmpty) {
+      _toast('Sélectionnez au moins une classe.', _terra);
+      return;
+    }
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final authorId = ref.read(authSessionProvider)?.id;
+    if (schoolId == null || authorId == null) {
+      _toast('Session invalide.', _terra);
       return;
     }
     setState(() => _sending = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    final detail = _target == _Target.classe
-        ? _selClasses.join(' · ')
-        : _target.label;
-    setState(() {
-      _history.insert(0, _SentNotif(
-        type: _type,
-        target: _target,
-        targetDetail: detail,
-        title: _titleCtrl.text.trim(),
-        message: _messageCtrl.text.trim(),
-        sentAt: DateTime.now(),
-      ));
-      _titleCtrl.clear();
-      _messageCtrl.clear();
-      _selClasses.clear();
-      _type = _NotifType.info;
-      _target = _Target.tous;
-      _sending = false;
-    });
-    _tab.animateTo(1);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: _green,
-          content: Row(children: const [
-            Icon(Icons.check_circle_rounded, color: _white, size: 18),
-            SizedBox(width: 10),
-            Text('Notification envoyée avec succès !',
-                style: TextStyle(color: _white, fontWeight: FontWeight.w600)),
-          ]),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+    try {
+      final title = _titleCtrl.text.trim();
+      final content = _messageCtrl.text.trim();
+      if (_target == _Target.classe) {
+        // Une annonce par classe ciblée.
+        for (final classId in _selClassIds) {
+          await SupabaseDbSource.createAnnouncement(
+            schoolId: schoolId,
+            authorId: authorId,
+            title: title,
+            content: content,
+            targetRole: 'students',
+            priority: _priority.db,
+            targetClassId: classId,
+          );
+        }
+      } else {
+        await SupabaseDbSource.createAnnouncement(
+          schoolId: schoolId,
+          authorId: authorId,
+          title: title,
+          content: content,
+          targetRole: _target.db,
+          priority: _priority.db,
+        );
+      }
+      ref.invalidate(announcementsProvider);
+      if (!mounted) return;
+      setState(() {
+        _titleCtrl.clear();
+        _messageCtrl.clear();
+        _selClassIds.clear();
+        _priority = _Priority.normal;
+        _target = _Target.tous;
+        _sending = false;
+      });
+      _tab.animateTo(1);
+      _toast('Annonce publiée avec succès !', _green);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        _toast('Échec de la publication : $e', _terra);
+      }
     }
   }
 
@@ -237,19 +199,18 @@ class _NotificationCenterPageState
                   formKey: _formKey,
                   titleCtrl: _titleCtrl,
                   messageCtrl: _messageCtrl,
-                  type: _type,
+                  priority: _priority,
                   target: _target,
-                  selClasses: _selClasses,
+                  selClassIds: _selClassIds,
                   sending: _sending,
-                  onType: (t) => setState(() => _type = t),
+                  onPriority: (p) => setState(() => _priority = p),
                   onTarget: (t) => setState(() => _target = t),
-                  onClassToggle: (c) => setState(() =>
-                      _selClasses.contains(c)
-                          ? _selClasses.remove(c)
-                          : _selClasses.add(c)),
+                  onClassToggle: (id) => setState(() => _selClassIds.contains(id)
+                      ? _selClassIds.remove(id)
+                      : _selClassIds.add(id)),
                   onSend: _send,
                 ),
-                _HistoryTab(history: _history),
+                const _HistoryTab(),
               ],
             ),
           ),
@@ -287,10 +248,10 @@ class _TopBar extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Centre de notifications',
+              Text('Annonces & notifications',
                   style: TextStyle(fontSize: 16,
                       fontWeight: FontWeight.w800, color: _ink)),
-              Text('Envoyez des messages à toute la communauté',
+              Text('Publiez des annonces à la communauté',
                   style: TextStyle(fontSize: 12, color: _muted)),
             ]),
           ]),
@@ -316,15 +277,15 @@ class _TopBar extends StatelessWidget {
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────
-class _ComposeTab extends StatelessWidget {
+class _ComposeTab extends ConsumerWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController titleCtrl;
   final TextEditingController messageCtrl;
-  final _NotifType type;
+  final _Priority priority;
   final _Target target;
-  final List<String> selClasses;
+  final Set<String> selClassIds;
   final bool sending;
-  final ValueChanged<_NotifType> onType;
+  final ValueChanged<_Priority> onPriority;
   final ValueChanged<_Target> onTarget;
   final ValueChanged<String> onClassToggle;
   final VoidCallback onSend;
@@ -333,18 +294,18 @@ class _ComposeTab extends StatelessWidget {
     required this.formKey,
     required this.titleCtrl,
     required this.messageCtrl,
-    required this.type,
+    required this.priority,
     required this.target,
-    required this.selClasses,
+    required this.selClassIds,
     required this.sending,
-    required this.onType,
+    required this.onPriority,
     required this.onTarget,
     required this.onClassToggle,
     required this.onSend,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
@@ -352,39 +313,32 @@ class _ComposeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Type ──────────────────────────────────────────────────────
-            _Label('Type de notification'),
+            // ── Priorité ──────────────────────────────────────────────────
+            const _Label('Priorité'),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8, runSpacing: 8,
-              children: _NotifType.values.map((t) {
-                final sel = t == type;
+              children: _Priority.values.map((p) {
+                final sel = p == priority;
                 return GestureDetector(
-                  onTap: () => onType(t),
+                  onTap: () => onPriority(p),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: sel ? t.color : _white,
+                      color: sel ? p.color : _white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: sel ? t.color : _border, width: sel ? 0 : 1),
-                      boxShadow: sel
-                          ? [BoxShadow(color: t.color.withOpacity(.3),
-                              blurRadius: 8, offset: const Offset(0, 2))]
-                          : [],
+                          color: sel ? p.color : _border, width: sel ? 0 : 1),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(t.icon, size: 14,
-                          color: sel ? _white : _muted),
+                      Icon(p.icon, size: 14, color: sel ? _white : _muted),
                       const SizedBox(width: 6),
-                      Text(t.label, style: TextStyle(
+                      Text(p.label, style: TextStyle(
                           fontSize: 12.5,
                           color: sel ? _white : _ink,
-                          fontWeight: sel
-                              ? FontWeight.w700
-                              : FontWeight.w500)),
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
                     ]),
                   ),
                 );
@@ -393,173 +347,166 @@ class _ComposeTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Destinataires ─────────────────────────────────────────────
-            _Label('Destinataires'),
+            const _Label('Destinataires'),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8, runSpacing: 8,
-              children: _Target.values.map((t) {
-                final sel = t == target;
-                return GestureDetector(
-                  onTap: () => onTarget(t),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: sel ? _ink : _white,
-                      borderRadius: BorderRadius.circular(20),
-                      border:
-                          Border.all(color: sel ? _ink : _border),
+            Builder(builder: (_) {
+              final familiesEnabled =
+                  ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
+              return Wrap(
+                spacing: 8, runSpacing: 8,
+                children: _Target.values.map((t) {
+                  final sel = t == target;
+                  final locked = t == _Target.parents && !familiesEnabled;
+                  return GestureDetector(
+                    onTap: locked ? null : () => onTarget(t),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: locked
+                            ? const Color(0xFFF5EEE6)
+                            : sel ? _ink : _white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: locked
+                                ? _border
+                                : sel ? _ink : _border),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                          locked ? Icons.lock_outline_rounded : t.icon,
+                          size: 14,
+                          color: locked ? _muted : sel ? _white : _muted,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(t.label, style: TextStyle(
+                            fontSize: 12.5,
+                            color: locked ? _muted : sel ? _white : _ink,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+                        if (locked) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text('Pro',
+                                style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF7C3AED))),
+                          ),
+                        ],
+                      ]),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(t.icon, size: 14,
-                          color: sel ? _white : _muted),
-                      const SizedBox(width: 6),
-                      Text(t.label, style: TextStyle(
-                          fontSize: 12.5,
-                          color: sel ? _white : _ink,
-                          fontWeight: sel
-                              ? FontWeight.w700
-                              : FontWeight.w500)),
-                    ]),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList(),
+              );
+            }),
 
-            // ── Sélecteur de classes ───────────────────────────────────────
+            // ── Sélecteur de classes (réelles) ────────────────────────────
             if (target == _Target.classe) ...[
               const SizedBox(height: 16),
-              _Label('Sélectionner les classes'),
+              const _Label('Sélectionner les classes'),
               const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: _classes.map((c) {
-                    final sel = selClasses.contains(c);
-                    return GestureDetector(
-                      onTap: () => onClassToggle(c),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 120),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: sel ? _terra : const Color(0xFFF5EEE6),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: sel ? _terra : _border),
-                        ),
-                        child: Text(c, style: TextStyle(
-                            fontSize: 11,
-                            color: sel ? _white : _ink,
-                            fontWeight: sel
-                                ? FontWeight.w700
-                                : FontWeight.w500)),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
+              ref.watch(classesProvider).when(
+                    loading: () => const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: LinearProgressIndicator()),
+                    error: (e, _) => Text('Classes indisponibles : $e',
+                        style: const TextStyle(color: _terra, fontSize: 12)),
+                    data: (classes) => classes.isEmpty
+                        ? const Text('Aucune classe. Créez-en d\'abord.',
+                            style: TextStyle(color: _muted, fontSize: 12.5))
+                        : Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: _border),
+                            ),
+                            child: Wrap(
+                              spacing: 6, runSpacing: 6,
+                              children: classes.map((c) {
+                                final sel = selClassIds.contains(c.id);
+                                return GestureDetector(
+                                  onTap: () => onClassToggle(c.id),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 120),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: sel
+                                          ? _terra
+                                          : const Color(0xFFF5EEE6),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: sel ? _terra : _border),
+                                    ),
+                                    child: Text(c.name, style: TextStyle(
+                                        fontSize: 11,
+                                        color: sel ? _white : _ink,
+                                        fontWeight: sel
+                                            ? FontWeight.w700
+                                            : FontWeight.w500)),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                  ),
             ],
             const SizedBox(height: 20),
 
             // ── Titre ─────────────────────────────────────────────────────
-            _Label('Titre'),
+            const _Label('Titre'),
             const SizedBox(height: 8),
             TextFormField(
               controller: titleCtrl,
               style: const TextStyle(fontSize: 14, color: _ink),
-              decoration: InputDecoration(
-                hintText: 'Ex: Réunion parents-professeurs du 28 mai',
-                hintStyle: TextStyle(color: _muted.withOpacity(.5), fontSize: 13),
-                filled: true,
-                fillColor: _white,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _border)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _border)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: _terra, width: 1.5)),
-                errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _terra)),
-              ),
+              decoration: _fieldDeco('Ex: Réunion parents-professeurs du 28 mai'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Titre requis' : null,
             ),
             const SizedBox(height: 16),
 
             // ── Message ───────────────────────────────────────────────────
-            _Label('Message'),
+            const _Label('Message'),
             const SizedBox(height: 8),
             TextFormField(
               controller: messageCtrl,
               maxLines: 5,
               style: const TextStyle(fontSize: 13.5, color: _ink, height: 1.5),
-              decoration: InputDecoration(
-                hintText: 'Rédigez votre message ici…',
-                hintStyle: TextStyle(color: _muted.withOpacity(.5), fontSize: 13),
-                filled: true,
-                fillColor: _white,
-                contentPadding: const EdgeInsets.all(14),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _border)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _border)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: _terra, width: 1.5)),
-                errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _terra)),
-              ),
+              decoration: _fieldDeco('Rédigez votre message ici…'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Message requis' : null,
             ),
             const SizedBox(height: 24),
 
-            // ── Aperçu ────────────────────────────────────────────────────
-            _NotifPreview(type: type, target: target, selClasses: selClasses),
-            const SizedBox(height: 24),
-
             // ── Bouton d'envoi ────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                child: ElevatedButton.icon(
-                  onPressed: sending ? null : onSend,
-                  icon: sending
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _white))
-                      : const Icon(Icons.send_rounded, size: 18),
-                  label: Text(sending ? 'Envoi en cours…' : 'Envoyer la notification',
-                      style: const TextStyle(fontWeight: FontWeight.w700,
-                          fontSize: 14)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _terra,
-                    foregroundColor: _white,
-                    disabledBackgroundColor: _terra.withOpacity(.5),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 2,
-                    shadowColor: _terra.withOpacity(.3),
-                  ),
+              child: ElevatedButton.icon(
+                onPressed: sending ? null : onSend,
+                icon: sending
+                    ? const SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _white))
+                    : const Icon(Icons.send_rounded, size: 18),
+                label: Text(sending ? 'Publication…' : 'Publier l\'annonce',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _terra,
+                  foregroundColor: _white,
+                  disabledBackgroundColor: _terra.withValues(alpha: .5),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
                 ),
               ),
             ),
@@ -569,107 +516,98 @@ class _ComposeTab extends StatelessWidget {
       ),
     );
   }
+
+  static InputDecoration _fieldDeco(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: _muted.withValues(alpha: .5), fontSize: 13),
+        filled: true,
+        fillColor: _white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _border)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _border)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _terra, width: 1.5)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _terra)),
+      );
 }
 
-// ── Notification preview card ─────────────────────────────────────────────────
-class _NotifPreview extends StatelessWidget {
-  final _NotifType type;
-  final _Target target;
-  final List<String> selClasses;
-  const _NotifPreview(
-      {required this.type, required this.target, required this.selClasses});
+// ── History tab (données réelles) ────────────────────────────────────────────
+class _HistoryTab extends ConsumerWidget {
+  const _HistoryTab();
 
   @override
-  Widget build(BuildContext context) {
-    final detail = target == _Target.classe
-        ? (selClasses.isEmpty ? 'Aucune classe sélectionnée' : selClasses.join(', '))
-        : target.label;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: type.color.withOpacity(.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: type.color.withOpacity(.2)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-            color: type.color.withOpacity(.15),
-            borderRadius: BorderRadius.circular(10),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final announcementsAsync = ref.watch(announcementsProvider);
+    final classesAsync = ref.watch(classesProvider);
+    final classNames = <String, String>{
+      for (final c in (classesAsync.valueOrNull ?? const [])) c.id: c.name,
+    };
+    return announcementsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+          child: Text('Erreur : $e',
+              style: const TextStyle(color: _muted, fontSize: 13))),
+      data: (list) {
+        if (list.isEmpty) {
+          return Center(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.notifications_none_rounded,
+                  size: 56, color: _muted.withValues(alpha: .3)),
+              const SizedBox(height: 12),
+              const Text('Aucune annonce publiée',
+                  style: TextStyle(color: _muted, fontSize: 14,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ));
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: list.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) => _HistoryCard(
+            notif: list[i],
+            classNames: classNames,
+            onDelete: () async {
+              try {
+                await SupabaseDbSource.deleteAnnouncement(list[i].id);
+                ref.invalidate(announcementsProvider);
+              } catch (_) {}
+            },
           ),
-          child: Center(child: Icon(type.icon, color: type.color, size: 20)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: type.color,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(type.label.toUpperCase(),
-                    style: const TextStyle(color: _white, fontSize: 9,
-                        fontWeight: FontWeight.w800, letterSpacing: .8)),
-              ),
-              const SizedBox(width: 6),
-              Text('→ $detail',
-                  style: TextStyle(color: _muted, fontSize: 11)),
-            ]),
-            const SizedBox(height: 4),
-            Text('Aperçu de la notification en temps réel',
-                style: TextStyle(color: type.color.withOpacity(.8),
-                    fontSize: 11.5, fontWeight: FontWeight.w600)),
-          ],
-        )),
-      ]),
-    );
-  }
-}
-
-// ── History tab ───────────────────────────────────────────────────────────────
-class _HistoryTab extends StatelessWidget {
-  final List<_SentNotif> history;
-  const _HistoryTab({required this.history});
-
-  @override
-  Widget build(BuildContext context) {
-    if (history.isEmpty) {
-      return Center(child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.notifications_none_rounded,
-              size: 56, color: _muted.withOpacity(.3)),
-          const SizedBox(height: 12),
-          Text('Aucune notification envoyée',
-              style: TextStyle(color: _muted, fontSize: 14,
-                  fontWeight: FontWeight.w600)),
-        ],
-      ));
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: history.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _HistoryCard(notif: history[i]),
+        );
+      },
     );
   }
 }
 
 class _HistoryCard extends StatelessWidget {
-  final _SentNotif notif;
-  const _HistoryCard({required this.notif});
+  final SbAnnouncement notif;
+  final Map<String, String> classNames;
+  final VoidCallback onDelete;
+  const _HistoryCard(
+      {required this.notif, required this.classNames, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    final c = notif.type.color;
-    final d = notif.sentAt;
-    final dateStr =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} · '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final prio = _PriorityX.fromDb(notif.priority);
+    final c = prio.color;
+    final d = notif.createdAt;
+    final dateStr = d == null
+        ? ''
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} · '
+            '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final targetLabel = notif.targetClassId != null
+        ? (classNames[notif.targetClassId] ?? 'Classe')
+        : _TargetX.labelForRole(notif.targetRole);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -683,10 +621,10 @@ class _HistoryCard extends StatelessWidget {
         Container(
           width: 38, height: 38,
           decoration: BoxDecoration(
-            color: c.withOpacity(.12),
+            color: c.withValues(alpha: .12),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(child: Icon(notif.type.icon, color: c, size: 18)),
+          child: Center(child: Icon(prio.icon, color: c, size: 18)),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(
@@ -696,17 +634,17 @@ class _HistoryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: c.withOpacity(.12),
+                  color: c.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(notif.type.label.toUpperCase(),
+                child: Text(prio.label.toUpperCase(),
                     style: TextStyle(color: c, fontSize: 9,
                         fontWeight: FontWeight.w800, letterSpacing: .7)),
               ),
               const SizedBox(width: 6),
-              Icon(notif.target.icon, size: 12, color: _muted),
+              Icon(Icons.groups_rounded, size: 12, color: _muted),
               const SizedBox(width: 3),
-              Flexible(child: Text(notif.targetDetail,
+              Flexible(child: Text(targetLabel,
                   style: const TextStyle(color: _muted, fontSize: 11),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
             ]),
@@ -714,19 +652,34 @@ class _HistoryCard extends StatelessWidget {
             Text(notif.title, style: const TextStyle(
                 color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
             const SizedBox(height: 3),
-            Text(notif.message,
+            Text(notif.content ?? '',
                 style: const TextStyle(color: _muted, fontSize: 11.5, height: 1.4),
                 maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
             Row(children: [
               Icon(Icons.access_time_rounded, size: 11,
-                  color: _muted.withOpacity(.6)),
+                  color: _muted.withValues(alpha: .6)),
               const SizedBox(width: 4),
               Text(dateStr, style: TextStyle(
-                  color: _muted.withOpacity(.7), fontSize: 10.5)),
+                  color: _muted.withValues(alpha: .7), fontSize: 10.5)),
+              if (notif.authorName != null) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.person_outline_rounded, size: 11,
+                    color: _muted.withValues(alpha: .6)),
+                const SizedBox(width: 3),
+                Flexible(child: Text(notif.authorName!,
+                    style: TextStyle(
+                        color: _muted.withValues(alpha: .7), fontSize: 10.5),
+                    maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ],
             ]),
           ],
         )),
+        IconButton(
+          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _muted),
+          tooltip: 'Supprimer',
+          onPressed: onDelete,
+        ),
       ]),
     );
   }

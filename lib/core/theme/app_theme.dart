@@ -20,9 +20,30 @@ class ScolarisPalette {
 class AppTheme {
   AppTheme._();
 
+  // Texte sombre lisible (cohérent avec `ink` de page_scaffold).
+  static const _dialogInk   = Color(0xFF1A0A00);
+  static const _dialogBody  = Color(0xFF4A3A2E);
+
+  /// Force des dialogues clairs et lisibles, quel que soit le mode (les pages
+  /// de l'app sont toujours claires) → plus de texte sombre sur fond sombre.
+  static ThemeData _withReadableDialogs(ThemeData base) => base.copyWith(
+        dialogTheme: base.dialogTheme.copyWith(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          titleTextStyle: base.textTheme.titleLarge?.copyWith(
+            color: _dialogInk,
+            fontWeight: FontWeight.w800,
+          ),
+          contentTextStyle: base.textTheme.bodyMedium?.copyWith(
+            color: _dialogBody,
+            height: 1.45,
+          ),
+        ),
+      );
+
   static ThemeData light({Color? accent}) {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
-    return FlexThemeData.light(
+    return _withReadableDialogs(FlexThemeData.light(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.light),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
       blendLevel: 7,
@@ -42,12 +63,12 @@ class AppTheme {
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
       useMaterial3: true,
       fontFamily: 'Roboto',
-    );
+    ));
   }
 
   static ThemeData dark({Color? accent}) {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
-    return FlexThemeData.dark(
+    return _withReadableDialogs(FlexThemeData.dark(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.dark),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
       blendLevel: 13,
@@ -66,6 +87,6 @@ class AppTheme {
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
       useMaterial3: true,
       fontFamily: 'Roboto',
-    );
+    ));
   }
 }

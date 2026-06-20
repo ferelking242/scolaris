@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
@@ -12,87 +15,30 @@ const _border = Color(0xFFDDCCBB);
 const _white  = Colors.white;
 const _bg     = Color(0xFFF5EEE6);
 
+/// Vue fusionnée : un devoir (assignment) + la remise de l'élève (submission).
 class _StudentHW {
-  final String matiere;
-  final String titre;
-  final String enseignant;
-  final DateTime echeance;
-  bool done;
-  final double? note;
-  _StudentHW({
-    required this.matiere,
-    required this.titre,
-    required this.enseignant,
-    required this.echeance,
-    this.done = false,
-    this.note,
-  });
-}
+  final SbAssignment a;
+  final SbSubmission? sub;
+  _StudentHW(this.a, this.sub);
 
-final _mockStudentHW = <_StudentHW>[
-  _StudentHW(
-    matiere: 'Mathématiques',
-    titre: 'Exercices — Fonctions logarithmiques',
-    enseignant: 'M. Ngakosso Jean-Pierre',
-    echeance: DateTime(2026, 5, 28),
-    done: true,
-  ),
-  _StudentHW(
-    matiere: 'Français',
-    titre: 'Commentaire littéraire — Ferdinand Oyono',
-    enseignant: 'Mme Mavoungou Cécile',
-    echeance: DateTime.now().add(const Duration(hours: 6)),
-  ),
-  _StudentHW(
-    matiere: 'Sciences Physiques',
-    titre: 'Compte-rendu TP — Ondes et vibrations',
-    enseignant: 'M. Massamba Boris',
-    echeance: DateTime.now().add(const Duration(days: 5)),
-  ),
-  _StudentHW(
-    matiere: 'SVT',
-    titre: 'Schéma annoté — Cellule eucaryote',
-    enseignant: 'Mme Nzaba Marie',
-    echeance: DateTime.now().subtract(const Duration(days: 2)),
-    done: false,
-  ),
-  _StudentHW(
-    matiere: 'Philosophie',
-    titre: 'Dissertation — Liberté et déterminisme',
-    enseignant: 'M. Ngandzali Théophile',
-    echeance: DateTime.now().add(const Duration(days: 12)),
-  ),
-  _StudentHW(
-    matiere: 'Anglais',
-    titre: 'Essay — "My future career"',
-    enseignant: 'Mme Banzouzi Pauline',
-    echeance: DateTime.now().subtract(const Duration(days: 5)),
-    note: 14.0,
-    done: true,
-  ),
-];
+  String get matiere => a.subjectName ?? 'Cours';
+  String get titre => a.title;
+  String get enseignant => a.teacherName ?? '';
+  DateTime get echeance => a.deadline;
+  bool get done => sub?.isSubmitted ?? false;
+  double? get note => sub?.grade;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
-class HomeworkStudentPage extends StatefulWidget {
+class HomeworkStudentPage extends ConsumerStatefulWidget {
   const HomeworkStudentPage({super.key});
   @override
-  State<HomeworkStudentPage> createState() => _HomeworkStudentPageState();
+  ConsumerState<HomeworkStudentPage> createState() => _HomeworkStudentPageState();
 }
 
-class _HomeworkStudentPageState extends State<HomeworkStudentPage>
+class _HomeworkStudentPageState extends ConsumerState<HomeworkStudentPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
-  final List<_StudentHW> _hws = _mockStudentHW;
-
-  List<_StudentHW> get _aRendre => _hws.where((h) =>
-      !h.done && h.note == null &&
-      h.echeance.isAfter(DateTime.now())).toList()
-    ..sort((a, b) => a.echeance.compareTo(b.echeance));
-
-  List<_StudentHW> get _enRetard => _hws.where((h) =>
-      !h.done && h.echeance.isBefore(DateTime.now())).toList();
-
-  List<_StudentHW> get _rendus => _hws.where((h) => h.done).toList();
 
   @override
   void initState() {
@@ -103,41 +49,66 @@ class _HomeworkStudentPageState extends State<HomeworkStudentPage>
   @override
   void dispose() { _tab.dispose(); super.dispose(); }
 
+  /// Croise devoirs et remises de l'élève en une liste fusionnée.
+  List<_StudentHW> _merge(
+      List<SbAssignment> assignments, List<SbSubmission> subs) {
+    final byAssignment = <String, SbSubmission>{
+      for (final s in subs) s.assignmentId: s,
+    };
+    return assignments
+        .map((a) => _StudentHW(a, byAssignment[a.id]))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final assignmentsAsync = ref.watch(myAssignmentsProvider);
+    final submissionsAsync = ref.watch(mySubmissionsProvider);
+
     return Container(
       color: _bg,
-      child: Column(children: [
-        _Header(tab: _tab,
-            total: _hws.length,
-            aRendre: _aRendre.length,
-            retard: _enRetard.length),
-        Expanded(
-          child: TabBarView(controller: _tab, children: [
-            // À rendre
-            _ListTab(
-              hws: [..._enRetard, ..._aRendre],
-              emptyMsg: 'Aucun devoir en attente 🎉',
-              onToggle: (h) => setState(() => h.done = !h.done),
-              showOverdue: true,
+      child: assignmentsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => _ErrorState(message: '$e'),
+        data: (assignments) {
+          final subs = submissionsAsync.valueOrNull ?? const <SbSubmission>[];
+          final hws = _merge(assignments, subs);
+          final now = DateTime.now();
+
+          final aRendre = hws.where((h) =>
+              !h.done && h.echeance.isAfter(now)).toList()
+            ..sort((a, b) => a.echeance.compareTo(b.echeance));
+          final enRetard = hws.where((h) =>
+              !h.done && h.echeance.isBefore(now)).toList();
+          final rendus = hws.where((h) => h.done).toList();
+          final corriges = hws.where((h) => h.note != null).toList();
+
+          return Column(children: [
+            _Header(tab: _tab,
+                total: hws.length,
+                retard: enRetard.length),
+            Expanded(
+              child: TabBarView(controller: _tab, children: [
+                _ListTab(
+                  hws: [...enRetard, ...aRendre],
+                  emptyMsg: 'Aucun devoir en attente 🎉',
+                  showOverdue: true,
+                ),
+                _ListTab(
+                  hws: rendus,
+                  emptyMsg: 'Aucun devoir rendu pour l\'instant.',
+                  showOverdue: false,
+                ),
+                _ListTab(
+                  hws: corriges,
+                  emptyMsg: 'Pas encore de copies corrigées.',
+                  showOverdue: false,
+                ),
+              ]),
             ),
-            // Rendu
-            _ListTab(
-              hws: _rendus,
-              emptyMsg: 'Aucun devoir rendu pour l\'instant.',
-              onToggle: (h) => setState(() => h.done = !h.done),
-              showOverdue: false,
-            ),
-            // Corrigé
-            _ListTab(
-              hws: _hws.where((h) => h.note != null).toList(),
-              emptyMsg: 'Pas encore de copies corrigées.',
-              onToggle: null,
-              showOverdue: false,
-            ),
-          ]),
-        ),
-      ]),
+          ]);
+        },
+      ),
     );
   }
 }
@@ -145,12 +116,10 @@ class _HomeworkStudentPageState extends State<HomeworkStudentPage>
 class _Header extends StatelessWidget {
   final TabController tab;
   final int total;
-  final int aRendre;
   final int retard;
   const _Header({
     required this.tab,
     required this.total,
-    required this.aRendre,
     required this.retard,
   });
   @override
@@ -208,12 +177,10 @@ class _Header extends StatelessWidget {
 class _ListTab extends StatelessWidget {
   final List<_StudentHW> hws;
   final String emptyMsg;
-  final void Function(_StudentHW)? onToggle;
   final bool showOverdue;
   const _ListTab({
     required this.hws,
     required this.emptyMsg,
-    required this.onToggle,
     required this.showOverdue,
   });
   @override
@@ -230,18 +197,16 @@ class _ListTab extends StatelessWidget {
       itemCount: hws.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) => _HWStudentCard(
-          hw: hws[i], onToggle: onToggle, showOverdue: showOverdue),
+          hw: hws[i], showOverdue: showOverdue),
     );
   }
 }
 
 class _HWStudentCard extends StatelessWidget {
   final _StudentHW hw;
-  final void Function(_StudentHW)? onToggle;
   final bool showOverdue;
   const _HWStudentCard({
     required this.hw,
-    required this.onToggle,
     required this.showOverdue,
   });
 
@@ -280,26 +245,22 @@ class _HWStudentCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (onToggle != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 1, right: 10),
-              child: GestureDetector(
-                onTap: () => onToggle!(hw),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                    color: hw.done ? _green : Colors.transparent,
-                    border: Border.all(
-                        color: hw.done ? _green : _border, width: 2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: hw.done
-                      ? const Icon(Icons.check_rounded, size: 14, color: _white)
-                      : null,
-                ),
+          // Indicateur de statut (lecture seule) : remis ou non.
+          Padding(
+            padding: const EdgeInsets.only(top: 1, right: 10),
+            child: Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(
+                color: hw.done ? _green : Colors.transparent,
+                border: Border.all(
+                    color: hw.done ? _green : _border, width: 2),
+                borderRadius: BorderRadius.circular(6),
               ),
+              child: hw.done
+                  ? const Icon(Icons.check_rounded, size: 14, color: _white)
+                  : null,
             ),
+          ),
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -368,4 +329,26 @@ class _HWStudentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  const _ErrorState({required this.message});
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
+            const SizedBox(height: 12),
+            const Text('Erreur de chargement',
+                style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(message,
+                textAlign: TextAlign.center,
+                maxLines: 3, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _muted, fontSize: 12)),
+          ]),
+        ),
+      );
 }
