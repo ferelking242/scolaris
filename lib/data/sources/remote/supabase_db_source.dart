@@ -438,6 +438,117 @@ class SbSchool {
       );
 }
 
+
+  // ── Subscription / Plan types ─────────────────────────────────────────────────
+
+  class SbPlan {
+    final String id;
+    final String code;   // 'simple' | 'pro' | 'max'
+    final String name;
+    final int? maxStudents; // null = illimité
+    final List<String> features;
+    final String? description;
+
+    const SbPlan({
+      required this.id,
+      required this.code,
+      required this.name,
+      this.maxStudents,
+      this.features = const [],
+      this.description,
+    });
+
+    String get limitLabel =>
+        maxStudents == null ? 'Élèves illimités' : 'Jusqu\'à $maxStudents élèves';
+
+    factory SbPlan.fromJson(Map<String, dynamic> j) => SbPlan(
+          id: j['id'] as String? ?? '',
+          code: j['code'] as String? ?? '',
+          name: j['name'] as String? ?? '',
+          maxStudents: j['max_students'] as int?,
+          features: (j['features'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+          description: j['description'] as String?,
+        );
+  }
+
+  class SbPlanPrice {
+    final String id;
+    final String planCode;
+    final String period; // 'monthly' | 'annual'
+    final double price;
+    final String currency;
+
+    const SbPlanPrice({
+      required this.id,
+      required this.planCode,
+      required this.period,
+      required this.price,
+      required this.currency,
+    });
+
+    factory SbPlanPrice.fromJson(Map<String, dynamic> j) => SbPlanPrice(
+          id: j['id'] as String? ?? '',
+          planCode: j['plan_code'] as String? ?? '',
+          period: j['period'] as String? ?? 'monthly',
+          price: (j['price'] as num?)?.toDouble() ?? 0,
+          currency: j['currency'] as String? ?? 'XAF',
+        );
+  }
+
+  class SbSubscription {
+    final String id;
+    final String? schoolId;
+    final String? planCode;
+    final String status; // 'trial'|'active'|'past_due'|'expired'|'canceled'
+    final String? billingPeriod; // 'monthly' | 'annual'
+    final double? price;
+    final String currency;
+    final double creditBalance;
+    final DateTime? currentPeriodEnd;
+    final DateTime? trialEnd;
+
+    const SbSubscription({
+      required this.id,
+      this.schoolId,
+      this.planCode,
+      this.status = 'trial',
+      this.billingPeriod,
+      this.price,
+      this.currency = 'XAF',
+      this.creditBalance = 0,
+      this.currentPeriodEnd,
+      this.trialEnd,
+    });
+
+    bool get isTrial  => status == 'trial';
+    bool get isActive => status == 'active' || status == 'trial';
+
+    DateTime? get endDate => currentPeriodEnd ?? trialEnd;
+
+    int get daysLeft {
+      final end = endDate;
+      if (end == null) return 0;
+      return end.difference(DateTime.now()).inDays.clamp(0, 999);
+    }
+
+    factory SbSubscription.fromJson(Map<String, dynamic> j) => SbSubscription(
+          id: j['id'] as String? ?? '',
+          schoolId: j['school_id'] as String?,
+          planCode: j['plan_code'] as String?,
+          status: j['status'] as String? ?? 'trial',
+          billingPeriod: j['billing_period'] as String?,
+          price: (j['price'] as num?)?.toDouble(),
+          currency: j['currency'] as String? ?? 'XAF',
+          creditBalance: (j['credit_balance'] as num?)?.toDouble() ?? 0,
+          currentPeriodEnd: j['current_period_end'] != null
+              ? DateTime.tryParse(j['current_period_end'] as String)
+              : null,
+          trialEnd: j['trial_end'] != null
+              ? DateTime.tryParse(j['trial_end'] as String)
+              : null,
+        );
+  }
+  
 // ── Data source ───────────────────────────────────────────────────────────────
 
 class SupabaseDbSource {
@@ -587,4 +698,86 @@ class SupabaseDbSource {
     final data = await _db.from('schools').select().limit(1).maybeSingle();
     return data != null ? SbSchool.fromJson(data) : null;
   }
+
+    // ── Plans & Subscription ──────────────────────────────────────────────────
+
+    static Future<List<SbPlan>> getPlans() async {
+      final data = await _db.from('plans').select().order('sort_order', ascending: true);
+      return (data as List).map((j) => SbPlan.fromJson(j as Map<String, dynamic>)).toList();
+    }
+
+    static Future<List<SbPlanPrice>> getPlanPrices() async {
+      final data = await _db.from('plan_prices').select().order('price');
+      return (data as List).map((j) => SbPlanPrice.fromJson(j as Map<String, dynamic>)).toList();
+    }
+
+    static Future<SbSubscription?> getSubscription(String schoolId) async {
+      final data = await _db
+          .from('subscriptions')
+          .select()
+          .eq('school_id', schoolId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      return data != null ? SbSubscription.fromJson(data) : null;
+    }
+
+    static Future<int> getStudentCount({String? schoolId}) async {
+      dynamic q = _db.from('students').select('id', const FetchOptions(count: CountOption.exact, head: true));
+      if (schoolId != null) q = q.eq('school_id', schoolId);
+      q = q.eq('actif', true);
+      final resp = await q;
+      return resp.count ?? 0;
+    }
+
+    static Future<void> activateSubscription({
+      required String schoolId,
+      required String planCode,
+      required String period,
+      required double price,
+      required String currency,
+      double creditBalance = 0,
+    }) async {
+      final now = DateTime.now();
+      final end = period == 'annual'
+          ? now.add(const Duration(days: 365))
+          : now.add(const Duration(days: 30));
+      await _db.from('subscriptions').upsert({
+        'school_id':          schoolId,
+        'plan_code':          planCode,
+        'status':             'active',
+        'billing_period':     period,
+        'price':              price,
+        'currency':           currency,
+        'credit_balance':     creditBalance,
+        'current_period_end': end.toIso8601String(),
+        'updated_at':         now.toIso8601String(),
+      }, onConflict: 'school_id');
+    }
+
+    // ── School update ─────────────────────────────────────────────────────────
+
+    static Future<void> updateSchool({
+      required String id,
+      String? name,
+      String? code,
+      String? city,
+      String? country,
+      String? academicYear,
+      String? accentColor,
+      String? logoUrl,
+    }) async {
+      final payload = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      if (name        != null) payload['name']          = name;
+      if (code        != null) payload['code']          = code;
+      if (city        != null) payload['city']          = city;
+      if (country     != null) payload['country']       = country;
+      if (academicYear!= null) payload['academic_year'] = academicYear;
+      if (accentColor != null) payload['accent_color']  = accentColor;
+      if (logoUrl     != null) payload['logo_url']      = logoUrl;
+      await _db.from('schools').update(payload).eq('id', id);
+    }
+  
 }

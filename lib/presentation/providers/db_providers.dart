@@ -85,3 +85,43 @@ final announcementsProvider = FutureProvider<List<SbAnnouncement>>((ref) async {
 final usersProvider = FutureProvider<List<SbUser>>((ref) async {
   return SupabaseDbSource.getUsers();
 });
+
+  // ── School ID helper ──────────────────────────────────────────────────────────
+  /// ID de l'école de l'utilisateur connecté (null si non authentifié ou inconnu).
+  final currentSchoolIdProvider = Provider<String?>((ref) {
+    return ref.watch(authSessionProvider)?.schoolId;
+  });
+
+  // ── Student count (int) ───────────────────────────────────────────────────────
+  final studentCountProvider = FutureProvider<int>((ref) async {
+    final schoolId = ref.watch(currentSchoolIdProvider);
+    return SupabaseDbSource.getStudentCount(schoolId: schoolId);
+  });
+
+  // ── Subscription ──────────────────────────────────────────────────────────────
+  final subscriptionProvider = FutureProvider<SbSubscription?>((ref) async {
+    final schoolId = ref.watch(currentSchoolIdProvider);
+    if (schoolId == null) return null;
+    return SupabaseDbSource.getSubscription(schoolId);
+  });
+
+  // ── Plans ─────────────────────────────────────────────────────────────────────
+  final plansProvider = FutureProvider<List<SbPlan>>((ref) async {
+    return SupabaseDbSource.getPlans();
+  });
+
+  // ── Plan prices ───────────────────────────────────────────────────────────────
+  final planPricesProvider = FutureProvider<List<SbPlanPrice>>((ref) async {
+    return SupabaseDbSource.getPlanPrices();
+  });
+
+  // ── Online payment feature flag ───────────────────────────────────────────────
+  /// Vrai si le plan actif de l'école inclut la clé 'finance'.
+  final onlinePaymentEnabledProvider = FutureProvider<bool>((ref) async {
+    final sub  = await ref.watch(subscriptionProvider.future);
+    if (sub == null || !sub.isActive) return false;
+    final plans = await ref.watch(plansProvider.future);
+    final plan  = plans.where((p) => p.code == sub.planCode).firstOrNull;
+    return plan?.features.contains('finance') ?? false;
+  });
+  
