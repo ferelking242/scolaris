@@ -1,7 +1,7 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-
 import '../data/supabase_db_types.dart';
+import 'print_dispatch_stub.dart'
+    if (dart.library.html) 'print_dispatch_web.dart'
+    if (dart.library.io) 'print_dispatch_io.dart';
 
 class PrintService {
   static void printReceipt({
@@ -194,15 +194,5 @@ class PrintService {
     _triggerPrint(html_);
   }
 
-  static void _triggerPrint(String htmlContent) {
-    final blob = html.Blob([htmlContent], 'text/html');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final win = html.window.open(url, '_blank');
-    if (win != null) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        (win as html.Window).print();
-        html.Url.revokeObjectUrl(url);
-      });
-    }
-  }
+  static void _triggerPrint(String htmlContent) => triggerPrint(htmlContent);
 }
