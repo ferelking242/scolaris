@@ -253,7 +253,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                 error: (e, _) => Text('Niveaux indisponibles : $e',
                     style: const TextStyle(color: _terra, fontSize: 12)),
                 data: (levels) => DropdownButtonFormField<SbClassLevel>(
-                  initialValue: _level,
+                  value: _level,
                   isExpanded: true,
                   decoration: const InputDecoration(
                       labelText: 'Niveau',
@@ -281,7 +281,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: DropdownButtonFormField<SbBranch?>(
-                    initialValue: _branch,
+                    value: _branch,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Campus (optionnel)',

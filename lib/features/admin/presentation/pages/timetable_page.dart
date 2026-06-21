@@ -92,7 +92,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               DataPanel(
                 title: 'Classe',
                 child: DropdownButtonFormField<String>(
-                  initialValue: _classId,
+                  value: _classId,
                   isExpanded: true,
                   decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.class_outlined),
@@ -386,7 +386,7 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
           error: (e, _) => Text('Matières indisponibles : $e',
               style: const TextStyle(color: _terra, fontSize: 12)),
           data: (subjects) => DropdownButtonFormField<String>(
-            initialValue: _subjectId,
+            value: _subjectId,
             isExpanded: true,
             decoration: const InputDecoration(
                 labelText: 'Matière',
@@ -404,7 +404,7 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
           data: (teachers) => DropdownButtonFormField<String>(
-            initialValue: _teacherId,
+            value: _teacherId,
             isExpanded: true,
             decoration: const InputDecoration(
                 labelText: 'Enseignant (optionnel)',

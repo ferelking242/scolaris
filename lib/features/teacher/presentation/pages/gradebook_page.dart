@@ -71,7 +71,7 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
                   Expanded(
                     flex: 3,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedSubjectId,
+                      value: _selectedSubjectId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Matière',
@@ -188,7 +188,7 @@ class _PeriodPicker extends StatelessWidget {
     const periods = ['S1', 'S2', 'S3'];
     const labels  = ['Semestre 1', 'Semestre 2', 'Semestre 3'];
     return DropdownButtonFormField<String>(
-      initialValue: value,
+      value: value,
       decoration: const InputDecoration(
         labelText: 'Période',
         prefixIcon: Icon(Icons.date_range_outlined),

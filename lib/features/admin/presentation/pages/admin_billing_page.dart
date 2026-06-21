@@ -375,7 +375,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
               error: (e, _) => Text('Élèves indisponibles : $e',
                   style: const TextStyle(color: _terra, fontSize: 12)),
               data: (students) => DropdownButtonFormField<SbStudent>(
-                initialValue: _student,
+                value: _student,
                 isExpanded: true,
                 decoration: const InputDecoration(
                     labelText: 'Élève',
@@ -392,7 +392,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: _category,
+              value: _category,
               isExpanded: true,
               decoration: const InputDecoration(
                   labelText: 'Catégorie',
