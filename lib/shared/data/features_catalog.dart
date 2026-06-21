@@ -31,6 +31,56 @@ enum SchoolLevel {
       case doctorat:    return 'PhD';
     }
   }
+
+  /// Niveau scolaire déduit d'un *type d'établissement* (`schools.metadata.types`)
+  /// choisi par l'admin à l'inscription. Null si le type n'a pas d'équivalent
+  /// (ex. `special`). Source de vérité du dynamisme par type d'école.
+  static SchoolLevel? fromSchoolType(String type) {
+    switch (type) {
+      case 'garderie':
+      case 'primaire':   return SchoolLevel.primaire;
+      case 'college':    return SchoolLevel.college;
+      case 'lycee':
+      case 'technique':  return SchoolLevel.lycee;
+      case 'universite':
+      case 'superieur':  return SchoolLevel.universite;
+      default:           return null;
+    }
+  }
+
+  /// Niveau déduit du *nom de classe / niveau* de l'élève (best-effort, tolérant
+  /// aux libellés francophones : CP1, 6ème, 2nde A, Terminale D, L1, M2, Thèse…).
+  /// Null si indéterminable → on retombe sur le type d'école.
+  static SchoolLevel? fromClassName(String? raw) {
+    if (raw == null) return null;
+    final s = raw.toLowerCase().trim();
+    if (s.isEmpty) return null;
+    // Cycles bruts éventuels (classes.level = 'lycee', 'college'…).
+    switch (s) {
+      case 'prescolaire':
+      case 'primaire':  return SchoolLevel.primaire;
+      case 'college':   return SchoolLevel.college;
+      case 'lycee':     return SchoolLevel.lycee;
+      case 'universite':return SchoolLevel.universite;
+    }
+    // Supérieur
+    if (RegExp(r'(doctorat|phd|th[èe]se)').hasMatch(s)) return SchoolLevel.doctorat;
+    if (RegExp(r'(master|^m[12]\b)').hasMatch(s)) return SchoolLevel.master;
+    if (RegExp(r'(licence|universit|^l[123]\b)').hasMatch(s)) return SchoolLevel.universite;
+    // Lycée
+    if (RegExp(r'(terminale|^tle|1[èe]re|premi[èe]re|2nde|seconde)').hasMatch(s)) {
+      return SchoolLevel.lycee;
+    }
+    // Collège
+    if (RegExp(r'(6[èe]me|5[èe]me|4[èe]me|3[èe]me|^6e\b|^5e\b|^4e\b|^3e\b)').hasMatch(s)) {
+      return SchoolLevel.college;
+    }
+    // Primaire
+    if (RegExp(r'(^cp|^ce[12]|^cm[12]|maternelle)').hasMatch(s)) {
+      return SchoolLevel.primaire;
+    }
+    return null;
+  }
 }
 
 // ── Catégories de features ────────────────────────────────────────────────────
@@ -75,6 +125,10 @@ class AppFeature {
   /// Niveaux scolaires (pour les élèves uniquement — null = tous niveaux)
   final Set<SchoolLevel>? levels;
 
+  /// Offre minimale requise : 'simple' (défaut) < 'pro' < 'max'.
+  /// Source de vérité unique du gating par offre (cf. memory/offers-and-gating).
+  final String minPlan;
+
   const AppFeature({
     required this.id,
     required this.title,
@@ -85,6 +139,7 @@ class AppFeature {
     required this.roles,
     this.levels,
     this.status = FeatureStatus.planned,
+    this.minPlan = 'simple',
   });
 
   bool isAvailableFor(UserRole role, [SchoolLevel? level]) {
@@ -190,6 +245,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'offline',
+      minPlan: 'max',
       title: 'Mode hors-ligne',
       description: 'Consultation et saisie sans connexion internet, synchronisation automatique.',
       icon: Icons.wifi_off_rounded,
@@ -275,6 +331,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'library',
+      minPlan: 'pro',
       title: 'Bibliothèque',
       description: 'Catalogue de ressources, manuels, emprunts, bibliothèque numérique.',
       icon: Icons.menu_book_rounded,
@@ -442,6 +499,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'quiz',
+      minPlan: 'pro',
       title: 'Évaluations en ligne',
       description: 'Création de QCM, devoirs numériques, correction automatique, statistiques.',
       icon: Icons.quiz_rounded,
@@ -488,6 +546,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'messaging',
+      minPlan: 'pro',
       title: 'Messagerie',
       description: 'Chat interne sécurisé entre élèves, enseignants, parents et administration.',
       icon: Icons.chat_rounded,
@@ -499,6 +558,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'liaison',
+      minPlan: 'pro',
       title: 'Carnet de Liaison',
       description: 'Messages officiels école → parents, signature électronique, archivage.',
       icon: Icons.mail_rounded,
@@ -510,6 +570,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'parent_meetings',
+      minPlan: 'pro',
       title: 'Réunions Parents-Profs',
       description: 'Planification, créneaux de disponibilité, réservation en ligne, rappels.',
       icon: Icons.event_rounded,
@@ -521,6 +582,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'announcements',
+      minPlan: 'pro',
       title: 'Annonces & Événements',
       description: 'Tableau d\'affichage numérique, sorties scolaires, examens, jours fériés.',
       icon: Icons.campaign_rounded,
@@ -532,6 +594,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'broadcast',
+      minPlan: 'pro',
       title: 'Notification Globale',
       description: 'Envoi de messages à tous les utilisateurs ou par groupe/classe.',
       icon: Icons.wifi_tethering_rounded,
@@ -545,6 +608,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'fees_parent',
+      minPlan: 'pro',
       title: 'Paiement Frais Scolaires',
       description: 'Paiement en ligne sécurisé, historique des versements, reçus PDF.',
       icon: Icons.payment_rounded,
@@ -556,6 +620,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'fees_student',
+      minPlan: 'pro',
       title: 'Paiement (Université)',
       description: 'Frais d\'inscription, de bibliothèque, d\'examens. Paiement en ligne.',
       icon: Icons.account_balance_rounded,
@@ -581,6 +646,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'certificates',
+      minPlan: 'pro',
       title: 'Documents Officiels',
       description: 'Certificats de scolarité, attestations, diplômes, en un clic.',
       icon: Icons.description_rounded,
@@ -592,6 +658,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'archives',
+      minPlan: 'pro',
       title: 'Archives Scolaires',
       description: 'Historique complet des années précédentes, dossiers élèves archivés.',
       icon: Icons.archive_rounded,
@@ -603,6 +670,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'reports',
+      minPlan: 'pro',
       title: 'Rapports & Exports',
       description: 'Génération de rapports PDF/Excel, statistiques d\'établissement.',
       icon: Icons.summarize_rounded,
@@ -649,6 +717,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'discipline',
+      minPlan: 'pro',
       title: 'Surveillance & Discipline',
       description: 'Registre incidents, sanctions, convocations, conseils de discipline.',
       icon: Icons.security_rounded,
