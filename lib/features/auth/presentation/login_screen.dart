@@ -7,8 +7,7 @@ import 'dart:math' as math;
   import 'package:go_router/go_router.dart';
   import 'package:mobile_scanner/mobile_scanner.dart';
 
-  import '../../../core/config/app_config.dart';
-  import '../../../core/routing/app_router.dart';
+    import '../../../core/routing/app_router.dart';
   import '../../../core/theme/app_theme.dart';
   import '../../../presentation/providers/auth_providers.dart';
   import 'forgot_password_screen.dart';
@@ -269,7 +268,7 @@ import 'dart:math' as math;
         const SizedBox(height: 24),
 
         // ── Demo mode role selector ─────────────────────────────────────────────
-        if (AppConfig.isDemoMode) ...[
+        if (true) ...[
           _DemoSection(
             selectedRole: _selectedRole,
             selectedSubtype: _selectedSubtype,
@@ -398,7 +397,7 @@ import 'dart:math' as math;
         ),
 
         // ── Demo tap counter (hidden trigger) ───────────────────────────────────
-        if (AppConfig.isDemoMode) ...[
+        if (true) ...[
           const SizedBox(height: 20),
           Center(
             child: GestureDetector(

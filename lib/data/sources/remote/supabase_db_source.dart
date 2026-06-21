@@ -723,11 +723,10 @@ class SupabaseDbSource {
     }
 
     static Future<int> getStudentCount({String? schoolId}) async {
-      dynamic q = _db.from('students').select('id', const FetchOptions(count: CountOption.exact, head: true));
+      var q = _db.from('students').select('id').eq('actif', true);
       if (schoolId != null) q = q.eq('school_id', schoolId);
-      q = q.eq('actif', true);
-      final resp = await q;
-      return resp.count ?? 0;
+      final data = await q;
+      return (data as List).length;
     }
 
     static Future<void> activateSubscription({
