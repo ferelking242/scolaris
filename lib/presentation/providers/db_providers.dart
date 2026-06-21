@@ -53,6 +53,12 @@ final branchesProvider = FutureProvider<List<SbBranch>>((ref) async {
 /// Campus actuellement sélectionné dans le shell (null = tous les campus).
 final selectedBranchProvider = StateProvider<SbBranch?>((ref) => null);
 
+final myStudentProfileProvider = FutureProvider<SbStudent?>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return null;
+  return SupabaseDbSource.getStudentByProfileId(session.id);
+});
+
 // ── Classes ───────────────────────────────────────────────────────────────────
 final classesProvider = FutureProvider<List<SbClass>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
@@ -189,13 +195,6 @@ final myGradesProvider = FutureProvider<List<SbGrade>>((ref) async {
   return SupabaseDbSource.getGradesForStudent(session.id);
 });
 
-/// Fiche élève de l'utilisateur connecté (matricule, classe…).
-final myStudentProfileProvider = FutureProvider<SbStudent?>((ref) async {
-  final session = ref.watch(authSessionProvider);
-  if (session == null) return null;
-  return SupabaseDbSource.getStudentById(session.id);
-});
-
 // ── Attendance ────────────────────────────────────────────────────────────────
 final attendanceForClassProvider = FutureProvider.family<List<SbAttendance>, String>(
   (ref, classId) async => SupabaseDbSource.getAttendanceForClass(classId),
@@ -320,3 +319,4 @@ final studentCountProvider = FutureProvider<int>((ref) async {
   if (schoolId == null) return 0;
   return SupabaseDbSource.getStudentCount(schoolId);
 });
+  

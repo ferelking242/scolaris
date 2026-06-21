@@ -784,77 +784,6 @@ class SbPlan {
       );
 }
 
-class SbPlanPrice {
-  final String planCode;
-  final String country;
-  final String currency;
-  final String period; // 'monthly' | 'annual'
-  final double price;
-
-  const SbPlanPrice({
-    required this.planCode,
-    required this.country,
-    required this.currency,
-    required this.period,
-    required this.price,
-  });
-
-  factory SbPlanPrice.fromJson(Map<String, dynamic> j) => SbPlanPrice(
-        planCode: j['plan_code'] as String,
-        country: j['country'] as String? ?? 'CG',
-        currency: j['currency'] as String? ?? 'XAF',
-        period: j['period'] as String? ?? 'monthly',
-        price: (j['price'] as num?)?.toDouble() ?? 0,
-      );
-}
-
-class SbSubscription {
-  final String id;
-  final String schoolId;
-  final String? planCode;
-  final String status; // trial | active | past_due | canceled | expired
-  final String billingPeriod;
-  final String currency;
-  final double? price;
-  final double creditBalance; // crédit prorata reporté sur les prochains cycles
-  final DateTime? trialEnd;
-  final DateTime? currentPeriodEnd;
-
-  const SbSubscription({
-    required this.id,
-    required this.schoolId,
-    this.planCode,
-    required this.status,
-    this.billingPeriod = 'monthly',
-    this.currency = 'XAF',
-    this.price,
-    this.creditBalance = 0,
-    this.trialEnd,
-    this.currentPeriodEnd,
-  });
-
-  bool get isTrial => status == 'trial';
-  bool get isActive => status == 'active';
-  bool get isBlocked => status == 'expired' || status == 'canceled';
-  DateTime? get endDate => isTrial ? trialEnd : currentPeriodEnd;
-  int? get daysLeft => endDate?.difference(DateTime.now()).inDays;
-
-  factory SbSubscription.fromJson(Map<String, dynamic> j) => SbSubscription(
-        id: j['id'] as String,
-        schoolId: j['school_id'] as String,
-        planCode: j['plan_code'] as String?,
-        status: j['status'] as String? ?? 'trial',
-        billingPeriod: j['billing_period'] as String? ?? 'monthly',
-        currency: j['currency'] as String? ?? 'XAF',
-        price: (j['price'] as num?)?.toDouble(),
-        creditBalance: (j['credit_balance'] as num?)?.toDouble() ?? 0,
-        trialEnd: j['trial_end'] != null ? DateTime.tryParse(j['trial_end'] as String) : null,
-        currentPeriodEnd: j['current_period_end'] != null
-            ? DateTime.tryParse(j['current_period_end'] as String)
-            : null,
-      );
-}
-
 /// Niveau scolaire de référence (table `class_levels`). Lu dynamiquement selon
 /// le système de l'école — JAMAIS codé en dur (cf. memory/admin-build-roadmap).
 class SbClassLevel {
@@ -1003,6 +932,86 @@ class SbSubjectCatalog {
       };
 }
 
+  // ── Subscription / Plan types ─────────────────────────────────────────────────
+
+  class SbPlanPrice {
+    final String id;
+    final String planCode;
+    final String period; // 'monthly' | 'annual'
+    final double price;
+    final String currency;
+
+    const SbPlanPrice({
+      required this.id,
+      required this.planCode,
+      required this.period,
+      required this.price,
+      required this.currency,
+    });
+
+    factory SbPlanPrice.fromJson(Map<String, dynamic> j) => SbPlanPrice(
+          id: j['id'] as String? ?? '',
+          planCode: j['plan_code'] as String? ?? '',
+          period: j['period'] as String? ?? 'monthly',
+          price: (j['price'] as num?)?.toDouble() ?? 0,
+          currency: j['currency'] as String? ?? 'XAF',
+        );
+  }
+
+  class SbSubscription {
+    final String id;
+    final String? schoolId;
+    final String? planCode;
+    final String status; // 'trial'|'active'|'past_due'|'expired'|'canceled'
+    final String? billingPeriod; // 'monthly' | 'annual'
+    final double? price;
+    final String currency;
+    final double creditBalance;
+    final DateTime? currentPeriodEnd;
+    final DateTime? trialEnd;
+
+    const SbSubscription({
+      required this.id,
+      this.schoolId,
+      this.planCode,
+      this.status = 'trial',
+      this.billingPeriod,
+      this.price,
+      this.currency = 'XAF',
+      this.creditBalance = 0,
+      this.currentPeriodEnd,
+      this.trialEnd,
+    });
+
+    bool get isTrial  => status == 'trial';
+    bool get isActive => status == 'active' || status == 'trial';
+
+    DateTime? get endDate => currentPeriodEnd ?? trialEnd;
+
+    int get daysLeft {
+      final end = endDate;
+      if (end == null) return 0;
+      return end.difference(DateTime.now()).inDays.clamp(0, 999);
+    }
+
+    factory SbSubscription.fromJson(Map<String, dynamic> j) => SbSubscription(
+          id: j['id'] as String? ?? '',
+          schoolId: j['school_id'] as String?,
+          planCode: j['plan_code'] as String?,
+          status: j['status'] as String? ?? 'trial',
+          billingPeriod: j['billing_period'] as String?,
+          price: (j['price'] as num?)?.toDouble(),
+          currency: j['currency'] as String? ?? 'XAF',
+          creditBalance: (j['credit_balance'] as num?)?.toDouble() ?? 0,
+          currentPeriodEnd: j['current_period_end'] != null
+              ? DateTime.tryParse(j['current_period_end'] as String)
+              : null,
+          trialEnd: j['trial_end'] != null
+              ? DateTime.tryParse(j['trial_end'] as String)
+              : null,
+        );
+  }
+
 // ── Data source ───────────────────────────────────────────────────────────────
 
 class SupabaseDbSource {
@@ -1032,6 +1041,11 @@ class SupabaseDbSource {
         .maybeSingle();
     return data != null ? SbStudent.fromUserRow(data) : null;
   }
+
+  /// Fiche élève à partir de l'id de profil/compte connecté. Dans ce schéma,
+  /// l'élève EST un `users` (role='student'), donc l'id de session = users.id.
+  static Future<SbStudent?> getStudentByProfileId(String profileId) =>
+      getStudentById(profileId);
 
   /// Dernières fiches élèves créées (pour le feed d'activité du tableau de bord).
   /// Renvoie nom + classe + date de création, triées du plus récent au plus ancien.
