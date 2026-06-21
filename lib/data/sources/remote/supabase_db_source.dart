@@ -201,6 +201,90 @@ class SbGrade {
   }
 }
 
+// ── Bulletin officiel (figé à la publication) ───────────────────────────────
+class SbReportCardLine {
+  final String subject;
+  final int coef;
+  final double average;        // /20
+  final String appreciation;
+  const SbReportCardLine({
+    required this.subject,
+    required this.coef,
+    required this.average,
+    required this.appreciation,
+  });
+  factory SbReportCardLine.fromJson(Map<String, dynamic> j) => SbReportCardLine(
+        subject: j['subject'] as String? ?? '—',
+        coef: (j['coef'] as num?)?.toInt() ?? 1,
+        average: (j['average'] as num?)?.toDouble() ?? 0,
+        appreciation: j['appreciation'] as String? ?? '',
+      );
+  Map<String, dynamic> toJson() => {
+        'subject': subject,
+        'coef': coef,
+        'average': average,
+        'appreciation': appreciation,
+      };
+}
+
+class SbReportCard {
+  final String id;
+  final String studentId;
+  final String? studentName;
+  final String classId;
+  final String academicYear;
+  final String period;          // 'T1' | 'T2' | 'T3'
+  final List<SbReportCardLine> lines;
+  final double generalAverage;
+  final int? rank;
+  final int? classSize;
+  final String? mention;
+  final String status;          // 'draft' | 'published'
+  final DateTime? publishedAt;
+
+  const SbReportCard({
+    required this.id,
+    required this.studentId,
+    this.studentName,
+    required this.classId,
+    required this.academicYear,
+    required this.period,
+    this.lines = const [],
+    this.generalAverage = 0,
+    this.rank,
+    this.classSize,
+    this.mention,
+    this.status = 'draft',
+    this.publishedAt,
+  });
+
+  bool get isPublished => status == 'published';
+
+  factory SbReportCard.fromJson(Map<String, dynamic> j) {
+    final raw = j['lines'];
+    final list = raw is List ? raw : const [];
+    return SbReportCard(
+      id: j['id'] as String,
+      studentId: j['student_id'] as String? ?? '',
+      studentName: j['student_name'] as String?,
+      classId: j['class_id'] as String? ?? '',
+      academicYear: j['academic_year'] as String? ?? '',
+      period: j['period'] as String? ?? '',
+      lines: list
+          .map((e) => SbReportCardLine.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      generalAverage: (j['general_average'] as num?)?.toDouble() ?? 0,
+      rank: (j['rank'] as num?)?.toInt(),
+      classSize: (j['class_size'] as num?)?.toInt(),
+      mention: j['mention'] as String?,
+      status: j['status'] as String? ?? 'draft',
+      publishedAt: j['published_at'] != null
+          ? DateTime.tryParse(j['published_at'] as String)
+          : null,
+    );
+  }
+}
+
 class SbAttendance {
   final String id;
   final String studentId;
@@ -1363,6 +1447,175 @@ class SupabaseDbSource {
       }
     }
     return inserted;
+  }
+
+  // ── Bulletins officiels (report_cards) ──────────────────────────────────────
+
+  static String _mentionFor(double avg) {
+    if (avg >= 16) return 'Très Bien';
+    if (avg >= 14) return 'Bien';
+    if (avg >= 12) return 'Assez Bien';
+    if (avg >= 10) return 'Passable';
+    return 'Insuffisant';
+  }
+
+  static String _appreciationFor(double avg) {
+    if (avg >= 16) return 'Excellent travail, continuez sur cette lancée.';
+    if (avg >= 14) return 'Très bon résultat ce trimestre.';
+    if (avg >= 12) return 'Bon niveau, peut encore progresser.';
+    if (avg >= 10) return 'Résultat passable, des efforts sont nécessaires.';
+    return 'Résultat insuffisant, un travail important est requis.';
+  }
+
+  /// Bulletins d'une classe pour un trimestre (tous statuts) — vue admin.
+  static Future<List<SbReportCard>> getReportCardsForClass(
+      String classId, String academicYear, String period) async {
+    final data = await _db
+        .from('report_cards')
+        .select()
+        .eq('class_id', classId)
+        .eq('academic_year', academicYear)
+        .eq('period', period)
+        .order('rank');
+    return (data as List)
+        .map((j) => SbReportCard.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Bulletins PUBLIÉS d'un élève (élève / parent) — triés du plus récent.
+  static Future<List<SbReportCard>> getReportCardsForStudent(
+      String studentId) async {
+    final data = await _db
+        .from('report_cards')
+        .select()
+        .eq('student_id', studentId)
+        .eq('status', 'published')
+        .order('period');
+    return (data as List)
+        .map((j) => SbReportCard.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Génère (statut 'draft') les bulletins de TOUS les élèves de la classe pour
+  /// un trimestre : moyenne par matière (moyenne simple des notes /20), moyenne
+  /// générale pondérée par coefficient, rang dans la classe, mention. Recalcule
+  /// et écrase les bulletins existants de la période (repassés en 'draft' →
+  /// à republier). Renvoie le nombre de bulletins générés.
+  static Future<int> generateReportCards({
+    required String schoolId,
+    required String classId,
+    required String academicYear,
+    required String period,
+    String? createdBy,
+  }) async {
+    final students = (await getStudents(schoolId: schoolId))
+        .where((s) => s.classId == classId)
+        .toList();
+    if (students.isEmpty) return 0;
+    final subjects = await getSubjects(schoolId: schoolId);
+    final allGrades = await getGradesForClass(classId);
+    final periodGrades = allGrades
+        .where((g) => g.period == period && g.subjectId != null)
+        .toList();
+
+    // Calcul par élève.
+    final computed = <({
+      String studentId,
+      String name,
+      List<SbReportCardLine> lines,
+      double general,
+    })>[];
+    for (final st in students) {
+      final bySubject = <String, List<SbGrade>>{};
+      for (final g in periodGrades.where((g) => g.studentId == st.id)) {
+        (bySubject[g.subjectId!] ??= []).add(g);
+      }
+      final lines = <SbReportCardLine>[];
+      double totalPts = 0;
+      int totalCoef = 0;
+      for (final subj in subjects) {
+        final gs = bySubject[subj.id];
+        if (gs == null || gs.isEmpty) continue;
+        final avg = gs.fold(0.0, (a, g) => a + g.outOf20) / gs.length;
+        final comment = gs
+            .where((g) => g.comment != null && g.comment!.isNotEmpty)
+            .lastOrNull
+            ?.comment;
+        lines.add(SbReportCardLine(
+          subject: subj.name,
+          coef: subj.coefficient,
+          average: double.parse(avg.toStringAsFixed(2)),
+          appreciation: comment ?? _appreciationFor(avg),
+        ));
+        totalPts += avg * subj.coefficient;
+        totalCoef += subj.coefficient;
+      }
+      final general = totalCoef > 0 ? totalPts / totalCoef : 0.0;
+      computed.add((
+        studentId: st.id,
+        name: '${st.prenom} ${st.nom}'.trim(),
+        lines: lines,
+        general: general,
+      ));
+    }
+
+    // Rang (seuls les élèves ayant au moins une note sont classés).
+    final ranked = computed.where((c) => c.lines.isNotEmpty).toList()
+      ..sort((a, b) => b.general.compareTo(a.general));
+    final rankOf = <String, int>{};
+    for (int i = 0; i < ranked.length; i++) {
+      rankOf[ranked[i].studentId] = i + 1;
+    }
+    final classSize = ranked.length;
+
+    final rows = <Map<String, dynamic>>[];
+    final now = DateTime.now().toIso8601String();
+    for (final c in ranked) {
+      final general = double.parse(c.general.toStringAsFixed(2));
+      rows.add({
+        'school_id': schoolId,
+        'student_id': c.studentId,
+        'student_name': c.name,
+        'class_id': classId,
+        'academic_year': academicYear,
+        'period': period,
+        'lines': c.lines.map((l) => l.toJson()).toList(),
+        'general_average': general,
+        'rank': rankOf[c.studentId],
+        'class_size': classSize,
+        'mention': _mentionFor(general),
+        'status': 'draft',
+        'generated_at': now,
+        if (createdBy != null) 'created_by': createdBy,
+      });
+    }
+    if (rows.isNotEmpty) {
+      await _db
+          .from('report_cards')
+          .upsert(rows, onConflict: 'student_id,academic_year,period');
+    }
+    return rows.length;
+  }
+
+  /// Publie les bulletins (draft → published) d'une classe pour un trimestre.
+  /// Renvoie le nombre de bulletins publiés.
+  static Future<int> publishReportCards({
+    required String classId,
+    required String academicYear,
+    required String period,
+  }) async {
+    final updated = await _db
+        .from('report_cards')
+        .update({
+          'status': 'published',
+          'published_at': DateTime.now().toIso8601String(),
+        })
+        .eq('class_id', classId)
+        .eq('academic_year', academicYear)
+        .eq('period', period)
+        .eq('status', 'draft')
+        .select('id');
+    return (updated as List).length;
   }
 
   // ── Devoirs (assignments + submissions) ─────────────────────────────────────

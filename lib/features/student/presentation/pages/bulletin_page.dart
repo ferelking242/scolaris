@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/services/print_service.dart';
@@ -47,14 +46,6 @@ Color _mentionColor(double moy) {
   return ScolarisPalette.terracotta;
 }
 
-String _autoAppreciation(double avg) {
-  if (avg >= 16) return 'Excellent travail, continuez sur cette lancée';
-  if (avg >= 14) return 'Très bon résultat ce semestre';
-  if (avg >= 12) return 'Bon niveau, peut encore progresser';
-  if (avg >= 10) return 'Résultat passable, des efforts sont nécessaires';
-  return 'Résultat insuffisant, un travail important est requis';
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 class BulletinPage extends ConsumerStatefulWidget {
   const BulletinPage({super.key});
@@ -86,122 +77,79 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
     super.dispose();
   }
 
-  // ── Calcul des lignes du bulletin ─────────────────────────────────────────
-  List<_BulletinRow> _buildRows(
-      List<SbGrade> allGrades, List<SbSubject> subjects) {
-    // Garder seulement les notes du semestre actif
-    final periodGrades =
-        allGrades.where((g) => g.period == _period).toList();
-
-    // Grouper par matière
-    final Map<String, List<SbGrade>> bySubject = {};
-    for (final g in periodGrades) {
-      if (g.subjectId == null) continue;
-      (bySubject[g.subjectId!] ??= []).add(g);
-    }
-
-    final rows = <_BulletinRow>[];
-    for (final subj in subjects) {
-      final grades = bySubject[subj.id];
-      if (grades == null || grades.isEmpty) continue;
-      final avg =
-          grades.fold(0.0, (s, g) => s + g.outOf20) / grades.length;
-      final comment = grades
-          .where((g) => g.comment != null && g.comment!.isNotEmpty)
-          .lastOrNull
-          ?.comment;
-      rows.add(_BulletinRow(
-        matiere: subj.name,
-        coef: subj.coefficient,
-        moyenne: avg,
-        appreciation: comment ?? _autoAppreciation(avg),
-      ));
-    }
-    return rows;
-  }
-
-  double _generalAvg(List<_BulletinRow> rows) {
-    if (rows.isEmpty) return 0;
-    final totalPts =
-        rows.fold(0.0, (s, r) => s + r.moyenne * r.coef);
-    final totalCoef = rows.fold(0, (s, r) => s + r.coef);
-    return totalCoef > 0 ? totalPts / totalCoef : 0;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(authSessionProvider);
+    final session      = ref.watch(authSessionProvider);
     final studentAsync = ref.watch(myStudentProfileProvider);
     final schoolAsync  = ref.watch(schoolProvider);
-    final gradesAsync = session != null
-        ? ref.watch(gradesForStudentProvider(session.id))
-        : const AsyncValue<List<SbGrade>>.data([]);
-    final subjectsAsync = ref.watch(subjectsProvider);
+    // Source = bulletins PUBLIÉS par l'administration (pas un calcul live).
+    final cardsAsync   = ref.watch(myReportCardsProvider);
 
     return Container(
       color: _bg,
       child: Column(children: [
-        // ── Header + onglets ────────────────────────────────────────────
         _BulletinHeader(
           tab: _tab,
           schoolName: schoolAsync.valueOrNull?.name,
           studentClass: studentAsync.valueOrNull?.classe,
         ),
         Expanded(
-          child: subjectsAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) =>
-                Center(child: Text('Erreur matières : $e')),
-            data: (subjects) => gradesAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Erreur notes : $e')),
-              data: (allGrades) {
-                final rows = _buildRows(allGrades, subjects);
-                final avg = _generalAvg(rows);
-                final student = studentAsync.valueOrNull;
+          child: cardsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Erreur : $e')),
+            data: (cards) {
+              final student = studentAsync.valueOrNull;
+              final card =
+                  cards.where((c) => c.period == _period).firstOrNull;
+              final rows = card?.lines
+                      .map((l) => _BulletinRow(
+                            matiere: l.subject,
+                            coef: l.coef,
+                            moyenne: l.average,
+                            appreciation: l.appreciation,
+                          ))
+                      .toList() ??
+                  const <_BulletinRow>[];
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    // Info élève
-                    _StudentInfoCard(
-                      name: session?.fullName ?? 'Élève',
-                      classe: student?.classe,
-                      matricule: student?.matricule,
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  _StudentInfoCard(
+                    name: card?.studentName ?? session?.fullName ?? 'Élève',
+                    classe: student?.classe,
+                    matricule: student?.matricule,
+                    periodLabel: _periodLabel,
+                  ),
+                  const SizedBox(height: 14),
+                  if (card == null)
+                    _NotPublished(periodLabel: _periodLabel)
+                  else ...[
+                    _GradesTable(rows: rows),
+                    const SizedBox(height: 14),
+                    _SummaryCard(
+                      moyenne: card.generalAverage,
+                      mention: card.mention ?? _mention(card.generalAverage),
+                      mColor: _mentionColor(card.generalAverage),
                       periodLabel: _periodLabel,
+                      rank: card.rank,
+                      classSize: card.classSize,
                     ),
                     const SizedBox(height: 14),
-
-                    if (rows.isEmpty)
-                      const _EmptyBulletin()
-                    else ...[
-                      _GradesTable(rows: rows),
-                      const SizedBox(height: 14),
-                      _SummaryCard(
-                        moyenne: avg,
-                        mention: _mention(avg),
-                        mColor: _mentionColor(avg),
-                        periodLabel: _periodLabel,
-                      ),
-                      const SizedBox(height: 14),
-                      _CouncilCard(moyenne: avg),
-                      const SizedBox(height: 14),
-                      _PrintBtn(
-                        studentName: session?.fullName ?? '',
-                        schoolName: schoolAsync.valueOrNull?.name ?? 'École',
-                        rows: rows,
-                        avg: avg,
-                        period: _period,
-                      ),
-                      const SizedBox(height: 40),
-                    ],
-                  ]),
-                );
-              },
-            ),
+                    _CouncilCard(moyenne: card.generalAverage),
+                    const SizedBox(height: 14),
+                    _PrintBtn(
+                      studentName:
+                          card.studentName ?? session?.fullName ?? '',
+                      schoolName: schoolAsync.valueOrNull?.name ?? 'École',
+                      rows: rows,
+                      avg: card.generalAverage,
+                      period: _period,
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ]),
+              );
+            },
           ),
         ),
       ]),
@@ -553,11 +501,15 @@ class _SummaryCard extends StatelessWidget {
   final String mention;
   final Color mColor;
   final String periodLabel;
+  final int? rank;
+  final int? classSize;
   const _SummaryCard(
       {required this.moyenne,
       required this.mention,
       required this.mColor,
-      required this.periodLabel});
+      required this.periodLabel,
+      this.rank,
+      this.classSize});
 
   @override
   Widget build(BuildContext context) {
@@ -599,8 +551,24 @@ class _SummaryCard extends StatelessWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text(periodLabel,
-              style: const TextStyle(color: _muted, fontSize: 12)),
+          Row(children: [
+            Text(periodLabel,
+                style: const TextStyle(color: _muted, fontSize: 12)),
+            if (rank != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: mColor.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                    'Rang $rank${classSize != null ? ' / $classSize' : ''}',
+                    style: TextStyle(
+                        color: mColor, fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ]),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -670,9 +638,10 @@ class _CouncilCard extends StatelessWidget {
   }
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-class _EmptyBulletin extends StatelessWidget {
-  const _EmptyBulletin();
+// ── Bulletin non publié ─────────────────────────────────────────────────────
+class _NotPublished extends StatelessWidget {
+  final String periodLabel;
+  const _NotPublished({required this.periodLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -683,19 +652,18 @@ class _EmptyBulletin extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.receipt_long_outlined, size: 48, color: Color(0xFFDDCCBB)),
-          SizedBox(height: 12),
-          Text('Aucune note pour ce semestre',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: _ink)),
-          SizedBox(height: 6),
-          Text(
-              'Les notes saisies par vos enseignants\napparaîtront ici.',
+          const Icon(Icons.lock_clock_outlined, size: 48, color: Color(0xFFDDCCBB)),
+          const SizedBox(height: 12),
+          Text('Bulletin du $periodLabel pas encore disponible',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: _ink)),
+          const SizedBox(height: 6),
+          const Text(
+              'Il sera visible ici dès que ton établissement\naura publié les bulletins du trimestre.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: _muted, height: 1.5)),
         ],

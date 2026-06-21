@@ -14,6 +14,7 @@ import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/admin_billing_page.dart';
+import 'pages/report_cards_page.dart';
 import 'pages/admin_school_page.dart';
 import 'pages/admin_subscription_page.dart';
 import 'pages/admin_classes_page.dart';
@@ -69,6 +70,10 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.grade_outlined, activeIcon: Icons.grade_rounded,
           labelKey: 'nav.grades',
           page: PermissionGuard(permission: StaffPermissions.grades, child: AdminGradesPage()),
+          permission: StaffPermissions.grades),
+      RoleNavEntry(icon: Icons.workspace_premium_outlined, activeIcon: Icons.workspace_premium_rounded,
+          labelKey: 'nav.report_cards',
+          page: PermissionGuard(permission: StaffPermissions.grades, child: ReportCardsPage()),
           permission: StaffPermissions.grades),
       RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
           labelKey: 'nav.reports',

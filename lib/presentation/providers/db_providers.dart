@@ -160,6 +160,28 @@ final gradesForClassSubjectPeriodProvider =
       parts[0], parts[1], parts[2]);
 });
 
+// ── Bulletins officiels (report_cards) ───────────────────────────────────────
+/// Bulletins d'une classe pour un trimestre (vue admin). Clé : "classId|year|period".
+final reportCardsForClassProvider =
+    FutureProvider.family<List<SbReportCard>, String>((ref, key) async {
+  final parts = key.split('|');
+  if (parts.length != 3) return [];
+  return SupabaseDbSource.getReportCardsForClass(parts[0], parts[1], parts[2]);
+});
+
+/// Bulletins PUBLIÉS de l'élève connecté (vue élève).
+final myReportCardsProvider = FutureProvider<List<SbReportCard>>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return [];
+  return SupabaseDbSource.getReportCardsForStudent(session.id);
+});
+
+/// Bulletins PUBLIÉS d'un élève donné (vue parent — clé : studentId).
+final reportCardsForStudentProvider =
+    FutureProvider.family<List<SbReportCard>, String>((ref, studentId) async {
+  return SupabaseDbSource.getReportCardsForStudent(studentId);
+});
+
 // ── Current student grades ────────────────────────────────────────────────────
 final myGradesProvider = FutureProvider<List<SbGrade>>((ref) async {
   final session = ref.watch(authSessionProvider);
