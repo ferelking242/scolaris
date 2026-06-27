@@ -10,18 +10,19 @@ import '../../../presentation/providers/auth_providers.dart';
 import 'forgot_password_screen.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
-const _terra  = ScolarisPalette.terracotta;
-const _gold   = ScolarisPalette.gold;
+const _terra  = ScolarisPalette.terracotta;   // #8B1A00
+const _gold   = ScolarisPalette.gold;          // #C17F24
+const _forest = ScolarisPalette.forestGreen;   // #1B5E20
 
-// ── Shadcn design tokens ──────────────────────────────────────────────────────
+// ── Shadcn neutral tokens ─────────────────────────────────────────────────────
 const _ink    = Color(0xFF0F172A);
 const _muted  = Color(0xFF64748B);
 const _subtle = Color(0xFF94A3B8);
 const _border = Color(0xFFE2E8F0);
-const _bg     = Color(0xFFF8FAFC);
+const _bgPage = Color(0xFFFAFAF8);
 const _white  = Colors.white;
 
-// Hero gradient
+// ── Hero gradient (desktop left panel) ───────────────────────────────────────
 const _h1 = Color(0xFF1C0500);
 const _h2 = Color(0xFF6B1200);
 const _h3 = Color(0xFF3D1000);
@@ -29,12 +30,11 @@ const _h3 = Color(0xFF3D1000);
 // ── LottieFiles CDN ───────────────────────────────────────────────────────────
 const _lottieHero = 'https://lottie.host/4db68bbd-31f6-4cd8-84eb-189de081159a/krfYT2LQGW.json';
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 // LoginScreen
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
-
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
@@ -49,14 +49,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool    _loading       = false;
   bool    _obscure       = true;
   String? _error;
+  bool    _showQrTab     = false;
+  bool    _showQrScanner = false;
+  int     _titleTaps     = 0;
+
+  // Demo mode
   String  _selectedRole    = 'student';
   String? _selectedSubtype = 'lycee';
-  bool    _showQrScanner   = false;
 
   late final AnimationController _fadeCtrl;
   late final Animation<double>   _fadeAnim;
-  late final AnimationController _slideCtrl;
-  late final Animation<Offset>   _slideAnim;
 
   static const _roles = [
     ('student',      Icons.school_outlined,               'Élève'),
@@ -69,29 +71,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   static const _subTypeMap = <String, List<(String, String, IconData)>>{
     'student': [
-      ('primaire',   'Primaire',   Icons.child_care_outlined),
-      ('college',    'Collège',    Icons.school_outlined),
-      ('lycee',      'Lycée',      Icons.account_balance_outlined),
-      ('univ',       'Université', Icons.science_outlined),
+      ('primaire',   'Primaire',    Icons.child_care_outlined),
+      ('college',    'Collège',     Icons.school_outlined),
+      ('lycee',      'Lycée',       Icons.account_balance_outlined),
+      ('univ',       'Université',  Icons.science_outlined),
     ],
     'teacher': [
-      ('primaire',   'Primaire',   Icons.child_care_outlined),
-      ('secondaire', 'Secondaire', Icons.school_outlined),
-      ('univ',       'Université', Icons.science_outlined),
+      ('primaire',   'Primaire',    Icons.child_care_outlined),
+      ('secondaire', 'Secondaire',  Icons.school_outlined),
+      ('univ',       'Université',  Icons.science_outlined),
     ],
     'parent': [
-      ('primaire',   'Primaire',   Icons.child_care_outlined),
-      ('college',    'Collège',    Icons.school_outlined),
-      ('lycee',      'Lycée',      Icons.account_balance_outlined),
+      ('primaire',   'Primaire',    Icons.child_care_outlined),
+      ('college',    'Collège',     Icons.school_outlined),
+      ('lycee',      'Lycée',       Icons.account_balance_outlined),
     ],
     'admin': [
-      ('directeur',  'Directeur',  Icons.badge_outlined),
-      ('secretaire', 'Secrétariat',Icons.person_outlined),
-      ('dg',         'Dir. Gén.',  Icons.workspace_premium_outlined),
+      ('directeur',  'Directeur',   Icons.badge_outlined),
+      ('secretaire', 'Secrétariat', Icons.person_outlined),
+      ('dg',         'Dir. Gén.',   Icons.workspace_premium_outlined),
     ],
     'finance': [
-      ('comptable',  'Comptable',  Icons.calculate_outlined),
-      ('caissier',   'Caissier',   Icons.point_of_sale_outlined),
+      ('comptable',  'Comptable',   Icons.calculate_outlined),
+      ('caissier',   'Caissier',    Icons.point_of_sale_outlined),
     ],
     'surveillance': [
       ('sg',  'Surv. Gén.',  Icons.security_outlined),
@@ -103,18 +105,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _fadeCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+        vsync: this, duration: const Duration(milliseconds: 700));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    _slideCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 450));
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut));
     _fadeCtrl.forward();
-    Future.delayed(const Duration(milliseconds: 80), () {
-      if (mounted) _slideCtrl.forward();
-    });
   }
 
   @override
@@ -124,33 +117,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _emailFocus.dispose();
     _passFocus.dispose();
     _fadeCtrl.dispose();
-    _slideCtrl.dispose();
     super.dispose();
   }
 
-  void _selectRole(String role) {
-    final subs     = _subTypeMap[role];
-    final firstSub = subs?.isNotEmpty == true ? subs!.first.$1 : null;
-    setState(() {
-      _selectedRole    = role;
-      _selectedSubtype = firstSub;
-      _emailCtrl.text  = firstSub != null
-          ? '${role}_${firstSub}@scolaris.app'
-          : '$role@scolaris.app';
-      _passCtrl.text   = 'demo1234';
-      _error           = null;
-    });
+  // ── 3-tap secret demo reveal ───────────────────────────────────────────────
+  void _onTitleTap() {
+    setState(() => _titleTaps++);
+    if (_titleTaps >= 3) {
+      setState(() => _titleTaps = 0);
+      _openDemoSheet();
+    }
   }
 
-  void _selectSubtype(String sub) {
-    setState(() {
-      _selectedSubtype = sub;
-      _emailCtrl.text  = '${_selectedRole}_${sub}@scolaris.app';
-      _error           = null;
-    });
+  void _openDemoSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DemoSheet(
+        selectedRole: _selectedRole,
+        selectedSubtype: _selectedSubtype,
+        roles: _roles,
+        subTypeMap: _subTypeMap,
+        onConfirm: (role, sub) {
+          setState(() {
+            _selectedRole    = role;
+            _selectedSubtype = sub;
+            _emailCtrl.text  = sub != null
+                ? '${role}_${sub}@scolaris.app'
+                : '$role@scolaris.app';
+            _passCtrl.text   = 'demo1234';
+            _error           = null;
+            _showQrTab       = false;
+          });
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
 
+  // ── Auth ───────────────────────────────────────────────────────────────────
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     final email = _emailCtrl.text.trim();
     final pass  = _passCtrl.text;
     if (email.isEmpty || !email.contains('@')) {
@@ -167,12 +175,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     } on ArgumentError catch (e) {
       if (mounted) setState(() => _error = (e.message as String).tr());
     } catch (_) {
-      if (mounted) setState(() => _error = 'auth.errors.failed'.tr());
+      if (mounted) setState(() => _error = 'Identifiants incorrects. Réessayez.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  // ── QR ─────────────────────────────────────────────────────────────────────
   Future<void> _handleQr(BarcodeCapture capture) async {
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null || !raw.startsWith('scolaris://')) return;
@@ -187,6 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     Future.microtask(_submit);
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_showQrScanner) {
@@ -198,125 +208,301 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     final w         = MediaQuery.sizeOf(context).width;
     final isDesktop = w >= 900;
-    final isTablet  = w >= 600 && w < 900;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: isDesktop ? _bg : _white,
+        backgroundColor: _bgPage,
+        resizeToAvoidBottomInset: false,
         body: FadeTransition(
           opacity: _fadeAnim,
-          child: isDesktop
-              ? _DesktopLayout(state: this)
-              : _MobileLayout(state: this, isTablet: isTablet),
+          child: isDesktop ? _buildDesktop() : _buildMobile(),
         ),
       ),
     );
   }
-}
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Desktop — split hero | form
-// ═════════════════════════════════════════════════════════════════════════════
-class _DesktopLayout extends StatelessWidget {
-  final _LoginScreenState state;
-  const _DesktopLayout({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(flex: 44, child: _HeroPanel()),
-        Expanded(
-          flex: 56,
+  // ══════════════════════════════════════════════════════════════════════════
+  // DESKTOP — split hero | form
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildDesktop() {
+    return Row(children: [
+      const Expanded(flex: 44, child: _HeroPanel()),
+      Expanded(
+        flex: 56,
+        child: Container(
+          color: _white,
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 52),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: SlideTransition(
-                  position: state._slideAnim,
-                  child: _FormContent(state: state, isDesktop: true),
-                ),
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: _buildFormBody(isDesktop: true),
               ),
             ),
           ),
         ),
-      ],
-    );
+      ),
+    ]);
   }
-}
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Mobile / Tablet layout
-// ═════════════════════════════════════════════════════════════════════════════
-class _MobileLayout extends StatelessWidget {
-  final _LoginScreenState state;
-  final bool isTablet;
-  const _MobileLayout({required this.state, required this.isTablet});
+  // ══════════════════════════════════════════════════════════════════════════
+  // MOBILE — landscape background + scrollable form
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildMobile() {
+    final h           = MediaQuery.sizeOf(context).height;
+    final landscapeH  = (h * 0.30).clamp(180.0, 280.0);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-  @override
-  Widget build(BuildContext context) {
-    final h    = MediaQuery.sizeOf(context).height;
-    final topH = isTablet ? h * 0.28 : h * 0.24;
-
-    return Stack(
-      children: [
-        // Gradient strip at top
-        Positioned(
-          top: 0, left: 0, right: 0,
-          height: topH + 30,
-          child: const DecoratedBox(
+    return Stack(children: [
+      // Landscape image fixed at bottom
+      Positioned(
+        bottom: 0, left: 0, right: 0,
+        height: landscapeH,
+        child: Image.asset(
+          'assets/images/login_bg.webp',
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          errorBuilder: (_, __, ___) => Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_h1, _h2, _h3],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _forest.withOpacity(0.05),
+                  _forest.withOpacity(0.3),
+                ],
               ),
             ),
           ),
         ),
-        // Lottie in top area
-        Positioned(
-          top: 0, left: 0, right: 0,
-          height: topH,
-          child: const _HeroLottie(compact: true),
-        ),
-        // White card from bottom
-        Positioned(
-          top: topH - 18,
-          left: 0, right: 0, bottom: 0,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: _white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      // Scrollable form
+      Positioned.fill(
+        child: SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.only(
+              bottom: (bottomInset > 0 ? bottomInset : landscapeH) + 24,
             ),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
-                top: 26,
-                left: isTablet ? 48 : 22,
-                right: isTablet ? 48 : 22,
-                bottom: MediaQuery.viewInsetsOf(context).bottom + 40,
-              ),
-              child: isTablet
-                  ? Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 460),
-                        child: _FormContent(state: state, isDesktop: false),
-                      ),
-                    )
-                  : _FormContent(state: state, isDesktop: false),
+            child: _buildFormBody(isDesktop: false),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHARED FORM BODY
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildFormBody({required bool isDesktop}) {
+    final hPad = isDesktop ? 0.0 : 28.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(height: isDesktop ? 0 : 44),
+
+        // Logo badge
+        _LogoBadge(size: isDesktop ? 52 : 72),
+        const SizedBox(height: 14),
+
+        // Sparkle tag
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Text('✦', style: TextStyle(fontSize: 11, color: _gold)),
+          const SizedBox(width: 7),
+          Text(
+            'Plateforme scolaire africaine',
+            style: TextStyle(
+              fontSize: 11.5, color: _muted,
+              fontWeight: FontWeight.w500, letterSpacing: 0.3,
             ),
           ),
+          const SizedBox(width: 7),
+          const Text('✦', style: TextStyle(fontSize: 11, color: _gold)),
+        ]),
+        const SizedBox(height: 18),
+
+        // Title — 3 taps = demo mode
+        GestureDetector(
+          onTap: _onTitleTap,
+          behavior: HitTestBehavior.opaque,
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: const TextSpan(
+              style: TextStyle(fontFamily: 'Roboto', height: 1.2),
+              children: [
+                TextSpan(
+                  text: 'Bon retour,\n',
+                  style: TextStyle(
+                    fontSize: 30, fontWeight: FontWeight.w800,
+                    color: _ink, letterSpacing: -0.6,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Bienvenue.',
+                  style: TextStyle(
+                    fontSize: 30, fontWeight: FontWeight.w800,
+                    color: _terra, letterSpacing: -0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Continuez vers votre espace Scolaris\net gérez votre établissement.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13, color: _muted, height: 1.55,
+          ),
+        ),
+        SizedBox(height: isDesktop ? 36 : 30),
+
+        // ── Tab bar ─────────────────────────────────────────────────────────
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: hPad),
+          child: _TabPicker(
+            showQr: _showQrTab,
+            onChanged: (v) => setState(() { _showQrTab = v; _error = null; }),
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // ── Tab content ──────────────────────────────────────────────────────
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: hPad),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+            child: _showQrTab
+                ? _buildQrContent()
+                : _buildEmailContent(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Email form ─────────────────────────────────────────────────────────────
+  Widget _buildEmailContent() {
+    return Column(
+      key: const ValueKey('email'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ShadcnInput(
+          controller: _emailCtrl,
+          focusNode: _emailFocus,
+          label: 'Adresse e-mail',
+          hint: 'prenom.nom@ecole.com',
+          icon: Icons.alternate_email_rounded,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => _passFocus.requestFocus(),
+        ),
+        const SizedBox(height: 14),
+        _ShadcnInput(
+          controller: _passCtrl,
+          focusNode: _passFocus,
+          label: 'Mot de passe',
+          hint: '••••••••',
+          icon: Icons.lock_outline_rounded,
+          obscureText: _obscure,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          suffixIcon: GestureDetector(
+            onTap: () => setState(() => _obscure = !_obscure),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(
+                _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                size: 17, color: _subtle,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+            child: const Text('Mot de passe oublié ?', style: TextStyle(
+              fontSize: 12.5, color: _terra, fontWeight: FontWeight.w600,
+            )),
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (_error != null) ...[
+          _ErrorBanner(message: _error!),
+          const SizedBox(height: 14),
+        ],
+        _PrimaryButton(
+          label: 'Se connecter',
+          loading: _loading,
+          onPressed: _submit,
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: Text('Scolaris · v0.1', style: TextStyle(
+            fontSize: 10.5, color: _muted.withOpacity(0.35),
+          )),
+        ),
+      ],
+    );
+  }
+
+  // ── QR tab ─────────────────────────────────────────────────────────────────
+  Widget _buildQrContent() {
+    return Column(
+      key: const ValueKey('qr'),
+      children: [
+        const SizedBox(height: 16),
+        Container(
+          width: 96, height: 96,
+          decoration: BoxDecoration(
+            color: _forest.withOpacity(0.08),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.qr_code_2_rounded, size: 48, color: _forest),
+        ),
+        const SizedBox(height: 20),
+        const Text('Connexion par QR code', style: TextStyle(
+          fontSize: 18, fontWeight: FontWeight.w700, color: _ink,
+        )),
+        const SizedBox(height: 8),
+        Text(
+          'Pointez votre caméra vers le QR code\nde votre carte Scolaris.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: _muted, height: 1.6),
+        ),
+        const SizedBox(height: 28),
+        if (_error != null) ...[
+          _ErrorBanner(message: _error!),
+          const SizedBox(height: 14),
+        ],
+        _PrimaryButton(
+          label: 'Ouvrir le scanner',
+          loading: false,
+          onPressed: () => setState(() => _showQrScanner = true),
+          icon: Icons.qr_code_scanner_rounded,
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: Text('Scolaris · v0.1', style: TextStyle(
+            fontSize: 10.5, color: _muted.withOpacity(0.35),
+          )),
         ),
       ],
     );
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Hero Panel — desktop left side
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// _HeroPanel — desktop left dark panel
+// ══════════════════════════════════════════════════════════════════════════════
 class _HeroPanel extends StatelessWidget {
   const _HeroPanel();
 
@@ -340,7 +526,6 @@ class _HeroPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo + name
                 Row(children: [
                   _LogoBadge(size: 44, light: true),
                   const SizedBox(width: 12),
@@ -349,37 +534,33 @@ class _HeroPanel extends StatelessWidget {
                     color: _white, letterSpacing: -0.8,
                   )),
                 ]),
-                const SizedBox(height: 32),
-                const Text('La plateforme de\ngestion scolaire\nafricaine.', style: TextStyle(
-                  fontSize: 30, fontWeight: FontWeight.w800,
-                  color: _white, letterSpacing: -0.8,
-                  height: 1.25,
-                )),
-                const SizedBox(height: 12),
-                Text(
-                  'Gérez élèves, notes, finances\net emplois du temps en un seul endroit.',
+                const SizedBox(height: 36),
+                const Text(
+                  'La plateforme\nde gestion scolaire\nafricaine.',
                   style: TextStyle(
-                    fontSize: 13.5, color: _white.withOpacity(0.6),
-                    height: 1.65,
+                    fontSize: 28, fontWeight: FontWeight.w800,
+                    color: _white, letterSpacing: -0.6, height: 1.25,
                   ),
                 ),
-                // Lottie animation — fills remaining space
+                const SizedBox(height: 12),
+                Text(
+                  'Élèves, notes, finances, emplois du temps\n— tout en un seul endroit.',
+                  style: TextStyle(
+                    fontSize: 13.5, color: _white.withOpacity(0.6),
+                    height: 1.6,
+                  ),
+                ),
                 const Expanded(
-                  child: Center(child: _HeroLottie()),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 300, maxHeight: 280),
+                      child: _HeroLottie(),
+                    ),
+                  ),
                 ),
-                // Features
-                _FeaturePill(
-                  icon: Icons.groups_2_outlined,
-                  label: 'Élèves, parents & enseignants',
-                ),
-                _FeaturePill(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Notes, bulletins & rapports',
-                ),
-                _FeaturePill(
-                  icon: Icons.account_balance_outlined,
-                  label: 'Finance & frais scolaires',
-                ),
+                _FeaturePill(icon: Icons.groups_2_outlined,         label: 'Élèves, parents & enseignants'),
+                _FeaturePill(icon: Icons.bar_chart_rounded,          label: 'Notes, bulletins & rapports'),
+                _FeaturePill(icon: Icons.account_balance_outlined,   label: 'Finance & frais scolaires'),
               ],
             ),
           ),
@@ -389,30 +570,101 @@ class _HeroPanel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Lottie widget — LottieFiles CDN with local fallback
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Lottie hero animation
+// ══════════════════════════════════════════════════════════════════════════════
 class _HeroLottie extends StatelessWidget {
-  final bool compact;
-  const _HeroLottie({this.compact = false});
+  const _HeroLottie();
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: compact ? 150 : 320,
-        maxWidth: 320,
-      ),
-      child: Lottie.network(
-        _lottieHero,
+    return Lottie.network(
+      _lottieHero,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Lottie.asset(
+        'assets/lottie/school_building.json',
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Lottie.asset(
-          'assets/lottie/school_building.json',
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Icon(
-            Icons.school_rounded,
-            size: compact ? 64 : 96,
-            color: _white.withOpacity(0.35),
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.school_rounded,
+          size: 100,
+          color: _white.withOpacity(0.3),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab picker — Connexion | QR Code
+// ══════════════════════════════════════════════════════════════════════════════
+class _TabPicker extends StatelessWidget {
+  final bool showQr;
+  final ValueChanged<bool> onChanged;
+  const _TabPicker({required this.showQr, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(children: [
+        _Tab(
+          label: 'Connexion',
+          icon: Icons.mail_outline_rounded,
+          selected: !showQr,
+          onTap: () => onChanged(false),
+        ),
+        _Tab(
+          label: 'QR Code',
+          icon: Icons.qr_code_rounded,
+          selected: showQr,
+          onTap: () => onChanged(true),
+        ),
+      ]),
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _Tab({required this.label, required this.icon, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: selected ? _white : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: selected ? [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 4, offset: const Offset(0, 1),
+              ),
+            ] : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14,
+                  color: selected ? _terra : _muted),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? _ink : _muted,
+              )),
+            ],
           ),
         ),
       ),
@@ -420,9 +672,210 @@ class _HeroLottie extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Feature pill for hero
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Demo bottom sheet — revealed by 3 taps on title
+// ══════════════════════════════════════════════════════════════════════════════
+class _DemoSheet extends StatefulWidget {
+  final String selectedRole;
+  final String? selectedSubtype;
+  final List<(String, IconData, String)> roles;
+  final Map<String, List<(String, String, IconData)>> subTypeMap;
+  final void Function(String role, String? sub) onConfirm;
+
+  const _DemoSheet({
+    required this.selectedRole,
+    required this.selectedSubtype,
+    required this.roles,
+    required this.subTypeMap,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_DemoSheet> createState() => _DemoSheetState();
+}
+
+class _DemoSheetState extends State<_DemoSheet> {
+  late String  _role;
+  late String? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _role = widget.selectedRole;
+    _sub  = widget.selectedSubtype;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subtypes = widget.subTypeMap[_role] ?? [];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      decoration: const BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.all(Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          const SizedBox(height: 12),
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.play_circle_outline_rounded, size: 16, color: _gold),
+              const SizedBox(width: 8),
+              const Text('Mode démonstration', style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: _ink,
+              )),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('Choisissez un profil pour tester', style: TextStyle(
+            fontSize: 13, color: _muted,
+          )),
+          const SizedBox(height: 24),
+          // Roles
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 8, runSpacing: 8,
+              children: widget.roles.map((r) {
+                final sel = r.$1 == _role;
+                return GestureDetector(
+                  onTap: () {
+                    final subs = widget.subTypeMap[r.$1];
+                    setState(() {
+                      _role = r.$1;
+                      _sub  = subs?.isNotEmpty == true ? subs!.first.$1 : null;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sel ? _terra : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: sel ? _terra : _border),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(r.$2, size: 14, color: sel ? _white : _muted),
+                      const SizedBox(width: 6),
+                      Text(r.$3, style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600,
+                        color: sel ? _white : _ink,
+                      )),
+                    ]),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          // Subtypes
+          if (subtypes.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8, runSpacing: 8,
+                children: subtypes.map((s) {
+                  final sel = s.$1 == _sub;
+                  return GestureDetector(
+                    onTap: () => setState(() => _sub = s.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel ? const Color(0xFFFEF3EE) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: sel ? _terra.withOpacity(0.4) : _border,
+                        ),
+                      ),
+                      child: Text(s.$2, style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                        color: sel ? _terra : _muted,
+                      )),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          // Confirm button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _PrimaryButton(
+              label: 'Utiliser ce profil',
+              loading: false,
+              onPressed: () => widget.onConfirm(_role, _sub),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Logo badge
+// ══════════════════════════════════════════════════════════════════════════════
+class _LogoBadge extends StatelessWidget {
+  final double size;
+  final bool light;
+  const _LogoBadge({required this.size, this.light = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size, height: size,
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          colors: light
+              ? [_white.withOpacity(0.2), _white.withOpacity(0.08)]
+              : [_terra, const Color(0xFFB52000)],
+          radius: 1.2,
+        ),
+        shape: BoxShape.circle,
+        boxShadow: light ? [] : [
+          BoxShadow(
+            color: _terra.withOpacity(0.28),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        'S',
+        style: TextStyle(
+          fontSize: size * 0.5,
+          fontWeight: FontWeight.w900,
+          color: _white,
+          letterSpacing: -1,
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Feature pill (hero panel)
+// ══════════════════════════════════════════════════════════════════════════════
 class _FeaturePill extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -436,7 +889,7 @@ class _FeaturePill extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: _white.withOpacity(0.09),
+            color: _white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(7),
           ),
           child: Icon(icon, size: 13, color: _white.withOpacity(0.85)),
@@ -451,318 +904,15 @@ class _FeaturePill extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Form Content — shared between desktop and mobile
-// ═════════════════════════════════════════════════════════════════════════════
-class _FormContent extends StatelessWidget {
-  final _LoginScreenState state;
-  final bool isDesktop;
-  const _FormContent({required this.state, required this.isDesktop});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Header ────────────────────────────────────────────────────────────
-        Row(children: [
-          _LogoBadge(size: isDesktop ? 42 : 36, light: false),
-          const SizedBox(width: 10),
-          Text('Scolaris', style: TextStyle(
-            fontSize: isDesktop ? 20 : 18,
-            fontWeight: FontWeight.w900,
-            color: _terra,
-            letterSpacing: -0.4,
-          )),
-        ]),
-        SizedBox(height: isDesktop ? 36 : 22),
-
-        const Text('Bienvenue 👋', style: TextStyle(
-          fontSize: 27, fontWeight: FontWeight.w800,
-          color: _ink, letterSpacing: -0.6,
-        )),
-        const SizedBox(height: 4),
-        const Text('Connectez-vous à votre espace Scolaris', style: TextStyle(
-          fontSize: 13.5, color: _muted, fontWeight: FontWeight.w400,
-        )),
-        const SizedBox(height: 24),
-
-        // ── Demo section ──────────────────────────────────────────────────────
-        _DemoCard(
-          selectedRole: state._selectedRole,
-          selectedSubtype: state._selectedSubtype,
-          roles: _LoginScreenState._roles,
-          subTypeMap: _LoginScreenState._subTypeMap,
-          onRoleSelected: state._selectRole,
-          onSubtypeSelected: state._selectSubtype,
-        ),
-        const SizedBox(height: 22),
-
-        // ── Email ─────────────────────────────────────────────────────────────
-        _ShadcnInput(
-          controller: state._emailCtrl,
-          focusNode: state._emailFocus,
-          label: 'Adresse e-mail',
-          hint: 'prenom.nom@ecole.com',
-          prefixIcon: Icons.alternate_email_rounded,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => state._passFocus.requestFocus(),
-        ),
-        const SizedBox(height: 14),
-
-        // ── Password ──────────────────────────────────────────────────────────
-        _ShadcnInput(
-          controller: state._passCtrl,
-          focusNode: state._passFocus,
-          label: 'Mot de passe',
-          hint: '••••••••',
-          prefixIcon: Icons.lock_outline_rounded,
-          obscureText: state._obscure,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => state._submit(),
-          suffixIcon: GestureDetector(
-            onTap: () => state.setState(() => state._obscure = !state._obscure),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Icon(
-                state._obscure
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                size: 17,
-                color: _subtle,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // ── Forgot password ───────────────────────────────────────────────────
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-            ),
-            child: const Text('Mot de passe oublié ?', style: TextStyle(
-              fontSize: 12.5, color: _terra, fontWeight: FontWeight.w600,
-            )),
-          ),
-        ),
-        const SizedBox(height: 18),
-
-        // ── Error ─────────────────────────────────────────────────────────────
-        if (state._error != null) ...[
-          _ErrorBanner(message: state._error!),
-          const SizedBox(height: 14),
-        ],
-
-        // ── Submit ────────────────────────────────────────────────────────────
-        _ShadcnButton(
-          label: 'Se connecter',
-          loading: state._loading,
-          onPressed: state._submit,
-        ),
-        const SizedBox(height: 18),
-
-        // ── Divider ───────────────────────────────────────────────────────────
-        Row(children: [
-          const Expanded(child: Divider(color: _border, thickness: 1)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text('ou', style: TextStyle(
-              fontSize: 11.5, color: _muted.withOpacity(0.65),
-              fontWeight: FontWeight.w500,
-            )),
-          ),
-          const Expanded(child: Divider(color: _border, thickness: 1)),
-        ]),
-        const SizedBox(height: 16),
-
-        // ── QR button ─────────────────────────────────────────────────────────
-        _OutlineButton(
-          icon: Icons.qr_code_scanner_rounded,
-          label: 'Scanner un QR code',
-          onPressed: () => state.setState(() => state._showQrScanner = true),
-        ),
-        const SizedBox(height: 30),
-
-        // ── Footer ────────────────────────────────────────────────────────────
-        Center(
-          child: Text('Scolaris · v0.1 · Démo', style: TextStyle(
-            fontSize: 11, color: _muted.withOpacity(0.35),
-          )),
-        ),
-      ],
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Logo Badge
-// ═════════════════════════════════════════════════════════════════════════════
-class _LogoBadge extends StatelessWidget {
-  final double size;
-  final bool light;
-  const _LogoBadge({required this.size, this.light = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: light
-            ? _white.withOpacity(0.12)
-            : _terra.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(size * 0.24),
-        border: Border.all(
-          color: light
-              ? _white.withOpacity(0.22)
-              : _terra.withOpacity(0.22),
-          width: 1,
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        'S',
-        style: TextStyle(
-          fontSize: size * 0.52,
-          fontWeight: FontWeight.w900,
-          color: light ? _white : _terra,
-          letterSpacing: -1,
-        ),
-      ),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Demo card — role + subtype picker
-// ═════════════════════════════════════════════════════════════════════════════
-class _DemoCard extends StatelessWidget {
-  final String selectedRole;
-  final String? selectedSubtype;
-  final List<(String, IconData, String)> roles;
-  final Map<String, List<(String, String, IconData)>> subTypeMap;
-  final ValueChanged<String> onRoleSelected;
-  final ValueChanged<String> onSubtypeSelected;
-
-  const _DemoCard({
-    required this.selectedRole,
-    required this.selectedSubtype,
-    required this.roles,
-    required this.subTypeMap,
-    required this.onRoleSelected,
-    required this.onSubtypeSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final subtypes = subTypeMap[selectedRole] ?? [];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF8),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.play_circle_outline_rounded, size: 11, color: _gold),
-          const SizedBox(width: 5),
-          Text('Mode démo — choisissez un profil', style: TextStyle(
-            fontSize: 10.5, fontWeight: FontWeight.w600,
-            color: _muted.withOpacity(0.8),
-          )),
-        ]),
-        const SizedBox(height: 9),
-        // Roles
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: roles.map((r) {
-              final sel = r.$1 == selectedRole;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: GestureDetector(
-                  onTap: () => onRoleSelected(r.$1),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: sel ? _terra : _white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: sel ? _terra : _border,
-                      ),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(r.$2, size: 11,
-                          color: sel ? _white : _muted),
-                      const SizedBox(width: 4),
-                      Text(r.$3, style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600,
-                        color: sel ? _white : _ink,
-                      )),
-                    ]),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        // Subtypes
-        if (subtypes.isNotEmpty) ...[
-          const SizedBox(height: 7),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: subtypes.map((s) {
-                final sel = s.$1 == selectedSubtype;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 5),
-                  child: GestureDetector(
-                    onTap: () => onSubtypeSelected(s.$1),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: sel ? const Color(0xFFFEF3EE) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: sel
-                              ? _terra.withOpacity(0.3)
-                              : Colors.transparent,
-                        ),
-                      ),
-                      child: Text(s.$2, style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? _terra : _muted,
-                      )),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ]),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Shadcn-style input field
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Shadcn-style input
+// ══════════════════════════════════════════════════════════════════════════════
 class _ShadcnInput extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode? focusNode;
   final String label;
   final String? hint;
-  final IconData prefixIcon;
+  final IconData icon;
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -774,7 +924,7 @@ class _ShadcnInput extends StatelessWidget {
     this.focusNode,
     required this.label,
     this.hint,
-    required this.prefixIcon,
+    required this.icon,
     this.obscureText = false,
     this.keyboardType,
     this.textInputAction,
@@ -796,39 +946,31 @@ class _ShadcnInput extends StatelessWidget {
         keyboardType: keyboardType,
         textInputAction: textInputAction,
         onFieldSubmitted: onSubmitted,
-        style: const TextStyle(
-          fontSize: 14, color: _ink, fontWeight: FontWeight.w400,
-        ),
+        style: const TextStyle(fontSize: 14, color: _ink),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: _subtle, fontSize: 13.5),
-          prefixIcon: Icon(prefixIcon, size: 16, color: _subtle),
+          prefixIcon: Icon(icon, size: 16, color: _subtle),
           suffixIcon: suffixIcon,
           filled: true,
           fillColor: _white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 13,
-          ),
           isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
             borderSide: const BorderSide(color: _border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
             borderSide: const BorderSide(color: _border),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
             borderSide: const BorderSide(color: _terra, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
             borderSide: const BorderSide(color: Color(0xFFEF4444)),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
           ),
         ),
       ),
@@ -836,50 +978,53 @@ class _ShadcnInput extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Shadcn primary button — flat, no shadow
-// ═════════════════════════════════════════════════════════════════════════════
-class _ShadcnButton extends StatelessWidget {
+// ══════════════════════════════════════════════════════════════════════════════
+// Primary button — flat, no shadow
+// ══════════════════════════════════════════════════════════════════════════════
+class _PrimaryButton extends StatelessWidget {
   final String label;
   final bool loading;
   final VoidCallback onPressed;
+  final IconData? icon;
 
-  const _ShadcnButton({
+  const _PrimaryButton({
     required this.label,
     required this.loading,
     required this.onPressed,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 44,
+      height: 50,
       child: FilledButton(
         onPressed: loading ? null : onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: _terra,
           foregroundColor: _white,
           disabledBackgroundColor: _terra.withOpacity(0.42),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
           shadowColor: Colors.transparent,
         ),
         child: loading
-            ? const SizedBox(
-                width: 18, height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2, color: _white,
-                ))
-            : const Row(
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: _white))
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Se connecter', style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600,
+                  if (icon != null) ...[
+                    Icon(icon, size: 18),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(label, style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w700,
                     letterSpacing: 0.1,
                   )),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_rounded, size: 16),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_rounded, size: 17),
                 ],
               ),
       ),
@@ -887,45 +1032,9 @@ class _ShadcnButton extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Outline ghost button
-// ═════════════════════════════════════════════════════════════════════════════
-class _OutlineButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  const _OutlineButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 17),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _ink,
-          side: const BorderSide(color: _border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-        ),
-      ),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 // Error banner
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 class _ErrorBanner extends StatelessWidget {
   final String message;
   const _ErrorBanner({required this.message});
@@ -933,15 +1042,15 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
         border: Border.all(color: const Color(0xFFFECACA)),
       ),
       child: Row(children: [
-        const Icon(Icons.error_outline_rounded, size: 15, color: Color(0xFFDC2626)),
-        const SizedBox(width: 8),
+        const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+        const SizedBox(width: 9),
         Expanded(child: Text(message, style: const TextStyle(
           fontSize: 12.5, color: Color(0xFFDC2626), fontWeight: FontWeight.w500,
         ))),
@@ -950,14 +1059,14 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Dot pattern painter for hero
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Dot pattern painter
+// ══════════════════════════════════════════════════════════════════════════════
 class _DotPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final dot = Paint()
-      ..color = Colors.white.withOpacity(0.045)
+      ..color = Colors.white.withOpacity(0.04)
       ..style = PaintingStyle.fill;
     const step = 28.0, r = 1.2;
     for (double x = step; x < size.width; x += step) {
@@ -969,17 +1078,17 @@ class _DotPatternPainter extends CustomPainter {
       ..color = Colors.white.withOpacity(0.05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.1), 88, ring);
-    canvas.drawCircle(Offset(size.width * 0.12, size.height * 0.88), 108, ring);
+    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.1), 90, ring);
+    canvas.drawCircle(Offset(size.width * 0.12, size.height * 0.88), 110, ring);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 // QR Scanner Overlay
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 class _QrScannerOverlay extends StatelessWidget {
   final Function(BarcodeCapture) onDetect;
   final VoidCallback onClose;
@@ -1006,11 +1115,9 @@ class _QrScannerOverlay extends StatelessWidget {
                 onPressed: onClose,
               ),
               const Expanded(
-                child: Text('Scanner le QR code Scolaris',
+                child: Text('Scanner votre QR code Scolaris',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _white, fontWeight: FontWeight.w700, fontSize: 15,
-                    )),
+                    style: TextStyle(color: _white, fontWeight: FontWeight.w700, fontSize: 15)),
               ),
               const SizedBox(width: 48),
             ]),
@@ -1018,11 +1125,9 @@ class _QrScannerOverlay extends StatelessWidget {
         ),
         Positioned(
           bottom: 60, left: 0, right: 0,
-          child: Text('Pointez la caméra vers le QR code de votre profil',
+          child: Text('Pointez la caméra vers le QR code de votre carte',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _white.withOpacity(0.75), fontSize: 13,
-              )),
+              style: TextStyle(color: _white.withOpacity(0.75), fontSize: 13)),
         ),
       ]),
     );
@@ -1045,10 +1150,7 @@ class _ScannerFramePainter extends CustomPainter {
       ),
       Paint()..color = Colors.black54,
     );
-    final lp = Paint()
-      ..color = _white
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+    final lp = Paint()..color = _white..strokeWidth = 3..strokeCap = StrokeCap.round;
     const arm = 28.0;
     final l = cx - box / 2, t = cy - box / 2;
     final rr = cx + box / 2, b  = cy + box / 2;
