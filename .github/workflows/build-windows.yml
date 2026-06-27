@@ -12,9 +12,16 @@ env:
 jobs:
   windows:
     name: Windows Desktop x64
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install VS 2019 C++ Build Tools
+        run: |
+          choco install visualstudio2019buildtools `
+            --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --norestart" `
+            -y --no-progress
+        shell: pwsh
 
       - uses: subosito/flutter-action@v2
         with:
