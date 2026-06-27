@@ -18,10 +18,11 @@ const _orange = ScolarisPalette.orange;        // #D4540A
 const _gold   = ScolarisPalette.gold;          // #C17F24
 const _green  = ScolarisPalette.forestGreen;   // #1B5E20
 const _dark   = ScolarisPalette.darkBrown;     // #3E1A00
-const _cyan   = Color(0xFF0891B2);
-const _violet = Color(0xFF6D28D9);
-const _pink   = Color(0xFFDB2777);
-const _teal   = Color(0xFF059669);
+// Accents remappés sur la palette Scolaris (terracotta / orange / or / vert)
+const _cyan   = ScolarisPalette.gold;
+const _violet = ScolarisPalette.terracotta;
+const _pink   = ScolarisPalette.orange;
+const _teal   = ScolarisPalette.forestGreen;
 const _ink    = Color(0xFF1A0A00);
 const _muted  = Color(0xFF7A5C44);
 const _white  = Colors.white;

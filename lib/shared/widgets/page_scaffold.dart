@@ -35,6 +35,10 @@ import 'package:flutter/material.dart';
     @override
     Widget build(BuildContext context) {
       final cs = Theme.of(context).colorScheme;
+      // Quand la page est poussée par-dessus le shell (Navigator.push), on
+      // affiche un bouton retour : sinon l'utilisateur reste bloqué sans
+      // header ni sidebar. En onglet de shell, canPop == false → pas de bouton.
+      final canPop = Navigator.of(context).canPop();
 
       return ColoredBox(
         color: cs.surface,
@@ -44,6 +48,13 @@ import 'package:flutter/material.dart';
           slivers: [
             SliverAppBar(
               automaticallyImplyLeading: false,
+              leadingWidth: canPop ? 56 : 0,
+              leading: canPop
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: _BackButton(color: cs.onSurface, bg: cs.surfaceContainerHigh),
+                    )
+                  : null,
               pinned: true,
               expandedHeight: subtitle != null ? 102 : 88,
               backgroundColor: cs.surface,
@@ -56,7 +67,7 @@ import 'package:flutter/material.dart';
                   : [...actions, const SizedBox(width: 8)],
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding:
-                    const EdgeInsets.only(left: 20, bottom: 14, right: 16),
+                    EdgeInsets.only(left: canPop ? 60 : 20, bottom: 14, right: 16),
                 expandedTitleScale: 1.85,
                 collapseMode: CollapseMode.pin,
                 title: Text(
@@ -84,6 +95,34 @@ import 'package:flutter/material.dart';
               sliver: SliverToBoxAdapter(child: child),
             ),
           ],
+        ),
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // _BackButton — bouton retour iOS/Android-friendly pour les pages poussées
+  // ─────────────────────────────────────────────────────────────────────────────
+  class _BackButton extends StatelessWidget {
+    final Color color;
+    final Color bg;
+    const _BackButton({required this.color, required this.bg});
+
+    @override
+    Widget build(BuildContext context) {
+      return Center(
+        child: Material(
+          color: bg,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.of(context).maybePop(),
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(Icons.arrow_back_rounded, size: 20, color: color),
+            ),
+          ),
         ),
       );
     }
@@ -183,7 +222,7 @@ import 'package:flutter/material.dart';
 
   // ─────────────────────────────────────────────────────────────────────────────
   // StatusPill — thème-aware (s'adapte light/dark)
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────��────────────────────
   class StatusPill extends StatelessWidget {
     final String label;
     final Color? _fixedColor;

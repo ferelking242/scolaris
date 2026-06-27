@@ -28,8 +28,10 @@ const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _dark   = ScolarisPalette.darkBrown;
-const _cyan   = Color(0xFF0891B2);
-const _purple = Color(0xFF7C3AED);
+// Anciens accents hors-marque (cyan/violet) remappés sur la palette Scolaris
+// pour un dashboard cohérent terracotta / orange / or.
+const _cyan   = ScolarisPalette.gold;
+const _purple = ScolarisPalette.terracotta;
 const _ink    = Color(0xFF1A0A00);
 const _muted  = Color(0xFF7A5C44);
 const _white  = Colors.white;
@@ -156,8 +158,8 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
   static const _edt = [
     (h: '07h30', sub: 'Chimie',            room: 'L-002',      c: _green),
     (h: '09h15', sub: 'Électronique',      room: 'Labo Élec',  c: _gold),
-    (h: '11h00', sub: 'Histoire-Géo',      room: 'C-201',      c: Color(0xFFDB2777)),
-    (h: '14h00', sub: 'Philosophie',       room: 'B-201',      c: Color(0xFF78716C)),
+    (h: '11h00', sub: 'Histoire-Géo',      room: 'C-201',      c: _terra),
+    (h: '14h00', sub: 'Philosophie',       room: 'B-201',      c: _muted),
     (h: '15h45', sub: 'Anglais',           room: 'B-101',      c: _cyan),
   ];
 
@@ -642,9 +644,9 @@ class _RecentNotesSection extends StatelessWidget {
 
   // Notes récentes EMI — Ferel Ondongo (si Supabase vide)
   static const _mockNotes = [
-    (sub: 'Mathématiques',      n: 17.5, max: 20.0, c: Color(0xFF6D28D9), d: '14 Jun'),
-    (sub: 'Algorithmique',      n: 18.0, max: 20.0, c: Color(0xFF1E3A5F), d: '03 Jun'),
-    (sub: 'Électronique',       n: 16.5, max: 20.0, c: Color(0xFFB45309), d: '06 Jun'),
+    (sub: 'Mathématiques',      n: 17.5, max: 20.0, c: _terra, d: '14 Jun'),
+    (sub: 'Algorithmique',      n: 18.0, max: 20.0, c: _gold,  d: '03 Jun'),
+    (sub: 'Électronique',       n: 16.5, max: 20.0, c: _orange, d: '06 Jun'),
   ];
 
   @override
@@ -719,7 +721,7 @@ class _AnnoncesSection extends StatelessWidget {
         _SectionHeader(
           icon: Icons.campaign_rounded,
           title: 'Annonces',
-          iconGradient: [_purple, const Color(0xFF5B21B6)],
+          iconGradient: [_terra, const Color(0xFF5C1100)],
         ),
         const SizedBox(height: 10),
         Skeletonizer(
@@ -1139,7 +1141,7 @@ class _NoteProgressionChart extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════���═════════════════════════
 // EDT du jour (horizontal scroll)
 // ══════════════════════════════════════════════════════════════════════════
 class _EdtTimeline extends StatelessWidget {
