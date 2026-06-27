@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -598,7 +596,7 @@ class _DesktopForm extends StatelessWidget {
   final bool obscure;
   final String? error;
   final VoidCallback onObscureToggle;
-  final AsyncCallback onSubmit;
+  final Future<void> Function() onSubmit;
   final VoidCallback onTitleTap;
   final VoidCallback onQr;
   final VoidCallback onForgot;
@@ -904,7 +902,7 @@ class _MobileFieldState extends State<_MobileField> {
 class _FilledBtn extends StatelessWidget {
   final String label;
   final bool loading;
-  final AsyncCallback onPressed;
+  final Future<void> Function() onPressed;
   const _FilledBtn({required this.label, required this.loading, required this.onPressed});
 
   @override
