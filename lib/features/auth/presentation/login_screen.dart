@@ -194,12 +194,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: isDesktop ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      value: isDesktop
+          ? SystemUiOverlayStyle.light
+          : const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light,
+              statusBarBrightness: Brightness.dark,
+            ),
       child: Scaffold(
-        backgroundColor: isDesktop
-            ? const Color(0xFF12061A)
-            : _pageBg,
-        resizeToAvoidBottomInset: false,
+        backgroundColor: isDesktop ? const Color(0xFF1A0A00) : _pageBg,
+        // Mobile : true → la zone héro (Expanded) se rétracte quand le clavier
+        // s'ouvre, gardant les champs visibles SANS scroll.
+        resizeToAvoidBottomInset: !isDesktop,
         body: isDesktop ? _buildDesktop() : _buildMobile(),
       ),
     );
@@ -214,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF12061A), Color(0xFF2D0D00), Color(0xFF12061A)],
+            colors: [Color(0xFF1A0A00), Color(0xFF3E1A00), Color(0xFF1A0A00)],
             stops: [0.0, 0.55, 1.0],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -373,141 +379,133 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // MOBILE — flat white, no box, illustration en bas
+  // MOBILE — plein écran, SANS scroll : héro rétractable + panneau formulaire
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildMobile() {
-    final size  = MediaQuery.sizeOf(context);
-    final pad   = MediaQuery.paddingOf(context);
-    final keyb  = MediaQuery.viewInsetsOf(context).bottom;
+    final pad = MediaQuery.paddingOf(context);
 
-    return Stack(children: [
-      // Fond
-      Positioned.fill(child: Container(color: _pageBg)),
-
-      // Illustration + fondu au bas
-      if (keyb < 80) ...[
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          height: size.height * 0.24,
-          child: Image.asset(
-            'assets/images/login_bg.webp',
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, __, ___) => Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [_forest.withOpacity(0.04), _forest.withOpacity(0.22)],
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Fondu pour lisser la transition
-        Positioned(
-          bottom: size.height * 0.18,
-          left: 0, right: 0,
-          height: size.height * 0.10,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [_pageBg, _pageBg.withOpacity(0.0)],
-              ),
-            ),
-          ),
-        ),
-      ],
-
-      // Contenu scrollable
-      Positioned.fill(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              padding: EdgeInsets.only(
-                left: 30, right: 30,
-                top: pad.top + 36,
-                bottom: (keyb > 0 ? keyb : size.height * 0.25) + 20,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo centré
-                  Center(
-                    child: Container(
-                      width: 70, height: 70,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _terra.withOpacity(0.22),
-                            blurRadius: 20, offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.asset('assets/images/logo.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [_terra, Color(0xFFD35400)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: const Center(child: Text('S', style: TextStyle(
-                                color: _white, fontSize: 32, fontWeight: FontWeight.w900,
-                              ))),
-                            )),
-                      ),
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Column(
+        children: [
+          // ── Héro branded (Expanded → se rétracte avec le clavier) ────────
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+              child: Stack(fit: StackFit.expand, children: [
+                // Fond gradient terracotta
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_terra, Color(0xFFB23A04), _orange],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
-                  const SizedBox(height: 22),
-
-                  // Titre (3 taps secret)
-                  GestureDetector(
-                    onTap: _onTitleTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Column(children: [
-                      RichText(
-                        textAlign: TextAlign.center,
-                        text: const TextSpan(
-                          style: TextStyle(fontFamily: 'Roboto', height: 1.15),
-                          children: [
-                            TextSpan(
-                              text: 'Bon retour,\n',
-                              style: TextStyle(
-                                fontSize: 31, fontWeight: FontWeight.w800,
-                                color: _ink, letterSpacing: -0.8,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'Bienvenue.',
-                              style: TextStyle(
-                                fontSize: 31, fontWeight: FontWeight.w800,
-                                color: _terra, letterSpacing: -0.8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Connectez-vous à votre espace Scolaris.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13.5, color: _muted, height: 1.5),
-                      ),
-                    ]),
+                ),
+                // Image en filigrane
+                Opacity(
+                  opacity: 0.18,
+                  child: Image.asset(
+                    'assets/images/login_bg.webp',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   ),
-                  const SizedBox(height: 34),
+                ),
+                // Pattern de points subtil
+                Positioned.fill(child: CustomPaint(painter: _DotsBg(light: true))),
+                // Vignette bas
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.22)],
+                      stops: const [0.5, 1.0],
+                    ),
+                  ),
+                ),
+                // Contenu
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 18, 28, 26),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Logo + wordmark (3 taps secret)
+                        GestureDetector(
+                          onTap: _onTitleTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(children: [
+                            Container(
+                              width: 42, height: 42,
+                              decoration: BoxDecoration(
+                                color: _white.withOpacity(0.16),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _white.withOpacity(0.28)),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset('assets/images/logo_transparent.png',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Text('S', style: TextStyle(
+                                        color: _white, fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                      )),
+                                    )),
+                              ),
+                            ),
+                            const SizedBox(width: 11),
+                            const Text('Scolaris', style: TextStyle(
+                              color: _white, fontSize: 20,
+                              fontWeight: FontWeight.w900, letterSpacing: -0.5,
+                            )),
+                          ]),
+                        ),
+                        const Spacer(),
+                        // Accroche
+                        Text(
+                          'Bon retour',
+                          style: TextStyle(
+                            color: _white.withOpacity(0.85), fontSize: 15,
+                            fontWeight: FontWeight.w600, letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Connectez-vous à\nvotre espace.',
+                          style: TextStyle(
+                            color: _white, fontSize: 30, height: 1.15,
+                            fontWeight: FontWeight.w800, letterSpacing: -0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Élèves · Notes · Finance · Emplois du temps',
+                          style: TextStyle(
+                            color: _white.withOpacity(0.78),
+                            fontSize: 12.5, height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
 
+          // ── Panneau formulaire (épinglé en bas, au-dessus du clavier) ────
+          Container(
+            decoration: const BoxDecoration(color: _white),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(26, 26, 26, 16 + pad.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   // Email
                   _MobileField(
                     controller: _emailCtrl,
@@ -518,7 +516,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     textInputAction: TextInputAction.next,
                     onSubmitted: (_) => _passFocus.requestFocus(),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 13),
 
                   // Mot de passe
                   _MobileField(
@@ -540,7 +538,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
                   // Mot de passe oublié
                   Align(
@@ -549,15 +547,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       onTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
                       child: const Text('Mot de passe oublié ?', style: TextStyle(
-                        fontSize: 13.5, color: _terra, fontWeight: FontWeight.w600,
+                        fontSize: 13, color: _terra, fontWeight: FontWeight.w600,
                       )),
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
 
                   if (_error != null) ...[
                     _ErrorBanner(message: _error!),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                   ],
 
                   // Se connecter
@@ -566,7 +564,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     loading: _loading,
                     onPressed: _submit,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 11),
 
                   // QR secondaire
                   _OutlineBtn(
@@ -578,9 +576,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               ),
             ),
           ),
-        ),
+        ],
       ),
-    ]);
+    );
   }
 }
 
@@ -1137,11 +1135,15 @@ class _DemoSheetState extends State<_DemoSheet> {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // _DotsBg — fond de points subtil (desktop)
-// ══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════���══
 class _DotsBg extends CustomPainter {
+  final bool light;
+  const _DotsBg({this.light = false});
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = Colors.white.withOpacity(0.025)..style = PaintingStyle.fill;
+    final p = Paint()
+      ..color = Colors.white.withOpacity(light ? 0.07 : 0.025)
+      ..style = PaintingStyle.fill;
     const step = 36.0, r = 1.6;
     for (double x = step; x < size.width; x += step) {
       for (double y = step; y < size.height; y += step) {
