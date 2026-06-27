@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/services/settings_service.dart';
@@ -176,7 +177,13 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   entries: widget.drawerEntries,
                   user: user,
                   onSelect: (key) { _closeMenu(); _navigateTo(key); },
-                  onSignOut: () => ref.read(signOutUseCaseProvider)(),
+                  onSignOut: () async {
+                    try {
+                      await ref.read(signOutUseCaseProvider)();
+                    } finally {
+                      if (context.mounted) context.go('/login');
+                    }
+                  },
                   onAccount: _openAccount,
                   onClose: _closeMenu,
                   opacity: _menuCtrl.value,

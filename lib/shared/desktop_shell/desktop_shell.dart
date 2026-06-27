@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/theme/theme_controller.dart';
@@ -870,7 +871,13 @@ class _AccountPanel extends ConsumerWidget {
             icon: Icons.logout_rounded,
             label: 'Se déconnecter',
             danger: true,
-            onTap: () => ref.read(signOutUseCaseProvider)(),
+            onTap: () async {
+              try {
+                await ref.read(signOutUseCaseProvider)();
+              } finally {
+                if (context.mounted) context.go('/login');
+              }
+            },
           ),
           const SizedBox(height: 4),
         ],

@@ -64,9 +64,14 @@ class SupabaseAuthSource {
   }
 
   Future<void> signOut() async {
-    await Supabase.instance.client.auth.signOut();
-    _current = null;
-    _controller.add(null);
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {
+      // ignore remote signOut errors — always clear local state
+    } finally {
+      _current = null;
+      if (!_controller.isClosed) _controller.add(null);
+    }
   }
 
   Future<AppUser> _fetchProfile(String authUid) async {

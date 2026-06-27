@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -187,9 +188,13 @@ class SettingsPage extends ConsumerWidget {
               foregroundColor: _white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              ref.read(signOutUseCaseProvider)();
+              try {
+                await ref.read(signOutUseCaseProvider)();
+              } finally {
+                if (context.mounted) context.go('/login');
+              }
             },
             child: const Text('Déconnecter',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
