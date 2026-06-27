@@ -231,7 +231,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                     borderRadius: BorderRadius.circular(_radius),
                     child: Stack(children: [
                       Scaffold(
-                      backgroundColor: _pageBg,
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                       body: SafeArea(
                         bottom: true,
                         child: Column(children: [
@@ -300,7 +300,7 @@ class _FullPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(children: [
           Container(

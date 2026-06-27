@@ -27,7 +27,7 @@ class PageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: pageBg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         child: Column(

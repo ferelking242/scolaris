@@ -80,7 +80,9 @@
     "my_payments": "Ma Scolarité",
     "documents": "Mes Documents",
     "settings": "Paramètres",
-    "school": "Mon École"
+    "school": "Mon École",
+    "main": "Principal",
+    "other": "Autre"
   },
   "dashboard": {
     "hello": "Bonjour, {name}",
@@ -91,5 +93,61 @@
     "average": "Moyenne",
     "due": "Paiements dus",
     "noData": "Aucune donnée"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "view_profile": "Voir profil",
+    "account": "Compte",
+    "account_sub": "Profil, mot de passe, notifications",
+    "school": "Mon École",
+    "school_sub": "Nom, logo, année scolaire",
+    "appearance": "Apparence",
+    "appearance_sub": "Thème, langue, affichage",
+    "accessibility": "Accessibilité",
+    "accessibility_sub": "Police, contraste, animations",
+    "privacy": "Confidentialité & Données",
+    "privacy_sub": "Usage, export, suppression",
+    "support": "Support",
+    "support_sub": "Aide, signalement, à propos",
+    "logout": "Se déconnecter",
+    "logout_confirm": "Êtes-vous sûr de vouloir vous déconnecter ?",
+    "logout_title": "Se déconnecter",
+    "logout_btn": "Déconnecter",
+    "roles": {
+      "admin": "Administration",
+      "teacher": "Enseignant",
+      "student": "Élève",
+      "parent": "Parent"
+    },
+    "section": {
+      "theme": "THÈME",
+      "accent": "COULEUR D'ACCENT",
+      "lang": "LANGUE",
+      "nav": "NAVIGATION",
+      "preview": "APERÇU"
+    },
+    "theme": {
+      "title": "Thème de l'interface",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système",
+      "light_sub": "Interface lumineuse",
+      "dark_sub": "Interface sombre",
+      "system_sub": "Suit l'appareil"
+    },
+    "accent": {
+      "title": "Couleur d'accent",
+      "current": "Couleur actuelle",
+      "presets": "Palettes prédéfinies",
+      "custom": "Personnalisé",
+      "apply": "Appliquer"
+    },
+    "lang": {
+      "title": "Langue de l'interface",
+      "subtitle": "Choisissez la langue de l'interface",
+      "active": "Actif"
+    },
+    "nav_tab": "Barre d'onglets",
+    "nav_tab_sub": "Afficher la barre de navigation par onglets"
   }
 }

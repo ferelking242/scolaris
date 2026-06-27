@@ -176,7 +176,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                       borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(22)),
                       child: Container(
-                        color: _bg,
+                        color: Theme.of(context).scaffoldBackgroundColor,
                         child: _showSettings
                             ? const SettingsPage()
                             : _showNotifs

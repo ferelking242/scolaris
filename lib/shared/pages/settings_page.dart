@@ -43,10 +43,10 @@ class SettingsPage extends ConsumerWidget {
     final name     = user?.fullName ?? 'Utilisateur';
     final email    = user?.email ?? '';
     final roleName = switch (user?.role) {
-      UserRole.staff   => 'Administration',
-      UserRole.teacher => 'Enseignant',
-      UserRole.student => 'Élève',
-      UserRole.parent  => 'Parent',
+      UserRole.staff   => 'settings.roles.admin'.tr(),
+      UserRole.teacher => 'settings.roles.teacher'.tr(),
+      UserRole.student => 'settings.roles.student'.tr(),
+      UserRole.parent  => 'settings.roles.parent'.tr(),
       null             => '—',
     };
     final seed = name.replaceAll(' ', '+');
@@ -57,7 +57,7 @@ class SettingsPage extends ConsumerWidget {
         : '?';
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,8 +83,8 @@ class SettingsPage extends ConsumerWidget {
                   _SettingsNavRow(
                     icon: Icons.person_outline_rounded,
                     color: _terra,
-                    title: 'Compte',
-                    subtitle: 'Profil, mot de passe, notifications',
+                    title: 'settings.account'.tr(),
+                    subtitle: 'settings.account_sub'.tr(),
                     onTap: () => _push(context, _AccountSettingsPage(user: user)),
                   ),
                   // Mon École : réservé à qui gère la config (Direction).
@@ -92,19 +92,19 @@ class SettingsPage extends ConsumerWidget {
                     _SettingsNavRow(
                       icon: Icons.apartment_rounded,
                       color: const Color(0xFF0D47A1),
-                      title: 'Mon École',
-                      subtitle: 'Nom, logo, année scolaire, coordonnées',
+                      title: 'settings.school'.tr(),
+                      subtitle: 'settings.school_sub'.tr(),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => Scaffold(
-                            backgroundColor: _bg,
+                            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                             appBar: AppBar(
                               backgroundColor: _sh1,
                               foregroundColor: _white,
                               elevation: 0,
-                              title: const Text('Mon École',
-                                  style: TextStyle(
+                              title: Text('settings.school'.tr(),
+                                  style: const TextStyle(
                                       fontSize: 15, fontWeight: FontWeight.w700)),
                             ),
                             body: const AdminSchoolPage(),
@@ -114,29 +114,29 @@ class SettingsPage extends ConsumerWidget {
                   _SettingsNavRow(
                     icon: Icons.palette_outlined,
                     color: _orange,
-                    title: 'Apparence',
-                    subtitle: 'Thème, affichage',
+                    title: 'settings.appearance'.tr(),
+                    subtitle: 'settings.appearance_sub'.tr(),
                     onTap: () => _push(context, const _AppearancePage()),
                   ),
                   _SettingsNavRow(
                     icon: Icons.accessibility_new_rounded,
                     color: _gold,
-                    title: 'Accessibilité',
-                    subtitle: 'Police, contraste, animations',
+                    title: 'settings.accessibility'.tr(),
+                    subtitle: 'settings.accessibility_sub'.tr(),
                     onTap: () => _push(context, const _AccessibilityPage()),
                   ),
                   _SettingsNavRow(
                     icon: Icons.security_outlined,
                     color: _green,
-                    title: 'Confidentialité & Données',
-                    subtitle: 'Usage, export, suppression',
+                    title: 'settings.privacy'.tr(),
+                    subtitle: 'settings.privacy_sub'.tr(),
                     onTap: () => _push(context, _PrivacyPage(user: user)),
                   ),
                   _SettingsNavRow(
                     icon: Icons.help_outline_rounded,
                     color: _muted,
-                    title: 'Support',
-                    subtitle: 'Aide, signalement, à propos',
+                    title: 'settings.support'.tr(),
+                    subtitle: 'settings.support_sub'.tr(),
                     onTap: () => _push(context, _SupportPage(user: user)),
                     isLast: true,
                   ),
@@ -162,13 +162,13 @@ class SettingsPage extends ConsumerWidget {
                       border: Border.all(color: const Color(0xFFFF6B6B).withOpacity(.3)),
                     ),
                     alignment: Alignment.center,
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.logout_rounded, size: 18, color: Color(0xFFFF6B6B)),
-                        SizedBox(width: 8),
-                        Text('Se déconnecter',
-                            style: TextStyle(
+                        const Icon(Icons.logout_rounded, size: 18, color: Color(0xFFFF6B6B)),
+                        const SizedBox(width: 8),
+                        Text('settings.logout'.tr(),
+                            style: const TextStyle(
                                 color: Color(0xFFFF6B6B),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700)),
@@ -194,17 +194,17 @@ class SettingsPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: _white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Se déconnecter',
-            style: TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
-        content: const Text(
-          'Êtes-vous sûr de vouloir vous déconnecter ?',
-          style: TextStyle(color: _muted, fontSize: 13),
+        title: Text('settings.logout_title'.tr(),
+            style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Text(
+          'settings.logout_confirm'.tr(),
+          style: const TextStyle(color: _muted, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler',
-                style: TextStyle(color: _muted, fontWeight: FontWeight.w600)),
+            child: Text('common.cancel'.tr(),
+                style: const TextStyle(color: _muted, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -216,7 +216,7 @@ class SettingsPage extends ConsumerWidget {
               Navigator.pop(ctx);
               ref.read(signOutUseCaseProvider)();
             },
-            child: const Text('Déconnecter',
+            child: Text('settings.logout_btn'.tr(),
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           ),
         ],
@@ -559,7 +559,7 @@ class _SubPageShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(children: [
           // Header
@@ -603,7 +603,7 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
     final user     = widget.user;
 
     return _SubPageShell(
-      title: 'Compte',
+      title: 'settings.account'.tr(),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -780,10 +780,17 @@ class _AppearancePage extends ConsumerStatefulWidget {
 }
 
 class _AppearancePageState extends ConsumerState<_AppearancePage> {
-  static const _presets = [
+  static const List<Color> _presets = [
     Color(0xFF8B1A00), Color(0xFFD4540A), Color(0xFFC17F24), Color(0xFF1B5E20),
     Color(0xFF0D47A1), Color(0xFF1A237E), Color(0xFF4A148C), Color(0xFFB71C1C),
     Color(0xFF880E4F), Color(0xFF004D40), Color(0xFF263238), Color(0xFF212121),
+  ];
+
+  static final List<(String, String, Locale)> _langs = [
+    ('🇫🇷', 'Français',  const Locale('fr')),
+    ('🇬🇧', 'English',   const Locale('en')),
+    ('🇰🇪', 'Kiswahili', const Locale('sw')),
+    ('🇨🇩', 'Lingála',   const Locale('ln')),
   ];
 
   void _openPicker(BuildContext context, Color current) {
@@ -806,37 +813,111 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
     final themeMode = ctrl.mode;
     final accent    = ctrl.accent;
     final settings  = ref.watch(settingsProvider);
-    final themeName = themeMode == ThemeMode.dark
-        ? 'Sombre'
-        : themeMode == ThemeMode.light ? 'Clair' : 'Système';
+    final locale    = context.locale;
+    final isDark    = themeMode == ThemeMode.dark ||
+        (themeMode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
     return _SubPageShell(
-      title: 'Apparence',
+      title: 'settings.appearance'.tr(),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── Thème ──────────────────────────────────────────────────────
-          _SectionLabel('THÈME'),
+          // ── Aperçu live ────────────────────────────────────────────────
+          _SectionLabel('settings.section.preview'.tr()),
           const SizedBox(height: 8),
-          _SettingsCard(
-            margin: EdgeInsets.zero,
-            items: [
-              _SettingsItemTheme(
-                icon: Icons.palette_outlined,
-                color: _terra,
-                label: 'Thème de l\'interface',
-                currentValue: themeName,
-                themeMode: themeMode,
-                onChanged: (m) =>
-                    ref.read(themeControllerProvider.notifier).setMode(m),
-              ),
-            ],
+          _ThemePreviewCard(accent: accent, isDark: isDark),
+          const SizedBox(height: 22),
+
+          // ── Thème ──────────────────────────────────────────────────────
+          _SectionLabel('settings.section.theme'.tr()),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _ThemeModeCard(
+              icon: Icons.wb_sunny_rounded,
+              label: 'settings.theme.light'.tr(),
+              sub: 'settings.theme.light_sub'.tr(),
+              selected: themeMode == ThemeMode.light,
+              accent: accent,
+              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.light),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _ThemeModeCard(
+              icon: Icons.nightlight_round,
+              label: 'settings.theme.dark'.tr(),
+              sub: 'settings.theme.dark_sub'.tr(),
+              selected: themeMode == ThemeMode.dark,
+              accent: accent,
+              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.dark),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _ThemeModeCard(
+              icon: Icons.brightness_auto_rounded,
+              label: 'settings.theme.system'.tr(),
+              sub: 'settings.theme.system_sub'.tr(),
+              selected: themeMode == ThemeMode.system,
+              accent: accent,
+              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.system),
+            )),
+          ]),
+          const SizedBox(height: 22),
+
+          // ── Langue ──────────────────────────────────────────────────────
+          _SectionLabel('settings.section.lang'.tr()),
+          const SizedBox(height: 4),
+          Text('settings.lang.subtitle'.tr(),
+              style: const TextStyle(color: _muted, fontSize: 11.5)),
+          const SizedBox(height: 10),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 2.6,
+            children: _langs.map((l) {
+              final selected = locale == l.$3;
+              return GestureDetector(
+                onTap: () => context.setLocale(l.$3),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? accent.withOpacity(.08) : _white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: selected ? accent.withOpacity(.5) : _border,
+                      width: selected ? 1.6 : 1.0,
+                    ),
+                    boxShadow: selected
+                        ? [BoxShadow(color: accent.withOpacity(.08), blurRadius: 8)]
+                        : [],
+                  ),
+                  child: Row(children: [
+                    Text(l.$1, style: const TextStyle(fontSize: 20)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l.$2,
+                        style: TextStyle(
+                          color: selected ? accent : _ink,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (selected)
+                      Icon(Icons.check_circle_rounded, color: accent, size: 16),
+                  ]),
+                ),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 22),
 
-          // ── Couleur d'accent ───────────────────────────────────────────
-          _SectionLabel('COULEUR D\'ACCENT'),
+          // ── Couleur d'accent ─────────────────────────────────────────────
+          _SectionLabel('settings.section.accent'.tr()),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(16),
@@ -857,8 +938,8 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Couleur actuelle',
-                      style: TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  Text('settings.accent.current'.tr(),
+                      style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
                   Text(
                     '#${accent.red.toRadixString(16).padLeft(2, '0')}'
                     '${accent.green.toRadixString(16).padLeft(2, '0')}'
@@ -879,7 +960,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.colorize_rounded, size: 13, color: accent),
                       const SizedBox(width: 5),
-                      Text('Personnalisé',
+                      Text('settings.accent.custom'.tr(),
                           style: TextStyle(
                               color: accent, fontSize: 11.5, fontWeight: FontWeight.w700)),
                     ]),
@@ -887,8 +968,8 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 ),
               ]),
               const SizedBox(height: 14),
-              const Text('Palettes prédéfinies',
-                  style: TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('settings.accent.presets'.tr(),
+                  style: const TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10, runSpacing: 10,
@@ -921,8 +1002,8 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
           ),
           const SizedBox(height: 22),
 
-          // ── Navigation ─────────────────────────────────────────────────
-          _SectionLabel('NAVIGATION'),
+          // ── Navigation ──────────────────────────────────────────────────
+          _SectionLabel('settings.section.nav'.tr()),
           const SizedBox(height: 8),
           _SettingsCard(
             margin: EdgeInsets.zero,
@@ -930,14 +1011,180 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
               _SettingsItemToggle(
                 icon: Icons.tab_rounded,
                 color: _orange,
-                label: 'Barre d\'onglets',
+                label: 'settings.nav_tab'.tr(),
                 value: settings.afficherBarreOnglets,
                 onChanged: (v) =>
                     ref.read(settingsProvider.notifier).setAfficherBarreOnglets(v),
               ),
             ],
           ),
+          const SizedBox(height: 32),
         ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live preview card
+// ─────────────────────────────────────────────────────────────────────────────
+class _ThemePreviewCard extends StatelessWidget {
+  final Color accent;
+  final bool isDark;
+  const _ThemePreviewCard({required this.accent, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg   = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final surf = isDark ? const Color(0xFF252525) : const Color(0xFFF5EEE6);
+    final txt  = isDark ? Colors.white : const Color(0xFF1A0A00);
+    final sub  = isDark ? const Color(0xFFB0A090) : const Color(0xFF7A5C44);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surf,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFDDCCBB)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 4)],
+          ),
+          child: Row(children: [
+            Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+              child: const Center(child: Text('S',
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+            ),
+            const SizedBox(width: 8),
+            Text('Scolaris', style: TextStyle(
+                color: txt, fontSize: 12, fontWeight: FontWeight.w800)),
+            const Spacer(),
+            Container(
+              width: 24, height: 24,
+              decoration: BoxDecoration(
+                color: accent.withOpacity(.12),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(Icons.notifications_outlined, size: 13, color: accent),
+            ),
+            const SizedBox(width: 6),
+            CircleAvatar(radius: 11,
+              backgroundColor: accent.withOpacity(.15),
+              child: Icon(Icons.person_outline, size: 13, color: accent)),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [
+          _MiniStatCard(color: accent,
+              label: 'Notes', value: '16.2', bg: bg, txt: txt, sub: sub),
+          const SizedBox(width: 6),
+          _MiniStatCard(color: const Color(0xFF1B5E20),
+              label: 'Présences', value: '94%', bg: bg, txt: txt, sub: sub),
+          const SizedBox(width: 6),
+          _MiniStatCard(color: const Color(0xFFC17F24),
+              label: 'Scolarité', value: 'OK', bg: bg, txt: txt, sub: sub),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _MiniStatCard extends StatelessWidget {
+  final Color color, bg, txt, sub;
+  final String label, value;
+  const _MiniStatCard({
+    required this.color, required this.label, required this.value,
+    required this.bg, required this.txt, required this.sub,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(.12)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: TextStyle(
+              color: color, fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 1),
+          Text(label, style: TextStyle(
+              color: sub, fontSize: 9, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Theme mode card (Light / Dark / System)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ThemeModeCard extends StatelessWidget {
+  final IconData icon;
+  final String label, sub;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+  const _ThemeModeCard({
+    required this.icon, required this.label, required this.sub,
+    required this.selected, required this.accent, required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? accent.withOpacity(.07) : _white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? accent.withOpacity(.55) : _border,
+            width: selected ? 1.8 : 1.0,
+          ),
+          boxShadow: selected
+              ? [BoxShadow(
+                  color: accent.withOpacity(.10),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))]
+              : [],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: selected ? accent.withOpacity(.12) : const Color(0xFFF5EEE6),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 19, color: selected ? accent : _muted),
+            ),
+            const SizedBox(height: 7),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: selected ? accent : _ink,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(sub,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _muted.withOpacity(.65), fontSize: 9.5),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
       ),
     );
   }
@@ -2086,8 +2333,8 @@ class _LanguagePicker extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Choisir la langue',
-              style: TextStyle(
+          Text('settings.lang.title'.tr(),
+              style: const TextStyle(
                   color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
           const SizedBox(height: 16),
           ...AppLocales.supported.map((l) {

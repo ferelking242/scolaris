@@ -80,7 +80,9 @@
     "my_payments": "Mbongo na Ngai",
     "documents": "Mikanda na Ngai",
     "settings": "Bilanga",
-    "school": "Sukulu na Ngai"
+    "school": "Sukulu na Ngai",
+    "main": "Ya liboso",
+    "other": "Mosusu"
   },
   "dashboard": {
     "hello": "Mbote, {name}",
@@ -91,5 +93,61 @@
     "average": "Moyene",
     "due": "Bofuti ya kosenga",
     "noData": "Eloko te"
+  },
+  "settings": {
+    "title": "Bilanga",
+    "view_profile": "Tala profil",
+    "account": "Konti",
+    "account_sub": "Profil, mot ya sekele, bandimisi",
+    "school": "Sukulu na Ngai",
+    "school_sub": "Nkombo, logo, mobu ya sukulu",
+    "appearance": "Lolenge ya kotala",
+    "appearance_sub": "Lolenge, lokota, kolakisa",
+    "accessibility": "Bonsomi ya kosalela",
+    "accessibility_sub": "Makomi, kolakisa, animation",
+    "privacy": "Bosekreto & Data",
+    "privacy_sub": "Kosalela, kozwa, kolongola",
+    "support": "Lisalisi",
+    "support_sub": "Lisalisi, kolobela, mitindo",
+    "logout": "Bima",
+    "logout_confirm": "Ozali na ntina ya kobima?",
+    "logout_title": "Bima",
+    "logout_btn": "Bima",
+    "roles": {
+      "admin": "Botamboli",
+      "teacher": "Molakisi",
+      "student": "Moyekoli",
+      "parent": "Moboti"
+    },
+    "section": {
+      "theme": "LOLENGE",
+      "accent": "ROJO YA NTINA",
+      "lang": "LOKOTA",
+      "nav": "KOTAMBOLA",
+      "preview": "KOLAKISA"
+    },
+    "theme": {
+      "title": "Lolenge ya interface",
+      "light": "Polele",
+      "dark": "Molili",
+      "system": "Sistemi",
+      "light_sub": "Interface polele",
+      "dark_sub": "Interface molili",
+      "system_sub": "Elandela aparei"
+    },
+    "accent": {
+      "title": "Rojo ya ntina",
+      "current": "Rojo ya sik",
+      "presets": "Barojo ya liboso",
+      "custom": "Yo moko",
+      "apply": "Tia"
+    },
+    "lang": {
+      "title": "Lokota ya interface",
+      "subtitle": "Pona lokota ya interface",
+      "active": "Ezali kosalema"
+    },
+    "nav_tab": "Barre ya baonglet",
+    "nav_tab_sub": "Lakisa barre ya navigation ya baonglet"
   }
 }
