@@ -11,6 +11,7 @@ import 'forgot_password_screen.dart';
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _forest = ScolarisPalette.forestGreen;
+const _orange = ScolarisPalette.orange;
 
 const _ink    = Color(0xFF0F172A);
 const _muted  = Color(0xFF64748B);
