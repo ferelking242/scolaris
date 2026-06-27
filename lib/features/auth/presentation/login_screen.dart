@@ -550,11 +550,11 @@ class _HeroPanel extends StatelessWidget {
                     height: 1.6,
                   ),
                 ),
-                const Expanded(
+                Expanded(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 300, maxHeight: 280),
-                      child: _HeroLottie(),
+                      constraints: const BoxConstraints(maxWidth: 300, maxHeight: 280),
+                      child: const _HeroLottie(),
                     ),
                   ),
                 ),
