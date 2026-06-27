@@ -1,374 +1,433 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../data/sources/remote/supabase_db_source.dart';
+import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/db_providers.dart';
+import '../widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
+const _cyan   = Color(0xFF0891B2);
 
-enum _NotiType { info, success, warning, grade, schedule, payment }
+// ══════════════════════════════════════════════════════════════════════════
+// Flux de notifications — agrégé depuis les vraies données (aucune table
+// dédiée). Réutilisable par tous les rôles via la cloche du shell :
+//   • notes, absences et factures = signaux « de l'utilisateur connecté »
+//     (vides pour un admin/prof qui n'est pas élève → pas d'erreur) ;
+//   • annonces = portée école (visibles par tous).
+// Lecture seule : un panneau d'alertes, pas de navigation.
+// ══════════════════════════════════════════════════════════════════════════
+enum _NotifKind { grade, absence, announcement, payment }
 
-class _Notification {
+class _Notif {
+  final _NotifKind kind;
   final String title;
   final String body;
-  final String time;
-  final _NotiType type;
-  final bool read;
-  const _Notification({
-    required this.title, required this.body,
-    required this.time, required this.type, this.read = false,
+  final DateTime? date;
+  const _Notif({
+    required this.kind,
+    required this.title,
+    required this.body,
+    this.date,
   });
+
+  Color get color => switch (kind) {
+        _NotifKind.grade        => _gold,
+        _NotifKind.absence      => _terra,
+        _NotifKind.announcement => _cyan,
+        _NotifKind.payment      => _orange,
+      };
+
+  IconData get icon => switch (kind) {
+        _NotifKind.grade        => Icons.grading_rounded,
+        _NotifKind.absence      => Icons.event_busy_rounded,
+        _NotifKind.announcement => Icons.campaign_rounded,
+        _NotifKind.payment      => Icons.account_balance_wallet_rounded,
+      };
+
+  String get categoryLabel => switch (kind) {
+        _NotifKind.grade        => 'Note',
+        _NotifKind.absence      => 'Présence',
+        _NotifKind.announcement => 'Annonce',
+        _NotifKind.payment      => 'Paiement',
+      };
 }
 
-const _mockNotifications = [
-  _Notification(
-    title: 'Nouvelle note disponible',
-    body: 'Votre note en Mathématiques vient d\'être publiée : 17.5/20. Félicitations !',
-    time: 'Il y a 5 min',
-    type: _NotiType.grade,
-  ),
-  _Notification(
-    title: 'Cours annulé',
-    body: 'Le cours de Physique de 14h00 est annulé. M. Ouédraogo est absent.',
-    time: 'Il y a 30 min',
-    type: _NotiType.warning,
-  ),
-  _Notification(
-    title: 'Paiement confirmé',
-    body: 'Votre frais de scolarité du mois d\'avril a bien été reçu. Merci.',
-    time: 'Il y a 2h',
-    type: _NotiType.payment,
-    read: true,
-  ),
-  _Notification(
-    title: 'Rappel : Devoir à rendre',
-    body: 'Vous avez un devoir de Français à rendre demain avant 23h59.',
-    time: 'Il y a 3h',
-    type: _NotiType.info,
-    read: true,
-  ),
-  _Notification(
-    title: 'Emploi du temps mis à jour',
-    body: 'Votre planning de la semaine prochaine a été modifié. Consultez les nouveaux horaires.',
-    time: 'Hier',
-    type: _NotiType.schedule,
-    read: true,
-  ),
-  _Notification(
-    title: 'Résultats du trimestre',
-    body: 'Les résultats du 2ème trimestre sont disponibles. Votre moyenne générale : 15.4/20.',
-    time: 'Hier',
-    type: _NotiType.success,
-    read: true,
-  ),
-  _Notification(
-    title: 'Réunion parents-professeurs',
-    body: 'Une réunion est prévue le 15 Mai à 18h00. La présence des parents est obligatoire.',
-    time: 'Il y a 2 jours',
-    type: _NotiType.info,
-    read: true,
-  ),
-  _Notification(
-    title: 'Nouvelle note en Physique',
-    body: 'Votre note en Physique-Chimie : 13.0/20. Des progrès sont possibles !',
-    time: 'Il y a 3 jours',
-    type: _NotiType.grade,
-    read: true,
-  ),
-];
-
-class NotificationsPage extends StatefulWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
   @override
-  State<NotificationsPage> createState() => _NotificationsPageState();
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
 }
 
-class _NotificationsPageState extends State<NotificationsPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tab;
-  final List<bool> _read = List.generate(
-      _mockNotifications.length, (i) => _mockNotifications[i].read);
-
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
-  }
-
-  List<int> get _unreadIndices => [
-    for (int i = 0; i < _mockNotifications.length; i++)
-      if (!_read[i]) i
-  ];
-
-  List<int> _indicesForTab(int t) {
-    if (t == 1) return _unreadIndices;
-    if (t == 2) {
-      return [for (int i = 0; i < _mockNotifications.length; i++)
-        if (_read[i]) i];
-    }
-    return List.generate(_mockNotifications.length, (i) => i);
-  }
-
-  void _markAllRead() => setState(() {
-    for (int i = 0; i < _read.length; i++) _read[i] = true;
-  });
-
-  void _markRead(int i) => setState(() => _read[i] = true);
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  _NotifKind? _filter;
 
   @override
   Widget build(BuildContext context) {
-    final unread = _unreadIndices.length;
+    final session = ref.watch(authSessionProvider);
 
-    return Container(
-      color: _bg,
-      child: Column(
-        children: [
-          _NotifHeader(unreadCount: unread, onMarkAll: unread > 0 ? _markAllRead : null),
-          _NotifTabs(controller: _tab, unreadCount: unread),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              children: [0, 1, 2].map((t) {
-                final indices = _indicesForTab(t);
-                if (indices.isEmpty) return _EmptyState(tab: t);
-                return _NotifList(
-                  notifications: _mockNotifications,
-                  indices: indices,
-                  readFlags: _read,
-                  onTap: _markRead,
-                );
-              }).toList(),
+    final gradesAsync = session != null
+        ? ref.watch(gradesForStudentProvider(session.id))
+        : const AsyncValue<List<SbGrade>>.data([]);
+    final absencesAsync = ref.watch(myAbsencesProvider);
+    final annAsync      = ref.watch(announcementsProvider);
+    final invoicesAsync = ref.watch(myInvoicesProvider);
+
+    final stillLoading = gradesAsync.isLoading &&
+        absencesAsync.isLoading &&
+        annAsync.isLoading &&
+        invoicesAsync.isLoading;
+
+    final feed = _buildFeed(
+      grades: gradesAsync.valueOrNull ?? const [],
+      absences: absencesAsync.valueOrNull ?? const [],
+      announcements: annAsync.valueOrNull ?? const [],
+      invoices: invoicesAsync.valueOrNull ?? const [],
+    );
+
+    final visible = _filter == null
+        ? feed
+        : feed.where((n) => n.kind == _filter).toList();
+
+    return PageScaffold(
+      title: 'Notifications',
+      subtitle: feed.isEmpty
+          ? 'Aucune notification'
+          : '${feed.length} notification(s) récente(s)',
+      child: stillLoading
+          ? const Padding(
+              padding: EdgeInsets.only(top: 60),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (feed.isNotEmpty)
+                  _FilterBar(
+                    current: _filter,
+                    counts: _countByKind(feed),
+                    onTap: (k) =>
+                        setState(() => _filter = _filter == k ? null : k),
+                  ),
+                const SizedBox(height: 14),
+                if (visible.isEmpty)
+                  _EmptyState(filtered: _filter != null)
+                else
+                  for (final n in visible) ...[
+                    _NotifCard(notif: n),
+                    const SizedBox(height: 10),
+                  ],
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
+
+  Map<_NotifKind, int> _countByKind(List<_Notif> feed) {
+    final m = <_NotifKind, int>{};
+    for (final n in feed) {
+      m[n.kind] = (m[n.kind] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  /// Agrège les signaux réels en un flux trié (plus récent d'abord).
+  List<_Notif> _buildFeed({
+    required List<SbGrade> grades,
+    required List<SbAbsence> absences,
+    required List<SbAnnouncement> announcements,
+    required List<SbInvoice> invoices,
+  }) {
+    final out = <_Notif>[];
+
+    for (final g in grades) {
+      out.add(_Notif(
+        kind: _NotifKind.grade,
+        title: 'Nouvelle note — ${g.subjectName ?? g.title ?? 'Évaluation'}',
+        body: '${g.score.toStringAsFixed(1)}/${g.maxScore.toStringAsFixed(0)}'
+            '${g.period != null ? ' · ${g.period}' : ''}',
+        date: g.gradedAt,
+      ));
+    }
+
+    for (final a in absences) {
+      out.add(_Notif(
+        kind: _NotifKind.absence,
+        title: a.justified ? 'Absence justifiée' : 'Absence à justifier',
+        body: [
+          if (a.absenceDate != null) _formatDate(a.absenceDate!),
+          if (a.reason != null && a.reason!.isNotEmpty) a.reason!,
+        ].join(' · '),
+        date: a.absenceDate,
+      ));
+    }
+
+    for (final ann in announcements) {
+      final role = ann.targetRole;
+      const okRoles = {'all', 'students', 'student'};
+      if (role != null && role.isNotEmpty && !okRoles.contains(role)) continue;
+      out.add(_Notif(
+        kind: _NotifKind.announcement,
+        title: ann.title,
+        body: ann.content ??
+            (ann.authorName != null ? 'Par ${ann.authorName}' : ''),
+        date: ann.createdAt,
+      ));
+    }
+
+    for (final inv in invoices) {
+      final s = inv.status.toLowerCase();
+      if (s == 'paid' || s == 'cancelled') continue;
+      out.add(_Notif(
+        kind: _NotifKind.payment,
+        title: s == 'overdue' ? 'Paiement en retard' : 'Paiement à effectuer',
+        body: '${inv.description ?? inv.invoiceNumber ?? 'Facture'} · '
+            '${inv.amount.toStringAsFixed(0)} ${inv.currency}'
+            '${inv.dueDate != null ? ' · échéance ${_formatDate(inv.dueDate!)}' : ''}',
+        date: inv.dueDate,
+      ));
+    }
+
+    out.sort((a, b) {
+      final da = a.date, db = b.date;
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
+    return out;
+  }
 }
 
-class _NotifHeader extends StatelessWidget {
-  final int unreadCount;
-  final VoidCallback? onMarkAll;
-  const _NotifHeader({required this.unreadCount, required this.onMarkAll});
+// ══════════════════════════════════════════════════════════════════════════
+// Filtres
+// ══════════════════════════════════════════════════════════════════════════
+class _FilterBar extends StatelessWidget {
+  final _NotifKind? current;
+  final Map<_NotifKind, int> counts;
+  final ValueChanged<_NotifKind> onTap;
+  const _FilterBar(
+      {required this.current, required this.counts, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: _white,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Notifications',
-              style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w800)),
-          if (unreadCount > 0)
-            Text('$unreadCount non lue${unreadCount > 1 ? 's' : ''}',
-                style: const TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w600)),
-        ]),
-        const Spacer(),
-        if (unreadCount > 0)
-          GestureDetector(
-            onTap: onMarkAll,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: _terra.withOpacity(.08),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _terra.withOpacity(.2)),
-              ),
-              child: const Text('Tout lire',
-                  style: TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
+        for (final k in _NotifKind.values) ...[
+          _Chip(
+            label: _label(k),
+            count: counts[k] ?? 0,
+            color: _color(k),
+            active: current == k,
+            onTap: () => onTap(k),
           ),
+          const SizedBox(width: 8),
+        ],
       ]),
     );
   }
+
+  String _label(_NotifKind k) => switch (k) {
+        _NotifKind.grade        => 'Notes',
+        _NotifKind.absence      => 'Présences',
+        _NotifKind.announcement => 'Annonces',
+        _NotifKind.payment      => 'Paiements',
+      };
+
+  Color _color(_NotifKind k) => switch (k) {
+        _NotifKind.grade        => _gold,
+        _NotifKind.absence      => _terra,
+        _NotifKind.announcement => _cyan,
+        _NotifKind.payment      => _orange,
+      };
 }
 
-class _NotifTabs extends StatelessWidget {
-  final TabController controller;
-  final int unreadCount;
-  const _NotifTabs({required this.controller, required this.unreadCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _white,
-      child: TabBar(
-        controller: controller,
-        labelColor: _terra,
-        unselectedLabelColor: _muted,
-        indicatorColor: _terra,
-        indicatorWeight: 2.5,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        tabs: [
-          const Tab(text: 'Toutes'),
-          Tab(
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Text('Non lues'),
-              if (unreadCount > 0) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: _terra,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text('$unreadCount',
-                      style: const TextStyle(color: _white, fontSize: 10,
-                          fontWeight: FontWeight.w800)),
-                ),
-              ],
-            ]),
-          ),
-          const Tab(text: 'Lues'),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotifList extends StatelessWidget {
-  final List<_Notification> notifications;
-  final List<int> indices;
-  final List<bool> readFlags;
-  final ValueChanged<int> onTap;
-  const _NotifList({
-    required this.notifications, required this.indices,
-    required this.readFlags, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
-      itemCount: indices.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFEEE5D8)),
-      itemBuilder: (_, i) {
-        final idx = indices[i];
-        final n   = notifications[idx];
-        final isRead = readFlags[idx];
-        return _NotifTile(notif: n, isRead: isRead, onTap: () => onTap(idx));
-      },
-    );
-  }
-}
-
-class _NotifTile extends StatelessWidget {
-  final _Notification notif;
-  final bool isRead;
+class _Chip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final bool active;
   final VoidCallback onTap;
-  const _NotifTile({required this.notif, required this.isRead, required this.onTap});
-
-  Color get _typeColor {
-    switch (notif.type) {
-      case _NotiType.grade:    return _terra;
-      case _NotiType.success:  return _green;
-      case _NotiType.warning:  return Colors.orange;
-      case _NotiType.payment:  return const Color(0xFF7C3AED);
-      case _NotiType.schedule: return _gold;
-      case _NotiType.info:     return const Color(0xFF0284C7);
-    }
-  }
-
-  IconData get _typeIcon {
-    switch (notif.type) {
-      case _NotiType.grade:    return Icons.grading_rounded;
-      case _NotiType.success:  return Icons.emoji_events_rounded;
-      case _NotiType.warning:  return Icons.warning_amber_rounded;
-      case _NotiType.payment:  return Icons.payments_rounded;
-      case _NotiType.schedule: return Icons.calendar_today_rounded;
-      case _NotiType.info:     return Icons.info_outline_rounded;
-    }
-  }
+  const _Chip({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        color: isRead ? _white : _terra.withOpacity(.04),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-              color: _typeColor.withOpacity(.12),
-              borderRadius: BorderRadius.circular(12),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? color : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? color : border),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label,
+              style: TextStyle(
+                  color: active ? Colors.white : muted,
+                  fontSize: 12.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: active
+                    ? Colors.white.withValues(alpha: .25)
+                    : color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$count',
+                  style: TextStyle(
+                      color: active ? Colors.white : color,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800)),
             ),
-            child: Icon(_typeIcon, color: _typeColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(
-                  child: Text(notif.title,
-                      style: TextStyle(
-                          color: _ink, fontSize: 14,
-                          fontWeight: isRead ? FontWeight.w500 : FontWeight.w700)),
-                ),
-                if (!isRead)
-                  Container(
-                    width: 8, height: 8,
-                    margin: const EdgeInsets.only(left: 8, top: 4),
-                    decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle),
-                  ),
-              ]),
-              const SizedBox(height: 4),
-              Text(notif.body,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: _muted, fontSize: 12.5, height: 1.4,
-                      fontWeight: isRead ? FontWeight.w400 : FontWeight.w500)),
-              const SizedBox(height: 6),
-              Text(notif.time,
-                  style: TextStyle(color: _muted.withOpacity(.6), fontSize: 11)),
-            ]),
-          ),
+          ],
         ]),
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  final int tab;
-  const _EmptyState({required this.tab});
+// ══════════════════════════════════════════════════════════════════════════
+// Carte notification
+// ══════════════════════════════════════════════════════════════════════════
+class _NotifCard extends StatelessWidget {
+  final _Notif notif;
+  const _NotifCard({required this.notif});
 
   @override
   Widget build(BuildContext context) {
-    final msg = tab == 1
-        ? 'Aucune notification non lue'
-        : tab == 2 ? 'Aucune notification lue' : 'Aucune notification';
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(
-          width: 80, height: 80,
-          decoration: BoxDecoration(
-            color: _terra.withOpacity(.08),
-            shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: notif.color.withValues(alpha: .18)),
+        boxShadow: [
+          BoxShadow(
+            color: notif.color.withValues(alpha: .05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: const Icon(Icons.notifications_off_outlined, color: _terra, size: 36),
+        ],
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 42, height: 42,
+          decoration: BoxDecoration(
+            color: notif.color.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(notif.icon, color: notif.color, size: 20),
         ),
-        const SizedBox(height: 16),
-        Text(msg, style: const TextStyle(color: _ink, fontSize: 16,
-            fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        Text('Vous êtes à jour !',
-            style: TextStyle(color: _muted, fontSize: 13)),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: notif.color.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(notif.categoryLabel,
+                    style: TextStyle(
+                        color: notif.color,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800)),
+              ),
+              const Spacer(),
+              if (notif.date != null)
+                Text(_relative(notif.date!),
+                    style: const TextStyle(color: muted, fontSize: 10.5)),
+            ]),
+            const SizedBox(height: 6),
+            Text(notif.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+            if (notif.body.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(notif.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: muted, fontSize: 12, height: 1.35)),
+            ],
+          ]),
+        ),
       ]),
     );
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// État vide
+// ══════════════════════════════════════════════════════════════════════════
+class _EmptyState extends StatelessWidget {
+  final bool filtered;
+  const _EmptyState({required this.filtered});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 60),
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: _green.withValues(alpha: .08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.notifications_none_rounded,
+                  color: _green, size: 34),
+            ),
+            const SizedBox(height: 14),
+            Text(filtered ? 'Rien dans cette catégorie' : 'Tout est à jour',
+                style: const TextStyle(
+                    color: ink, fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+                filtered
+                    ? 'Essaie un autre filtre.'
+                    : 'Tu seras notifié des nouvelles notes, absences et annonces.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: muted, fontSize: 13)),
+          ]),
+        ),
+      );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Helpers date
+// ══════════════════════════════════════════════════════════════════════════
+String _relative(DateTime d) {
+  final now = DateTime.now();
+  final diff = now.difference(d);
+  if (diff.inMinutes < 1) return "à l'instant";
+  if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
+  if (diff.inDays < 7) return 'il y a ${diff.inDays} j';
+  return _formatDate(d);
+}
+
+String _formatDate(DateTime d) {
+  const mois = [
+    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
+  ];
+  return '${d.day} ${mois[d.month - 1]}';
 }

@@ -223,7 +223,9 @@ class _BookCardState extends State<_BookCard> {
     return GestureDetector(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => PdfReaderPage(
-              title: b.title, color: b.coverColor, totalPages: b.pages))),
+              title: b.title, color: b.coverColor, totalPages: b.pages,
+              resourceId: b.id, resourceType: ResourceType.book,
+              subject: b.subject))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Cover
         Expanded(child: Stack(children: [
@@ -317,7 +319,9 @@ class _BookListTileState extends State<_BookListTile> {
     final b = widget.book;
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-          PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages))),
+          PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages,
+              resourceId: b.id, resourceType: ResourceType.book,
+              subject: b.subject))),
       child: Container(
         decoration: ScolarisSurface.card(radius: 14),
         padding: const EdgeInsets.all(12),

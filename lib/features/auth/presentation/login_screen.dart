@@ -1,151 +1,132 @@
+import 'dart:math' as math;
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/config/app_config.dart';
+import '../../../core/routing/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import 'forgot_password_screen.dart';
 
-// ── Brand tokens ──────────────────────────────────────────────────────────────
 const _terra  = ScolarisPalette.terracotta;
-const _gold   = ScolarisPalette.gold;
-const _forest = ScolarisPalette.forestGreen;
 const _orange = ScolarisPalette.orange;
-
-const _ink    = Color(0xFF0F172A);
-const _muted  = Color(0xFF64748B);
-const _subtle = Color(0xFF94A3B8);
-const _border = Color(0xFFE2E8F0);
+const _gold   = ScolarisPalette.gold;
+const _green  = ScolarisPalette.forestGreen;
+const _cream  = ScolarisPalette.cream;
+const _ink    = Color(0xFF1A0A00);
+const _muted  = Color(0xFF7A5C44);
+const _border = Color(0xFFDDCCBB);
 const _white  = Colors.white;
-const _pageBg = Color(0xFFF7F8FA);
+const _dark   = Color(0xFF0D1117);
+const _bg0    = Color(0xFF0A2010);
+const _bg1    = Color(0xFF1B5E20);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// LoginScreen
-// ══════════════════════════════════════════════════════════════════════════════
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with TickerProviderStateMixin {
-  final _emailCtrl  = TextEditingController();
-  final _passCtrl   = TextEditingController();
-  final _emailFocus = FocusNode();
-  final _passFocus  = FocusNode();
-
-  bool    _loading       = false;
-  bool    _obscure       = true;
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _emailCtrl = TextEditingController(text: 'admin@ead-bzv.cg');
+  final _passCtrl  = TextEditingController(text: 'demo1234');
+  bool _loading  = false;
+  bool _obscure  = true;
   String? _error;
-  bool    _showQrScanner = false;
-  int     _titleTaps     = 0;
-  String  _selectedRole    = 'student';
+  String _selectedRole    = 'student';
   String? _selectedSubtype = 'lycee';
-
-  late final AnimationController _enterCtrl;
-  late final Animation<double>   _fadeAnim;
-  late final Animation<Offset>   _slideAnim;
+  bool _showQrScanner  = false;
+  bool _showQrTab      = false;
+  int  _demoTapCount  = 0;
 
   static const _roles = [
-    ('student',      Icons.school_outlined,               'Élève'),
+    ('student',      Icons.school_outlined,               'Étudiant'),
     ('parent',       Icons.family_restroom_outlined,      'Parent'),
-    ('teacher',      Icons.menu_book_outlined,            'Prof'),
-    ('surveillance', Icons.shield_outlined,               'Surv.'),
+    ('teacher',      Icons.menu_book_outlined,            'Enseignant'),
+    ('surveillance', Icons.shield_outlined,               'Surveillance'),
     ('finance',      Icons.payments_outlined,             'Finance'),
     ('admin',        Icons.admin_panel_settings_outlined, 'Admin'),
   ];
 
-  static const _subTypeMap = <String, List<(String, String, IconData)>>{
+  static const _subTypeMap =
+      <String, List<(String, String, IconData)>>{
     'student': [
-      ('primaire',   'Primaire',   Icons.child_care_outlined),
-      ('college',    'Collège',    Icons.school_outlined),
-      ('lycee',      'Lycée',      Icons.account_balance_outlined),
-      ('univ',       'Université', Icons.science_outlined),
+      ('primaire',   'Primaire',     Icons.child_care_outlined),
+      ('college',    'Collège',      Icons.school_outlined),
+      ('lycee',      'Lycée',        Icons.account_balance_outlined),
+      ('univ',       'Université',   Icons.science_outlined),
     ],
     'teacher': [
-      ('primaire',   'Primaire',   Icons.child_care_outlined),
-      ('secondaire', 'Secondaire', Icons.school_outlined),
-      ('univ',       'Université', Icons.science_outlined),
+      ('primaire',   'Primaire',     Icons.child_care_outlined),
+      ('secondaire', 'Secondaire',   Icons.school_outlined),
+      ('univ',       'Université',   Icons.science_outlined),
     ],
     'parent': [
-      ('primaire', 'Primaire', Icons.child_care_outlined),
-      ('college',  'Collège',  Icons.school_outlined),
-      ('lycee',    'Lycée',    Icons.account_balance_outlined),
+      ('primaire',   'Enf. Primaire',Icons.child_care_outlined),
+      ('college',    'Enf. Collège', Icons.school_outlined),
+      ('lycee',      'Enf. Lycée',   Icons.account_balance_outlined),
     ],
     'admin': [
-      ('directeur',  'Directeur',   Icons.badge_outlined),
-      ('secretaire', 'Secrétariat', Icons.person_outlined),
-      ('dg',         'Dir. Gén.',   Icons.workspace_premium_outlined),
+      ('directeur',  'Directeur',    Icons.badge_outlined),
+      ('secretaire', 'Secrétariat',  Icons.person_outlined),
+      ('dg',         'Dir. Général', Icons.workspace_premium_outlined),
     ],
     'finance': [
-      ('comptable', 'Comptable', Icons.calculate_outlined),
-      ('caissier',  'Caissier',  Icons.point_of_sale_outlined),
+      ('comptable',  'Comptable',    Icons.calculate_outlined),
+      ('caissier',   'Caissier',     Icons.point_of_sale_outlined),
     ],
     'surveillance': [
-      ('sg',  'Surv. Gén.', Icons.security_outlined),
-      ('aux', 'Auxiliaire', Icons.shield_outlined),
+      ('sg',         'Surv. Gén.',   Icons.security_outlined),
+      ('aux',        'Auxiliaire',   Icons.shield_outlined),
     ],
   };
 
-  @override
-  void initState() {
-    super.initState();
-    _enterCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnim = CurvedAnimation(parent: _enterCtrl, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _enterCtrl, curve: Curves.easeOutCubic));
-    _enterCtrl.forward();
-  }
 
   @override
   void dispose() {
-    _emailCtrl.dispose(); _passCtrl.dispose();
-    _emailFocus.dispose(); _passFocus.dispose();
-    _enterCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
     super.dispose();
   }
 
-  // ── 3-tap secret ──────────────────────────────────────────────────────────
-  void _onTitleTap() {
-    setState(() => _titleTaps++);
-    if (_titleTaps >= 3) {
-      setState(() => _titleTaps = 0);
-      _openDemoSheet();
+  void _selectRole(String role) {
+    final subs = _subTypeMap[role];
+    final firstSub = subs?.isNotEmpty == true ? subs!.first.$1 : null;
+    setState(() {
+      _selectedRole    = role;
+      _selectedSubtype = firstSub;
+      _emailCtrl.text  = firstSub != null
+          ? '${role}_${firstSub}@scolaris.app'
+          : '$role@scolaris.app';
+      _passCtrl.text   = 'demo1234';
+      _error           = null;
+    });
+  }
+
+  void _selectSubtype(String sub) {
+    setState(() {
+      _selectedSubtype = sub;
+      _emailCtrl.text  = '${_selectedRole}_${sub}@scolaris.app';
+      _error           = null;
+    });
+  }
+
+  void _fillAndLogin(String email, String password) {
+      setState(() {
+        _emailCtrl.text = email;
+        _passCtrl.text  = password;
+        _error = null;
+      });
+      Future.microtask(_submit);
     }
-  }
 
-  void _openDemoSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _DemoSheet(
-        selectedRole: _selectedRole,
-        selectedSubtype: _selectedSubtype,
-        roles: _roles,
-        subTypeMap: _subTypeMap,
-        onConfirm: (role, sub) {
-          setState(() {
-            _selectedRole    = role;
-            _selectedSubtype = sub;
-            _emailCtrl.text  = sub != null
-                ? '${role}_$sub@scolaris.app'
-                : '$role@scolaris.app';
-            _passCtrl.text   = 'demo1234';
-            _error           = null;
-          });
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  // ── Auth ───────────────────────────────────────────────────────────────────
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
+    Future<void> _submit() async {
     final email = _emailCtrl.text.trim();
     final pass  = _passCtrl.text;
     if (email.isEmpty || !email.contains('@')) {
@@ -158,1079 +139,1269 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
     setState(() { _loading = true; _error = null; });
     try {
-      await ref.read(signInUseCaseProvider)(email, pass);
+      await ref.read(signInUseCaseProvider)(
+          _emailCtrl.text.trim(), _passCtrl.text);
     } on ArgumentError catch (e) {
-      if (mounted) setState(() => _error = e.message as String);
+      setState(() => _error = (e.message as String).tr());
     } catch (_) {
-      if (mounted) setState(() => _error = 'Identifiants incorrects. Réessayez.');
+      setState(() => _error = 'auth.errors.failed'.tr());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _handleQr(BarcodeCapture capture) async {
-    final raw = capture.barcodes.firstOrNull?.rawValue;
-    if (raw == null || !raw.startsWith('scolaris://')) return;
-    final parts = raw.replaceFirst('scolaris://', '').split(':');
-    if (parts.length < 2) return;
-    setState(() {
-      _showQrScanner  = false;
-      _emailCtrl.text = Uri.decodeComponent(parts[0]);
-      _passCtrl.text  = Uri.decodeComponent(parts[1]);
-      _error          = null;
-    });
-    Future.microtask(_submit);
+  Future<void> _handleQrDetected(String rawValue) async {
+    setState(() { _showQrScanner = false; _loading = true; _error = null; });
+    try {
+      await ref.read(signInWithQrUseCaseProvider)(rawValue);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'QR invalide ou carte non reconnue. Veuillez réessayer.';
+          _loading = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  // ── Root build ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_showQrScanner) {
-      return _QrScannerOverlay(
-        onDetect: _handleQr,
-        onClose: () => setState(() => _showQrScanner = false),
-      );
-    }
-
-    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+    final size = MediaQuery.sizeOf(context);
+    final isWide = size.width > 800;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: isDesktop
-          ? SystemUiOverlayStyle.light
-          : const SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: Brightness.light,
-              statusBarBrightness: Brightness.dark,
-            ),
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: isDesktop ? const Color(0xFF1A0A00) : _pageBg,
-        // Mobile : true → la zone héro (Expanded) se rétracte quand le clavier
-        // s'ouvre, gardant les champs visibles SANS scroll.
-        resizeToAvoidBottomInset: !isDesktop,
-        body: isDesktop ? _buildDesktop() : _buildMobile(),
+        backgroundColor: _cream,
+        body: isWide
+            ? _buildWideLayout(context, size)
+            : _buildMobileLayout(context, size),
       ),
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // DESKTOP — full-page gradient + 2 boxes séparées
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildDesktop() {
-    return Stack(fit: StackFit.expand, children: [
-      // ── Fond gradient ────────────────────────────────────────────────────
-      Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1A0A00), Color(0xFF3E1A00), Color(0xFF1A0A00)],
-            stops: [0.0, 0.55, 1.0],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+  Widget _buildWideLayout(BuildContext context, Size size) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 58,
+          child: const _LeftPanel(),
         ),
-      ),
-      // Léger pattern de points
-      Positioned.fill(child: CustomPaint(painter: _DotsBg())),
-
-      // ── Les 2 boxes centrées ─────────────────────────────────────────────
-      Center(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: LayoutBuilder(builder: (ctx, constraints) {
-              final maxW = constraints.maxWidth.clamp(0.0, 1100.0);
-              final maxH = constraints.maxHeight.clamp(0.0, 620.0);
-              return SizedBox(
-                width: maxW * 0.88,
-                height: maxH * 0.86,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Box gauche — image + hero ────────────────────────
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: SizedBox(
-                        width: maxW * 0.88 * 0.41,
-                        child: Stack(fit: StackFit.expand, children: [
-                          Image.asset(
-                            'assets/images/login_bg.webp',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFF1C0500), Color(0xFF8B2200)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Overlay gradient sombre
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.48),
-                                  Colors.black.withOpacity(0.20),
-                                  Colors.black.withOpacity(0.72),
-                                ],
-                                stops: const [0.0, 0.45, 1.0],
-                              ),
-                            ),
-                          ),
-                          // Contenu
-                          Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Logo
-                                Row(children: [
-                                  Container(
-                                    width: 38, height: 38,
-                                    decoration: BoxDecoration(
-                                      color: _white.withOpacity(0.14),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: _white.withOpacity(0.22)),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Image.asset('assets/images/logo.png',
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Center(
-                                            child: Text('S', style: TextStyle(
-                                                color: _white, fontSize: 20,
-                                                fontWeight: FontWeight.w900)),
-                                          )),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text('Scolaris', style: TextStyle(
-                                    color: _white, fontSize: 20,
-                                    fontWeight: FontWeight.w900, letterSpacing: -0.5,
-                                  )),
-                                ]),
-                                const Spacer(),
-                                const Text(
-                                  'La plateforme\nscolaire africaine.',
-                                  style: TextStyle(
-                                    color: _white, fontSize: 30,
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.18, letterSpacing: -0.8,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Élèves · Notes · Finance\nEmplois du temps',
-                                  style: TextStyle(
-                                    color: _white.withOpacity(0.58),
-                                    fontSize: 13, height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  '© ${DateTime.now().year} Scolaris',
-                                  style: TextStyle(
-                                    color: _white.withOpacity(0.28), fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ]),
-                      ),
-                    ),
-
-                    const SizedBox(width: 14),
-
-                    // ── Box droite — formulaire ──────────────────────────
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          color: const Color(0xFFF6F8FC),
-                          child: _DesktopForm(
-                            emailCtrl: _emailCtrl,
-                            passCtrl: _passCtrl,
-                            emailFocus: _emailFocus,
-                            passFocus: _passFocus,
-                            loading: _loading,
-                            obscure: _obscure,
-                            error: _error,
-                            onObscureToggle: () => setState(() => _obscure = !_obscure),
-                            onSubmit: _submit,
-                            onTitleTap: _onTitleTap,
-                            onQr: () => setState(() => _showQrScanner = true),
-                            onForgot: () => Navigator.push(context,
-                                MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
+        Expanded(
+          flex: 42,
+          child: _buildFormPanel(context, showBrand: true),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // MOBILE — plein écran, SANS scroll : héro rétractable + panneau formulaire
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildMobile() {
-    final pad = MediaQuery.paddingOf(context);
-
-    return FadeTransition(
-      opacity: _fadeAnim,
+  Widget _buildMobileLayout(BuildContext context, Size size) {
+    return SafeArea(
       child: Column(
         children: [
-          // ── Héro branded (Expanded → se rétracte avec le clavier) ────────
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
-              child: Stack(fit: StackFit.expand, children: [
-                // Fond gradient terracotta
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [_terra, Color(0xFFB23A04), _orange],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
+          const _MobileHeader(),
+          Expanded(child: _buildFormPanel(context, showBrand: false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormPanel(BuildContext context, {bool showBrand = true}) {
+    if (_showQrScanner) return _QrScanPanel(onDetected: _handleQrDetected,
+        onClose: () => setState(() => _showQrScanner = false));
+
+    return Container(
+      color: const Color(0xFFFDFAF7),
+      child: LayoutBuilder(builder: (ctx, constraints) {
+        final hPad = constraints.maxWidth > 480 ? 32.0 : 22.0;
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showBrand) ...[
+                _BrandMark(),
+                const SizedBox(height: 24),
+              ],
+
+              GestureDetector(
+                onTap: () => setState(() {
+                  _demoTapCount++;
+                  if (_demoTapCount == 2) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔒 Encore une fois…'),
+                      duration: Duration(seconds: 1),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  } else if (_demoTapCount == 3) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔓 Section développeur déverrouillée'),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }),
+                child: const Text('Connexion', style: TextStyle(
+                  fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                )),
+              ),
+              const SizedBox(height: 3),
+              Text('Accédez à votre espace Scolaris',
+                  style: TextStyle(color: _muted, fontSize: 13)),
+              const SizedBox(height: 20),
+
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _border.withOpacity(.5)),
+                  boxShadow: [BoxShadow(color: _ink.withOpacity(.05), blurRadius: 24, offset: const Offset(0, 6))],
                 ),
-                // Image en filigrane
-                Opacity(
-                  opacity: 0.18,
-                  child: Image.asset(
-                    'assets/images/login_bg.webp',
-                    fit: BoxFit.cover,
+                child: Column(children: [
+                  _customTabBar(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                    child: _showQrTab ? _buildQrTab() : _buildEmailForm(),
+                  ),
+                ]),
+              ),
+
+              if (_demoTapCount >= 3) ...[
+                const SizedBox(height: 20),
+                _divider('Comptes démo — accès rapide'),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 7, runSpacing: 7,
+                  children: [
+                    for (final r in _roles)
+                      _RoleChip(
+                        label: r.$3, icon: r.$2,
+                        selected: _selectedRole == r.$1,
+                        onTap: () => _selectRole(r.$1),
+                      ),
+                  ],
+                ),
+
+                // ── Sous-profil ─────────────────────────────────────────────
+                if (_subTypeMap.containsKey(_selectedRole)) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    const Icon(Icons.subdirectory_arrow_right_rounded,
+                        size: 13, color: Color(0xFFB08060)),
+                    const SizedBox(width: 4),
+                    const Text('Sous-profil',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700,
+                            color: Color(0xFFB08060))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6, runSpacing: 6,
+                    children: [
+                      for (final s in _subTypeMap[_selectedRole]!)
+                        _SubTypeChip(
+                          label: s.$2, icon: s.$3,
+                          selected: _selectedSubtype == s.$1,
+                          onTap: () => _selectSubtype(s.$1),
+                        ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+                _divider('EAD Congo — Connexion rapide'),
+                const SizedBox(height: 12),
+                _EadQuickLogin(onTap: _fillAndLogin),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text('Mot de passe universel : demo1234',
+                      style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
+                ),
+              ],
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _customTabBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F0EC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Row(children: [
+        Expanded(child: GestureDetector(
+          onTap: () => setState(() => _showQrTab = false),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: !_showQrTab ? _white : Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              border: !_showQrTab
+                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text('Connexion',
+              style: TextStyle(
+                color: !_showQrTab ? _terra : _muted,
+                fontWeight: !_showQrTab ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+              )),
+          ),
+        )),
+        Expanded(child: GestureDetector(
+          onTap: () => setState(() => _showQrTab = true),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: _showQrTab ? _white : Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              border: _showQrTab
+                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text('Scanner ID',
+              style: TextStyle(
+                color: _showQrTab ? _terra : _muted,
+                fontWeight: _showQrTab ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+              )),
+          ),
+        )),
+      ]),
+    );
+  }
+
+  Widget _buildEmailForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        _fieldLabel('Adresse e-mail'),
+        const SizedBox(height: 6),
+        _STextField(
+          controller: _emailCtrl,
+          hint: 'nom@ecole.com',
+          icon: Icons.mail_outline_rounded,
+          keyboard: TextInputType.emailAddress,
+        ),
+          const SizedBox(height: 16),
+          Row(children: [
+            _fieldLabel('Mot de passe'),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+              child: const Text('Mot de passe oublié ?',
+                  style: TextStyle(color: _terra, fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          _STextField(
+            controller: _passCtrl,
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            obscure: _obscure,
+            suffix: IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              icon: Icon(_obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+                  size: 18, color: _muted),
+              onPressed: () => setState(() => _obscure = !_obscure),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            _ErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 20),
+          _PrimaryBtn(label: 'Se connecter', loading: _loading, onTap: _submit),
+          const SizedBox(height: 16),
+          _dividerSmall('ou'),
+          const SizedBox(height: 16),
+          _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
+          const SizedBox(height: 18),
+          _divider('Connexion rapide (démo · demo1234)'),
+          const SizedBox(height: 10),
+          _demoQuickRow(),
+        ],
+    );
+  }
+
+  // Connexion rapide aux comptes démo EAD Brazzaville (mot de passe demo1234).
+  Widget _demoQuickRow() {
+    const accounts = <(String, String, IconData, Color)>[
+      ('Admin',  'admin@ead-bzv.cg',  Icons.admin_panel_settings_outlined, _terra),
+      ('Prof',   'prof@ead-bzv.cg',   Icons.menu_book_outlined,            Color(0xFF0277BD)),
+      ('Élève',  'eleve@ead-bzv.cg',  Icons.school_outlined,               _green),
+      ('Parent', 'parent@ead-bzv.cg', Icons.family_restroom_outlined,      Color(0xFF7C3AED)),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final a in accounts)
+          GestureDetector(
+            onTap: _loading ? null : () => _fillAndLogin(a.$2, 'demo1234'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: a.$4.withOpacity(.07),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: a.$4.withOpacity(.30)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(a.$3, size: 15, color: a.$4),
+                const SizedBox(width: 6),
+                Text(a.$1, style: TextStyle(
+                    color: a.$4, fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQrTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color(0xFF0D3B1E).withOpacity(.06), _gold.withOpacity(.06)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _terra.withOpacity(.12)),
+          ),
+          child: Column(children: [
+            SizedBox(
+              height: 140,
+              child: Lottie.asset(
+                'assets/lottie/qr_scan.json',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Icon(Icons.qr_code_rounded, size: 80, color: _terra.withOpacity(.4)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text('Connectez-vous avec votre\ncarte étudiante',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _ink, fontSize: 15,
+                    fontWeight: FontWeight.w700, height: 1.4)),
+            const SizedBox(height: 6),
+            Text(
+              'Scannez le QR code de votre carte étudiante pour vous connecter instantanément.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        if (_error != null) ...[
+          _ErrorBanner(message: _error!),
+          const SizedBox(height: 12),
+        ],
+        _PrimaryBtn(
+          label: 'Scanner ma carte étudiante',
+          loading: _loading,
+          icon: Icons.qr_code_scanner_rounded,
+          onTap: () => setState(() { _showQrScanner = true; _error = null; }),
+        ),
+        const SizedBox(height: 12),
+        _SecondaryBtn(
+          label: 'Saisir mon code manuellement',
+          icon: Icons.keyboard_outlined,
+          onTap: () => setState(() => _showQrTab = false),
+        ),
+      ],
+    );
+  }
+
+  Widget _fieldLabel(String s) => Text(s,
+      style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w600));
+
+  Widget _divider(String label) => Row(children: [
+    const Expanded(child: Divider(color: _border, height: 1)),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Text(label, style: const TextStyle(fontSize: 11, color: _muted)),
+    ),
+    const Expanded(child: Divider(color: _border, height: 1)),
+  ]);
+
+  Widget _dividerSmall(String label) => Row(children: [
+    const Expanded(child: Divider(color: _border, height: 1)),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Text(label, style: TextStyle(color: _muted.withOpacity(.6), fontSize: 12)),
+    ),
+    const Expanded(child: Divider(color: _border, height: 1)),
+  ]);
+}
+
+// ── Left Panel (African sidebar style + single Lottie) ─────────────────────
+class _LeftPanel extends StatelessWidget {
+  const _LeftPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // African dark brown gradient — same as sidebar
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0D0600), Color(0xFF1A0A00), Color(0xFF2E1100)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+
+        // African hex/adinkra pattern overlay
+        CustomPaint(painter: _AfricanPatternPainter()),
+
+        // Gold top accent stripe
+        Positioned(
+          top: 0, left: 0, right: 0,
+          child: Container(
+            height: 4,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [_terra, _gold, _orange]),
+            ),
+          ),
+        ),
+
+        // Large centered Lottie — boy studying
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 110),
+            child: Center(
+              child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.70,
+                width: double.infinity,
+                child: Lottie.asset(
+                  'assets/lottie/student_login.json',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Lottie.asset(
+                    'assets/lottie/student.json',
+                    fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   ),
                 ),
-                // Pattern de points subtil
-                Positioned.fill(child: CustomPaint(painter: _DotsBg(light: true))),
-                // Vignette bas
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.22)],
-                      stops: const [0.5, 1.0],
-                    ),
-                  ),
-                ),
-                // Contenu
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 18, 28, 26),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Logo + wordmark (3 taps secret)
-                        GestureDetector(
-                          onTap: _onTitleTap,
-                          behavior: HitTestBehavior.opaque,
-                          child: Row(children: [
-                            Container(
-                              width: 42, height: 42,
-                              decoration: BoxDecoration(
-                                color: _white.withOpacity(0.16),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: _white.withOpacity(0.28)),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.asset('assets/images/logo_transparent.png',
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Center(
-                                      child: Text('S', style: TextStyle(
-                                        color: _white, fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                      )),
-                                    )),
-                              ),
-                            ),
-                            const SizedBox(width: 11),
-                            const Text('Scolaris', style: TextStyle(
-                              color: _white, fontSize: 20,
-                              fontWeight: FontWeight.w900, letterSpacing: -0.5,
-                            )),
-                          ]),
-                        ),
-                        const Spacer(),
-                        // Accroche
-                        Text(
-                          'Bon retour',
-                          style: TextStyle(
-                            color: _white.withOpacity(0.85), fontSize: 15,
-                            fontWeight: FontWeight.w600, letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Connectez-vous à\nvotre espace.',
-                          style: TextStyle(
-                            color: _white, fontSize: 30, height: 1.15,
-                            fontWeight: FontWeight.w800, letterSpacing: -0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Élèves · Notes · Finance · Emplois du temps',
-                          style: TextStyle(
-                            color: _white.withOpacity(0.78),
-                            fontSize: 12.5, height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ]),
+              ),
             ),
           ),
+        ),
 
-          // ── Panneau formulaire (épinglé en bas, au-dessus du clavier) ────
-          Container(
-            decoration: const BoxDecoration(color: _white),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(26, 26, 26, 16 + pad.bottom),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Email
-                  _MobileField(
-                    controller: _emailCtrl,
-                    focusNode: _emailFocus,
-                    hint: 'Adresse e-mail',
-                    icon: Icons.alternate_email_rounded,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (_) => _passFocus.requestFocus(),
-                  ),
-                  const SizedBox(height: 13),
-
-                  // Mot de passe
-                  _MobileField(
-                    controller: _passCtrl,
-                    focusNode: _passFocus,
-                    hint: 'Mot de passe',
-                    icon: Icons.lock_outline_rounded,
-                    obscureText: _obscure,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
-                    suffix: GestureDetector(
-                      onTap: () => setState(() => _obscure = !_obscure),
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 14),
-                        child: Icon(
-                          _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                          size: 19, color: _subtle,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Mot de passe oublié
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
-                      child: const Text('Mot de passe oublié ?', style: TextStyle(
-                        fontSize: 13, color: _terra, fontWeight: FontWeight.w600,
-                      )),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  if (_error != null) ...[
-                    _ErrorBanner(message: _error!),
-                    const SizedBox(height: 14),
-                  ],
-
-                  // Se connecter
-                  _FilledBtn(
-                    label: 'Se connecter',
-                    loading: _loading,
-                    onPressed: _submit,
-                  ),
-                  const SizedBox(height: 11),
-
-                  // QR secondaire
-                  _OutlineBtn(
-                    label: 'Connexion par QR code',
-                    icon: Icons.qr_code_scanner_rounded,
-                    onPressed: () => setState(() => _showQrScanner = true),
-                  ),
+        // Bottom gradient for readability
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          height: 140,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFF0D0600).withOpacity(.95),
                 ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+        ),
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _DesktopForm — contenu de la box droite
-// ══════════════════════════════════════════════════════════════════════════════
-class _DesktopForm extends StatelessWidget {
-  final TextEditingController emailCtrl;
-  final TextEditingController passCtrl;
-  final FocusNode emailFocus;
-  final FocusNode passFocus;
-  final bool loading;
-  final bool obscure;
-  final String? error;
-  final VoidCallback onObscureToggle;
-  final Future<void> Function() onSubmit;
-  final VoidCallback onTitleTap;
-  final VoidCallback onQr;
-  final VoidCallback onForgot;
-
-  const _DesktopForm({
-    required this.emailCtrl, required this.passCtrl,
-    required this.emailFocus, required this.passFocus,
-    required this.loading, required this.obscure, required this.error,
-    required this.onObscureToggle, required this.onSubmit,
-    required this.onTitleTap, required this.onQr, required this.onForgot,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(44, 36, 44, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // En-tête
-          GestureDetector(
-            onTap: onTitleTap,
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Connexion', style: TextStyle(
-                  fontSize: 26, fontWeight: FontWeight.w800,
-                  color: _ink, letterSpacing: -0.6,
+        // Bottom logo + tagline
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(36, 0, 36, 28),
+            child: Row(children: [
+              _LogoImg(size: 40),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                const Text('Scolaris', style: TextStyle(
+                  color: _white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: .4,
                 )),
-                const SizedBox(height: 4),
-                const Text('Bon retour sur Scolaris — accédez à votre espace.',
-                    style: TextStyle(fontSize: 13, color: _muted, height: 1.4)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Email
-          _DeskField(
-            controller: emailCtrl,
-            focusNode: emailFocus,
-            label: 'Adresse e-mail',
-            hint: 'prenom.nom@ecole.com',
-            icon: Icons.alternate_email_rounded,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            onSubmitted: (_) => passFocus.requestFocus(),
-          ),
-          const SizedBox(height: 22),
-
-          // Mot de passe
-          _DeskField(
-            controller: passCtrl,
-            focusNode: passFocus,
-            label: 'Mot de passe',
-            hint: '••••••••',
-            icon: Icons.lock_outline_rounded,
-            obscureText: obscure,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => onSubmit(),
-            trailing: GestureDetector(
-              onTap: onObscureToggle,
-              child: Icon(
-                obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                size: 17, color: _subtle,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Mot de passe oublié
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: onForgot,
-              child: const Text('Mot de passe oublié ?', style: TextStyle(
-                fontSize: 12.5, color: _terra, fontWeight: FontWeight.w600,
-              )),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          if (error != null) ...[
-            _ErrorBanner(message: error!),
-            const SizedBox(height: 14),
-          ],
-
-          const Spacer(),
-
-          // Se connecter
-          _FilledBtn(label: 'Se connecter', loading: loading, onPressed: onSubmit),
-          const SizedBox(height: 10),
-
-          // QR
-          _OutlineBtn(
-            label: 'Scanner mon QR code',
-            icon: Icons.qr_code_scanner_rounded,
-            onPressed: onQr,
-          ),
-
-          const SizedBox(height: 24),
-
-          // Divider
-          Container(height: 1, color: const Color(0xFFECF0F4)),
-          const SizedBox(height: 18),
-
-          // Réseaux sociaux
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            for (final icon in [
-              Icons.language_rounded,
-              Icons.camera_alt_outlined,
-              Icons.share_rounded,
-              Icons.telegram_outlined,
-            ]) ...[
-              _SocialIcon(icon: icon),
-              const SizedBox(width: 8),
-            ],
-          ]),
-          const SizedBox(height: 12),
-
-          // Contacts
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.phone_outlined, size: 13, color: _subtle),
-              const SizedBox(width: 5),
-              Text('+237 6 XX XX XX XX', style: TextStyle(
-                fontSize: 11.5, color: _muted,
-              )),
-              const SizedBox(width: 16),
-              Icon(Icons.mail_outline_rounded, size: 13, color: _subtle),
-              const SizedBox(width: 5),
-              Text('contact@scolaris.app', style: TextStyle(
-                fontSize: 11.5, color: _muted,
-              )),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// _DeskField — input desktop underline
-// ══════════════════════════════════════════════════════════════════════════════
-class _DeskField extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String label;
-  final String hint;
-  final IconData icon;
-  final bool obscureText;
-  final TextInputType keyboardType;
-  final TextInputAction textInputAction;
-  final ValueChanged<String>? onSubmitted;
-  final Widget? trailing;
-
-  const _DeskField({
-    required this.controller, required this.focusNode,
-    required this.label, required this.hint, required this.icon,
-    this.obscureText = false,
-    this.keyboardType = TextInputType.text,
-    this.textInputAction = TextInputAction.next,
-    this.onSubmitted, this.trailing,
-  });
-
-  @override
-  State<_DeskField> createState() => _DeskFieldState();
-}
-
-class _DeskFieldState extends State<_DeskField> {
-  bool _focused = false;
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(() {
-      if (mounted) setState(() => _focused = widget.focusNode.hasFocus);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = _focused ? _terra : const Color(0xFFCBD5E1);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(widget.label, style: TextStyle(
-        fontSize: 11, fontWeight: FontWeight.w700,
-        color: _focused ? _terra : _muted,
-        letterSpacing: 0.5,
-      )),
-      const SizedBox(height: 6),
-      Row(children: [
-        Icon(widget.icon, size: 15, color: _focused ? _terra : _subtle),
-        const SizedBox(width: 10),
-        Expanded(
-          child: TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            obscureText: widget.obscureText,
-            keyboardType: widget.keyboardType,
-            textInputAction: widget.textInputAction,
-            onSubmitted: widget.onSubmitted,
-            style: const TextStyle(fontSize: 14.5, color: _ink, fontWeight: FontWeight.w500),
-            decoration: InputDecoration(
-              hintText: widget.hint,
-              hintStyle: TextStyle(color: _subtle.withOpacity(0.55), fontSize: 13.5),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              suffixIcon: widget.trailing,
-            ),
-          ),
-        ),
-      ]),
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: _focused ? 1.5 : 1,
-        color: activeColor,
-      ),
-    ]);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// _MobileField — input mobile avec bordure arrondie
-// ══════════════════════════════════════════════════════════════════════════════
-class _MobileField extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String hint;
-  final IconData icon;
-  final bool obscureText;
-  final TextInputType keyboardType;
-  final TextInputAction textInputAction;
-  final ValueChanged<String>? onSubmitted;
-  final Widget? suffix;
-
-  const _MobileField({
-    required this.controller, required this.focusNode,
-    required this.hint, required this.icon,
-    this.obscureText = false,
-    this.keyboardType = TextInputType.text,
-    this.textInputAction = TextInputAction.next,
-    this.onSubmitted, this.suffix,
-  });
-
-  @override
-  State<_MobileField> createState() => _MobileFieldState();
-}
-
-class _MobileFieldState extends State<_MobileField> {
-  bool _focused = false;
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(() {
-      if (mounted) setState(() => _focused = widget.focusNode.hasFocus);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _focused ? _terra.withOpacity(0.6) : _border,
-          width: _focused ? 1.5 : 1,
-        ),
-        boxShadow: _focused
-            ? [BoxShadow(color: _terra.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))]
-            : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        obscureText: widget.obscureText,
-        keyboardType: widget.keyboardType,
-        textInputAction: widget.textInputAction,
-        onSubmitted: widget.onSubmitted,
-        style: const TextStyle(fontSize: 15, color: _ink, fontWeight: FontWeight.w500),
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          hintStyle: TextStyle(color: _subtle.withOpacity(0.65), fontSize: 14.5),
-          prefixIcon: Icon(widget.icon, size: 19,
-              color: _focused ? _terra : _subtle),
-          suffixIcon: widget.suffix,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          isDense: true,
-        ),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// _FilledBtn
-// ══════════════════════════════════════════════════════════════════════════════
-class _FilledBtn extends StatelessWidget {
-  final String label;
-  final bool loading;
-  final Future<void> Function() onPressed;
-  const _FilledBtn({required this.label, required this.loading, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity, height: 52,
-      child: FilledButton(
-        onPressed: loading ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: _terra,
-          foregroundColor: _white,
-          disabledBackgroundColor: _terra.withOpacity(0.40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-        ),
-        child: loading
-            ? const SizedBox(width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: _white))
-            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(label, style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.1,
+                Text(AppConfig.appTagline, style: TextStyle(
+                  color: _gold.withOpacity(.72), fontSize: 10, fontStyle: FontStyle.italic,
                 )),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_rounded, size: 17),
               ]),
-      ),
+              const Spacer(),
+              Text('© ${DateTime.now().year} Scolaris',
+                  style: TextStyle(color: _white.withOpacity(.22), fontSize: 10)),
+            ]),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _OutlineBtn
-// ══════════════════════════════════════════════════════════════════════════════
-class _OutlineBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-  const _OutlineBtn({required this.label, required this.icon, required this.onPressed});
+
+// ── Logo Widget ────────────────────────────────────────────────────────────
+class _LogoImg extends StatelessWidget {
+  final double size;
+  const _LogoImg({this.size = 48});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity, height: 48,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 17),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _ink,
-          side: BorderSide(color: _border, width: 1.2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.22),
+      child: Image.asset(
+        'assets/images/logo.png',
+        width: size, height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          'assets/images/logo_transparent.png',
+          width: size, height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            width: size, height: size,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [_terra, _orange]),
+              borderRadius: BorderRadius.circular(size * 0.22),
+            ),
+            child: Center(
+              child: Text('S', style: TextStyle(
+                color: _white, fontSize: size * 0.45, fontWeight: FontWeight.w900,
+              )),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _SocialIcon — icône réseau social desktop
-// ══════════════════════════════════════════════════════════════════════════════
-class _SocialIcon extends StatelessWidget {
-  final IconData icon;
-  const _SocialIcon({required this.icon});
+// ── Mobile Header ──────────────────────────────────────────────────────────
+class _MobileHeader extends StatelessWidget {
+  const _MobileHeader();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32, height: 32,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        shape: BoxShape.circle,
-        border: Border.all(color: _border),
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1A0A00), Color(0xFF8B1A00)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      child: Icon(icon, size: 15, color: _muted),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+      child: Column(
+        children: [
+          Row(children: [
+            _LogoImg(size: 40),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Scolaris',
+                  style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: .5)),
+              Text(AppConfig.appTagline,
+                  style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
+            ]),
+          ]),
+          const SizedBox(height: 16),
+          const Text('Bienvenue sur Scolaris',
+              style: TextStyle(color: _white, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 5),
+          Text('Plateforme scolaire africaine de nouvelle génération',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _white.withOpacity(.68), fontSize: 12, height: 1.5)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: const [
+            _FeaturePill(icon: Icons.people_rounded, label: '6 rôles'),
+            _FeaturePill(icon: Icons.wifi_off_rounded, label: 'Hors-ligne'),
+            _FeaturePill(icon: Icons.translate_rounded, label: '4 langues'),
+          ]),
+        ],
+      ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _ErrorBanner
-// ══════════════════════════════════════════════════════════════════════════════
+// ── Brand Mark (right panel top) ───────────────────────────────────────────
+class _BrandMark extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      _LogoImg(size: 52),
+      const SizedBox(width: 14),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Scolaris',
+            style: TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: .5)),
+        Text(AppConfig.appTagline,
+            style: TextStyle(color: _muted.withOpacity(.7), fontSize: 11,
+                fontStyle: FontStyle.italic)),
+      ]),
+    ]);
+  }
+}
+
+// ── QR Scanner Panel ──────────────────────────────────────────────────────
+class _QrScanPanel extends StatefulWidget {
+  final void Function(String) onDetected;
+  final VoidCallback onClose;
+  const _QrScanPanel({required this.onDetected, required this.onClose});
+
+  @override
+  State<_QrScanPanel> createState() => _QrScanPanelState();
+}
+
+class _QrScanPanelState extends State<_QrScanPanel> {
+  final _ctrl = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    returnImage: false,
+  );
+  bool _scanned = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _dark,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: _ctrl,
+            onDetect: (capture) {
+              if (_scanned) return;
+              final raw = capture.barcodes.firstOrNull?.rawValue;
+              if (raw != null && raw.isNotEmpty) {
+                _scanned = true;
+                widget.onDetected(raw);
+              }
+            },
+          ),
+
+          CustomPaint(painter: _ScanFramePainter()),
+
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(children: [
+                  GestureDetector(
+                    onTap: widget.onClose,
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: _white.withOpacity(.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, color: _white, size: 22),
+                    ),
+                  ),
+                  const Spacer(),
+                  const Text('Scanner carte étudiante',
+                      style: TextStyle(color: _white, fontSize: 15,
+                          fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => _ctrl.toggleTorch(),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: _white.withOpacity(.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.flashlight_on_rounded, color: _white, size: 20),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _white.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _white.withOpacity(.15)),
+                ),
+                child: Column(children: [
+                  const Icon(Icons.credit_card_rounded, color: _gold, size: 28),
+                  const SizedBox(height: 10),
+                  const Text('Pointez votre caméra vers le QR code\nde votre carte étudiante',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _white, fontSize: 13,
+                          fontWeight: FontWeight.w600, height: 1.5)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Le QR code contient votre identifiant étudiant (ID, établissement, promo)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _white.withOpacity(.6), fontSize: 11, height: 1.4),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanFramePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dim = size.width * 0.65;
+    final left = (size.width - dim) / 2;
+    final top  = (size.height - dim) / 2 - 40;
+
+    final overlay = Paint()..color = Colors.black.withOpacity(.55);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, top), overlay);
+    canvas.drawRect(Rect.fromLTWH(0, top + dim, size.width, size.height - top - dim), overlay);
+    canvas.drawRect(Rect.fromLTWH(0, top, left, dim), overlay);
+    canvas.drawRect(Rect.fromLTWH(left + dim, top, size.width - left - dim, dim), overlay);
+
+    final corner = Paint()
+      ..color = ScolarisPalette.gold
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    const r = 12.0;
+    final pts = [
+      [Offset(left, top + r), Offset(left, top), Offset(left + r, top)],
+      [Offset(left + dim - r, top), Offset(left + dim, top), Offset(left + dim, top + r)],
+      [Offset(left + dim, top + dim - r), Offset(left + dim, top + dim), Offset(left + dim - r, top + dim)],
+      [Offset(left, top + dim - r), Offset(left, top + dim), Offset(left + r, top + dim)],
+    ];
+    for (final p in pts) {
+      final path = Path()
+        ..moveTo(p[0].dx, p[0].dy)
+        ..lineTo(p[1].dx, p[1].dy)
+        ..lineTo(p[2].dx, p[2].dy);
+      canvas.drawPath(path, corner);
+    }
+
+    final line = Paint()
+      ..color = ScolarisPalette.gold.withOpacity(.7)
+      ..strokeWidth = 2;
+    canvas.drawLine(Offset(left + 12, top + dim / 2), Offset(left + dim - 12, top + dim / 2), line);
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
+}
+
+// ── African Pattern Painter ────────────────────────────────────────────────
+class _AfricanPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p1 = Paint()
+      ..color = _white.withOpacity(.03)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    final p2 = Paint()
+      ..color = _gold.withOpacity(.04)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+
+    const spacing = 52.0;
+    final cols = (size.width / spacing).ceil() + 1;
+    final rows = (size.height / spacing).ceil() + 1;
+
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        final cx = c * spacing + (r.isOdd ? spacing / 2 : 0);
+        final cy = r * spacing * 0.866;
+        _drawHex(canvas, Offset(cx, cy), 18, p1);
+        if ((r + c) % 3 == 0) _drawAdinkra(canvas, Offset(cx, cy), 6, p2);
+      }
+    }
+  }
+
+  void _drawHex(Canvas canvas, Offset center, double r, Paint p) {
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * 60 - 30) * math.pi / 180;
+      final x = center.dx + r * math.cos(angle);
+      final y = center.dy + r * math.sin(angle);
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    path.close();
+    canvas.drawPath(path, p);
+  }
+
+  void _drawAdinkra(Canvas canvas, Offset c, double r, Paint p) {
+    canvas.drawCircle(c, r, p);
+    canvas.drawLine(c.translate(-r, 0), c.translate(r, 0), p);
+    canvas.drawLine(c.translate(0, -r), c.translate(0, r), p);
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
+}
+
+// ── Feature Pill ──────────────────────────────────────────────────────────
+class _FeaturePill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _FeaturePill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _white.withOpacity(.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _white.withOpacity(.18)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: _gold),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+// ── Form Widgets ──────────────────────────────────────────────────────────
+class _STextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool obscure;
+  final Widget? suffix;
+  final TextInputType? keyboard;
+  const _STextField({
+    required this.controller, required this.hint, required this.icon,
+    this.obscure = false, this.suffix, this.keyboard,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboard,
+      style: const TextStyle(fontSize: 14, color: _ink),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: _muted.withOpacity(.55), fontSize: 14),
+        prefixIcon: Icon(icon, size: 18, color: _muted),
+        prefixIconConstraints: const BoxConstraints.tightFor(width: 44),
+        suffixIcon: suffix,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        filled: true,
+        fillColor: const Color(0xFFF9F5F1),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _terra, width: 1.8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.8),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryBtn extends StatelessWidget {
+  final String label;
+  final bool loading;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  const _PrimaryBtn({
+    required this.label, required this.loading,
+    required this.onTap, this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: loading
+                ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
+                : [_terra, _orange],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: loading ? [] : [
+            BoxShadow(color: _terra.withOpacity(.4),
+                blurRadius: 16, offset: const Offset(0, 6)),
+          ],
+        ),
+        child: loading
+            ? const SizedBox(width: 22, height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                if (icon != null) ...[
+                  Icon(icon, color: _white, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Text(label, style: const TextStyle(color: _white, fontSize: 15,
+                    fontWeight: FontWeight.w700, letterSpacing: .3)),
+              ]),
+      ),
+    );
+  }
+}
+
+class _SecondaryBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _SecondaryBtn({required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _border, width: 1.5),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 18, color: _terra),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: _ink, fontSize: 14,
+              fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
+  }
+}
+
 class _ErrorBanner extends StatelessWidget {
   final String message;
   const _ErrorBanner({required this.message});
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFFECACA)),
       ),
       child: Row(children: [
-        const Icon(Icons.error_outline_rounded, size: 15, color: Color(0xFFDC2626)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(message, style: const TextStyle(
-          fontSize: 12.5, color: Color(0xFFDC2626), fontWeight: FontWeight.w500,
-        ))),
+        const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message,
+            style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12.5))),
       ]),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _DemoSheet
-// ══════════════════════════════════════════════════════════════════════════════
-class _DemoSheet extends StatefulWidget {
-  final String selectedRole;
-  final String? selectedSubtype;
-  final List<(String, IconData, String)> roles;
-  final Map<String, List<(String, String, IconData)>> subTypeMap;
-  final void Function(String role, String? sub) onConfirm;
-  const _DemoSheet({
-    required this.selectedRole, required this.selectedSubtype,
-    required this.roles, required this.subTypeMap, required this.onConfirm,
-  });
-  @override
-  State<_DemoSheet> createState() => _DemoSheetState();
-}
-
-class _DemoSheetState extends State<_DemoSheet> {
-  late String  _role;
-  late String? _sub;
-  @override
-  void initState() {
-    super.initState();
-    _role = widget.selectedRole;
-    _sub  = widget.selectedSubtype;
-  }
+class _RoleChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _RoleChip({required this.label, required this.icon,
+      required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final subs = widget.subTypeMap[_role] ?? [];
-    return Container(
-      decoration: const BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [_terra, _orange],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : _white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? _terra : _border.withOpacity(.8),
+            width: selected ? 0 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(color: _terra.withOpacity(.35),
+                      blurRadius: 14, offset: const Offset(0, 5)),
+                ]
+              : [
+                  BoxShadow(color: _ink.withOpacity(.04),
+                      blurRadius: 4, offset: const Offset(0, 2)),
+                ],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              color: selected
+                  ? _white.withOpacity(.2)
+                  : _terra.withOpacity(.08),
+              shape: BoxShape.circle,
+            ),
+            child: Center(child: Icon(icon, size: 12,
+                color: selected ? _white : _terra)),
+          ),
+          const SizedBox(width: 7),
+          Text(label, style: TextStyle(
+              color: selected ? _white : _ink,
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
+        ]),
       ),
-      padding: EdgeInsets.only(
-        left: 24, right: 24, top: 8,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+    );
+  }
+}
+
+class _SubTypeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SubTypeChip({required this.label, required this.icon,
+      required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF3E1A00) : const Color(0xFFF0E8DF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: selected ? const Color(0xFF3E1A00) : _border),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 12,
+              color: selected ? _gold : const Color(0xFFB08060)),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(
+              color: selected ? _gold : _ink,
+              fontSize: 11.5, fontWeight: FontWeight.w600)),
+        ]),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(child: Container(
-            margin: const EdgeInsets.only(bottom: 16), width: 36, height: 4,
-            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
-          )),
-          const Text('🔑  Compte démo',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-          const SizedBox(height: 4),
-          const Text('Sélectionnez un profil pour tester.',
-              style: TextStyle(fontSize: 12.5, color: _muted)),
-          const SizedBox(height: 16),
-          Wrap(spacing: 8, runSpacing: 8, children: widget.roles.map((r) {
-            final active = _role == r.$1;
-            return GestureDetector(
-              onTap: () => setState(() {
-                _role = r.$1;
-                _sub  = widget.subTypeMap[_role]?.firstOrNull?.$1;
-              }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: active ? _terra : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: active ? _terra : _border),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(r.$2, size: 14, color: active ? _white : _muted),
-                  const SizedBox(width: 6),
-                  Text(r.$3, style: TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w600,
-                    color: active ? _white : _ink,
-                  )),
-                ]),
-              ),
-            );
-          }).toList()),
-          if (subs.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text('Sous-type', style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w700, color: _muted,
-            )),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: subs.map((s) {
-              final active = _sub == s.$1;
-              return GestureDetector(
-                onTap: () => setState(() => _sub = s.$1),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: active ? _forest : _border),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(s.$3, size: 13, color: active ? _forest : _muted),
-                    const SizedBox(width: 5),
-                    Text(s.$2, style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600,
-                      color: active ? _forest : _ink,
-                    )),
-                  ]),
-                ),
-              );
-            }).toList()),
+    );
+  }
+}
+
+class _RegisterSchoolBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _RegisterSchoolBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
+                blurRadius: 16, offset: const Offset(0, 6)),
           ],
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: () => widget.onConfirm(_role, _sub),
-            style: FilledButton.styleFrom(
-              backgroundColor: _terra, foregroundColor: _white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-              elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: _gold.withOpacity(.15),
+              shape: BoxShape.circle,
             ),
-            child: const Text('Utiliser ce compte',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            child: const Icon(Icons.add_business_outlined, size: 16, color: _gold),
           ),
+          const SizedBox(width: 10),
+          const Text('Inscrire mon école',
+              style: TextStyle(
+                color: _white,
+                fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: .3,
+              )),
+        ]),
+      ),
+    );
+  }
+}
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // EAD Congo — Quick Login Widgets
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  class _EadUser {
+    final String label, subtitle, email, password, centre;
+    final IconData icon;
+    final Color color;
+    const _EadUser({required this.label,required this.subtitle,required this.email,required this.password,required this.icon,required this.color,required this.centre});
+  }
+
+  const _eadPassword = 'EadCongo2025!';
+
+  const _eadUsers = [
+    _EadUser(label:'Ondongo Ferel',subtitle:'Étudiant · GLAR L2 · Brazzaville',email:'ondongo.ferel@ead.cg',password:_eadPassword,icon:Icons.school_rounded,color:Color(0xFF2E7D32),centre:'BZV'),
+    _EadUser(label:'Mabika Gloire',subtitle:'Étudiant · EMI L1 · Brazzaville',email:'mabika.gloire@ead.cg',password:_eadPassword,icon:Icons.engineering_rounded,color:Color(0xFF1565C0),centre:'BZV'),
+    _EadUser(label:'Mouanda Prisca',subtitle:'Étudiante · Gestion M1 · Brazzaville',email:'mouanda.prisca@ead.cg',password:_eadPassword,icon:Icons.business_center_rounded,color:Color(0xFF558B2F),centre:'BZV'),
+    _EadUser(label:'Batchi Kevin',subtitle:'Étudiant · GLAR L2 · Pointe-Noire',email:'batchi.kevin@ead.cg',password:_eadPassword,icon:Icons.computer_rounded,color:Color(0xFF00838F),centre:'PNR'),
+    _EadUser(label:'Moukala Grace',subtitle:'Étudiante · Économie L3 · Pointe-Noire',email:'moukala.grace@ead.cg',password:_eadPassword,icon:Icons.trending_up_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
+    _EadUser(label:'Dr. Djemba Norbert',subtitle:'Enseignant · Réseaux · Brazzaville',email:'prof.djemba@ead.cg',password:_eadPassword,icon:Icons.menu_book_rounded,color:Color(0xFF6A1B9A),centre:'BZV'),
+    _EadUser(label:'Pr. Makaya Ferdinand',subtitle:'Enseignant · Maths · Brazzaville',email:'prof.makaya@ead.cg',password:_eadPassword,icon:Icons.calculate_rounded,color:Color(0xFF0277BD),centre:'BZV'),
+    _EadUser(label:'Dr. Nguila Clémentine',subtitle:'Enseignante · Économie · Pointe-Noire',email:'prof.nguila@ead.cg',password:_eadPassword,icon:Icons.bar_chart_rounded,color:Color(0xFF33691E),centre:'PNR'),
+    _EadUser(label:'Obambi Marie-Claire',subtitle:'Secrétariat · Brazzaville',email:'secretariat.bzv@ead.cg',password:_eadPassword,icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),centre:'BZV'),
+    _EadUser(label:'Mavoungou Théodore',subtitle:'Directeur · Centre BZV',email:'direction.bzv@ead.cg',password:_eadPassword,icon:Icons.workspace_premium_rounded,color:Color(0xFFC17F24),centre:'BZV'),
+    _EadUser(label:'Madzou Emmanuel',subtitle:'Directeur · Centre PNR',email:'direction.pnr@ead.cg',password:_eadPassword,icon:Icons.location_city_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
+    _EadUser(label:'Elenga-Ngaporo Samuel',subtitle:'Directeur Général EAD Congo',email:'dg@ead.cg',password:_eadPassword,icon:Icons.account_balance_rounded,color:Color(0xFF0D47A1),centre:'DG'),
+  ];
+
+  class _EadQuickLogin extends StatefulWidget {
+    final void Function(String email, String password) onTap;
+    const _EadQuickLogin({required this.onTap});
+    @override
+    State<_EadQuickLogin> createState() => _EadQuickLoginState();
+  }
+
+  class _EadQuickLoginState extends State<_EadQuickLogin> {
+    String _filter = 'ALL';
+
+    @override
+    Widget build(BuildContext context) {
+      const centres = ['ALL', 'BZV', 'PNR', 'DG'];
+      final filtered = _filter == 'ALL' ? _eadUsers : _eadUsers.where((u) => u.centre == _filter).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: centres.map((c) {
+                final sel = _filter == c;
+                final lbl = c == 'ALL' ? 'Tous' : c == 'DG' ? 'Direction' : 'Centre $c';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilterChip(
+                    label: Text(lbl, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sel ? Colors.white : _muted)),
+                    selected: sel,
+                    onSelected: (_) => setState(() => _filter = c),
+                    backgroundColor: const Color(0xFFF5F0EC),
+                    selectedColor: _terra,
+                    checkmarkColor: Colors.white,
+                    showCheckmark: false,
+                    side: BorderSide(color: sel ? _terra : _border),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...filtered.map((u) => _EadUserTile(user: u, onTap: () => widget.onTap(u.email, u.password))),
         ],
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// _DotsBg — fond de points subtil (desktop)
-// ═══════════════════════════════════════════════════════════════════════════���══
-class _DotsBg extends CustomPainter {
-  final bool light;
-  const _DotsBg({this.light = false});
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Colors.white.withOpacity(light ? 0.07 : 0.025)
-      ..style = PaintingStyle.fill;
-    const step = 36.0, r = 1.6;
-    for (double x = step; x < size.width; x += step) {
-      for (double y = step; y < size.height; y += step) {
-        canvas.drawCircle(Offset(x, y), r, p);
-      }
+      );
     }
   }
-  @override
-  bool shouldRepaint(_) => false;
-}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// QR Scanner Overlay
-// ══════════════════════════════════════════════════════════════════════════════
-class _QrScannerOverlay extends StatelessWidget {
-  final Function(BarcodeCapture) onDetect;
-  final VoidCallback onClose;
-  const _QrScannerOverlay({required this.onDetect, required this.onClose});
+  class _EadUserTile extends StatelessWidget {
+    final _EadUser user;
+    final VoidCallback onTap;
+    const _EadUserTile({required this.user, required this.onTap});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(children: [
-        MobileScanner(onDetect: onDetect),
-        Positioned.fill(child: CustomPaint(painter: _ScannerFrame())),
-        Positioned(
-          top: 0, left: 0, right: 0,
-          child: Container(
-            color: Colors.black87,
-            padding: EdgeInsets.only(
-              top: MediaQuery.paddingOf(context).top + 8,
-              bottom: 12, left: 16, right: 16,
-            ),
-            child: Row(children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: _white),
-                onPressed: onClose,
+    @override
+    Widget build(BuildContext context) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: user.color.withOpacity(.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: user.color.withOpacity(.25)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: user.color.withOpacity(.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(user.icon, color: user.color, size: 20),
               ),
-              const Expanded(
-                child: Text('Scanner votre QR code Scolaris',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _white, fontWeight: FontWeight.w700, fontSize: 15)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _ink)),
+                    const SizedBox(height: 1),
+                    Text(user.subtitle, style: const TextStyle(fontSize: 11, color: _muted)),
+                  ],
+                ),
               ),
-              const SizedBox(width: 48),
-            ]),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(color: user.color.withOpacity(.12), borderRadius: BorderRadius.circular(6)),
+                child: Text(user.centre, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.login_rounded, color: user.color, size: 16),
+            ],
           ),
         ),
-        Positioned(
-          bottom: 60, left: 0, right: 0,
-          child: Text('Pointez la caméra vers le QR code de votre carte',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _white.withOpacity(0.75), fontSize: 13)),
-        ),
-      ]),
-    );
-  }
-}
-
-class _ScannerFrame extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const box = 220.0, r = 16.0;
-    final cx = size.width / 2, cy = size.height / 2;
-    canvas.drawPath(
-      Path.combine(PathOperation.difference,
-        Path()..addRect(Offset.zero & size),
-        Path()..addRRect(RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(cx, cy), width: box, height: box),
-          const Radius.circular(r),
-        )),
-      ),
-      Paint()..color = Colors.black54,
-    );
-    final lp = Paint()..color = _white..strokeWidth = 3..strokeCap = StrokeCap.round;
-    const arm = 28.0;
-    final l = cx - box / 2, t = cy - box / 2, rr = cx + box / 2, b = cy + box / 2;
-    for (final (ox, oy, dx, dy) in [
-      (l + r, t, 1.0, 0.0), (l, t + r, 0.0, 1.0),
-      (rr - r, t, -1.0, 0.0), (rr, t + r, 0.0, 1.0),
-      (l + r, b, 1.0, 0.0), (l, b - r, 0.0, -1.0),
-      (rr - r, b, -1.0, 0.0), (rr, b - r, 0.0, -1.0),
-    ]) {
-      canvas.drawLine(Offset(ox, oy), Offset(ox + dx * arm, oy + dy * arm), lp);
+      );
     }
   }
-  @override
-  bool shouldRepaint(_) => false;
-}
+  

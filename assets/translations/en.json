@@ -54,6 +54,7 @@
     "dashboard": "Home",
     "courses": "Courses",
     "grades": "Grades",
+    "report_cards": "Report cards",
     "attendance": "Attendance",
     "schedule": "Schedule",
     "messages": "Messages",
@@ -61,9 +62,11 @@
     "payments": "Payments",
     "students": "Students",
     "classes": "Classes",
+    "subjects": "Subjects",
     "reports": "Reports",
     "users": "Users",
     "billing": "Billing",
+    "subscription": "Subscription",
     "library": "Library",
     "qr": "QR Code",
     "bulletin": "Report Card",
@@ -78,7 +81,8 @@
     "documents": "My Documents",
     "news": "News",
     "calendar": "Calendar",
-    "settings": "Settings"
+    "settings": "Settings",
+    "school": "My School"
   },
   "dashboard": {
     "hello": "Hello, {name}",

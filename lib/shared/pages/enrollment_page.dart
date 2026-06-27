@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../data/sources/remote/supabase_db_source.dart';
 import '../data/enrollment_config.dart';
 
 const _terra   = Color(0xFF8B1A00);
@@ -29,12 +30,14 @@ class EnrollmentPage extends StatefulWidget {
   final EnrollmentConfig? config;
   final void Function(Map<String, dynamic> data)? onSubmit;
   final bool isAdminMode;
+  final List<SbClass>? adminClasses;
 
   const EnrollmentPage({
     super.key,
     this.config,
     this.onSubmit,
     this.isAdminMode = false,
+    this.adminClasses,
   });
 
   @override
@@ -48,6 +51,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   final Map<String, TextEditingController> _controllers = {};
   bool _submitted = false;
   bool _loading = false;
+  String? _selectedClassId;
 
   @override
   void initState() {
@@ -90,6 +94,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     final data = <String, dynamic>{};
     for (final f in _config.enabledFields) {
       data[f.id] = _controllers[f.id]?.text ?? _values[f.id];
+    }
+    if (widget.isAdminMode && widget.adminClasses != null) {
+      data['class_id'] = _selectedClassId;
     }
     widget.onSubmit?.call(data);
   }
@@ -141,6 +148,18 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 total: _config.enabledFields.length,
               ),
             ),
+
+            // ── Sélecteur de classe (admin uniquement) ───────────────────
+            if (widget.isAdminMode &&
+                widget.adminClasses != null &&
+                widget.adminClasses!.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _AdminClassPicker(
+                  classes: widget.adminClasses!,
+                  selectedId: _selectedClassId,
+                  onChanged: (id) => setState(() => _selectedClassId = id),
+                ),
+              ),
 
             // ── Field sections ───────────────────────────────────────────
             for (final entry in cats.entries) ...[
@@ -949,6 +968,75 @@ InputDecoration _inputDecor(String hint, {Widget? suffix}) => InputDecoration(
     borderSide: const BorderSide(color: _terra),
   ),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Class picker — admin mode only
+// ─────────────────────────────────────────────────────────────────────────────
+class _AdminClassPicker extends StatelessWidget {
+  final List<SbClass> classes;
+  final String? selectedId;
+  final ValueChanged<String?> onChanged;
+
+  const _AdminClassPicker({
+    required this.classes,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: _terra.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.class_rounded, size: 15, color: _terra),
+          ),
+          const SizedBox(width: 10),
+          const Text('AFFECTATION À UNE CLASSE',
+              style: TextStyle(color: _terra, fontSize: 11.5,
+                  fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+          const SizedBox(width: 8),
+          Expanded(child: Container(height: 1, color: _borderC)),
+        ]),
+        const SizedBox(height: 10),
+        Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _borderC),
+          ),
+          child: DropdownButton<String>(
+            value: selectedId,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            hint: const Text('Sélectionner une classe (optionnel)',
+                style: TextStyle(fontSize: 13, color: _muted)),
+            icon: const Icon(Icons.expand_more_rounded, size: 16, color: _muted),
+            style: const TextStyle(fontSize: 13, color: _ink),
+            items: [
+              const DropdownMenuItem<String>(
+                value: null,
+                child: Text('— Aucune classe —',
+                    style: TextStyle(color: _muted, fontStyle: FontStyle.italic)),
+              ),
+              for (final c in classes)
+                DropdownMenuItem(value: c.id, child: Text(c.name)),
+            ],
+            onChanged: onChanged,
+          ),
+        ),
+      ]),
+    );
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hex painter

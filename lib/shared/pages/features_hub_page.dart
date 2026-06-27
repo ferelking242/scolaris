@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/db_providers.dart';
 import '../data/features_catalog.dart';
+import '../widgets/plan_gate.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _terra  = ScolarisPalette.terracotta;
@@ -29,7 +31,9 @@ class FeaturesHubPage extends ConsumerStatefulWidget {
 }
 
 class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
-  SchoolLevel _level = SchoolLevel.lycee;
+  /// Override manuel du niveau (écoles multi-cycles). Null → niveau dynamique
+  /// déduit de la classe de l'élève / du type d'école.
+  SchoolLevel? _levelOverride;
   FeatureStatus? _filterStatus;
   FeatureCategory? _filterCat;
   final Set<String> _closedCats = {};
@@ -39,10 +43,20 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
     final user = ref.watch(authSessionProvider);
     final role = user?.role ?? UserRole.student;
     final isAdmin = role == UserRole.staff;
+    final planCode = ref.watch(currentPlanCodeProvider).valueOrNull;
+
+    // Niveau dynamique (type d'école / classe) + niveaux réellement offerts.
+    final dynLevel = ref.watch(studentSchoolLevelProvider).valueOrNull
+        ?? SchoolLevel.lycee;
+    final schoolLevels = ref.watch(schoolLevelsProvider).valueOrNull
+        ?? const <SchoolLevel>[];
+    final level = _levelOverride ?? dynLevel;
+    // Sélecteur affiché seulement si l'école couvre plusieurs niveaux.
+    final canSwitchLevel = role == UserRole.student && schoolLevels.length > 1;
 
     final raw = isAdmin
         ? FeaturesCatalog.all
-        : FeaturesCatalog.forRole(role, role == UserRole.student ? _level : null);
+        : FeaturesCatalog.forRole(role, role == UserRole.student ? level : null);
 
     final filtered = raw.where((f) {
       if (_filterStatus != null && f.status != _filterStatus) return false;
@@ -65,13 +79,14 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
           SliverToBoxAdapter(
             child: _HeroHeader(
               role: role,
-              level: _level,
+              level: level,
+              availableLevels: schoolLevels,
               total: raw.length,
               availableCount: availableCount,
               plannedCount: plannedCount,
               betaCount: betaCount,
-              onLevelChange: role == UserRole.student
-                  ? (l) => setState(() => _level = l)
+              onLevelChange: canSwitchLevel
+                  ? (l) => setState(() => _levelOverride = l)
                   : null,
             ),
           ),
@@ -152,7 +167,8 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
                           feature: features[i],
                           showRoleBadges: isAdmin,
                           userRole: role,
-                          level: role == UserRole.student ? _level : null,
+                          level: role == UserRole.student ? level : null,
+                          planCode: planCode,
                         );
                       },
                       childCount: filtered
@@ -177,6 +193,7 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
 class _HeroHeader extends StatelessWidget {
   final UserRole role;
   final SchoolLevel level;
+  final List<SchoolLevel> availableLevels;
   final int total;
   final int availableCount;
   final int plannedCount;
@@ -186,6 +203,7 @@ class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
     required this.role,
     required this.level,
+    required this.availableLevels,
     required this.total,
     required this.availableCount,
     required this.plannedCount,
@@ -332,7 +350,7 @@ class _HeroHeader extends StatelessWidget {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: SchoolLevel.values.map((l) {
+                      children: availableLevels.map((l) {
                         final sel = l == level;
                         return GestureDetector(
                           onTap: () => onLevelChange!(l),
@@ -632,12 +650,14 @@ class _FeatureCard extends StatefulWidget {
   final bool showRoleBadges;
   final UserRole userRole;
   final SchoolLevel? level;
+  final String? planCode;
 
   const _FeatureCard({
     required this.feature,
     required this.showRoleBadges,
     required this.userRole,
     this.level,
+    this.planCode,
   });
 
   @override
@@ -674,7 +694,9 @@ class _FeatureCardState extends State<_FeatureCard> {
   @override
   Widget build(BuildContext context) {
     final f = widget.feature;
-    final isAvailable = f.status == FeatureStatus.available;
+    final planLocked = !planMeetsRequirement(widget.planCode, f.minPlan);
+    // Verrouillée par l'offre OU pas encore disponible → présentation atténuée.
+    final isAvailable = f.status == FeatureStatus.available && !planLocked;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -730,6 +752,10 @@ class _FeatureCardState extends State<_FeatureCard> {
                             : _muted.withOpacity(.5)),
                   ),
                   const Spacer(),
+                  if (planLocked) ...[
+                    _PlanLockBadge(plan: f.minPlan),
+                    const SizedBox(width: 5),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 7, vertical: 3),
@@ -816,6 +842,35 @@ class _FeatureCardState extends State<_FeatureCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Badge « 🔒 Pro » / « 🔒 Max » affiché quand l'offre courante ne couvre pas
+/// la feature. Distinct du badge de statut (« À venir » = maturité du code).
+class _PlanLockBadge extends StatelessWidget {
+  final String plan;
+  const _PlanLockBadge({required this.plan});
+
+  static const _colors = {'pro': Color(0xFF0E7490), 'max': Color(0xFF7C3AED)};
+  static const _labels = {'pro': 'Pro', 'max': 'Max'};
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _colors[plan] ?? _terra;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: c.withOpacity(.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.lock_rounded, size: 9, color: c),
+        const SizedBox(width: 3),
+        Text(_labels[plan] ?? plan,
+            style: TextStyle(fontSize: 9, color: c, fontWeight: FontWeight.w800)),
+      ]),
     );
   }
 }

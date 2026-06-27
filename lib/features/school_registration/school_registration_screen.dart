@@ -72,18 +72,19 @@ const _kCitiesByCountry = <String, List<String>>{
 class _SchoolTypeInfo {
   final String id, label, sub;
   final IconData icon;
-  const _SchoolTypeInfo(this.id, this.label, this.sub, this.icon);
+  final bool comingSoon;
+  const _SchoolTypeInfo(this.id, this.label, this.sub, this.icon, {this.comingSoon = false});
 }
 
 const _kSchoolTypes = [
-  _SchoolTypeInfo('garderie',   'Garderie',        '0-6 ans',           Icons.child_friendly_outlined),
-  _SchoolTypeInfo('primaire',   'Primaire',         'CP → CM2',          Icons.auto_stories_outlined),
-  _SchoolTypeInfo('college',    'Collège',          '6ème → 3ème',       Icons.school_outlined),
-  _SchoolTypeInfo('lycee',      'Lycée',            '2nde → Terminale',  Icons.account_balance_outlined),
-  _SchoolTypeInfo('universite', 'Université',       'Licence → Doctorat',Icons.domain_outlined),
-  _SchoolTypeInfo('technique',  'Formation Pro.',   'CAP, BEP, BTS…',    Icons.engineering_outlined),
-  _SchoolTypeInfo('superieur',  'Grandes Écoles',   'CPGE, Écoles…',     Icons.workspace_premium_outlined),
-  _SchoolTypeInfo('special',    'Éducation Spéc.',  'Besoins spéciaux',  Icons.accessibility_new_outlined),
+  _SchoolTypeInfo('garderie',   'Garderie',         '0-6 ans',           Icons.child_friendly_outlined),
+  _SchoolTypeInfo('primaire',   'Primaire',          'CP → CM2',          Icons.auto_stories_outlined),
+  _SchoolTypeInfo('college',    'Collège',           '6ème → 3ème',       Icons.school_outlined),
+  _SchoolTypeInfo('lycee',      'Lycée',             '2nde → Terminale',  Icons.account_balance_outlined),
+  _SchoolTypeInfo('universite', 'Université',        'Licence → Doctorat',Icons.domain_outlined,            comingSoon: true),
+  _SchoolTypeInfo('technique',  'Formation Pro.',    'CAP, BEP, BTS…',    Icons.engineering_outlined,       comingSoon: true),
+  _SchoolTypeInfo('superieur',  'Grandes Écoles',    'CPGE, Écoles…',     Icons.workspace_premium_outlined, comingSoon: true),
+  _SchoolTypeInfo('special',    'Éducation Spéc.',   'Besoins spéciaux',  Icons.accessibility_new_outlined, comingSoon: true),
 ];
 
 // ── Dial codes ────────────────────────────────────────────────────────────────
@@ -322,11 +323,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   final _newSeriesDescCtrl = TextEditingController();
 
   // ── Step 5 ──
-  String _s5DbType = 'scolaris', _s5CustomDbType = 'supabase';
-  final _s5Endpoint = TextEditingController();
-  final _s5ApiKey   = TextEditingController();
-  bool _s5Tested = false, _s5Testing = false;
-  String? _s5TestResult;
+  String _s5DbType = 'scolaris';
 
   static const _stepLabels = [
     'École','Administrateur','Système éducatif',
@@ -343,7 +340,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       _s1Facebook,_s1Instagram,_s1WhatsApp,_s1Twitter,_s1LinkedIn,_s1YouTube,
       _s2Name,_s2Title,_s2Email,_s2Phone,_s2Pass,_s2Bio,
       _s2Facebook,_s2WhatsApp,_s2Instagram,_s2LinkedIn,
-      _s5Endpoint,_s5ApiKey,_newSeriesNameCtrl,_newSeriesCodeCtrl,_newSeriesDescCtrl,
+      _newSeriesNameCtrl,_newSeriesCodeCtrl,_newSeriesDescCtrl,
     ]) { c.dispose(); }
     super.dispose();
   }
@@ -401,6 +398,19 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           },
         },
       });
+
+      // Compte de connexion du fondateur (admin de l'école).
+      // L'école existe déjà ci-dessus → le trigger handle_new_user peut créer
+      // users + profiles (FK school_id satisfaite) à partir des métadonnées.
+      await sb.auth.signUp(
+        email: _s2Email.text.trim(),
+        password: _s2Pass.text,
+        data: {
+          'full_name': _s2Name.text.trim(),
+          'role'     : 'admin',
+          'school_id': schoolId,
+        },
+      );
 
       for (final b in _branches) {
         if (b.city.isNotEmpty || b.address.isNotEmpty) {
@@ -462,27 +472,40 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             const SizedBox(height: 20),
             const Text('École créée avec succès !', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _green.withOpacity(.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _green.withOpacity(.25)),
+              ),
+              child: Column(children: [
+                const Icon(Icons.mark_email_unread_outlined, color: _green, size: 28),
+                const SizedBox(height: 8),
+                const Text('Vérifiez votre email', textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 4),
+                Text(
+                  'Un lien d\'activation a été envoyé à\n${_s2Email.text.trim()}.\n'
+                  'Cliquez dessus pour activer votre compte administrateur, '
+                  'puis connectez-vous pour gérer votre école.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
+                ),
+              ]),
+            ),
             const SizedBox(height: 8),
-            Text('ID : ${id.substring(0, 8)}…', textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: _muted)),
-            const SizedBox(height: 28),
+            Text('ID école : ${id.substring(0, 8)}…', textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: _muted)),
+            const SizedBox(height: 24),
             SizedBox(width: double.infinity,
-              child: _PrimaryBtn(label: 'Retour à la connexion', loading: false,
+              child: _PrimaryBtn(label: 'Aller à la connexion', loading: false,
                   onTap: () { Navigator.pop(context); context.go('/login'); })),
           ]),
         ),
       ),
     );
-  }
-
-  Future<void> _testDbConn() async {
-    setState(() { _s5Testing = true; _s5TestResult = null; });
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() {
-      _s5Testing = false; _s5Tested = true;
-      _s5TestResult = (_s5Endpoint.text.isNotEmpty && _s5ApiKey.text.isNotEmpty)
-          ? '✓ Connexion réussie' : '✗ Endpoint ou clé manquant(e)';
-    });
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -1124,44 +1147,10 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             id: 'custom', title: 'Base personnalisée',
             subtitle: 'Connectez votre propre base (Supabase, PostgreSQL, Firebase, MongoDB).',
             icon: Icons.dns_outlined,
-            selected: _s5DbType == 'custom',
-            onTap: () => setState(() => _s5DbType = 'custom'),
+            selected: false,
+            onTap: () {},
+            comingSoon: true,
           ),
-
-          if (_s5DbType == 'custom') ...[
-            const SizedBox(height: 20),
-            _SectionDivider(label: 'Type de base', icon: Icons.storage_outlined),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8, runSpacing: 8,
-              children: ['supabase','postgresql','firebase','mongodb'].map((t) => _TypeChip(
-                label: t[0].toUpperCase() + t.substring(1),
-                selected: _s5CustomDbType == t,
-                onTap: () => setState(() => _s5CustomDbType = t),
-              )).toList(),
-            ),
-            const SizedBox(height: 16),
-            _SField(ctrl: _s5Endpoint, label: 'Endpoint / URL',
-                hint: 'https://xxx.supabase.co', icon: Icons.link_outlined),
-            const SizedBox(height: 12),
-            _SField(ctrl: _s5ApiKey, label: 'API Key', hint: 'eyJhb…',
-                icon: Icons.vpn_key_outlined, obscure: true),
-            const SizedBox(height: 16),
-            SizedBox(width: double.infinity,
-              child: _PrimaryBtn(
-                label: _s5Testing ? 'Test en cours…' : 'Tester la connexion',
-                onTap: _s5Testing ? null : _testDbConn,
-                loading: _s5Testing, icon: Icons.wifi_tethering_outlined,
-              )),
-            if (_s5TestResult != null) ...[
-              const SizedBox(height: 12),
-              _InfoBanner(
-                icon: _s5TestResult!.startsWith('✓') ? Icons.check_circle_outline : Icons.error_outline,
-                color: _s5TestResult!.startsWith('✓') ? _green : _red,
-                text: _s5TestResult!,
-              ),
-            ],
-          ],
 
           const SizedBox(height: 32),
 
@@ -1238,7 +1227,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
               items: [('Système', sysName)]),
             const SizedBox(height: 12),
             _RecapCard(title: 'Base de données', icon: Icons.storage_outlined, color: _muted,
-              items: [('Type', _s5DbType == 'scolaris' ? 'Base Scolaris (hébergée)' : 'Base personnalisée ($_s5CustomDbType)')]),
+              items: [('Type', 'Base Scolaris (hébergée)')]),
           ])),
           const SizedBox(width: 16),
           Expanded(child: Column(children: [
@@ -1294,7 +1283,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           ),
           const SizedBox(height: 10),
           _RecapCard(title: 'Base de données', icon: Icons.storage_outlined, color: _muted,
-            items: [('Type', _s5DbType == 'scolaris' ? 'Base Scolaris (hébergée)' : 'Base personnalisée ($_s5CustomDbType)')]),
+            items: [('Type', 'Base Scolaris (hébergée)')]),
         ]),
     ]);
 
@@ -1895,6 +1884,35 @@ class _SchoolTypeGrid extends StatelessWidget {
       itemCount: _kSchoolTypes.length,
       itemBuilder: (_, i) {
         final t = _kSchoolTypes[i];
+        if (t.comingSoon) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F0EB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(t.icon, size: 16, color: _muted.withOpacity(.45)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _muted.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text('Bientôt', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: _muted.withOpacity(.6))),
+                ),
+              ]),
+              const SizedBox(height: 5),
+              Text(t.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                  color: _muted.withOpacity(.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(t.sub, style: TextStyle(fontSize: 10, color: _muted.withOpacity(.4)),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ]),
+          );
+        }
         final sel = selected.contains(t.id);
         return GestureDetector(
           onTap: () => onToggle(t.id),
@@ -2534,13 +2552,13 @@ class _SField extends StatelessWidget {
   final TextEditingController ctrl;
   final String label, hint;
   final IconData icon;
-  final bool obscure, required;
+  final bool required;
   final TextInputType? keyboard;
   final int maxLines;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   const _SField({required this.ctrl, required this.label, required this.hint, required this.icon,
-      this.obscure = false, this.required = false, this.keyboard, this.maxLines = 1, this.validator, this.onChanged});
+      this.required = false, this.keyboard, this.maxLines = 1, this.validator, this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -2548,7 +2566,7 @@ class _SField extends StatelessWidget {
       _FieldLabel(label, required: required),
       const SizedBox(height: 6),
       TextFormField(
-        controller: ctrl, obscureText: obscure, keyboardType: keyboard,
+        controller: ctrl, keyboardType: keyboard,
         validator: validator, onChanged: onChanged, maxLines: maxLines,
         style: const TextStyle(fontSize: 14, color: _ink),
         decoration: _inputDeco(hint: hint, icon: icon),
@@ -2595,30 +2613,6 @@ class _TwoCol extends StatelessWidget {
 }
 
 // Type chip (for DB types)
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _TypeChip({required this.label, required this.selected, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 36, padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: selected ? _terra : _white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? _terra : _border),
-        ),
-        child: Center(child: Text(label, style: TextStyle(
-            fontSize: 13, color: selected ? _white : _ink,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400))),
-      ),
-    );
-  }
-}
 
 // Info banner
 class _InfoBanner extends StatelessWidget {
@@ -2737,10 +2731,50 @@ class _DbOptionCard extends StatelessWidget {
   final bool selected;
   final String? badge;
   final VoidCallback onTap;
+  final bool comingSoon;
   const _DbOptionCard({required this.id, required this.title, required this.subtitle,
-      required this.icon, required this.selected, this.badge, required this.onTap});
+      required this.icon, required this.selected, this.badge, required this.onTap,
+      this.comingSoon = false});
   @override
   Widget build(BuildContext context) {
+    if (comingSoon) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F0EB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border),
+        ),
+        child: Row(children: [
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: _border.withOpacity(.6),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: _muted.withOpacity(.4), size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                  color: _muted.withOpacity(.5))),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _muted.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text('Bientôt', style: TextStyle(fontSize: 9.5, color: _muted.withOpacity(.6), fontWeight: FontWeight.w800)),
+              ),
+            ]),
+            const SizedBox(height: 3),
+            Text(subtitle, style: TextStyle(fontSize: 12.5, color: _muted.withOpacity(.45), height: 1.4)),
+          ])),
+        ]),
+      );
+    }
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(

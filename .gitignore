@@ -60,3 +60,8 @@ replit.nix
 .env
 .env.*
 !.env.example
+
+# FVM (on committe .fvmrc pour partager la version ; pas le cache/symlink)
+.fvm/
+hs_err_pid*.log
+replay_pid*.log

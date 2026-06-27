@@ -54,6 +54,7 @@
     "dashboard": "Dashibodi",
     "courses": "Masomo",
     "grades": "Alama",
+    "report_cards": "Ripoti za masomo",
     "attendance": "Mahudhurio",
     "schedule": "Ratiba",
     "messages": "Ujumbe",
@@ -61,9 +62,11 @@
     "payments": "Malipo",
     "students": "Wanafunzi",
     "classes": "Madarasa",
+    "subjects": "Masomo",
     "reports": "Ripoti",
     "users": "Watumiaji",
     "billing": "Bili",
+    "subscription": "Usajili",
     "library": "Maktaba",
     "qr": "QR",
     "bulletin": "Ripoti ya Mwanafunzi",
@@ -76,7 +79,8 @@
     "receipts": "Risiti",
     "my_payments": "Ada Zangu",
     "documents": "Nyaraka Zangu",
-    "settings": "Mipangilio"
+    "settings": "Mipangilio",
+    "school": "Shule Yangu"
   },
   "dashboard": {
     "hello": "Habari, {name}",

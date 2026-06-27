@@ -3,17 +3,18 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
 import '../pages/notifications_page.dart';
 import '../pages/search_page.dart';
 import '../widgets/responsive_role_shell.dart';
+import '../widgets/subscription_alert_banner.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const _pageBg    = Color(0xFFF5EEE6);
@@ -156,6 +157,13 @@ class _MobileShellState extends ConsumerState<MobileShell>
 
   @override
   Widget build(BuildContext context) {
+    // Intention de navigation émise par une page (ex. actions rapides du dashboard).
+    ref.listen<String?>(navIntentProvider, (_, next) {
+      if (next != null) {
+        _navigateTo(next);
+        ref.read(navIntentProvider.notifier).state = null;
+      }
+    });
     final size = MediaQuery.sizeOf(context);
     final user = ref.watch(authSessionProvider);
 
@@ -177,13 +185,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   entries: widget.drawerEntries,
                   user: user,
                   onSelect: (key) { _closeMenu(); _navigateTo(key); },
-                  onSignOut: () async {
-                    try {
-                      await ref.read(signOutUseCaseProvider)();
-                    } finally {
-                      if (context.mounted) context.go('/login');
-                    }
-                  },
+                  onSignOut: () => ref.read(signOutUseCaseProvider)(),
                   onAccount: _openAccount,
                   onClose: _closeMenu,
                   opacity: _menuCtrl.value,
@@ -248,6 +250,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
                               setState(() => _pageIndex = i);
                             },
                           ),
+                          // Réservée à l'admin (staff) : seul lui paie et peut
+                          // agir sur l'abonnement de l'école.
+                          if (widget.role == UserRole.staff)
+                            const SubscriptionAlertBanner(),
                           Expanded(
                             child: KeyedSubtree(
                               key: ValueKey(_pageIndex),
@@ -298,30 +304,23 @@ class _FullPage extends StatelessWidget {
       body: SafeArea(
         child: Column(children: [
           Container(
-            decoration: const BoxDecoration(
-              color: _white,
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFEEE2D2), width: 1),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+            color: _white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
-              Material(
-                color: const Color(0xFFF5EEE6),
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  splashColor: _terra.withOpacity(.12),
-                  child: const SizedBox(
-                    width: 40, height: 40,
-                    child: Icon(Icons.arrow_back_rounded, color: _ink, size: 21),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5EEE6),
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  child: const Icon(Icons.arrow_back_rounded, color: _ink, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(color: _ink, fontSize: 18,
-                  fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+              Text(title, style: const TextStyle(color: _ink, fontSize: 17,
+                  fontWeight: FontWeight.w700)),
             ]),
           ),
           Expanded(child: child),
@@ -363,97 +362,52 @@ class _SmartHeader extends StatelessWidget {
       children: [
         // ── Top bar ──────────────────────────────────────────────────────
         Container(
-          height: 60,
-          decoration: const BoxDecoration(
-            color: _white,
-            border: Border(
-              bottom: BorderSide(color: Color(0xFFEEE2D2), width: 1),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 56,
+          color: _white,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Row(children: [
-            // Menu (ripple natif)
-            _HeaderBtn(
-              onTap: onMenu,
-              tooltip: 'Menu',
-              child: const Icon(Icons.menu_rounded, size: 24, color: _ink),
-            ),
-            const SizedBox(width: 2),
-            // Logo branded tile
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_terra, _orange],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(9),
-                boxShadow: [
-                  BoxShadow(
-                    color: _terra.withOpacity(.28),
-                    blurRadius: 7, offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: Image.asset('assets/images/logo_transparent.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Icon(Icons.school_rounded,
-                                size: 18, color: _white),
-                          ),
-                        )),
-              ),
-            ),
-            const SizedBox(width: 9),
+            _HeaderBtn(onTap: onMenu, child: const _HamburgerIcon()),
+            Image.asset('assets/images/logo_transparent.png', width: 28, height: 28,
+                errorBuilder: (_, __, ___) => Image.asset(
+                  'assets/images/logo.png', width: 28, height: 28,
+                  errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.school_rounded, size: 26, color: _terra),
+                )),
+            const SizedBox(width: 7),
             Text(AppConfig.appName,
-                style: const TextStyle(fontSize: 16, color: _ink,
-                    fontWeight: FontWeight.w900, letterSpacing: -0.4)),
+                style: const TextStyle(fontSize: 14, color: _ink,
+                    fontWeight: FontWeight.w800, letterSpacing: -0.3)),
             const Spacer(),
-            _HeaderBtn(
-              onTap: onSearch,
-              tooltip: 'Rechercher',
-              child: const Icon(Icons.search_rounded, size: 22, color: _ink),
-            ),
+            _HeaderBtn(onTap: onSearch,
+                child: const Icon(Icons.search_rounded, size: 20, color: _muted)),
             _HeaderBtn(
               onTap: onNotifications,
-              tooltip: 'Notifications',
               child: Stack(clipBehavior: Clip.none, children: [
-                const Icon(Icons.notifications_none_rounded, size: 23, color: _ink),
-                Positioned(top: 0, right: 0,
-                  child: Container(width: 8, height: 8,
-                      decoration: BoxDecoration(
-                        color: _orange,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _white, width: 1.5),
-                      ))),
+                const Icon(Icons.notifications_outlined, size: 20, color: _muted),
+                Positioned(top: -2, right: -2,
+                  child: Container(width: 7, height: 7,
+                      decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
               ]),
             ),
-            const SizedBox(width: 4),
             // Account avatar button
             GestureDetector(
               onTap: onAccount,
               child: Container(
-                width: 34, height: 34,
-                margin: const EdgeInsets.only(right: 4),
+                width: 32, height: 32,
+                margin: const EdgeInsets.only(left: 2, right: 6),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [_terra, _orange],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: [BoxShadow(
-                      color: _terra.withOpacity(.32),
-                      blurRadius: 7, offset: const Offset(0, 2))],
+                      color: _terra.withOpacity(.3),
+                      blurRadius: 6, offset: const Offset(0, 2))],
                 ),
                 child: Center(child: Text(initials,
-                    style: const TextStyle(color: _white, fontSize: 12,
+                    style: const TextStyle(color: _white, fontSize: 11,
                         fontWeight: FontWeight.w800))),
               ),
             ),
@@ -504,25 +458,38 @@ class _SmartHeader extends StatelessWidget {
   }
 }
 
+class _HamburgerIcon extends StatelessWidget {
+  const _HamburgerIcon();
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(width: 20, height: 2, color: _ink),
+        const SizedBox(height: 4),
+        Container(width: 14, height: 2, color: _ink),
+        const SizedBox(height: 4),
+        Container(width: 17, height: 2, color: _ink),
+      ],
+    );
+  }
+}
+
 class _HeaderBtn extends StatelessWidget {
   final Widget child;
   final VoidCallback onTap;
-  final String? tooltip;
-  const _HeaderBtn({required this.child, required this.onTap, this.tooltip});
+  const _HeaderBtn({required this.child, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    final btn = Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: _terra.withOpacity(.12),
-        highlightColor: _terra.withOpacity(.06),
-        child: SizedBox(width: 42, height: 42, child: Center(child: child)),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: child,
       ),
     );
-    return tooltip == null ? btn : Tooltip(message: tooltip!, child: btn);
   }
 }
 

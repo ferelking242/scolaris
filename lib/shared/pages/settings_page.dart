@@ -4,17 +4,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/localization/locales.dart';
-import '../../core/services/offline_storage.dart';
+import '../../core/permissions/staff_permissions.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../features/admin/presentation/pages/admin_school_page.dart';
 import '../../presentation/providers/auth_providers.dart';
 import 'account_page.dart';
 
@@ -56,8 +56,8 @@ class SettingsPage extends ConsumerWidget {
         ? name.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
 
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surface,
+    return Container(
+      color: _bg,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,6 +87,30 @@ class SettingsPage extends ConsumerWidget {
                     subtitle: 'Profil, mot de passe, notifications',
                     onTap: () => _push(context, _AccountSettingsPage(user: user)),
                   ),
+                  // Mon École : réservé à qui gère la config (Direction).
+                  if (user?.can(StaffPermissions.schoolConfig) ?? false)
+                    _SettingsNavRow(
+                      icon: Icons.apartment_rounded,
+                      color: const Color(0xFF0D47A1),
+                      title: 'Mon École',
+                      subtitle: 'Nom, logo, année scolaire, coordonnées',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            backgroundColor: _bg,
+                            appBar: AppBar(
+                              backgroundColor: _sh1,
+                              foregroundColor: _white,
+                              elevation: 0,
+                              title: const Text('Mon École',
+                                  style: TextStyle(
+                                      fontSize: 15, fontWeight: FontWeight.w700)),
+                            ),
+                            body: const AdminSchoolPage(),
+                          ),
+                        )),
+                    ),
                   _SettingsNavRow(
                     icon: Icons.palette_outlined,
                     color: _orange,
@@ -188,13 +212,9 @@ class SettingsPage extends ConsumerWidget {
               foregroundColor: _white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(ctx);
-              try {
-                await ref.read(signOutUseCaseProvider)();
-              } finally {
-                if (context.mounted) context.go('/login');
-              }
+              ref.read(signOutUseCaseProvider)();
             },
             child: const Text('Déconnecter',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
@@ -538,47 +558,28 @@ class _SubPageShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: cs.surface,
-      body: NestedScrollView(
-        headerSliverBuilder: (ctx, innerScrolled) => [
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 90,
-            backgroundColor: cs.surface,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0.8,
-            shadowColor: cs.shadow.withOpacity(0.1),
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_rounded,
-                  color: cs.onSurface, size: 22),
-              onPressed: () => Navigator.pop(context),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 56, bottom: 14),
-              expandedTitleScale: 1.75,
-              collapseMode: CollapseMode.pin,
-              title: Text(
-                title,
-                style: TextStyle(
-                  color: cs.onSurface,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Column(children: [
+          // Header
+          Container(
+            color: _white,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+                onPressed: () => Navigator.pop(context),
               ),
-              background: Container(color: cs.surface),
-            ),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child:
-                  Container(height: 1, color: cs.outlineVariant.withOpacity(0.3)),
-            ),
+              const SizedBox(width: 4),
+              Text(title,
+                  style: const TextStyle(
+                      color: _ink, fontSize: 17, fontWeight: FontWeight.w700)),
+            ]),
           ),
-        ],
-        body: child,
+          Container(height: 1, color: _border.withOpacity(.4)),
+          Expanded(child: child),
+        ]),
       ),
     );
   }
@@ -597,7 +598,6 @@ class _AccountSettingsPage extends ConsumerStatefulWidget {
 class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
     final locale   = context.locale;
     final langName = AppLocales.label(locale);
     final user     = widget.user;
@@ -712,13 +712,11 @@ class _AccountSettingsPageState extends ConsumerState<_AccountSettingsPage> {
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
-              _SettingsItemToggle(
+              _SettingsItemComingSoon(
                 icon: Icons.notifications_outlined,
                 color: _terra,
                 label: 'Notifications push',
-                value: settings.notificationsPush,
-                onChanged: (v) =>
-                    ref.read(settingsProvider.notifier).setNotificationsPush(v),
+                description: 'Alertes en temps réel (web & mobile)',
               ),
               _SettingsItemComingSoon(
                 icon: Icons.email_outlined,
@@ -782,28 +780,19 @@ class _AppearancePage extends ConsumerStatefulWidget {
 }
 
 class _AppearancePageState extends ConsumerState<_AppearancePage> {
-  // 20 couleurs prédéfinies organisées par famille
   static const _presets = [
-    // Africain chaud
     Color(0xFF8B1A00), Color(0xFFD4540A), Color(0xFFC17F24), Color(0xFF1B5E20),
-    // Bleus institutionnels
-    Color(0xFF0D47A1), Color(0xFF0277BD), Color(0xFF1565C0), Color(0xFF00695C),
-    // Violet / rose
-    Color(0xFF4A148C), Color(0xFF6A1B9A), Color(0xFF880E4F), Color(0xFFAD1457),
-    // Neutrals
-    Color(0xFF263238), Color(0xFF37474F), Color(0xFF4E342E), Color(0xFF212121),
-    // Vifs
-    Color(0xFFE53935), Color(0xFF43A047), Color(0xFFF57C00), Color(0xFF1E88E5),
+    Color(0xFF0D47A1), Color(0xFF1A237E), Color(0xFF4A148C), Color(0xFFB71C1C),
+    Color(0xFF880E4F), Color(0xFF004D40), Color(0xFF263238), Color(0xFF212121),
   ];
 
   void _openPicker(BuildContext context, Color current) {
-    final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: cs.surface,
+      backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _HsvPickerSheet(
         initial: current,
         onApply: (c) => ref.read(themeControllerProvider.notifier).setAccent(c),
@@ -813,168 +802,116 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs        = Theme.of(context).colorScheme;
     final ctrl      = ref.watch(themeControllerProvider);
     final themeMode = ctrl.mode;
     final accent    = ctrl.accent;
-    final pureBlack = ctrl.pureBlack;
     final settings  = ref.watch(settingsProvider);
-    final notifier  = ref.read(themeControllerProvider.notifier);
+    final themeName = themeMode == ThemeMode.dark
+        ? 'Sombre'
+        : themeMode == ThemeMode.light ? 'Clair' : 'Système';
 
     return _SubPageShell(
       title: 'Apparence',
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
           // ── Thème ──────────────────────────────────────────────────────
           _SectionLabel('THÈME'),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.light_mode_rounded,
-              label: 'Clair',
-              previewBg: const Color(0xFFF5F5F5),
-              previewFg: const Color(0xFF1A1A1A),
-              selected: themeMode == ThemeMode.light && !pureBlack,
-              accent: accent,
-              onTap: () { notifier.setMode(ThemeMode.light); notifier.setPureBlack(false); },
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.dark_mode_rounded,
-              label: 'Sombre',
-              previewBg: const Color(0xFF1C1C1E),
-              previewFg: const Color(0xFFEEEEEE),
-              selected: themeMode == ThemeMode.dark && !pureBlack,
-              accent: accent,
-              onTap: () { notifier.setMode(ThemeMode.dark); notifier.setPureBlack(false); },
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.brightness_auto_rounded,
-              label: 'Auto',
-              previewBg: const Color(0xFF888888),
-              previewFg: Colors.white,
-              isAuto: true,
-              selected: themeMode == ThemeMode.system && !pureBlack,
-              accent: accent,
-              onTap: () { notifier.setMode(ThemeMode.system); notifier.setPureBlack(false); },
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.contrast_rounded,
-              label: 'Noir pur',
-              previewBg: Colors.black,
-              previewFg: Colors.white,
-              selected: pureBlack,
-              accent: accent,
-              onTap: () { notifier.setMode(ThemeMode.dark); notifier.setPureBlack(true); },
-            )),
-          ]),
-          if (pureBlack) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: accent.withOpacity(0.4)),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemTheme(
+                icon: Icons.palette_outlined,
+                color: _terra,
+                label: 'Thème de l\'interface',
+                currentValue: themeName,
+                themeMode: themeMode,
+                onChanged: (m) =>
+                    ref.read(themeControllerProvider.notifier).setMode(m),
               ),
-              child: Row(children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: accent),
-                const SizedBox(width: 8),
-                Expanded(child: Text(
-                  'Mode Noir pur actif — fond #000000 pour écrans AMOLED.',
-                  style: TextStyle(color: accent, fontSize: 11.5, fontWeight: FontWeight.w500),
-                )),
-              ]),
-            ),
-          ],
-          const SizedBox(height: 24),
+            ],
+          ),
+          const SizedBox(height: 22),
 
           // ── Couleur d'accent ───────────────────────────────────────────
           _SectionLabel('COULEUR D\'ACCENT'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cs.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+              color: _white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(
-                  width: 36, height: 36,
+                  width: 32, height: 32,
                   decoration: BoxDecoration(
                     color: accent,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [BoxShadow(
-                        color: accent.withOpacity(0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3))],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _border),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Couleur active',
-                      style: TextStyle(
-                          color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
+                  const Text('Couleur actuelle',
+                      style: TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
                   Text(
                     '#${accent.red.toRadixString(16).padLeft(2, '0')}'
                     '${accent.green.toRadixString(16).padLeft(2, '0')}'
                     '${accent.blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase(),
-                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5),
+                    style: const TextStyle(color: _muted, fontSize: 11.5),
                   ),
                 ])),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => _openPicker(context, accent),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: accent.withOpacity(0.3)),
+                      color: accent.withOpacity(.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: accent.withOpacity(.25)),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.colorize_rounded, size: 13, color: accent),
                       const SizedBox(width: 5),
-                      Text('Choisir',
+                      Text('Personnalisé',
                           style: TextStyle(
-                              color: accent, fontSize: 12, fontWeight: FontWeight.w700)),
+                              color: accent, fontSize: 11.5, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),
               ]),
               const SizedBox(height: 14),
-              Text('Palettes prédéfinies',
-                  style: TextStyle(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5)),
+              const Text('Palettes prédéfinies',
+                  style: TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
-              Wrap(spacing: 10, runSpacing: 10,
+              Wrap(
+                spacing: 10, runSpacing: 10,
                 children: _presets.map((c) {
                   final sel = c.value == accent.value;
                   return GestureDetector(
-                    onTap: () => notifier.setAccent(c),
+                    onTap: () => ref.read(themeControllerProvider.notifier).setAccent(c),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
+                      duration: const Duration(milliseconds: 150),
                       width: 32, height: 32,
                       decoration: BoxDecoration(
                         color: c,
                         shape: BoxShape.circle,
-                        border: sel
-                            ? Border.all(color: cs.onSurface, width: 2.5)
-                            : Border.all(color: Colors.transparent),
-                        boxShadow: [BoxShadow(
-                            color: c.withOpacity(sel ? .5 : .15),
-                            blurRadius: sel ? 8 : 3)],
+                        border: Border.all(
+                            color: sel ? _ink : Colors.transparent, width: 2.5),
+                        boxShadow: [
+                          BoxShadow(
+                              color: c.withOpacity(sel ? .4 : .15),
+                              blurRadius: sel ? 6 : 3),
+                        ],
                       ),
                       child: sel
-                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                          ? const Icon(Icons.check_rounded, color: _white, size: 13)
                           : null,
                     ),
                   );
@@ -982,11 +919,11 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
               ),
             ]),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
-          // ── Affichage ──────────────────────────────────────────────────
-          _SectionLabel('AFFICHAGE'),
-          const SizedBox(height: 10),
+          // ── Navigation ─────────────────────────────────────────────────
+          _SectionLabel('NAVIGATION'),
+          const SizedBox(height: 8),
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
@@ -997,22 +934,6 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 value: settings.afficherBarreOnglets,
                 onChanged: (v) =>
                     ref.read(settingsProvider.notifier).setAfficherBarreOnglets(v),
-              ),
-              _SettingsItemToggle(
-                icon: Icons.format_size_rounded,
-                color: const Color(0xFF1565C0),
-                label: 'Grande police (+20%)',
-                value: settings.grandePolice,
-                onChanged: (v) =>
-                    ref.read(settingsProvider.notifier).setGrandePolice(v),
-              ),
-              _SettingsItemToggle(
-                icon: Icons.animation_rounded,
-                color: _gold,
-                label: 'Réduire les animations',
-                value: settings.reduireAnimations,
-                onChanged: (v) =>
-                    ref.read(settingsProvider.notifier).setReduireAnimations(v),
               ),
             ],
           ),
@@ -1041,45 +962,38 @@ class _MediaSheet extends StatelessWidget {
         Text(title,
             style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 20),
-        _MediaOption(
-            icon: Icons.photo_camera_rounded, label: 'Prendre une photo'),
-        const SizedBox(height: 10),
-        _MediaOption(
-            icon: Icons.photo_library_rounded, label: 'Choisir depuis la galerie'),
-        if (showTheme) ...[
-          const SizedBox(height: 10),
-          _MediaOption(
-              icon: Icons.palette_outlined, label: 'Couleur / thème de bannière'),
-        ],
-      ]),
-    );
-  }
-}
-
-class _MediaOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _MediaOption({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAF5F0),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _border),
+        // Upload d'image pas encore disponible (nécessite Supabase Storage).
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _gold.withOpacity(.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _gold.withOpacity(.25)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.schedule_rounded, size: 20, color: _gold),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Bientôt disponible',
+                      style: TextStyle(
+                          color: _ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'L\'import de photo arrivera dans une prochaine version. '
+                    'En attendant, votre avatar affiche vos initiales.',
+                    style: TextStyle(
+                        color: _muted, fontSize: 11.5, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ]),
         ),
-        child: Row(children: [
-          Icon(icon, size: 18, color: _terra),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(
-              color: _ink, fontSize: 13.5, fontWeight: FontWeight.w500)),
-        ]),
-      ),
+      ]),
     );
   }
 }
@@ -1302,11 +1216,10 @@ class _AccessibilityPage extends ConsumerStatefulWidget {
 }
 
 class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
-  double _textScale = 1.0;
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
+    final textScale = settings.textScale;
 
     return _SubPageShell(
       title: 'Accessibilité',
@@ -1337,19 +1250,19 @@ class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
                   Text('Aperçu de l\'interface',
                       style: TextStyle(
                           color: _muted,
-                          fontSize: 10 * _textScale,
+                          fontSize: 10 * textScale,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text('Tableau de bord — Scolaris',
                       style: TextStyle(
                           color: _ink,
-                          fontSize: 15 * _textScale,
+                          fontSize: 15 * textScale,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text('Terminale S · 28 élèves inscrits · Année 2025–26',
                       style: TextStyle(
                           color: _muted,
-                          fontSize: 12 * _textScale,
+                          fontSize: 12 * textScale,
                           height: 1.4)),
                 ]),
               ),
@@ -1358,18 +1271,19 @@ class _AccessibilityPageState extends ConsumerState<_AccessibilityPage> {
                 const Icon(Icons.text_decrease_rounded, size: 15, color: _muted),
                 Expanded(
                   child: Slider(
-                    value: _textScale,
+                    value: textScale,
                     min: 0.8, max: 1.4, divisions: 6,
                     activeColor: _terra,
                     inactiveColor: _border,
-                    onChanged: (v) => setState(() => _textScale = v),
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).setTextScale(v),
                   ),
                 ),
                 const Icon(Icons.text_increase_rounded, size: 20, color: _muted),
               ]),
               Center(
                 child: Text(
-                  '${(_textScale * 100).round()} %',
+                  '${(textScale * 100).round()} %',
                   style: const TextStyle(
                       color: _muted, fontSize: 11, fontWeight: FontWeight.w700),
                 ),
@@ -1474,18 +1388,12 @@ class _PrivacyPage extends ConsumerStatefulWidget {
 }
 
 class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
-  static final _lastLogin = DateTime.now().subtract(const Duration(hours: 2));
-
   static String _formatRelative(DateTime dt) {
     final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return 'À l\'instant';
     if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
     if (diff.inHours < 24)   return 'Il y a ${diff.inHours} h';
     return 'Il y a ${diff.inDays} j';
-  }
-
-  static Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -1522,7 +1430,10 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
                     style: TextStyle(
                         color: _ink, fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(_formatRelative(_lastLogin),
+                Text(
+                    widget.user?.lastSeenAt != null
+                        ? _formatRelative(widget.user!.lastSeenAt!)
+                        : 'Première connexion',
                     style: const TextStyle(color: _muted, fontSize: 12)),
               ])),
               Container(
@@ -1574,26 +1485,23 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.shield_outlined,
                 color: const Color(0xFF1A237E),
                 label: 'Politique de confidentialité',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/privacy'),
+                description: 'Document en cours de publication',
               ),
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.gavel_rounded,
                 color: const Color(0xFF4A148C),
                 label: 'Conditions d\'utilisation',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/terms'),
+                description: 'Document en cours de publication',
               ),
-              _SettingsItem(
+              _SettingsItemComingSoon(
                 icon: Icons.cookie_outlined,
                 color: _gold,
                 label: 'Politique des cookies',
-                onTap: () =>
-                    _launchUrl('https://ferelking242.github.io/scolaris/cookies'),
+                description: 'Document en cours de publication',
               ),
             ],
           ),
@@ -1706,18 +1614,25 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
     final user = widget.user;
     if (user == null) return;
     try {
-      await OfflineStorage.queueAction('delete_account_request', {
-        'user_id': user.id,
-        'email': user.email,
-        'name': user.fullName,
-        'requested_at': DateTime.now().toIso8601String(),
-      });
+      // Demande envoyée par email (canal réel) à l'administration / support.
+      final subject = Uri.encodeComponent('Demande de suppression de compte');
+      final body = Uri.encodeComponent(
+        'Bonjour,\n\n'
+        'Je demande la suppression de mon compte Scolaris.\n\n'
+        'Nom : ${user.fullName}\n'
+        'Email : ${user.email}\n'
+        'ID : ${user.id}\n\n'
+        'Merci de traiter cette demande.');
+      final uri = Uri.parse('mailto:support@scolaris.app?subject=$subject&body=$body');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       if (!context.mounted) return;
-      _showSnack(context, '✅ Demande soumise. L\'administration vous contactera.',
+      _showSnack(context, 'Votre logiciel mail va s\'ouvrir pour confirmer la demande.',
           color: _green);
     } catch (e) {
       if (!context.mounted) return;
-      _showSnack(context, 'Erreur lors de l\'envoi de la demande.',
+      _showSnack(context, 'Impossible d\'ouvrir le logiciel mail.',
           color: const Color(0xFFFF6B6B));
     }
   }
@@ -1890,7 +1805,7 @@ class _SectionLabel extends StatelessWidget {
     padding: const EdgeInsets.only(left: 4),
     child: Text(text,
         style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(.8),
+            color: _muted.withOpacity(.7),
             fontSize: 11,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.2)),
@@ -1960,13 +1875,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: cs.surfaceContainer,
+        color: _white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+        border: Border.all(color: _border),
       ),
       child: Column(
         children: List.generate(
@@ -1978,7 +1892,7 @@ class _SettingsCard extends StatelessWidget {
                   height: 1,
                   indent: 62,
                   endIndent: 0,
-                  color: cs.outlineVariant.withOpacity(.4)),
+                  color: _border.withOpacity(.5)),
           ]),
         ),
       ),
@@ -2023,21 +1937,17 @@ class _SettingsItem extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(label,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500))),
+                style: const TextStyle(
+                    color: _ink, fontSize: 14, fontWeight: FontWeight.w500))),
             if (trailing != null) ...[
               Text(trailing!,
                   style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: _muted.withOpacity(.8),
                       fontSize: 12,
                       fontWeight: FontWeight.w500)),
               const SizedBox(width: 4),
             ],
-            Icon(Icons.chevron_right_rounded,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                size: 18),
+            const Icon(Icons.chevron_right_rounded, color: _muted, size: 18),
           ]),
         ),
       ),
@@ -2077,13 +1987,11 @@ class _SettingsItemToggle extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(child: Text(label,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w500))),
+            style: const TextStyle(
+                color: _ink, fontSize: 14, fontWeight: FontWeight.w500))),
         Switch(
           value: value,
-          activeColor: Theme.of(context).colorScheme.primary,
+          activeColor: _terra,
           onChanged: onChanged,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -2125,15 +2033,11 @@ class _SettingsItemTheme extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Text(label,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500)),
+                style: const TextStyle(
+                    color: _ink, fontSize: 14, fontWeight: FontWeight.w500)),
             const Spacer(),
             Text(currentValue,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12)),
+                style: TextStyle(color: _muted.withOpacity(.8), fontSize: 12)),
           ]),
           const SizedBox(height: 12),
           Row(children: [
@@ -2604,19 +2508,23 @@ class _ReportSheetState extends State<_ReportSheet> {
     }
     setState(() => _loading = true);
     try {
-      await OfflineStorage.queueAction('bug_report', {
-        'type': _type,
-        'description': desc,
-        'user_id': widget.user?.id,
-        'email': widget.user?.email,
-        'reported_at': DateTime.now().toIso8601String(),
-        'app_version': AppConfig.appVersion,
-      });
+      // Envoi par email (canal réel) — pas de backend de tickets pour l'instant.
+      final subject = Uri.encodeComponent('Signalement Scolaris — $_type');
+      final body = Uri.encodeComponent(
+        '$desc\n\n'
+        '-----------------------------\n'
+        'Utilisateur : ${widget.user?.email ?? "?"}\n'
+        'ID : ${widget.user?.id ?? "?"}\n'
+        'Version : ${AppConfig.appVersion}');
+      final uri = Uri.parse('mailto:support@scolaris.app?subject=$subject&body=$body');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: const Text('✅ Signalement envoyé. Merci pour votre retour !',
+          content: const Text('Votre logiciel mail va s\'ouvrir pour envoyer le signalement.',
               style: TextStyle(fontWeight: FontWeight.w600)),
           backgroundColor: _green,
           behavior: SnackBarBehavior.floating,
@@ -2847,178 +2755,4 @@ void _showSnack(BuildContext context, String msg, {required Color color}) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _ThemeModeCard — carte visuelle de sélection du mode thème
-// ─────────────────────────────────────────────────────────────────────────────
-class _ThemeModeCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color previewBg;
-  final Color previewFg;
-  final bool selected;
-  final bool isAuto;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _ThemeModeCard({
-    required this.icon,
-    required this.label,
-    required this.previewBg,
-    required this.previewFg,
-    required this.selected,
-    required this.accent,
-    required this.onTap,
-    this.isAuto = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 90,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainer,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? accent : cs.outlineVariant.withOpacity(0.4),
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [BoxShadow(
-                  color: accent.withOpacity(0.18),
-                  blurRadius: 10,
-                  spreadRadius: 0)]
-              : [],
-        ),
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Mini-prévisualisation
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: isAuto
-                    ? Row(children: [
-                        Expanded(
-                          child: Container(
-                            color: const Color(0xFFF5F5F5),
-                            child: Column(children: [
-                              Container(
-                                  height: 8,
-                                  color: Colors.white,
-                                  margin: const EdgeInsets.all(3)),
-                              Container(
-                                height: 4,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFFDDDDDD),
-                                    borderRadius: BorderRadius.circular(2)),
-                              ),
-                            ]),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            color: const Color(0xFF1C1C1E),
-                            child: Column(children: [
-                              Container(
-                                  height: 8,
-                                  color: const Color(0xFF2C2C2E),
-                                  margin: const EdgeInsets.all(3)),
-                              Container(
-                                height: 4,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFF48484A),
-                                    borderRadius: BorderRadius.circular(2)),
-                              ),
-                            ]),
-                          ),
-                        ),
-                      ])
-                    : Container(
-                        color: previewBg,
-                        padding: const EdgeInsets.all(5),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // mini barre de nav
-                            Container(
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: previewFg.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Container(
-                              height: 3,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: previewFg.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(1.5),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Container(
-                              height: 3,
-                              width: 28,
-                              decoration: BoxDecoration(
-                                color: previewFg.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(1.5),
-                              ),
-                            ),
-                            const Spacer(),
-                            // mini bouton accent
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: Container(
-                                width: 18,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: accent.withOpacity(0.8),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            // Icône + label
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon,
-                    size: 11,
-                    color: selected ? accent : cs.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          selected ? FontWeight.w800 : FontWeight.w500,
-                      color: selected ? accent : cs.onSurfaceVariant,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

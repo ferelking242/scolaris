@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/permissions/staff_permissions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
+import '../../../presentation/providers/db_providers.dart';
+import '../../../presentation/providers/nav_providers.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/notification_center_page.dart';
 import 'pages/timetable_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
+import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
-import '../../../shared/widgets/skeleton.dart';
 import 'pages/admin_billing_page.dart';
+import 'pages/report_cards_page.dart';
+import 'pages/admin_school_page.dart';
+import 'pages/admin_subscription_page.dart';
 import 'pages/admin_classes_page.dart';
+import 'pages/admin_subjects_page.dart';
+import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/users_page.dart';
 
@@ -24,40 +32,92 @@ const _muted  = Color(0xFF7A5C44);
 const _white  = Colors.white;
 const _bg     = Color(0xFFF5EEE6);
 
-class AdminHome extends StatelessWidget {
+class AdminHome extends ConsumerWidget {
   const AdminHome({super.key});
 
+  /// Toutes les entrées possibles, chacune taguée avec la permission requise
+  /// (null = visible par tout membre du personnel).
+  static const List<RoleNavGroup> _allGroups = [
+    RoleNavGroup(labelKey: 'sections.setup', entries: [
+      RoleNavEntry(icon: Icons.home_rounded, activeIcon: Icons.home_rounded,
+          labelKey: 'nav.dashboard', page: _AdminDashboard()),
+      RoleNavEntry(icon: Icons.group_outlined, activeIcon: Icons.group_rounded,
+          labelKey: 'nav.users',
+          page: PermissionGuard(permission: StaffPermissions.students, child: UsersPage()),
+          permission: StaffPermissions.students),
+      RoleNavEntry(icon: Icons.class_outlined, activeIcon: Icons.class_rounded,
+          labelKey: 'nav.classes',
+          page: PermissionGuard(permission: StaffPermissions.classes, child: AdminClassesPage()),
+          permission: StaffPermissions.classes),
+      RoleNavEntry(icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded,
+          labelKey: 'nav.subjects',
+          page: PermissionGuard(permission: StaffPermissions.classes, child: AdminSubjectsPage()),
+          permission: StaffPermissions.classes),
+      RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
+          labelKey: 'nav.enrollment',
+          page: PermissionGuard(permission: StaffPermissions.students, child: EnrollmentConfigPage()),
+          permission: StaffPermissions.students),
+    ]),
+    RoleNavGroup(labelKey: 'sections.activity', entries: [
+      RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
+          labelKey: 'nav.billing',
+          page: PermissionGuard(permission: StaffPermissions.finance, child: AdminBillingPage()),
+          permission: StaffPermissions.finance),
+      RoleNavEntry(icon: Icons.workspace_premium_outlined, activeIcon: Icons.workspace_premium_rounded,
+          labelKey: 'nav.subscription',
+          page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminSubscriptionPage()),
+          permission: StaffPermissions.schoolConfig),
+      RoleNavEntry(icon: Icons.grade_outlined, activeIcon: Icons.grade_rounded,
+          labelKey: 'nav.grades',
+          page: PermissionGuard(permission: StaffPermissions.grades, child: AdminGradesPage()),
+          permission: StaffPermissions.grades),
+      RoleNavEntry(icon: Icons.workspace_premium_outlined, activeIcon: Icons.workspace_premium_rounded,
+          labelKey: 'nav.report_cards',
+          page: PermissionGuard(permission: StaffPermissions.grades, child: ReportCardsPage()),
+          permission: StaffPermissions.grades),
+      RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
+          labelKey: 'nav.reports',
+          page: PermissionGuard(permission: StaffPermissions.reports, child: AdminReportsPage()),
+          permission: StaffPermissions.reports),
+      RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
+          labelKey: 'nav.timetable',
+          page: PermissionGuard(permission: StaffPermissions.timetable, child: TimetablePage()),
+          permission: StaffPermissions.timetable),
+    ]),
+    RoleNavGroup(labelKey: 'sections.account', entries: [
+      RoleNavEntry(icon: Icons.campaign_outlined, activeIcon: Icons.campaign_rounded,
+          labelKey: 'nav.notifications',
+          page: PermissionGuard(permission: StaffPermissions.communication, child: NotificationCenterPage()),
+          permission: StaffPermissions.communication),
+      RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
+          labelKey: 'nav.features', page: FeaturesHubPage()),
+      RoleNavEntry(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded,
+          labelKey: 'nav.school',
+          page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminSchoolPage()),
+          permission: StaffPermissions.schoolConfig),
+    ]),
+  ];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authSessionProvider);
+
+    // Menu dynamique : on ne garde que les entrées dont la permission est
+    // satisfaite (null = toujours visible). Les groupes vides sont retirés.
+    final groups = <RoleNavGroup>[];
+    for (final g in _allGroups) {
+      final entries = g.entries
+          .where((e) => e.permission == null || (user?.can(e.permission!) ?? false))
+          .toList();
+      if (entries.isNotEmpty) {
+        groups.add(RoleNavGroup(labelKey: g.labelKey, entries: entries));
+      }
+    }
+
     return ResponsiveRoleShell(
       role: UserRole.staff,
       title: 'Scolaris',
-      groups: const [
-        RoleNavGroup(labelKey: 'sections.setup', entries: [
-          RoleNavEntry(icon: Icons.home_rounded, activeIcon: Icons.home_rounded,
-              labelKey: 'nav.dashboard', page: _AdminDashboard()),
-          RoleNavEntry(icon: Icons.group_outlined, activeIcon: Icons.group_rounded,
-              labelKey: 'nav.users', page: UsersPage()),
-          RoleNavEntry(icon: Icons.class_outlined, activeIcon: Icons.class_rounded,
-              labelKey: 'nav.classes', page: AdminClassesPage()),
-          RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
-              labelKey: 'nav.enrollment', page: EnrollmentConfigPage()),
-        ]),
-        RoleNavGroup(labelKey: 'sections.activity', entries: [
-          RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
-              labelKey: 'nav.billing', page: AdminBillingPage()),
-          RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
-              labelKey: 'nav.reports', page: AdminReportsPage()),
-          RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
-              labelKey: 'nav.timetable', page: TimetablePage()),
-        ]),
-        RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(icon: Icons.campaign_outlined, activeIcon: Icons.campaign_rounded,
-              labelKey: 'nav.notifications', page: NotificationCenterPage()),
-          RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
-              labelKey: 'nav.features', page: FeaturesHubPage()),
-        ]),
-      ],
+      groups: groups,
     );
   }
 }
@@ -72,15 +132,6 @@ class _AdminDashboard extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 900),
-        () { if (mounted) setState(() => _loading = false); });
-  }
-
   String get _greet {
     final h = DateTime.now().hour;
     if (h < 12) return 'Bonjour';
@@ -108,14 +159,14 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
           children: [
             _DashGreeting(greet: _greet, name: firstName, date: _todayStr),
             const SizedBox(height: 20),
-            _DashKpiRow(loading: _loading),
+            const _DashKpiRow(),
             const SizedBox(height: 20),
             LayoutBuilder(builder: (_, c) {
               if (c.maxWidth < 580) {
                 return Column(children: [
                   _DashQuickActions(),
                   const SizedBox(height: 16),
-                  _DashActivity(loading: _loading),
+                  const _DashActivity(),
                   const SizedBox(height: 16),
                   _DashToday(),
                 ]);
@@ -123,7 +174,7 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(flex: 3, child: _DashActivity(loading: _loading)),
+                  const Expanded(flex: 3, child: _DashActivity()),
                   const SizedBox(width: 16),
                   Expanded(flex: 2, child: Column(children: [
                     _DashQuickActions(),
@@ -182,55 +233,76 @@ class _DashGreeting extends StatelessWidget {
   }
 }
 
-// ── KPI row ──────────────────────────────────────────────────────────────────
-class _DashKpiRow extends StatelessWidget {
-  final bool loading;
-  const _DashKpiRow({required this.loading});
-
-  static const _kpis = [
-    (Icons.people_alt_rounded, 'Élèves inscrits', '248', '+12', true,  _terra),
-    (Icons.class_rounded,      'Classes actives', '18',  '+1',  true,  _orange),
-    (Icons.account_balance_wallet_rounded, 'Revenus (mois)', '24 580 F', '+8 %', true, _green),
-    (Icons.warning_amber_rounded, 'Impayés',        '3',   '-2',  false, _gold),
-  ];
+// ── KPI row (données réelles) ────────────────────────────────────────────────
+class _DashKpiRow extends ConsumerWidget {
+  const _DashKpiRow();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final students = ref.watch(studentCountProvider);
+    final classes  = ref.watch(classesProvider);
+    final users    = ref.watch(usersProvider);
+    final subjects = ref.watch(subjectsProvider);
+
+    String n(AsyncValue<int> v) =>
+        v.maybeWhen(data: (d) => '$d', orElse: () => '—');
+    String len(AsyncValue<List> v) =>
+        v.maybeWhen(data: (d) => '${d.length}', orElse: () => '—');
+    String teachers(AsyncValue<List> v) => v.maybeWhen(
+        data: (d) => '${d.where((u) => (u as dynamic).role == 'teacher').length}',
+        orElse: () => '—');
+
+    final loadingAny = students.isLoading ||
+        classes.isLoading ||
+        users.isLoading ||
+        subjects.isLoading;
+
+    final kpis = <(IconData, String, String, Color)>[
+      (Icons.people_alt_rounded, 'Élèves inscrits', n(students), _terra),
+      (Icons.class_rounded, 'Classes actives', len(classes), _orange),
+      (Icons.co_present_rounded, 'Enseignants', teachers(users), _green),
+      (Icons.menu_book_rounded, 'Matières', len(subjects), _gold),
+    ];
+
+    Widget card(int i) =>
+        _DashKpiCard(kpi: kpis[i], loading: loadingAny);
+
     return LayoutBuilder(builder: (_, c) {
       if (c.maxWidth < 500) {
         return Column(children: [
           Row(children: [
-            Expanded(child: _DashKpiCard(kpi: _kpis[0], loading: loading)),
+            Expanded(child: card(0)),
             const SizedBox(width: 10),
-            Expanded(child: _DashKpiCard(kpi: _kpis[1], loading: loading)),
+            Expanded(child: card(1)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            Expanded(child: _DashKpiCard(kpi: _kpis[2], loading: loading)),
+            Expanded(child: card(2)),
             const SizedBox(width: 10),
-            Expanded(child: _DashKpiCard(kpi: _kpis[3], loading: loading)),
+            Expanded(child: card(3)),
           ]),
         ]);
       }
-      return Row(children: _kpis.indexed.map((e) {
-        final (i, kpi) = e;
-        return Expanded(child: Padding(
-          padding: EdgeInsets.only(left: i > 0 ? 10 : 0),
-          child: _DashKpiCard(kpi: kpi, loading: loading),
-        ));
-      }).toList());
+      return Row(children: [
+        for (var i = 0; i < kpis.length; i++)
+          Expanded(
+              child: Padding(
+            padding: EdgeInsets.only(left: i > 0 ? 10 : 0),
+            child: card(i),
+          )),
+      ]);
     });
   }
 }
 
 class _DashKpiCard extends StatelessWidget {
-  final (IconData, String, String, String, bool, Color) kpi;
+  final (IconData, String, String, Color) kpi;
   final bool loading;
   const _DashKpiCard({required this.kpi, required this.loading});
 
   @override
   Widget build(BuildContext context) {
-    final (icon, label, value, trend, up, accent) = kpi;
+    final (icon, label, value, accent) = kpi;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -249,23 +321,6 @@ class _DashKpiCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 15, color: accent),
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: (up ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C)).withOpacity(.09),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  size: 10,
-                  color: up ? const Color(0xFF388E3C) : const Color(0xFFD32F2F)),
-              const SizedBox(width: 2),
-              Text(trend, style: TextStyle(
-                  fontSize: 9.5, fontWeight: FontWeight.w700,
-                  color: up ? const Color(0xFF388E3C) : const Color(0xFFD32F2F))),
-            ]),
-          ),
         ]),
         const SizedBox(height: 10),
         if (loading)
@@ -282,21 +337,24 @@ class _DashKpiCard extends StatelessWidget {
   }
 }
 
-// ── Activity feed ────────────────────────────────────────────────────────────
-class _DashActivity extends StatelessWidget {
-  final bool loading;
-  const _DashActivity({required this.loading});
+// ── Activity feed (données réelles : dernières inscriptions) ─────────────────
+class _DashActivity extends ConsumerWidget {
+  const _DashActivity();
 
-  static const _feed = [
-    (Icons.person_add_rounded,      _terra,               'Nouvelle inscription',    'Amara Diallo — Terminale S',       '09:14'),
-    (Icons.payments_rounded,        Color(0xFF388E3C),    'Paiement reçu',           'Ada Lovelace — 320 F',             '08:40'),
-    (Icons.warning_amber_rounded,   Color(0xFFC17F24),   'Facture en retard',       'Fatou Diallo — 320 F',             'Hier'),
-    (Icons.how_to_reg_rounded,      _orange,              'Pré-inscription validée', 'Mohamed Coulibaly — 2nde',         'Hier'),
-    (Icons.print_rounded,           Color(0xFF5D4037),   'Reçu imprimé',            '3 copies — Classe 4ème B',         'Hier'),
-  ];
+  static String _ago(DateTime? d) {
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'à l\'instant';
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
+    if (diff.inDays == 1) return 'Hier';
+    if (diff.inDays < 7) return 'il y a ${diff.inDays} j';
+    return '${d.day}/${d.month}';
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentStudentsProvider);
     return Container(
       decoration: BoxDecoration(
         color: _white,
@@ -304,36 +362,50 @@ class _DashActivity extends StatelessWidget {
         border: Border.all(color: const Color(0xFFDDD0C4)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 14, 12, 10),
           child: Row(children: [
-            const Icon(Icons.timeline_rounded, size: 15, color: _muted),
-            const SizedBox(width: 7),
-            const Text('Activité récente',
+            Icon(Icons.timeline_rounded, size: 15, color: _muted),
+            SizedBox(width: 7),
+            Text('Dernières inscriptions',
                 style: TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-              child: const Text('Voir tout',
-                  style: TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
           ]),
         ),
         const Divider(height: 1, color: Color(0xFFEEE5D8)),
-        if (loading)
-          ...List.generate(3, (_) => const _ActivitySkeleton())
-        else
-          ...List.generate(_feed.length, (i) => _ActivityItem(
-            icon:  _feed[i].$1,
-            color: _feed[i].$2,
-            title: _feed[i].$3,
-            sub:   _feed[i].$4,
-            time:  _feed[i].$5,
-            last:  i == _feed.length - 1,
-          )),
+        recent.when(
+          loading: () => Column(
+              children: List.generate(3, (_) => const _ActivitySkeleton())),
+          error: (e, _) => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Activité indisponible.',
+                style: TextStyle(color: _muted, fontSize: 12)),
+          ),
+          data: (list) => list.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                      'Aucune inscription pour le moment. Ajoutez un élève depuis Utilisateurs.',
+                      style: TextStyle(color: _muted, fontSize: 12.5)),
+                )
+              : Column(
+                  children: [
+                    for (var i = 0; i < list.length; i++)
+                      _ActivityItem(
+                        icon: Icons.person_add_rounded,
+                        color: _terra,
+                        title: list[i].fullName.isEmpty
+                            ? 'Nouvel élève'
+                            : list[i].fullName,
+                        sub: list[i].className == null ||
+                                list[i].className!.isEmpty
+                            ? 'Sans classe'
+                            : list[i].className!,
+                        time: _ago(list[i].createdAt),
+                        last: i == list.length - 1,
+                      ),
+                  ],
+                ),
+        ),
       ]),
     );
   }
@@ -401,16 +473,17 @@ class _ActivityItem extends StatelessWidget {
 }
 
 // ── Quick actions panel ───────────────────────────────────────────────────────
-class _DashQuickActions extends StatelessWidget {
+class _DashQuickActions extends ConsumerWidget {
+  // (icône, libellé, couleur, labelKey de nav cible)
   static const _actions = [
-    (Icons.person_add_rounded, 'Inscrire un élève',   _terra),
-    (Icons.class_rounded,      'Gérer les classes',    _orange),
-    (Icons.print_rounded,      'Imprimer un reçu',     Color(0xFF388E3C)),
-    (Icons.summarize_rounded,  'Générer un rapport',   _gold),
+    (Icons.person_add_rounded, 'Inscrire un élève',  _terra,            'nav.users'),
+    (Icons.class_rounded,      'Gérer les classes',  _orange,           'nav.classes'),
+    (Icons.menu_book_rounded,  'Gérer les matières', Color(0xFF388E3C), 'nav.subjects'),
+    (Icons.summarize_rounded,  'Voir les rapports',  _gold,             'nav.reports'),
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       decoration: BoxDecoration(
         color: _white,
@@ -437,7 +510,8 @@ class _DashQuickActions extends StatelessWidget {
                 borderRadius: i == _actions.length - 1
                     ? const BorderRadius.vertical(bottom: Radius.circular(14))
                     : BorderRadius.zero,
-                onTap: () {},
+                onTap: () =>
+                    ref.read(navIntentProvider.notifier).state = a.$4,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                   child: Row(children: [
@@ -468,16 +542,60 @@ class _DashQuickActions extends StatelessWidget {
 }
 
 // ── Today summary ─────────────────────────────────────────────────────────────
-class _DashToday extends StatelessWidget {
-  static const _items = [
-    (Icons.person_add_outlined,     '2 nouvelles inscriptions'),
-    (Icons.payments_outlined,       '5 paiements validés'),
-    (Icons.assignment_late_outlined,'1 réunion pédagogique'),
-    (Icons.event_note_outlined,     'Examen Terminale — 14:00'),
-  ];
-
+class _DashToday extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recentAsync      = ref.watch(recentStudentsProvider);
+    final invoicesAsync    = ref.watch(invoicesProvider);
+    final announcementsAsync = ref.watch(announcementsProvider);
+
+    final today = DateTime.now();
+    bool sameDay(DateTime? d) =>
+        d != null && d.year == today.year && d.month == today.month && d.day == today.day;
+
+    final inscriptions = recentAsync.maybeWhen(
+      data: (list) => list.where((s) => sameDay(s.createdAt)).length,
+      orElse: () => null,
+    );
+    final pending = invoicesAsync.maybeWhen(
+      data: (list) => list.where((inv) => inv.isPending).length,
+      orElse: () => null,
+    );
+    final overdue = invoicesAsync.maybeWhen(
+      data: (list) => list.where((inv) => inv.isOverdue).length,
+      orElse: () => null,
+    );
+    final announcements = announcementsAsync.maybeWhen(
+      data: (list) => list.length,
+      orElse: () => null,
+    );
+
+    String fmt(int? n, String singular, String plural) {
+      if (n == null) return '…';
+      return '$n ${n == 1 ? singular : plural}';
+    }
+
+    final items = <(IconData, Color, String)>[
+      (Icons.person_add_outlined,
+          _terra,
+          inscriptions == null
+              ? 'Inscriptions du jour…'
+              : inscriptions == 0
+                  ? 'Aucune inscription aujourd\'hui'
+                  : fmt(inscriptions, 'inscription aujourd\'hui', 'inscriptions aujourd\'hui')),
+      (Icons.hourglass_top_outlined,
+          _orange,
+          fmt(pending, 'facture en attente', 'factures en attente')),
+      (Icons.warning_amber_rounded,
+          _gold,
+          overdue == 0 || overdue == null && invoicesAsync.hasValue
+              ? 'Aucune facture en retard'
+              : fmt(overdue, 'facture en retard', 'factures en retard')),
+      (Icons.campaign_outlined,
+          _green,
+          fmt(announcements, 'annonce active', 'annonces actives')),
+    ];
+
     return Container(
       decoration: BoxDecoration(
         color: _white,
@@ -495,8 +613,8 @@ class _DashToday extends StatelessWidget {
           ]),
         ),
         const Divider(height: 1, color: Color(0xFFEEE5D8)),
-        ...List.generate(_items.length, (i) {
-          final it = _items[i];
+        ...List.generate(items.length, (i) {
+          final it = items[i];
           return Column(children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -505,15 +623,15 @@ class _DashToday extends StatelessWidget {
                   width: 6, height: 6,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
-                      color: _terra.withOpacity(.55), shape: BoxShape.circle),
+                      color: it.$2.withOpacity(.55), shape: BoxShape.circle),
                 ),
-                Icon(it.$1, size: 13, color: _muted),
+                Icon(it.$1, size: 13, color: it.$2),
                 const SizedBox(width: 8),
-                Expanded(child: Text(it.$2,
+                Expanded(child: Text(it.$3,
                     style: const TextStyle(color: _ink, fontSize: 12))),
               ]),
             ),
-            if (i < _items.length - 1)
+            if (i < items.length - 1)
               const Divider(height: 1, indent: 30, color: Color(0xFFEEE5D8)),
           ]);
         }),

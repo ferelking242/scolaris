@@ -1,9 +1,7 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -15,117 +13,56 @@ const _ink2   = Color(0xFF1A0A00);
 const _muted2 = Color(0xFF7A5C44);
 const _white  = Colors.white;
 
-class AttendancePage extends ConsumerStatefulWidget {
+// La base ne stocke QUE les absences/retards (pas les jours de présence). On
+// affiche donc uniquement du réel : compteurs (absences, retards, justifiées /
+// non justifiées) + la liste détaillée — pas de « taux de présence » fabriqué.
+class AttendancePage extends ConsumerWidget {
   const AttendancePage({super.key});
-  @override
-  ConsumerState<AttendancePage> createState() => _AttendancePageState();
-}
-
-class _AttendanceSummary {
-  final int joursTotal, presents, absents, retards;
-  final double tauxPresence, tauxAbsence;
-  const _AttendanceSummary({
-    required this.joursTotal, required this.presents,
-    required this.absents, required this.retards,
-    required this.tauxPresence, required this.tauxAbsence,
-  });
-}
-
-class _AttStat {
-  final String label;
-  final double presents, absents, retards;
-  const _AttStat({required this.label, required this.presents,
-      required this.absents, required this.retards});
-}
-
-class _AttendancePageState extends ConsumerState<AttendancePage> {
-  bool _loading = true;
-
-  // Présences par défaut Ferel Ondongo EMI — S2 (40 jours écoulés)
-  _AttendanceSummary _summary = const _AttendanceSummary(
-    joursTotal: 40, presents: 36, absents: 2, retards: 2,
-    tauxPresence: 90.0, tauxAbsence: 5.0,
-  );
-  // Données de présence hebdomadaires — Ferel Ondongo EMI (S2 : 8 semaines)
-  final List<_AttStat> _weekly = [
-    _AttStat(label: 'S1',  presents: 5, absents: 0, retards: 0),
-    _AttStat(label: 'S2',  presents: 4, absents: 1, retards: 0),
-    _AttStat(label: 'S3',  presents: 5, absents: 0, retards: 0),
-    _AttStat(label: 'S4',  presents: 5, absents: 0, retards: 0),
-    _AttStat(label: 'S5',  presents: 4, absents: 0, retards: 1),
-    _AttStat(label: 'S6',  presents: 5, absents: 0, retards: 0),
-    _AttStat(label: 'S7',  presents: 3, absents: 1, retards: 1),
-    _AttStat(label: 'S8',  presents: 5, absents: 0, retards: 0),
-  ];
 
   @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 600),
-        () { if (mounted) setState(() => _loading = false); });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final absencesAsync = ref.watch(myAbsencesProvider);
-    absencesAsync.whenData((absences) {
-      final absents = absences.where((a) => a.status == 'absent').length;
-      final retards = absences.where((a) => a.status == 'late').length;
-      const total = 90;
-      final presents = (total - absents - retards).clamp(0, total);
-      final taux = total > 0 ? presents / total * 100 : 0.0;
-      _summary = _AttendanceSummary(
-        joursTotal: total, presents: presents, absents: absents, retards: retards,
-        tauxPresence: taux, tauxAbsence: total > 0 ? absents / total * 100 : 0.0,
-      );
-    });
 
-    return PageScaffold(
-      title: 'Mes présences',
-      subtitle: 'Trimestre 2 · ${_summary.joursTotal} jours de cours',
-      actions: [
-        ActionButton(label: 'Exporter', icon: Icons.download_rounded, onTap: () {}),
-      ],
-      child: Skeletonizer(
-        enabled: _loading,
-        effect: const ShimmerEffect(
-          baseColor: Color(0xFFDDD6CE),
-          highlightColor: Color(0xFFEFEAE3),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-          // ── 1. Cartes résumé ────────────────────────────────────────
-          _SummaryCards(summary: _summary),
-          const SizedBox(height: 18),
-
-          // ── 2. Taux visuels ─────────────────────────────────────────
-          _RateCards(summary: _summary),
-          const SizedBox(height: 18),
-
-          // ── 3. Graphique circulaire + légende ────────────────────────
-          _SectionHeader(icon: Icons.pie_chart_rounded, title: 'Répartition des présences'),
-          const SizedBox(height: 10),
-          _PresencePieCard(summary: _summary),
-          const SizedBox(height: 18),
-
-          // ── 4. Bar chart semaines ────────────────────────────────────
-          _SectionHeader(icon: Icons.bar_chart_rounded, title: 'Présences par semaine'),
-          const SizedBox(height: 10),
-          _WeeklyBarCard(weekly: _weekly),
-          const SizedBox(height: 18),
-
-          // ── 5. Courbe de présence ────────────────────────────────────
-          _SectionHeader(icon: Icons.show_chart_rounded, title: 'Évolution du taux de présence'),
-          const SizedBox(height: 10),
-          _PresenceLineCard(weekly: _weekly),
-          const SizedBox(height: 18),
-
-          // ── 6. Détail des journées ───────────────────────────────────
-          _SectionHeader(icon: Icons.list_alt_rounded, title: 'Détail des absences & retards'),
-          const SizedBox(height: 10),
-          _AttendanceDetail(),
-        ]),
+    return absencesAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Mes présences',
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (e, _) => PageScaffold(
+        title: 'Mes présences',
+        child: Center(child: Text('Erreur : $e',
+            style: const TextStyle(color: _muted2))),
+      ),
+      data: (absences) {
+        final retards     = absences.where((a) => a.status == 'late').length;
+        final absencesNb  = absences.length - retards;
+        final justifiees  = absences.where((a) => a.justified).length;
+        final nonJust     = absences.length - justifiees;
+
+        return PageScaffold(
+          title: 'Mes présences',
+          subtitle: absences.isEmpty
+              ? 'Aucune absence enregistrée'
+              : '${absences.length} événement(s) · $nonJust non justifiée(s)',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // ── Compteurs réels ──────────────────────────────────────────
+            _SummaryCards(
+              absences: absencesNb,
+              retards: retards,
+              justifiees: justifiees,
+              nonJustifiees: nonJust,
+            ),
+            const SizedBox(height: 18),
+
+            // ── Détail (réel) ────────────────────────────────────────────
+            const _SectionHeader(
+                icon: Icons.list_alt_rounded,
+                title: 'Détail des absences & retards'),
+            const SizedBox(height: 10),
+            const _AttendanceDetail(),
+          ]),
+        );
+      },
     );
   }
 }
@@ -142,11 +79,11 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(children: [
       Container(
-        width: 30, height: 30,
+        width: 28, height: 28,
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [_terra, _orange],
               begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: _white, size: 15),
       ),
@@ -158,19 +95,24 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// 4 cartes résumé (présents, absents, retards, jours total)
+// 4 cartes résumé — toutes dérivées des vraies absences
 // ══════════════════════════════════════════════════════════════════════════
 class _SummaryCards extends StatelessWidget {
-  final _AttendanceSummary summary;
-  const _SummaryCards({required this.summary});
+  final int absences, retards, justifiees, nonJustifiees;
+  const _SummaryCards({
+    required this.absences,
+    required this.retards,
+    required this.justifiees,
+    required this.nonJustifiees,
+  });
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      (icon: Icons.check_circle_rounded, label: 'Jours présents', val: '${summary.presents}', color: _green),
-      (icon: Icons.cancel_rounded,       label: 'Jours absents',  val: '${summary.absents}',  color: _terra),
-      (icon: Icons.access_time_rounded,  label: 'Retards',        val: '${summary.retards}',  color: _gold),
-      (icon: Icons.calendar_today_rounded, label: 'Total jours',  val: '${summary.joursTotal}', color: const Color(0xFF0891B2)),
+      (icon: Icons.cancel_rounded,        label: 'Absences',       val: '$absences',      color: _terra),
+      (icon: Icons.access_time_rounded,   label: 'Retards',        val: '$retards',       color: _gold),
+      (icon: Icons.verified_rounded,      label: 'Justifiées',     val: '$justifiees',    color: _green),
+      (icon: Icons.report_problem_rounded,label: 'Non justifiées', val: '$nonJustifiees', color: _orange),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -227,369 +169,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Taux présence / absence (progress bars)
-// ═════���════════════════════════════════════════════════════════════════════
-class _RateCards extends StatelessWidget {
-  final _AttendanceSummary summary;
-  const _RateCards({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 3))],
-      ),
-      child: Column(children: [
-        _RateBar(label: 'Taux de présence', pct: summary.tauxPresence / 100, color: _green,
-            valStr: '${summary.tauxPresence.toStringAsFixed(1)} %'),
-        const SizedBox(height: 14),
-        _RateBar(label: 'Taux d\'absence', pct: summary.tauxAbsence / 100, color: _terra,
-            valStr: '${summary.tauxAbsence.toStringAsFixed(1)} %'),
-        const SizedBox(height: 14),
-        _RateBar(
-          label: 'Retards',
-          pct: summary.retards / summary.joursTotal,
-          color: _gold,
-          valStr: '${(summary.retards / summary.joursTotal * 100).toStringAsFixed(1)} %',
-        ),
-      ]),
-    );
-  }
-}
-
-class _RateBar extends StatelessWidget {
-  final String label, valStr;
-  final double pct;
-  final Color color;
-  const _RateBar({required this.label, required this.pct, required this.color, required this.valStr});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 12.5, color: _ink2, fontWeight: FontWeight.w600))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.30)),
-          ),
-          child: Text(valStr, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800)),
-        ),
-      ]),
-      const SizedBox(height: 6),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: LinearProgressIndicator(
-          value: pct.clamp(0.0, 1.0),
-          minHeight: 10,
-          backgroundColor: color.withOpacity(0.12),
-          valueColor: AlwaysStoppedAnimation<Color>(color),
-        ),
-      ),
-    ]);
-  }
-}
-
-// ══════════���═══════════════════════════════════════════════════════════════
-// Pie chart présence
-// ══════════════════════════════════════════════════════════════════════════
-class _PresencePieCard extends StatelessWidget {
-  final _AttendanceSummary summary;
-  const _PresencePieCard({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final total = summary.joursTotal.toDouble();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 3))],
-      ),
-      child: Row(children: [
-        // Pie
-        SizedBox(
-          width: 140, height: 140,
-          child: Stack(alignment: Alignment.center, children: [
-            PieChart(PieChartData(
-              startDegreeOffset: -90,
-              sectionsSpace: 3,
-              centerSpaceRadius: 42,
-              sections: [
-                PieChartSectionData(
-                  value: summary.presents.toDouble(),
-                  color: _green, radius: 28, showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: summary.absents.toDouble(),
-                  color: _terra, radius: 24, showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: summary.retards.toDouble(),
-                  color: _gold, radius: 24, showTitle: false,
-                ),
-              ],
-            )),
-            Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${summary.tauxPresence.toStringAsFixed(0)}%',
-                  style: const TextStyle(color: _green, fontSize: 18, fontWeight: FontWeight.w900)),
-              const Text('présent', style: TextStyle(color: _muted2, fontSize: 10)),
-            ]),
-          ]),
-        ),
-        const SizedBox(width: 20),
-
-        // Légende
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _PieLegend(color: _green,  label: 'Présents',  val: summary.presents,  total: total),
-            const SizedBox(height: 12),
-            _PieLegend(color: _terra,  label: 'Absents',   val: summary.absents,   total: total),
-            const SizedBox(height: 12),
-            _PieLegend(color: _gold,   label: 'Retards',   val: summary.retards,   total: total),
-          ],
-        )),
-      ]),
-    );
-  }
-}
-
-class _PieLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  final int val;
-  final double total;
-  const _PieLegend({required this.color, required this.label, required this.val, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total > 0 ? (val / total * 100).toStringAsFixed(1) : '0.0';
-    return Row(children: [
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-      const SizedBox(width: 8),
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 12.5, color: _ink2, fontWeight: FontWeight.w600))),
-      Text('$val j · $pct%', style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
-    ]);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Bar chart semaines
-// ════════════════════════════════════════════════��═════════════════════════
-class _WeeklyBarCard extends StatelessWidget {
-  final List<_AttStat> weekly;
-  const _WeeklyBarCard({required this.weekly});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 3))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Légende
-        Wrap(spacing: 14, runSpacing: 6, children: [
-          _BarLegend(color: _green, label: 'Présents'),
-          _BarLegend(color: _terra, label: 'Absents'),
-          _BarLegend(color: _gold,  label: 'Retards'),
-        ]),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 160,
-          child: BarChart(BarChartData(
-            maxY: 6.0,
-            minY: 0.0,
-            gridData: FlGridData(
-              show: true, drawVerticalLine: false,
-              horizontalInterval: 2.0,
-              getDrawingHorizontalLine: (_) => FlLine(
-                  color: _ink2.withOpacity(0.06), strokeWidth: 1.0),
-            ),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(sideTitles: SideTitles(
-                showTitles: true, reservedSize: 22.0,
-                getTitlesWidget: (v, _) {
-                  final i = v.toInt();
-                  if (i < 0 || i >= weekly.length) return const SizedBox();
-                  return Text(weekly[i].label, style: const TextStyle(
-                      color: _muted2, fontSize: 9.5, fontWeight: FontWeight.w600));
-                },
-              )),
-            ),
-            barGroups: weekly.asMap().entries.map((e) =>
-              BarChartGroupData(x: e.key, groupVertically: false, barRods: [
-                BarChartRodData(
-                  toY: e.value.presents,
-                  width: 8,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                  gradient: LinearGradient(
-                    colors: [_green.withOpacity(0.8), _green],
-                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  ),
-                ),
-                BarChartRodData(
-                  toY: e.value.absents,
-                  width: 8,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                  gradient: LinearGradient(
-                    colors: [_terra.withOpacity(0.8), _terra],
-                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  ),
-                ),
-                BarChartRodData(
-                  toY: e.value.retards,
-                  width: 8,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                  gradient: LinearGradient(
-                    colors: [_gold.withOpacity(0.8), _gold],
-                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  ),
-                ),
-              ])
-            ).toList(),
-            barTouchData: BarTouchData(
-              touchTooltipData: BarTouchTooltipData(
-                tooltipRoundedRadius: 8.0,
-                getTooltipItem: (g, _, rod, rodIndex) {
-                  final labels = ['Présents', 'Absents', 'Retards'];
-                  return BarTooltipItem(
-                    '${labels[rodIndex]}: ${rod.toY.toInt()} j',
-                    const TextStyle(color: _white, fontSize: 10, fontWeight: FontWeight.w700),
-                  );
-                },
-              ),
-            ),
-          )),
-        ),
-      ]),
-    );
-  }
-}
-
-class _BarLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _BarLegend({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-    Container(width: 10, height: 10, decoration: BoxDecoration(
-        color: color, borderRadius: BorderRadius.circular(3))),
-    const SizedBox(width: 5),
-    Text(label, style: const TextStyle(fontSize: 11, color: _muted2, fontWeight: FontWeight.w600)),
-  ]);
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Line chart — évolution du taux de présence
-// ══════════════════════════════════════════════════════════════════════════
-class _PresenceLineCard extends StatelessWidget {
-  final List<_AttStat> weekly;
-  const _PresenceLineCard({required this.weekly});
-
-  @override
-  Widget build(BuildContext context) {
-    final spots = weekly.asMap().entries.map((e) {
-      final total = e.value.presents + e.value.absents + e.value.retards;
-      final pct = total > 0 ? (e.value.presents / total * 100) : 100.0;
-      return FlSpot(e.key.toDouble(), pct);
-    }).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 3))],
-      ),
-      child: SizedBox(
-        height: 150,
-        child: LineChart(LineChartData(
-          minY: 50.0, maxY: 105.0,
-          gridData: FlGridData(
-            show: true, drawVerticalLine: false,
-            horizontalInterval: 25.0,
-            getDrawingHorizontalLine: (_) => FlLine(
-                color: _ink2.withOpacity(0.06), strokeWidth: 1.0),
-          ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(
-              showTitles: true, reservedSize: 32.0,
-              getTitlesWidget: (v, _) => Text('${v.toInt()}%',
-                  style: const TextStyle(color: _muted2, fontSize: 9, fontWeight: FontWeight.w600)),
-            )),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(
-              showTitles: true, reservedSize: 22.0,
-              getTitlesWidget: (v, _) {
-                final i = v.toInt();
-                if (i < 0 || i >= weekly.length) return const SizedBox();
-                return Text(weekly[i].label, style: const TextStyle(
-                    color: _muted2, fontSize: 9.5, fontWeight: FontWeight.w600));
-              },
-            )),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              curveSmoothness: 0.30,
-              color: _green,
-              barWidth: 2.5,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
-                  radius: 4.0, color: _green,
-                  strokeWidth: 2.0, strokeColor: _white,
-                ),
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [_green.withOpacity(0.20), _green.withOpacity(0.0)],
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
-          ],
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              tooltipRoundedRadius: 8.0,
-              getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
-                '${s.y.toStringAsFixed(0)}% présent',
-                const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w700),
-              )).toList(),
-            ),
-          ),
-        )),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Détail absences et retards
+// Détail absences et retards (réel)
 // ══════════════════════════════════════════════════════════════════════════
 class _AttendanceDetail extends ConsumerWidget {
   const _AttendanceDetail();
@@ -609,7 +189,7 @@ class _AttendanceDetail extends ConsumerWidget {
     return Column(
       children: absences.map((a) {
         final isAbsence = a.status == 'absent';
-        final justified = a.isJustified ?? false;
+        final justified = a.justified;
         final color = justified ? _gold : (isAbsence ? _terra : _orange);
         final typeLabel = isAbsence ? 'Absence' : 'Retard';
         final motifLabel = justified ? 'Justifiée' : 'Non justifiée';
@@ -640,8 +220,10 @@ class _AttendanceDetail extends ConsumerWidget {
               const SizedBox(height: 2),
               Text(a.date ?? '—', style: const TextStyle(
                   color: _ink2, fontSize: 13, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 2),
-              Text(motifLabel, style: const TextStyle(color: _muted2, fontSize: 11.5)),
+              if (a.reason != null && a.reason!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(a.reason!, style: const TextStyle(color: _muted2, fontSize: 11.5)),
+              ],
             ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -651,7 +233,7 @@ class _AttendanceDetail extends ConsumerWidget {
                 border: Border.all(
                     color: (justified ? _green : _terra).withOpacity(0.30)),
               ),
-              child: Text(justified ? 'Justifiée' : 'Non justifiée',
+              child: Text(motifLabel,
                   style: TextStyle(
                       color: justified ? _green : _terra,
                       fontSize: 10, fontWeight: FontWeight.w800)),

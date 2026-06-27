@@ -52,9 +52,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (atRegisterSchool) return null;
 
-      // Non connecté → login obligatoire
+      // Non authentifié → page de connexion (pas de mode démo).
       if (user == null) {
-        if (atLogin) return null;
+        if (atLogin) return null; // page login accessible explicitement
         return AppRoutes.login;
       }
 

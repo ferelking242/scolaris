@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/widgets/online_payment_sheet.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 class ParentPaymentsPage extends ConsumerWidget {
@@ -35,7 +35,8 @@ class ParentPaymentsPage extends ConsumerWidget {
                       'Tout payer (${NumberFormat.compact(locale: "fr").format(due)})',
                   icon: Icons.credit_card_rounded,
                   primary: true,
-                  onTap: () {}),
+                  onTap: () => showOnlinePaymentSheet(context, ref,
+                      invoices.where((i) => !i.isPaid).toList())),
           ],
           child: invoices.isEmpty
               ? const _EmptyState()
@@ -84,7 +85,10 @@ class ParentPaymentsPage extends ConsumerWidget {
                             alignment: Alignment.centerLeft,
                             child: ActionButton(
                               label: inv.isPaid ? 'Reçu' : 'Payer',
-                              onTap: () {},
+                              onTap: inv.isPaid
+                                  ? () {}
+                                  : () => showOnlinePaymentSheet(
+                                      context, ref, [inv]),
                               primary: !inv.isPaid,
                             ),
                           ),

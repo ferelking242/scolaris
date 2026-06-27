@@ -5,14 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/config/app_config.dart';
 import '../../core/theme/theme_controller.dart';
+import '../../data/sources/remote/supabase_db_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/db_providers.dart';
+import '../../presentation/providers/nav_providers.dart';
 import '../pages/notifications_page.dart';
 import '../pages/settings_page.dart';
+import '../widgets/subscription_alert_banner.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _bg      = Color(0xFFF5EEE6);
@@ -75,7 +77,6 @@ class DesktopShell extends ConsumerStatefulWidget {
 class _DesktopShellState extends ConsumerState<DesktopShell> {
   int _flatIndex = 0;
   _SideMode _mode = _SideMode.icons;
-  String _selectedSchool = 'Pointe-Noire';
   bool _showSettings = false;
   bool _showNotifs   = false;
 
@@ -91,8 +92,27 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
   double get _sideW => _mode == _SideMode.full ? 220.0 : 56.0;
 
+  void _goToLabelKey(String labelKey) {
+    final items = _flatItems;
+    final idx = items.indexWhere((e) => e.labelKey == labelKey);
+    if (idx >= 0) {
+      setState(() {
+        _flatIndex = idx;
+        _showSettings = false;
+        _showNotifs = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Intention de navigation émise par une page (ex. actions rapides du dashboard).
+    ref.listen<String?>(navIntentProvider, (_, next) {
+      if (next != null) {
+        _goToLabelKey(next);
+        ref.read(navIntentProvider.notifier).state = null;
+      }
+    });
     return Scaffold(
       backgroundColor: _sh1,
       body: SafeArea(
@@ -144,14 +164,13 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   _Header(
                     title: widget.title,
                     mode: _mode,
-                    selectedSchool: _selectedSchool,
                     onToggle: _toggle,
-                    onSchoolChange: (s) => setState(() => _selectedSchool = s),
                     onSettings: _openSettings,
                     onNotifs: _openNotifs,
                     showingOverlay: _showSettings || _showNotifs,
                     onCloseOverlay: _closeOverlay,
                   ),
+                  const SubscriptionAlertBanner(),
                   Expanded(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.only(
@@ -355,9 +374,7 @@ class _SidebarState extends State<_Sidebar> {
 class _Header extends ConsumerStatefulWidget {
   final String title;
   final _SideMode mode;
-  final String selectedSchool;
   final VoidCallback onToggle;
-  final ValueChanged<String> onSchoolChange;
   final VoidCallback? onSettings;
   final VoidCallback? onNotifs;
   final bool showingOverlay;
@@ -366,9 +383,7 @@ class _Header extends ConsumerStatefulWidget {
   const _Header({
     required this.title,
     required this.mode,
-    required this.selectedSchool,
     required this.onToggle,
-    required this.onSchoolChange,
     this.onSettings,
     this.onNotifs,
     this.showingOverlay = false,
@@ -383,8 +398,6 @@ class _HeaderState extends ConsumerState<_Header> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   bool _searchActive = false;
-
-  static const _schools = ['EAD', 'Pointe-Noire', 'Brazzaville'];
 
   @override
   void dispose() {
@@ -431,41 +444,8 @@ class _HeaderState extends ConsumerState<_Header> {
           Container(width: 1, height: 20, color: _white.withOpacity(.12)),
           const SizedBox(width: 14),
 
-          // ── School selector ────────────────────────────────────────────
-          CustomPopup(
-            barrierColor: Colors.transparent,
-            content: Material(type: MaterialType.transparency,
-                child: _buildSchoolPopup(context)),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: _white.withOpacity(.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _white.withOpacity(.12)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.school_outlined, size: 13, color: _gold),
-                    const SizedBox(width: 7),
-                    Text(
-                      widget.selectedSchool,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: _shTxt,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Icon(Icons.unfold_more_rounded, size: 13, color: _shMuted),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          // ── Campus selector (uniquement si l'école a des filiales) ──────
+          _BranchSelector(),
 
           const SizedBox(width: 14),
           Container(width: 1, height: 20, color: _white.withOpacity(.12)),
@@ -618,18 +598,89 @@ class _HeaderState extends ConsumerState<_Header> {
     );
   }
 
-  Widget _buildSchoolPopup(BuildContext context) {
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campus selector — visible uniquement si l'école a ≥ 1 filiale
+// ─────────────────────────────────────────────────────────────────────────────
+class _BranchSelector extends ConsumerWidget {
+  const _BranchSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final branchesAsync = ref.watch(branchesProvider);
+    final selected = ref.watch(selectedBranchProvider);
+
+    return branchesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (branches) {
+        if (branches.isEmpty) return const SizedBox.shrink();
+
+        final label = selected?.name ?? 'Tous les campus';
+
+        return Row(mainAxisSize: MainAxisSize.min, children: [
+          CustomPopup(
+            barrierColor: Colors.transparent,
+            content: Material(
+              type: MaterialType.transparency,
+              child: _BranchPopup(branches: branches, selected: selected),
+            ),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: _white.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _white.withOpacity(.12)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.school_outlined, size: 13, color: _gold),
+                  const SizedBox(width: 7),
+                  Text(label,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: _shTxt,
+                        fontWeight: FontWeight.w600,
+                      )),
+                  const SizedBox(width: 5),
+                  Icon(Icons.unfold_more_rounded, size: 13, color: _shMuted),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Container(width: 1, height: 20, color: _white.withOpacity(.12)),
+        ]);
+      },
+    );
+  }
+}
+
+class _BranchPopup extends ConsumerWidget {
+  final List<SbBranch> branches;
+  final SbBranch? selected;
+  const _BranchPopup({required this.branches, required this.selected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void pick(SbBranch? branch) {
+      ref.read(selectedBranchProvider.notifier).state = branch;
+      ref.invalidate(classesProvider);
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    final items = <SbBranch?>[null, ...branches];
+
     return Container(
-      width: 200,
+      width: 210,
       decoration: BoxDecoration(
         color: const Color(0xFF2A1200),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.5),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(.5), blurRadius: 20, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
@@ -639,55 +690,45 @@ class _HeaderState extends ConsumerState<_Header> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                'SÉLECTIONNER LE CENTRE',
-                style: TextStyle(
-                  fontSize: 9,
-                  letterSpacing: 1.2,
-                  color: _gold.withOpacity(.7),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              child: Text('SÉLECTIONNER LE CENTRE',
+                  style: TextStyle(
+                    fontSize: 9, letterSpacing: 1.2,
+                    color: _gold.withOpacity(.7), fontWeight: FontWeight.w800,
+                  )),
             ),
           ),
-          ..._schools.map((s) {
-            final sel = s == widget.selectedSchool;
-            return Material(
+          for (final b in items)
+            Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () {
-                  widget.onSchoolChange(s);
-                  Navigator.of(context, rootNavigator: true).pop();
-                },
+                onTap: () => pick(b),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(children: [
                     Container(
                       width: 6, height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: sel ? _gold : _shMuted.withOpacity(.4),
+                        color: b?.id == selected?.id ? _gold : _shMuted.withOpacity(.4),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(s,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: sel ? _gold : _shTxt,
-                            fontWeight:
-                                sel ? FontWeight.w700 : FontWeight.w500,
-                          )),
+                      child: Text(
+                        b?.name ?? 'Tous les campus',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: b?.id == selected?.id ? _gold : _shTxt,
+                          fontWeight: b?.id == selected?.id ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
                     ),
-                    if (sel)
-                      const Icon(Icons.check_rounded,
-                          size: 14, color: _gold),
+                    if (b?.id == selected?.id)
+                      const Icon(Icons.check_rounded, size: 14, color: _gold),
                   ]),
                 ),
               ),
-            );
-          }),
+            ),
           const SizedBox(height: 6),
         ],
       ),
@@ -871,13 +912,7 @@ class _AccountPanel extends ConsumerWidget {
             icon: Icons.logout_rounded,
             label: 'Se déconnecter',
             danger: true,
-            onTap: () async {
-              try {
-                await ref.read(signOutUseCaseProvider)();
-              } finally {
-                if (context.mounted) context.go('/login');
-              }
-            },
+            onTap: () => ref.read(signOutUseCaseProvider)(),
           ),
           const SizedBox(height: 4),
         ],
