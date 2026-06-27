@@ -183,22 +183,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildWideLayout(BuildContext context, Size size) {
-    return Stack(
-      fit: StackFit.expand,
+    return Row(
       children: [
-        // Couche 1 : panneau africain plein écran
-        const _LeftPanel(),
-
-        // Couche 2 : formulaire avec découpe diagonale
-        // Haut → le formulaire entre à gauche (35% du bord)
-        // Bas  → le panneau africain entre à droite (le formu commence à 62%)
-        ClipPath(
-          clipper: _DiagonalFormClipper(),
+        Expanded(
+          flex: 58,
+          child: const _LeftPanel(),
+        ),
+        Expanded(
+          flex: 42,
           child: _buildFormPanel(context, showBrand: true),
         ),
-
-        // Couche 3 : ligne dorée sur la diagonale
-        CustomPaint(painter: _DiagonalEdgePainter()),
       ],
     );
   }
@@ -915,60 +909,6 @@ class _ScanFramePainter extends CustomPainter {
       ..color = ScolarisPalette.gold.withOpacity(.7)
       ..strokeWidth = 2;
     canvas.drawLine(Offset(left + 12, top + dim / 2), Offset(left + dim - 12, top + dim / 2), line);
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}
-
-// ── Diagonal Clippers & Painters (PC wide layout) ─────────────────────────
-
-/// Découpe le formulaire en diagonale :
-/// haut = le formu déborde à gauche (commence à 33% du bord gauche)
-/// bas  = le panneau africain récupère de l'espace (formu commence à 62%)
-class _DiagonalFormClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(size.width * 0.33, 0);        // haut-gauche de la découpe
-    path.lineTo(size.width, 0);               // haut-droite
-    path.lineTo(size.width, size.height);     // bas-droite
-    path.lineTo(size.width * 0.62, size.height); // bas-gauche de la découpe
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> old) => false;
-}
-
-/// Ligne dorée lumineuse sur la diagonale
-class _DiagonalEdgePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final x0 = size.width * 0.33;
-    final x1 = size.width * 0.62;
-
-    // Halo diffus
-    canvas.drawLine(
-      Offset(x0, 0),
-      Offset(x1, size.height),
-      Paint()
-        ..color = _gold.withOpacity(.18)
-        ..strokeWidth = 28
-        ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
-    );
-
-    // Ligne nette
-    canvas.drawLine(
-      Offset(x0, 0),
-      Offset(x1, size.height),
-      Paint()
-        ..color = _gold.withOpacity(.45)
-        ..strokeWidth = 1.6
-        ..style = PaintingStyle.stroke,
-    );
   }
 
   @override
