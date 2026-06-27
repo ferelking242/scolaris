@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -707,9 +709,9 @@ class _DesktopForm extends StatelessWidget {
           // Réseaux sociaux
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             for (final icon in [
-              Icons.linkedin,
+              Icons.language_rounded,
               Icons.camera_alt_outlined,
-              Icons.facebook,
+              Icons.share_rounded,
               Icons.telegram_outlined,
             ]) ...[
               _SocialIcon(icon: icon),
