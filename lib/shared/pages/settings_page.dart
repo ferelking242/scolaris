@@ -80,7 +80,7 @@ class SettingsPage extends ConsumerWidget {
                       letterSpacing: -.6,
                       height: 1.1)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
             // ── Profil — avatar GAUCHE, nom+rôle DROITE sur la même ligne ─
             Padding(
@@ -95,7 +95,7 @@ class SettingsPage extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => const AccountPage())),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // ── COMPTE ─────────────────────────────────────────────────────
             _SettingsGroupLabel('COMPTE'),
@@ -140,6 +140,13 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => _push(context, const _AppearancePage()),
               ),
               _SettingsTile(
+                icon: Icons.notifications_outlined,
+                color: const Color(0xFF0E5FA3),
+                title: 'Notifications',
+                subtitle: 'Alertes, rappels et badges',
+                onTap: () => _push(context, const _NotificationsSettingsPage()),
+              ),
+              _SettingsTile(
                 icon: Icons.accessibility_new_rounded,
                 color: _gold,
                 title: 'settings.accessibility'.tr(),
@@ -152,6 +159,13 @@ class SettingsPage extends ConsumerWidget {
                 title: 'settings.privacy'.tr(),
                 subtitle: 'settings.privacy_sub'.tr(),
                 onTap: () => _push(context, _PrivacyPage(user: user)),
+              ),
+              _SettingsTile(
+                icon: Icons.storage_outlined,
+                color: const Color(0xFF00695C),
+                title: 'Stockage & Cache',
+                subtitle: 'Données hors-ligne et cache local',
+                onTap: () => _push(context, const _StoragePage()),
               ),
             ]),
             const SizedBox(height: 16),
@@ -166,6 +180,13 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: 'settings.support_sub'.tr(),
                 onTap: () => _push(context, _SupportPage(user: user)),
               ),
+              _SettingsTile(
+                icon: Icons.info_outline_rounded,
+                color: const Color(0xFF37474F),
+                title: 'À propos de Scolaris',
+                subtitle: 'Version ${AppConfig.appVersion} · Licences',
+                onTap: () => _showAboutDialog(context),
+              ),
             ]),
             const SizedBox(height: 32),
 
@@ -178,17 +199,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => _confirmSignOut(context, ref),
               ),
             ),
-            const SizedBox(height: 20),
-
-            // ── Version ───────────────────────────────────────────────────
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 48),
-                child: Text('Scolaris v${AppConfig.appVersion}',
-                    style: const TextStyle(
-                        color: _zinc400, fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-            ),
+            const SizedBox(height: 48),
           ],
         ),
       ),
@@ -197,6 +208,61 @@ class SettingsPage extends ConsumerWidget {
 
   void _push(BuildContext ctx, Widget page) =>
       Navigator.push(ctx, MaterialPageRoute(builder: (_) => page));
+
+  void _showAboutDialog(BuildContext ctx) {
+    showDialog(
+      context: ctx,
+      builder: (dCtx) => Dialog(
+        backgroundColor: Theme.of(dCtx).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [_sh1, _terra, _orange],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.school_rounded, color: Colors.white, size: 34),
+            ),
+            const SizedBox(height: 14),
+            Text('Scolaris',
+                style: TextStyle(
+                    color: Theme.of(dCtx).colorScheme.onSurface,
+                    fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text('Version ${AppConfig.appVersion}',
+                style: TextStyle(
+                    color: Theme.of(dCtx).colorScheme.onSurface.withOpacity(.5),
+                    fontSize: 13)),
+            const SizedBox(height: 16),
+            Text('Plateforme de gestion scolaire nouvelle génération.\nConçue pour les établissements africains.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Theme.of(dCtx).colorScheme.onSurface.withOpacity(.65),
+                    fontSize: 12.5, height: 1.5)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _terra,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(dCtx),
+                child: const Text('Fermer', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   void _confirmSignOut(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -747,10 +813,26 @@ class _AppearancePage extends ConsumerStatefulWidget {
 }
 
 class _AppearancePageState extends ConsumerState<_AppearancePage> {
+  // Palettes vedettes — nom, couleur, icône
+  static const List<(String, Color, IconData)> _featured = [
+    ('Scolaris',   Color(0xFF8B1A00), Icons.school_rounded),
+    ('Océan',      Color(0xFF0E5FA3), Icons.waves_rounded),
+    ('Forêt',      Color(0xFF1B5E20), Icons.park_rounded),
+    ('Nuit',       Color(0xFF1A237E), Icons.nightlight_round),
+    ('Amethyste',  Color(0xFF6A1B9A), Icons.auto_awesome_rounded),
+    ('Saphir',     Color(0xFF1565C0), Icons.diamond_outlined),
+    ('Émeraude',   Color(0xFF00695C), Icons.spa_outlined),
+    ('Rubis',      Color(0xFFB71C1C), Icons.favorite_border_rounded),
+    ('Rose Gold',  Color(0xFFBE185D), Icons.local_florist_outlined),
+    ('Ardoise',    Color(0xFF37474F), Icons.layers_outlined),
+    ('Ambre',      Color(0xFFC17F24), Icons.wb_sunny_outlined),
+    ('Sombre',     Color(0xFF1A1A2E), Icons.dark_mode_outlined),
+  ];
+
   static const List<Color> _presets = [
-    Color(0xFF8B1A00), Color(0xFFD4540A), Color(0xFFC17F24), Color(0xFF1B5E20),
-    Color(0xFF0D47A1), Color(0xFF1A237E), Color(0xFF4A148C), Color(0xFFB71C1C),
-    Color(0xFF880E4F), Color(0xFF004D40), Color(0xFF263238), Color(0xFF212121),
+    Color(0xFF8B1A00), Color(0xFF0E5FA3), Color(0xFFC17F24), Color(0xFF1B5E20),
+    Color(0xFF1565C0), Color(0xFF1A237E), Color(0xFF6A1B9A), Color(0xFFB71C1C),
+    Color(0xFFBE185D), Color(0xFF00695C), Color(0xFF37474F), Color(0xFF1A1A2E),
   ];
 
   static final List<(String, String, Locale)> _langs = [
@@ -791,12 +873,6 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── Aperçu live ────────────────────────────────────────────────
-          _SectionLabel('settings.section.preview'.tr()),
-          const SizedBox(height: 8),
-          _ThemePreviewCard(accent: accent, isDark: isDark),
-          const SizedBox(height: 22),
-
           // ── Thème ──────────────────────────────────────────────────────
           _SectionLabel('settings.section.theme'.tr()),
           const SizedBox(height: 8),
@@ -828,6 +904,60 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
               onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.system),
             )),
           ]),
+          const SizedBox(height: 12),
+
+          // ── Contraste élevé ────────────────────────────────────────────
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: settings.contrasteEleve
+                  ? Colors.black.withOpacity(.08)
+                  : Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: settings.contrasteEleve
+                    ? (isDark ? Colors.white.withOpacity(.25) : Colors.black.withOpacity(.3))
+                    : Theme.of(context).colorScheme.outline.withOpacity(.25),
+                width: settings.contrasteEleve ? 1.6 : 1.0,
+              ),
+            ),
+            child: Row(children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: settings.contrasteEleve
+                      ? (isDark ? Colors.white.withOpacity(.12) : Colors.black.withOpacity(.1))
+                      : Theme.of(context).colorScheme.surfaceContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.contrast_rounded, size: 18,
+                    color: settings.contrasteEleve
+                        ? (isDark ? Colors.white : Colors.black)
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(.55)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Contraste élevé',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 13.5, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(isDark
+                    ? 'Mode sombre pur — fond noir absolu'
+                    : 'Texte et bordures plus marqués',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
+                        fontSize: 11.5)),
+              ])),
+              Switch.adaptive(
+                value: settings.contrasteEleve,
+                activeColor: accent,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setContrasteEleve(v),
+              ),
+            ]),
+          ),
           const SizedBox(height: 22),
 
           // ── Langue ──────────────────────────────────────────────────────
@@ -888,6 +1018,66 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 ),
               );
             }).toList(),
+          ),
+          const SizedBox(height: 22),
+
+          // ── Palettes recommandées ───────────────────────────────────────
+          _SectionLabel('PALETTES'),
+          const SizedBox(height: 4),
+          Text('Choisissez un style en un clic',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
+                  fontSize: 11.5)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 78,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemCount: _featured.length,
+              itemBuilder: (ctx, i) {
+                final (name, color, icon) = _featured[i];
+                final sel = color.value == accent.value;
+                return GestureDetector(
+                  onTap: () => ref.read(themeControllerProvider.notifier).setAccent(color),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 70,
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: sel ? color.withOpacity(.12) : Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: sel ? color.withOpacity(.6) : Theme.of(context).colorScheme.outline.withOpacity(.25),
+                        width: sel ? 1.8 : 1.0,
+                      ),
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        width: 32, height: 32,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(
+                              color: color.withOpacity(.4), blurRadius: 6, offset: const Offset(0, 2))],
+                        ),
+                        child: Icon(icon, size: 15, color: Colors.white),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(name,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
+                              color: sel ? color : Theme.of(context).colorScheme.onSurface.withOpacity(.6))),
+                    ]),
+                  ),
+                );
+              },
+            ),
           ),
           const SizedBox(height: 22),
 
@@ -968,9 +1158,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                   final c   = entry.$2;
                   final sel = c.value == accent.value;
                   final names = [
-                    'Terra','Orange','Ambre','Vert',
-                    'Bleu','Marine','Violet','Bordeaux',
-                    'Rose','Forêt','Acier','Charbon',
+                    'Scolaris','Océan','Ambre','Forêt',
+                    'Saphir','Nuit','Amethyste','Rubis',
+                    'Rose Gold','Émeraude','Ardoise','Sombre',
                   ];
                   return GestureDetector(
                     onTap: () => ref.read(themeControllerProvider.notifier).setAccent(c),
@@ -1905,6 +2095,316 @@ class _PrivacyPageState extends ConsumerState<_PrivacyPage> {
       _showSnack(context, 'Impossible d\'ouvrir le logiciel mail.',
           color: const Color(0xFFFF6B6B));
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page Notifications (Settings)
+// ─────────────────────────────────────────────────────────────────────────────
+class _NotificationsSettingsPage extends ConsumerWidget {
+  const _NotificationsSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return _SubPageShell(
+      title: 'Notifications',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          _SectionLabel('ALERTES EN TEMPS RÉEL'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemToggle(
+                icon: Icons.notifications_outlined,
+                color: const Color(0xFF0E5FA3),
+                label: 'Notifications push',
+                value: settings.notificationsPush,
+                onChanged: (v) =>
+                    ref.read(settingsProvider.notifier).setNotificationsPush(v),
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.mail_outline_rounded,
+                color: const Color(0xFF6A1B9A),
+                label: 'Récapitulatif par email',
+                description: 'Résumé hebdomadaire des activités',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.campaign_outlined,
+                color: _terra,
+                label: 'Annonces de l\'établissement',
+                description: 'Nouvelles et communications officielles',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          _SectionLabel('SCOLARITÉ'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemComingSoon(
+                icon: Icons.grade_outlined,
+                color: _gold,
+                label: 'Nouvelles notes',
+                description: 'Alertes dès qu\'une note est publiée',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.event_available_rounded,
+                color: _green,
+                label: 'Absences & retards',
+                description: 'Notification instantanée aux parents',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.payment_outlined,
+                color: _orange,
+                label: 'Paiements & scolarité',
+                description: 'Rappels d\'échéances et reçus',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.assignment_outlined,
+                color: const Color(0xFF1A237E),
+                label: 'Devoirs & évaluations',
+                description: 'Rappel 24h avant les évaluations',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          _SectionLabel('SILENCIEUX'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemComingSoon(
+                icon: Icons.bedtime_outlined,
+                color: const Color(0xFF37474F),
+                label: 'Mode Ne pas déranger',
+                description: 'Silencieux la nuit et le week-end',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.schedule_outlined,
+                color: _muted,
+                label: 'Plages horaires',
+                description: 'Définir les heures de réception',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outline.withOpacity(.2)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline_rounded, size: 15, color: cs.onSurface.withOpacity(.45)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                'Les notifications nécessitent l\'autorisation de votre appareil. '
+                'Activez-les dans les réglages système si elles ne s\'affichent pas.',
+                style: TextStyle(
+                    color: cs.onSurface.withOpacity(.55),
+                    fontSize: 11.5, height: 1.5),
+              )),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page Stockage & Cache
+// ─────────────────────────────────────────────────────────────────────────────
+class _StoragePage extends StatelessWidget {
+  const _StoragePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return _SubPageShell(
+      title: 'Stockage & Cache',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          _SectionLabel('CACHE LOCAL'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cs.outline.withOpacity(.25)),
+            ),
+            child: Column(children: [
+              Row(children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00695C).withOpacity(.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.storage_outlined, size: 20,
+                      color: Color(0xFF00695C)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Cache de l\'application',
+                      style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('Données hors-ligne et ressources mises en cache',
+                      style: TextStyle(
+                          color: cs.onSurface.withOpacity(.5),
+                          fontSize: 11.5)),
+                ])),
+              ]),
+              const SizedBox(height: 14),
+              Row(children: [
+                _StorageBar(
+                    label: 'Cours', value: 0.35, color: const Color(0xFF0E5FA3)),
+                const SizedBox(width: 8),
+                _StorageBar(
+                    label: 'Notes', value: 0.2, color: _gold),
+                const SizedBox(width: 8),
+                _StorageBar(
+                    label: 'Médias', value: 0.15, color: _terra),
+              ]),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.cleaning_services_outlined, size: 16),
+                  label: const Text('Vider le cache',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF00695C),
+                    side: const BorderSide(color: Color(0xFF00695C)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _showClearCacheDialog(context),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          _SectionLabel('MODE HORS-LIGNE'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            margin: EdgeInsets.zero,
+            items: [
+              _SettingsItemComingSoon(
+                icon: Icons.wifi_off_rounded,
+                color: const Color(0xFF1A237E),
+                label: 'Télécharger les cours',
+                description: 'Accéder aux cours sans connexion internet',
+              ),
+              _SettingsItemComingSoon(
+                icon: Icons.sync_rounded,
+                color: _green,
+                label: 'Synchronisation auto',
+                description: 'Sync dès que la connexion est rétablie',
+              ),
+            ],
+          ),
+        ]),
+      ),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Icon(Icons.cleaning_services_outlined,
+              color: const Color(0xFF00695C), size: 22),
+          const SizedBox(width: 8),
+          Text('Vider le cache',
+              style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.onSurface,
+                  fontSize: 16, fontWeight: FontWeight.w800)),
+        ]),
+        content: Text(
+          'Le cache sera supprimé. L\'application rechargera les données '
+          'depuis le serveur lors de la prochaine utilisation.',
+          style: TextStyle(
+              color: Theme.of(ctx).colorScheme.onSurface.withOpacity(.6),
+              fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Annuler',
+                style: TextStyle(
+                    color: Theme.of(ctx).colorScheme.onSurface.withOpacity(.6),
+                    fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00695C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showSnack(context, 'Cache vidé avec succès', color: _green);
+            },
+            child: const Text('Vider', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StorageBar extends StatelessWidget {
+  final String label;
+  final double value;
+  final Color color;
+  const _StorageBar({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: TextStyle(
+                color: cs.onSurface.withOpacity(.55),
+                fontSize: 10, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: value,
+            backgroundColor: cs.outline.withOpacity(.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 6,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text('${(value * 100).round()}%',
+            style: TextStyle(
+                color: color, fontSize: 9.5, fontWeight: FontWeight.w700)),
+      ]),
+    );
   }
 }
 
