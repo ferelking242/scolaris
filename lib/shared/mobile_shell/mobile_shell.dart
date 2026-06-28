@@ -22,6 +22,7 @@ const _terra     = ScolarisPalette.terracotta;
 const _orange    = ScolarisPalette.orange;
 const _gold      = ScolarisPalette.gold;
 const _menuAcc   = ScolarisPalette.gold;
+const _white     = Colors.white;
 
 // African sidebar background — dark terracotta/brown, NOT green
 const _menuBg1   = Color(0xFF1A0A00);
