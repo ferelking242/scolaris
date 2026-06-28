@@ -312,9 +312,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
 
                 const SizedBox(height: 20),
-                _divider('EAD Congo — Connexion rapide'),
+                _divider('Écoles — Connexion rapide'),
                 const SizedBox(height: 12),
-                _EadQuickLogin(onTap: _fillAndLogin),
+                _SchoolsQuickLogin(onTap: _fillAndLogin),
                 const SizedBox(height: 8),
                 Center(
                   child: Text('Mot de passe universel : demo1234',
@@ -438,13 +438,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // Connexion rapide aux comptes démo EAD Brazzaville (mot de passe demo1234).
+  // Connexion rapide aux comptes démo (mot de passe demo1234).
   Widget _demoQuickRow() {
     const accounts = <(String, String, IconData, Color)>[
-      ('Admin',  'admin@ead-bzv.cg',  Icons.admin_panel_settings_outlined, _terra),
-      ('Prof',   'prof@ead-bzv.cg',   Icons.menu_book_outlined,            Color(0xFF0277BD)),
-      ('Élève',  'eleve@ead-bzv.cg',  Icons.school_outlined,               _green),
-      ('Parent', 'parent@ead-bzv.cg', Icons.family_restroom_outlined,      Color(0xFF7C3AED)),
+      ('Admin·LSB',   'serge.bouya@lsb.cg',        Icons.admin_panel_settings_outlined, _terra),
+      ('Prof·ELC',    'jean.ngoubili@elc.cg',       Icons.menu_book_outlined,            Color(0xFF0277BD)),
+      ('Élève·CSFS',  'ferel.ondongo@csfs.cg',      Icons.school_outlined,               _green),
+      ('Admin·UDSN',  'alain.nzoussi@udsn.cg',      Icons.account_balance_outlined,      Color(0xFF7C3AED)),
     ];
     return Wrap(
       spacing: 8,
@@ -1281,47 +1281,55 @@ class _RegisterSchoolBtn extends StatelessWidget {
 }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // EAD Congo — Quick Login Widgets
+  // Écoles — Quick Login Widgets (Primaire · Collège · Lycée · Université)
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  class _EadUser {
-    final String label, subtitle, email, password, centre;
+  class _SchoolUser {
+    final String label, subtitle, email, school;
     final IconData icon;
     final Color color;
-    const _EadUser({required this.label,required this.subtitle,required this.email,required this.password,required this.icon,required this.color,required this.centre});
+    const _SchoolUser({required this.label,required this.subtitle,required this.email,required this.icon,required this.color,required this.school});
   }
 
-  const _eadPassword = 'EadCongo2025!';
+  const _demoPass = 'demo1234';
 
-  const _eadUsers = [
-    _EadUser(label:'Ondongo Ferel',subtitle:'Étudiant · GLAR L2 · Brazzaville',email:'ondongo.ferel@ead.cg',password:_eadPassword,icon:Icons.school_rounded,color:Color(0xFF2E7D32),centre:'BZV'),
-    _EadUser(label:'Mabika Gloire',subtitle:'Étudiant · EMI L1 · Brazzaville',email:'mabika.gloire@ead.cg',password:_eadPassword,icon:Icons.engineering_rounded,color:Color(0xFF1565C0),centre:'BZV'),
-    _EadUser(label:'Mouanda Prisca',subtitle:'Étudiante · Gestion M1 · Brazzaville',email:'mouanda.prisca@ead.cg',password:_eadPassword,icon:Icons.business_center_rounded,color:Color(0xFF558B2F),centre:'BZV'),
-    _EadUser(label:'Batchi Kevin',subtitle:'Étudiant · GLAR L2 · Pointe-Noire',email:'batchi.kevin@ead.cg',password:_eadPassword,icon:Icons.computer_rounded,color:Color(0xFF00838F),centre:'PNR'),
-    _EadUser(label:'Moukala Grace',subtitle:'Étudiante · Économie L3 · Pointe-Noire',email:'moukala.grace@ead.cg',password:_eadPassword,icon:Icons.trending_up_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
-    _EadUser(label:'Dr. Djemba Norbert',subtitle:'Enseignant · Réseaux · Brazzaville',email:'prof.djemba@ead.cg',password:_eadPassword,icon:Icons.menu_book_rounded,color:Color(0xFF6A1B9A),centre:'BZV'),
-    _EadUser(label:'Pr. Makaya Ferdinand',subtitle:'Enseignant · Maths · Brazzaville',email:'prof.makaya@ead.cg',password:_eadPassword,icon:Icons.calculate_rounded,color:Color(0xFF0277BD),centre:'BZV'),
-    _EadUser(label:'Dr. Nguila Clémentine',subtitle:'Enseignante · Économie · Pointe-Noire',email:'prof.nguila@ead.cg',password:_eadPassword,icon:Icons.bar_chart_rounded,color:Color(0xFF33691E),centre:'PNR'),
-    _EadUser(label:'Obambi Marie-Claire',subtitle:'Secrétariat · Brazzaville',email:'secretariat.bzv@ead.cg',password:_eadPassword,icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),centre:'BZV'),
-    _EadUser(label:'Mavoungou Théodore',subtitle:'Directeur · Centre BZV',email:'direction.bzv@ead.cg',password:_eadPassword,icon:Icons.workspace_premium_rounded,color:Color(0xFFC17F24),centre:'BZV'),
-    _EadUser(label:'Madzou Emmanuel',subtitle:'Directeur · Centre PNR',email:'direction.pnr@ead.cg',password:_eadPassword,icon:Icons.location_city_rounded,color:Color(0xFF1B5E20),centre:'PNR'),
-    _EadUser(label:'Elenga-Ngaporo Samuel',subtitle:'Directeur Général EAD Congo',email:'dg@ead.cg',password:_eadPassword,icon:Icons.account_balance_rounded,color:Color(0xFF0D47A1),centre:'DG'),
+  const _schoolUsers = [
+    // Primaire — École Lumière du Congo (ELC)
+    _SchoolUser(label:'Thomas Mouyabi',subtitle:'Directeur · École Lumière du Congo',email:'thomas.mouyabi@elc.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
+    _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · CM2 A · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
+    _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2 A · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
+    _SchoolUser(label:'Rose Okemba',subtitle:'Secrétariat · École Lumière',email:'rose.okemba@elc.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF558B2F),school:'Primaire'),
+    // Collège — Saint-François de Sales (CSFS)
+    _SchoolUser(label:'Andrée Koumba',subtitle:'Directrice · Collège St-François',email:'andree.koumba@csfs.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF1565C0),school:'Collège'),
+    _SchoolUser(label:'Céleste Ibara',subtitle:'Enseignante · 6ème A · Collège',email:'celeste.ibara@csfs.cg',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Collège'),
+    _SchoolUser(label:'Ferel Ondongo',subtitle:'Élève · 6ème A · Collège',email:'ferel.ondongo@csfs.cg',icon:Icons.school_rounded,color:Color(0xFF0288D1),school:'Collège'),
+    _SchoolUser(label:'Rémy Makosso',subtitle:'Secrétariat · Collège St-François',email:'remy.makosso@csfs.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF00838F),school:'Collège'),
+    // Lycée — Savorgnan de Brazza (LSB)
+    _SchoolUser(label:'Serge Bouya',subtitle:'Directeur · Lycée Savorgnan de Brazza',email:'serge.bouya@lsb.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
+    _SchoolUser(label:'Pascal Nzoukou',subtitle:'Enseignant · Terminale D · Lycée',email:'pascal.nzoukou@lsb.cg',icon:Icons.menu_book_rounded,color:Color(0xFFC17F24),school:'Lycée'),
+    _SchoolUser(label:'Bienvenu Makoumbou',subtitle:'Élève · Terminale D · Lycée',email:'bienvenu.makoumbou@lsb.cg',icon:Icons.account_balance_rounded,color:Color(0xFFD4540A),school:'Lycée'),
+    _SchoolUser(label:'Christelle Niangou',subtitle:'Secrétariat · Lycée Savorgnan',email:'christelle.niangou@lsb.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
+    // Université — Denis Sassou Nguesso (UDSN)
+    _SchoolUser(label:'Pr. Alain Nzoussi',subtitle:'Recteur · Université DSN',email:'alain.nzoussi@udsn.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF6A1B9A),school:'Université'),
+    _SchoolUser(label:'Dr. Henri Loemba',subtitle:'Enseignant · Licence 1 Droit',email:'henri.loemba@udsn.cg',icon:Icons.menu_book_rounded,color:Color(0xFF7B1FA2),school:'Université'),
+    _SchoolUser(label:'Gloire Mouamba',subtitle:'Étudiant · Licence 1 Droit',email:'gloire.mouamba@udsn.cg',icon:Icons.science_rounded,color:Color(0xFF8E24AA),school:'Université'),
+    _SchoolUser(label:'Patricia Etsiona',subtitle:'Secrétariat · Université DSN',email:'patricia.etsiona@udsn.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF6A1B9A),school:'Université'),
   ];
 
-  class _EadQuickLogin extends StatefulWidget {
+  class _SchoolsQuickLogin extends StatefulWidget {
     final void Function(String email, String password) onTap;
-    const _EadQuickLogin({required this.onTap});
+    const _SchoolsQuickLogin({required this.onTap});
     @override
-    State<_EadQuickLogin> createState() => _EadQuickLoginState();
+    State<_SchoolsQuickLogin> createState() => _SchoolsQuickLoginState();
   }
 
-  class _EadQuickLoginState extends State<_EadQuickLogin> {
-    String _filter = 'ALL';
+  class _SchoolsQuickLoginState extends State<_SchoolsQuickLogin> {
+    String _filter = 'Tous';
 
     @override
     Widget build(BuildContext context) {
-      const centres = ['ALL', 'BZV', 'PNR', 'DG'];
-      final filtered = _filter == 'ALL' ? _eadUsers : _eadUsers.where((u) => u.centre == _filter).toList();
+      const tabs = ['Tous', 'Primaire', 'Collège', 'Lycée', 'Université'];
+      final filtered = _filter == 'Tous' ? _schoolUsers : _schoolUsers.where((u) => u.school == _filter).toList();
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1329,15 +1337,14 @@ class _RegisterSchoolBtn extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: centres.map((c) {
-                final sel = _filter == c;
-                final lbl = c == 'ALL' ? 'Tous' : c == 'DG' ? 'Direction' : 'Centre $c';
+              children: tabs.map((t) {
+                final sel = _filter == t;
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: FilterChip(
-                    label: Text(lbl, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sel ? Colors.white : _muted)),
+                    label: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sel ? Colors.white : _muted)),
                     selected: sel,
-                    onSelected: (_) => setState(() => _filter = c),
+                    onSelected: (_) => setState(() => _filter = t),
                     backgroundColor: const Color(0xFFF5F0EC),
                     selectedColor: _terra,
                     checkmarkColor: Colors.white,
@@ -1350,16 +1357,16 @@ class _RegisterSchoolBtn extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          ...filtered.map((u) => _EadUserTile(user: u, onTap: () => widget.onTap(u.email, u.password))),
+          ...filtered.map((u) => _SchoolUserTile(user: u, onTap: () => widget.onTap(u.email, _demoPass))),
         ],
       );
     }
   }
 
-  class _EadUserTile extends StatelessWidget {
-    final _EadUser user;
+  class _SchoolUserTile extends StatelessWidget {
+    final _SchoolUser user;
     final VoidCallback onTap;
-    const _EadUserTile({required this.user, required this.onTap});
+    const _SchoolUserTile({required this.user, required this.onTap});
 
     @override
     Widget build(BuildContext context) {
@@ -1394,7 +1401,7 @@ class _RegisterSchoolBtn extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(color: user.color.withOpacity(.12), borderRadius: BorderRadius.circular(6)),
-                child: Text(user.centre, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
+                child: Text(user.school, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
               ),
               const SizedBox(width: 6),
               Icon(Icons.login_rounded, color: user.color, size: 16),
