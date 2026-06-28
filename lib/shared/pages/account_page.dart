@@ -8,16 +8,10 @@ import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 
-// ── Tokens ─────────────────────────────────────────────────────────────────
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
 
 const _months = [
   'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -33,7 +27,6 @@ String _initialsOf(String name) => name
     .join()
     .toUpperCase();
 
-// ── Page : profil réel de l'utilisateur connecté (tous rôles) ────────────────
 class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
   @override
@@ -47,7 +40,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
       fullName: name,
       phone: phone,
     );
-    // Mise à jour optimiste de la session (le stream auth ne ré-émet pas ici).
     ref.read(authSessionProvider.notifier).setUser(
           user.copyWith(fullName: name, phone: phone),
         );
@@ -57,7 +49,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _EditProfileSheet(
@@ -69,21 +61,21 @@ class _AccountPageState extends ConsumerState<AccountPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs   = Theme.of(context).colorScheme;
     final user = ref.watch(authSessionProvider);
     final school = ref.watch(schoolProvider).valueOrNull;
 
     if (user == null) {
-      return const Scaffold(
-        backgroundColor: _bg,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: cs.surface,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     final name = user.fullName.isEmpty ? 'Utilisateur' : user.fullName;
-    final isStaff = user.role == UserRole.staff;
+    final isStaff      = user.role == UserRole.staff;
     final isPrivileged = isStaff || user.role == UserRole.teacher;
-    // Personnel restreint (pas accès total) → afficher ses accès.
-    final showAccess = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty;
+    final showAccess   = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty;
 
     final schoolLine = [
       if (school?.name != null && school!.name.isNotEmpty) school.name,
@@ -91,7 +83,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     ].join(' · ');
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: cs.surface,
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -104,7 +96,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           ),
           const SizedBox(height: 64),
 
-          // ── Coordonnées ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -126,7 +117,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               ),
               const SizedBox(height: 18),
 
-              // ── Établissement & rôle ──────────────────────────────────
               _SectionTitle('Établissement & rôle', Icons.school_outlined, _gold),
               const SizedBox(height: 8),
               _InfoTile(
@@ -136,7 +126,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               if (schoolLine.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _InfoTile(
-                  icon: Icons.apartment_rounded, color: _muted,
+                  icon: Icons.apartment_rounded, color: Colors.blueGrey,
                   label: 'École', value: schoolLine,
                 ),
               ],
@@ -149,7 +139,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                 ),
               ],
 
-              // ── Mes accès (personnel restreint) ───────────────────────
               if (showAccess) ...[
                 const SizedBox(height: 18),
                 _SectionTitle('Mes accès', Icons.verified_user_outlined, _terra),
@@ -158,9 +147,10 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: _white,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
                   ),
                   child: Wrap(spacing: 8, runSpacing: 8, children: [
                     for (final key in user.permissions)
@@ -178,11 +168,9 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   }
 }
 
-// ── Cover ────────────────────────────────────────────────────────────────────
+// ── Cover ─────────────────────────────────────────────────────────────────────
 class _Cover extends StatelessWidget {
-  final String name;
-  final String roleLabel;
-  final String initials;
+  final String name, roleLabel, initials;
   final bool isPrivileged;
   final VoidCallback onEdit;
   const _Cover({
@@ -195,6 +183,7 @@ class _Cover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return Stack(clipBehavior: Clip.none, children: [
       Container(
         height: 180,
@@ -216,8 +205,8 @@ class _Cover extends StatelessWidget {
                   margin: const EdgeInsets.all(12),
                   width: 36, height: 36,
                   decoration: BoxDecoration(
-                      color: _white.withOpacity(.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_back_rounded, color: _white, size: 20),
+                      color: Colors.white.withOpacity(.15), shape: BoxShape.circle),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                 ),
               ),
             ),
@@ -231,14 +220,14 @@ class _Cover extends StatelessWidget {
                   margin: const EdgeInsets.all(12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _white.withOpacity(.15),
+                    color: Colors.white.withOpacity(.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.edit_outlined, color: _white, size: 14),
+                    Icon(Icons.edit_outlined, color: Colors.white, size: 14),
                     SizedBox(width: 5),
                     Text('Modifier', style: TextStyle(
-                        color: _white, fontSize: 12, fontWeight: FontWeight.w600)),
+                        color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
                 ),
               ),
@@ -247,7 +236,6 @@ class _Cover extends StatelessWidget {
         ]),
       ),
 
-      // Avatar + nom + rôle
       Positioned(
         bottom: -52, left: 20, right: 16,
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -259,14 +247,14 @@ class _Cover extends StatelessWidget {
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
-              border: Border.all(color: _bg, width: 4),
+              border: Border.all(color: scaffoldBg, width: 4),
               boxShadow: [
                 BoxShadow(color: _terra.withOpacity(.35),
                     blurRadius: 18, offset: const Offset(0, 6)),
               ],
             ),
             child: Center(child: Text(initials, style: const TextStyle(
-                color: _white, fontSize: 30, fontWeight: FontWeight.w900))),
+                color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900))),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -274,8 +262,10 @@ class _Cover extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Flexible(child: Text(name, style: const TextStyle(
-                      color: _ink, fontSize: 18, fontWeight: FontWeight.w900),
+                  Flexible(child: Text(name,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 18, fontWeight: FontWeight.w900),
                       maxLines: 1, overflow: TextOverflow.ellipsis)),
                   if (isPrivileged) ...[
                     const SizedBox(width: 5),
@@ -304,7 +294,7 @@ class _Cover extends StatelessWidget {
   }
 }
 
-// ── Widgets partagés ─────────────────────────────────────────────────────────
+// ── Shared widgets ────────────────────────────────────────────────────────────
 class _SectionTitle extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -332,18 +322,19 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: cs.outline.withOpacity(.3)),
       ),
       child: Row(children: [
         Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
-            color: color.withOpacity(.1),
+            color: color.withOpacity(.12),
             borderRadius: BorderRadius.circular(9),
           ),
           child: Icon(icon, size: 17, color: color),
@@ -352,10 +343,11 @@ class _InfoTile extends StatelessWidget {
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: _muted, fontSize: 10.5)),
+            Text(label, style: TextStyle(
+                color: cs.onSurface.withOpacity(.5), fontSize: 10.5)),
             const SizedBox(height: 1),
-            Text(value, style: const TextStyle(
-                color: _ink, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(value, style: TextStyle(
+                color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w600)),
           ],
         )),
         if (onEdit != null)
@@ -398,7 +390,7 @@ class _AccessChip extends StatelessWidget {
   }
 }
 
-// ── Bottom sheet d'édition (nom + téléphone, persistés) ──────────────────────
+// ── Edit profile sheet ────────────────────────────────────────────────────────
 class _EditProfileSheet extends StatefulWidget {
   final AppUser user;
   final Future<void> Function(String name, String phone) onSave;
@@ -448,6 +440,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
@@ -455,12 +448,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('Modifier mon profil', style: TextStyle(
-              color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
+          Text('Modifier mon profil', style: TextStyle(
+              color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
           const Spacer(),
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.close_rounded, color: _muted, size: 20)),
+            child: Icon(Icons.close_rounded,
+                color: cs.onSurface.withOpacity(.5), size: 20)),
         ]),
         const SizedBox(height: 16),
         TextField(
@@ -482,10 +476,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Pour changer votre email ou mot de passe, utilisez '
           '« Mot de passe & Sécurité » dans les paramètres.',
-          style: TextStyle(color: _muted, fontSize: 11),
+          style: TextStyle(
+              color: cs.onSurface.withOpacity(.5), fontSize: 11),
         ),
         if (_error != null) ...[
           const SizedBox(height: 10),
@@ -497,7 +492,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           child: ElevatedButton(
             onPressed: _saving ? null : _save,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _terra, foregroundColor: _white,
+              backgroundColor: _terra, foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: _saving
@@ -513,7 +508,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   }
 }
 
-// ── African pattern painter ───────────────────────────────────────────────
+// ── African pattern painter ────────────────────────────────────────────────────
 class _AfricanPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

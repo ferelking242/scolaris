@@ -2,24 +2,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-// ── Palette shadcn zinc ───────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
 const _orange = Color(0xFFD4540A);
 const _gold   = Color(0xFFC17F24);
 const _green  = Color(0xFF1B5E20);
-const _ink    = Color(0xFF1A0A00);
-const _white  = Colors.white;
-
-const _zinc100 = Color(0xFFF4F4F5);
-const _zinc200 = Color(0xFFE4E4E7);
-const _zinc400 = Color(0xFFA1A1AA);
-const _zinc700 = Color(0xFF3F3F46);
-const _zinc900 = Color(0xFF18181B);
 
 /// Dashboard layout utilisé par tous les rôles (Enseignant, Finance, Surveillance…).
-///
-/// Passer [loading] = true pour activer les shimmer skeletons sur les éléments
-/// dynamiques (stats, sections). Le reste s'affiche normalement.
+/// Tous les fonds et textes utilisent le thème actif (clair / sombre navy).
 class DashboardScaffold extends StatelessWidget {
   final List<DashStat>    stats;
   final List<DashSection> sections;
@@ -43,21 +32,17 @@ class DashboardScaffold extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Sélecteur de période ───────────────────────────────────────
             const _PeriodChips(),
             const SizedBox(height: 20),
-
-            // ── Grille de stats (shimmer si loading) ───────────────────────
             _StatsGrid(stats: stats, loading: loading),
             const SizedBox(height: 20),
 
-            // ── Sections (une colonne ou grille 2×) ───────────────────────
             Skeletonizer(
               enabled: loading,
-              effect: const ShimmerEffect(
-                baseColor: Color(0xFFE4E4E7),
-                highlightColor: Color(0xFFFAFAFA),
-                duration: Duration(milliseconds: 1400),
+              effect: ShimmerEffect(
+                baseColor: Theme.of(context).colorScheme.surfaceContainer,
+                highlightColor: Theme.of(context).colorScheme.surface,
+                duration: const Duration(milliseconds: 1400),
               ),
               child: LayoutBuilder(builder: (ctx2, c2) {
                 final wide = c2.maxWidth > 720 && sections.length > 1;
@@ -73,8 +58,7 @@ class DashboardScaffold extends StatelessWidget {
                       mainAxisExtent: 178,
                     ),
                     itemCount: sections.length,
-                    itemBuilder: (_, i) =>
-                        _SectionCard(section: sections[i]),
+                    itemBuilder: (_, i) => _SectionCard(section: sections[i]),
                   );
                 }
                 return Column(children: [
@@ -86,7 +70,6 @@ class DashboardScaffold extends StatelessWidget {
               }),
             ),
 
-            // ── Explorer la plateforme ────────────────────────────────────
             if (explore != null && explore!.isNotEmpty) ...[
               const SizedBox(height: 8),
               const _SectionHeader('Explorer la plateforme'),
@@ -100,7 +83,7 @@ class DashboardScaffold extends StatelessWidget {
   }
 }
 
-// ── Sélecteur de période ──────────────────────────────────────────────────
+// ── Period chips ──────────────────────────────────────────────────────────────
 class _PeriodChips extends StatefulWidget {
   const _PeriodChips();
   @override
@@ -113,6 +96,7 @@ class _PeriodChipsState extends State<_PeriodChips> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
@@ -126,14 +110,14 @@ class _PeriodChipsState extends State<_PeriodChips> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color:  _sel == i ? _zinc900 : _white,
+                color: _sel == i ? cs.onSurface : cs.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: _sel == i ? _zinc900 : _zinc200,
+                  color: _sel == i ? cs.onSurface : cs.outline.withOpacity(.4),
                 ),
                 boxShadow: _sel == i
                     ? [BoxShadow(
-                        color: Colors.black.withOpacity(.18),
+                        color: Colors.black.withOpacity(.15),
                         blurRadius: 8,
                         offset: const Offset(0, 3))]
                     : [],
@@ -141,9 +125,8 @@ class _PeriodChipsState extends State<_PeriodChips> {
               child: Text(_chips[i],
                   style: TextStyle(
                       fontSize: 12.5,
-                      color: _sel == i ? _white : _zinc700,
-                      fontWeight:
-                          _sel == i ? FontWeight.w700 : FontWeight.w500)),
+                      color: _sel == i ? cs.surface : cs.onSurface,
+                      fontWeight: _sel == i ? FontWeight.w700 : FontWeight.w500)),
             ),
           ),
           if (i < _chips.length - 1) const SizedBox(width: 6),
@@ -153,7 +136,7 @@ class _PeriodChipsState extends State<_PeriodChips> {
   }
 }
 
-// ── Grille de statistiques ────────────────────────────────────────────────
+// ── Stats grid ────────────────────────────────────────────────────────────────
 class _StatsGrid extends StatelessWidget {
   final List<DashStat> stats;
   final bool loading;
@@ -164,7 +147,7 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (ctx, c) {
-      final cols = c.maxWidth > 980 ? 4 : 2;
+      final cols  = c.maxWidth > 980 ? 4 : 2;
       final count = loading ? 4 : stats.length;
       return GridView.builder(
         shrinkWrap: true,
@@ -186,7 +169,6 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
-// Carte de stat — shadcn style (blanc, bordure, icône top-right, nombre animé)
 class _StatCard extends StatelessWidget {
   final DashStat stat;
   final Color color;
@@ -194,11 +176,12 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _zinc200, width: 1.0),
+        border: Border.all(color: cs.outline.withOpacity(.3), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.04),
@@ -210,25 +193,22 @@ class _StatCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Stack(children: [
-        // Icône en haut à droite
         Positioned(
           top: 0, right: 0,
           child: Container(
             width: 30, height: 30,
             decoration: BoxDecoration(
-              color: color.withOpacity(.1),
+              color: color.withOpacity(.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(stat.icon, size: 15, color: color),
           ),
         ),
-        // Valeur + label en bas à gauche
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             const Spacer(),
-            // Animation du compteur au chargement
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 900),
@@ -239,18 +219,14 @@ class _StatCard extends StatelessWidget {
                 if (num == null) {
                   return Text(stat.value,
                       style: TextStyle(
-                          fontSize: 28,
-                          color: color,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -.5));
+                          fontSize: 28, color: color,
+                          fontWeight: FontWeight.w900, letterSpacing: -.5));
                 }
                 return Text(
                   (num * t).round().toString(),
                   style: TextStyle(
-                      fontSize: 28,
-                      color: color,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -.5),
+                      fontSize: 28, color: color,
+                      fontWeight: FontWeight.w900, letterSpacing: -.5),
                 );
               },
             ),
@@ -258,9 +234,9 @@ class _StatCard extends StatelessWidget {
             Text(stat.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11.5,
-                    color: _zinc400,
+                    color: cs.onSurface.withOpacity(.5),
                     fontWeight: FontWeight.w600)),
           ],
         ),
@@ -269,25 +245,25 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// Skeleton shimmer d'une carte stat
 class _StatCardSkeleton extends StatelessWidget {
   final Color color;
   const _StatCardSkeleton({required this.color});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Skeletonizer(
       enabled: true,
-      effect: const ShimmerEffect(
-        baseColor: Color(0xFFE4E4E7),
-        highlightColor: Color(0xFFFAFAFA),
-        duration: Duration(milliseconds: 1400),
+      effect: ShimmerEffect(
+        baseColor: cs.surfaceContainer,
+        highlightColor: cs.surface,
+        duration: const Duration(milliseconds: 1400),
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: _white,
+          color: cs.surfaceContainer,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _zinc200, width: 1.0),
+          border: Border.all(color: cs.outline.withOpacity(.3), width: 1.0),
         ),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
@@ -298,7 +274,7 @@ class _StatCardSkeleton extends StatelessWidget {
               child: Container(
                 width: 30, height: 30,
                 decoration: BoxDecoration(
-                  color: _zinc200,
+                  color: cs.outline.withOpacity(.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -307,7 +283,7 @@ class _StatCardSkeleton extends StatelessWidget {
             Container(
               width: 52, height: 24,
               decoration: BoxDecoration(
-                color: _zinc200,
+                color: cs.outline.withOpacity(.2),
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -315,7 +291,7 @@ class _StatCardSkeleton extends StatelessWidget {
             Container(
               width: 80, height: 11,
               decoration: BoxDecoration(
-                color: _zinc200,
+                color: cs.outline.withOpacity(.15),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -326,19 +302,20 @@ class _StatCardSkeleton extends StatelessWidget {
   }
 }
 
-// ── Section Card ──────────────────────────────────────────────────────────
+// ── Section card ──────────────────────────────────────────────────────────────
 class _SectionCard extends StatelessWidget {
   final DashSection section;
   const _SectionCard({required this.section});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final dotColor = section.dotColor ?? _green;
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _zinc200, width: 1.0),
+        border: Border.all(color: cs.outline.withOpacity(.3), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.04),
@@ -350,79 +327,63 @@ class _SectionCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // ── En-tête : titre + nombre + bouton action ─────────────────────
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(section.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
-                      color: _zinc400,
+                      color: cs.onSurface.withOpacity(.5),
                       fontWeight: FontWeight.w600,
                       letterSpacing: .2)),
               const SizedBox(height: 2),
               Text(section.count,
                   style: const TextStyle(
-                      fontSize: 28,
-                      color: _terra,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -.5)),
+                      fontSize: 28, color: _terra,
+                      fontWeight: FontWeight.w900, letterSpacing: -.5)),
             ]),
           ),
           if (section.actionLabel != null)
-            _ActionChip(
-                label: section.actionLabel!,
-                onTap: section.onAction ?? () {}),
+            _ActionChip(label: section.actionLabel!, onTap: section.onAction ?? () {}),
         ]),
         const SizedBox(height: 10),
-
-        // ── Zone contenu (texte vide ou données) ─────────────────────────
         Container(
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _zinc100,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _zinc200, width: 1),
+            border: Border.all(color: cs.outline.withOpacity(.3), width: 1),
           ),
           child: Text(section.emptyText,
-              style: const TextStyle(fontSize: 12, color: _zinc400)),
+              style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(.5))),
         ),
         const Spacer(),
-
-        // ── Footer ────────────────────────────────────────────────────
         Row(children: [
           Container(
             width: 7, height: 7,
             decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: dotColor.withOpacity(.4), blurRadius: 4),
-              ],
+              color: dotColor, shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: dotColor.withOpacity(.4), blurRadius: 4)],
             ),
           ),
           const SizedBox(width: 6),
           Text(section.footerLabel,
-              style: const TextStyle(
-                  fontSize: 11.5,
-                  color: _zinc400,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: .4)),
+              style: TextStyle(
+                  fontSize: 11.5, color: cs.onSurface.withOpacity(.5),
+                  fontWeight: FontWeight.w600, letterSpacing: .4)),
           const Spacer(),
           Text('Voir tout',
               style: const TextStyle(
                   fontSize: 11.5, color: _terra, fontWeight: FontWeight.w600)),
           const SizedBox(width: 3),
-          Icon(Icons.arrow_forward_ios_rounded,
-              size: 10, color: _terra.withOpacity(.8)),
+          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: _terra.withOpacity(.8)),
         ]),
       ]),
     );
   }
 }
 
-// Mini bouton action — style shadcn solid (noir)
 class _ActionChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -430,6 +391,7 @@ class _ActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -437,29 +399,30 @@ class _ActionChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _zinc900,
+          color: cs.onSurface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(label,
-            style: const TextStyle(
-                color: _white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+            style: TextStyle(
+                color: cs.surface, fontSize: 11.5, fontWeight: FontWeight.w700)),
       ),
     );
   }
 }
 
-// ── Section header ─────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final String text;
   const _SectionHeader(this.text);
 
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
-          fontSize: 15, color: _zinc900, fontWeight: FontWeight.w800));
+      style: TextStyle(
+          fontSize: 15,
+          color: Theme.of(context).colorScheme.onSurface,
+          fontWeight: FontWeight.w800));
 }
 
-// ── Explore Grid ───────────────────────────────────────────────────────────
+// ── Explore grid ──────────────────────────────────────────────────────────────
 class _ExploreGrid extends StatelessWidget {
   final List<ExploreCard> cards;
   const _ExploreGrid({required this.cards});
@@ -494,11 +457,12 @@ class _ExploreItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _zinc200, width: 1.0),
+        border: Border.all(color: cs.outline.withOpacity(.3), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.03),
@@ -512,7 +476,7 @@ class _ExploreItem extends StatelessWidget {
         Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
-            color: color.withOpacity(.1),
+            color: color.withOpacity(.12),
             borderRadius: BorderRadius.circular(9),
           ),
           child: Icon(card.icon, size: 18, color: color),
@@ -526,24 +490,21 @@ class _ExploreItem extends StatelessWidget {
               Row(children: [
                 Flexible(
                   child: Text(card.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
-                          color: _zinc900,
+                          color: cs.onSurface,
                           fontWeight: FontWeight.w700)),
                 ),
                 if (card.suggested) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                         color: _gold.withOpacity(.12),
                         borderRadius: BorderRadius.circular(99)),
                     child: const Text('Suggéré',
                         style: TextStyle(
-                            fontSize: 9,
-                            color: _gold,
-                            fontWeight: FontWeight.w800)),
+                            fontSize: 9, color: _gold, fontWeight: FontWeight.w800)),
                   ),
                 ],
               ]),
@@ -551,8 +512,10 @@ class _ExploreItem extends StatelessWidget {
               Text(card.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11.5, color: _zinc400, height: 1.35)),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: cs.onSurface.withOpacity(.5),
+                      height: 1.35)),
             ],
           ),
         ),
@@ -561,13 +524,12 @@ class _ExploreItem extends StatelessWidget {
   }
 }
 
-// ── Data classes ─────────────────────────────────────────────────────────────
+// ── Data classes ──────────────────────────────────────────────────────────────
 class DashStat {
   final IconData icon;
   final String   label;
   final String   value;
-  const DashStat(
-      {required this.icon, required this.label, required this.value});
+  const DashStat({required this.icon, required this.label, required this.value});
 
   factory DashStat.tr({
     required IconData icon,

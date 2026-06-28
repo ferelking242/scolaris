@@ -4,18 +4,10 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/user_entity.dart';
 import '../widgets/responsive_role_shell.dart';
 
-// ── Scolaris African palette ──────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
 const _orange = Color(0xFFD4540A);
-const _gold   = Color(0xFFC17F24);
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
-const _subtle = Color(0xFFF0E8DC);
 
-/// Curved Android-style drawer with Scolaris African theme.
+/// Drawer mobile theme-aware — couleurs depuis le thème actif.
 class CurvedDrawer extends StatelessWidget {
   final List<RoleNavEntry> entries;
   final String currentLabelKey;
@@ -31,11 +23,12 @@ class CurvedDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: PhysicalShape(
-          color: _bg,
+          color: cs.surface,
           elevation: 8,
           shadowColor: Colors.black26,
           clipper: _CurvedShapeClipper(),
@@ -88,6 +81,7 @@ class _DrawerBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final initials = (user?.fullName.isNotEmpty ?? false)
         ? user!.fullName
             .split(' ')
@@ -101,7 +95,7 @@ class _DrawerBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 18),
-        // ── Brand row ────────────────────────────────────────────────────
+        // ── Brand row ───────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
@@ -118,13 +112,13 @@ class _DrawerBody extends StatelessWidget {
                   ),
                   child: const Center(
                     child: Text('S', style: TextStyle(
-                        color: _white, fontWeight: FontWeight.w800, fontSize: 13)),
+                        color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 10),
-            const Text('Scolaris', style: TextStyle(
+            Text('Scolaris', style: TextStyle(
                 color: _terra, fontWeight: FontWeight.w800, fontSize: 14)),
           ]),
         ),
@@ -136,15 +130,15 @@ class _DrawerBody extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _subtle,
+                color: cs.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: cs.outline.withOpacity(.3)),
               ),
               child: Row(children: [
                 Container(
                   width: 30, height: 30,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
                       colors: [_terra, _orange],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -153,7 +147,7 @@ class _DrawerBody extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(initials, style: const TextStyle(
-                        color: _white, fontWeight: FontWeight.w800, fontSize: 11)),
+                        color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -164,14 +158,16 @@ class _DrawerBody extends StatelessWidget {
                       Text(user!.fullName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: _ink)),
+                              color: cs.onSurface)),
                       Text(user!.email,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10.5, color: _muted)),
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              color: cs.onSurface.withOpacity(.5))),
                     ],
                   ),
                 ),
@@ -180,15 +176,14 @@ class _DrawerBody extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        // Section label
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 4, 16, 6),
           child: Text('NAVIGATION',
               style: TextStyle(
-                  fontSize: 9.5, color: _muted.withOpacity(.7),
+                  fontSize: 9.5,
+                  color: cs.onSurface.withOpacity(.4),
                   fontWeight: FontWeight.w800, letterSpacing: 1.2)),
         ),
-        // ── Nav items ────────────────────────────────────────────────────
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -219,6 +214,7 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1.5),
       child: Material(
@@ -233,16 +229,15 @@ class _DrawerItem extends StatelessWidget {
             child: Row(children: [
               Icon(entry.icon,
                   size: 16,
-                  color: selected ? _terra : _muted),
+                  color: selected ? _terra : cs.onSurface.withOpacity(.55)),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   entry.labelKey.tr(),
                   style: TextStyle(
-                    color: selected ? _terra : _ink,
+                    color: selected ? _terra : cs.onSurface,
                     fontSize: 12.5,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),

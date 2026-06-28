@@ -31,14 +31,16 @@ class ScolarisAccents {
   static const names = ['Terracotta','Saphir','Émeraude','Ambre','Violet','Ardoise','Rose','Cyan'];
 }
 
-// ── Navy dark palette ────────────────────────────────────────────────────────
-const _navyBg    = Color(0xFF0F172A); // slate-950
-const _navySurf  = Color(0xFF1E293B); // slate-800
-const _navyCard  = Color(0xFF1E293B);
-const _navyHigh  = Color(0xFF263549); // slate-700ish
-const _navyText  = Color(0xFFF1F5F9); // slate-100
-const _navyMuted = Color(0xFF94A3B8); // slate-400
-const _navyBord  = Color(0xFF334155); // slate-700
+// ── Palette navy nuit professionnelle ─────────────────────────────────────────
+// Inspirée de Linear, Vercel, Notion dark mode
+const _dkBg       = Color(0xFF0D1117); // GitHub-style near-black
+const _dkSurf     = Color(0xFF161B22); // surface légèrement plus claire
+const _dkCard     = Color(0xFF1C2128); // cards avec dépth visible
+const _dkHigh     = Color(0xFF21262D); // éléments interactifs au hover
+const _dkText     = Color(0xFFE6EDF3); // texte principal (quasi-blanc)
+const _dkMuted    = Color(0xFF8B949E); // texte secondaire (gris bleu)
+const _dkBord     = Color(0xFF30363D); // bordures subtiles
+const _dkBordStr  = Color(0xFF484F58); // bordures plus visibles
 
 class AppTheme {
   AppTheme._();
@@ -74,7 +76,6 @@ class AppTheme {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
     return _withReadableDialogs(FlexThemeData.light(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.light),
-      // blendLevel très faible → surfaces restent blanches/gris clair, pas beiges
       surfaceMode: FlexSurfaceMode.highSurfaceLowScaffold,
       blendLevel: 1,
       appBarStyle: FlexAppBarStyle.surface,
@@ -98,13 +99,13 @@ class AppTheme {
 
   static ThemeData dark({Color? accent}) {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
-    final base = _withReadableDialogs(FlexThemeData.dark(
+    final base = FlexThemeData.dark(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.dark),
       darkIsTrueBlack: false,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 2,
+      blendLevel: 4,
       appBarStyle: FlexAppBarStyle.background,
-      appBarOpacity: 0.97,
+      appBarOpacity: 1.0,
       subThemesData: const FlexSubThemesData(
         useM2StyleDividerInM3: false,
         defaultRadius: 12,
@@ -118,48 +119,100 @@ class AppTheme {
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
       useMaterial3: true,
       fontFamily: 'Roboto',
-    ));
+    );
 
-    // Remplace les surfaces générées par un vrai dark navy pro
+    // Override complet vers palette GitHub dark / Vercel dark
     return base.copyWith(
-      scaffoldBackgroundColor: _navyBg,
+      scaffoldBackgroundColor: _dkBg,
       colorScheme: base.colorScheme.copyWith(
-        surface:              _navySurf,
-        surfaceContainer:     _navyHigh,
-        surfaceContainerHigh: _navyHigh,
-        onSurface:            _navyText,
-        onSurfaceVariant:     _navyMuted,
-        outline:              _navyBord,
-        outlineVariant:       _navyBord.withOpacity(.5),
+        surface:                  _dkSurf,
+        surfaceContainer:         _dkCard,
+        surfaceContainerHigh:     _dkHigh,
+        surfaceContainerHighest:  _dkHigh,
+        surfaceContainerLow:      _dkSurf,
+        onSurface:                _dkText,
+        onSurfaceVariant:         _dkMuted,
+        outline:                  _dkBord,
+        outlineVariant:           _dkBord.withOpacity(.5),
+        shadow:                   Colors.black,
+        scrim:                    Colors.black87,
       ),
-      cardColor: _navyCard,
-      dividerColor: _navyBord,
-      // Dialogues sombres cohérents (override du _withReadableDialogs)
+      cardColor: _dkCard,
+      cardTheme: base.cardTheme.copyWith(color: _dkCard),
+      dividerColor: _dkBord,
+      dividerTheme: base.dividerTheme.copyWith(color: _dkBord),
+      listTileTheme: base.listTileTheme.copyWith(
+        tileColor: _dkCard,
+        textColor: _dkText,
+      ),
+      // Dialogues sombres cohérents
       dialogTheme: base.dialogTheme.copyWith(
-        backgroundColor: _navySurf,
+        backgroundColor: _dkCard,
+        surfaceTintColor: Colors.transparent,
         titleTextStyle: base.dialogTheme.titleTextStyle
-            ?.copyWith(color: _navyText, fontWeight: FontWeight.w800),
+            ?.copyWith(color: _dkText, fontWeight: FontWeight.w800),
         contentTextStyle: base.dialogTheme.contentTextStyle
-            ?.copyWith(color: _navyMuted),
+            ?.copyWith(color: _dkMuted),
       ),
       bottomSheetTheme: base.bottomSheetTheme.copyWith(
-        backgroundColor: _navySurf,
-      ),
-      appBarTheme: base.appBarTheme.copyWith(
-        backgroundColor: _navySurf,
-        foregroundColor: _navyText,
+        backgroundColor: _dkCard,
         surfaceTintColor: Colors.transparent,
       ),
+      // Header / AppBar avec même fond que la surface (pas noir absolu)
+      appBarTheme: base.appBarTheme.copyWith(
+        backgroundColor: _dkSurf,
+        foregroundColor: _dkText,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black.withOpacity(.4),
+        elevation: 0,
+        titleTextStyle: TextStyle(
+          color: _dkText,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+        ),
+        iconTheme: const IconThemeData(color: _dkText),
+        actionsIconTheme: const IconThemeData(color: _dkMuted),
+      ),
       navigationBarTheme: base.navigationBarTheme.copyWith(
-        backgroundColor: _navySurf,
-        indicatorColor: seed.withOpacity(.2),
+        backgroundColor: _dkSurf,
+        indicatorColor: seed.withOpacity(.22),
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _dkMuted),
+        ),
+      ),
+      navigationRailTheme: base.navigationRailTheme.copyWith(
+        backgroundColor: _dkSurf,
+        indicatorColor: seed.withOpacity(.22),
       ),
       drawerTheme: base.drawerTheme.copyWith(
-        backgroundColor: _navySurf,
+        backgroundColor: _dkSurf,
+        surfaceTintColor: Colors.transparent,
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
-        fillColor: _navyHigh,
+        fillColor: _dkCard,
         filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _dkBord),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _dkBord),
+        ),
+        hintStyle: const TextStyle(color: _dkMuted),
+        labelStyle: const TextStyle(color: _dkMuted),
+      ),
+      popupMenuTheme: base.popupMenuTheme.copyWith(
+        color: _dkCard,
+        surfaceTintColor: Colors.transparent,
+      ),
+      tooltipTheme: base.tooltipTheme.copyWith(
+        decoration: BoxDecoration(
+          color: _dkHigh,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _dkBord),
+        ),
+        textStyle: const TextStyle(color: _dkText, fontSize: 12),
       ),
     );
   }
