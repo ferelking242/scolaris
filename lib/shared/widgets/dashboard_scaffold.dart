@@ -37,7 +37,7 @@ class DashboardScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: _zinc100,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 48),
         child: Column(

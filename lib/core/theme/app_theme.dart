@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 
-/// Palette africaine de Scolaris.
 class ScolarisPalette {
   ScolarisPalette._();
 
@@ -17,7 +16,6 @@ class ScolarisPalette {
   static const menuAccent  = Color(0xFFC17F24);
 }
 
-/// Presets d'accent disponibles dans l'app.
 class ScolarisAccents {
   ScolarisAccents._();
   static const terracotta = Color(0xFF8B1A00);
@@ -26,15 +24,25 @@ class ScolarisAccents {
   static const amber      = Color(0xFFC17F24);
   static const violet     = Color(0xFF6A1B9A);
   static const slate      = Color(0xFF37474F);
+  static const rose       = Color(0xFFBE185D);
+  static const cyan       = Color(0xFF0891B2);
 
-  static const all = [terracotta, sapphire, emerald, amber, violet, slate];
-  static const names = ['Terracotta', 'Saphir', 'Émeraude', 'Ambre', 'Violet', 'Ardoise'];
+  static const all   = [terracotta, sapphire, emerald, amber, violet, slate, rose, cyan];
+  static const names = ['Terracotta','Saphir','Émeraude','Ambre','Violet','Ardoise','Rose','Cyan'];
 }
+
+// ── Navy dark palette ────────────────────────────────────────────────────────
+const _navyBg    = Color(0xFF0F172A); // slate-950
+const _navySurf  = Color(0xFF1E293B); // slate-800
+const _navyCard  = Color(0xFF1E293B);
+const _navyHigh  = Color(0xFF263549); // slate-700ish
+const _navyText  = Color(0xFFF1F5F9); // slate-100
+const _navyMuted = Color(0xFF94A3B8); // slate-400
+const _navyBord  = Color(0xFF334155); // slate-700
 
 class AppTheme {
   AppTheme._();
 
-  /// Bouton noir pur — style shadcn "primary".
   static ButtonStyle get blackButtonStyle => ElevatedButton.styleFrom(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
@@ -44,12 +52,9 @@ class AppTheme {
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       );
 
-  // Texte sombre lisible (cohérent avec `ink` de page_scaffold).
-  static const _dialogInk   = Color(0xFF1A0A00);
-  static const _dialogBody  = Color(0xFF4A3A2E);
+  static const _dialogInk  = Color(0xFF1A0A00);
+  static const _dialogBody = Color(0xFF4A3A2E);
 
-  /// Force des dialogues clairs et lisibles, quel que soit le mode (les pages
-  /// de l'app sont toujours claires) → plus de texte sombre sur fond sombre.
   static ThemeData _withReadableDialogs(ThemeData base) => base.copyWith(
         dialogTheme: base.dialogTheme.copyWith(
           backgroundColor: Colors.white,
@@ -69,10 +74,11 @@ class AppTheme {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
     return _withReadableDialogs(FlexThemeData.light(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.light),
-      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 7,
+      // blendLevel très faible → surfaces restent blanches/gris clair, pas beiges
+      surfaceMode: FlexSurfaceMode.highSurfaceLowScaffold,
+      blendLevel: 1,
       appBarStyle: FlexAppBarStyle.surface,
-      appBarOpacity: 0.95,
+      appBarOpacity: 0.96,
       subThemesData: const FlexSubThemesData(
         useM2StyleDividerInM3: false,
         defaultRadius: 12,
@@ -92,12 +98,13 @@ class AppTheme {
 
   static ThemeData dark({Color? accent}) {
     final seed = accent ?? const Color(AppConfig.defaultAccentArgb);
-    return _withReadableDialogs(FlexThemeData.dark(
+    final base = _withReadableDialogs(FlexThemeData.dark(
       colors: FlexSchemeColor.from(primary: seed, brightness: Brightness.dark),
+      darkIsTrueBlack: false,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 13,
+      blendLevel: 2,
       appBarStyle: FlexAppBarStyle.background,
-      appBarOpacity: 0.93,
+      appBarOpacity: 0.97,
       subThemesData: const FlexSubThemesData(
         useM2StyleDividerInM3: false,
         defaultRadius: 12,
@@ -112,5 +119,48 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: 'Roboto',
     ));
+
+    // Remplace les surfaces générées par un vrai dark navy pro
+    return base.copyWith(
+      scaffoldBackgroundColor: _navyBg,
+      colorScheme: base.colorScheme.copyWith(
+        surface:              _navySurf,
+        surfaceContainer:     _navyHigh,
+        surfaceContainerHigh: _navyHigh,
+        onSurface:            _navyText,
+        onSurfaceVariant:     _navyMuted,
+        outline:              _navyBord,
+        outlineVariant:       _navyBord.withOpacity(.5),
+      ),
+      cardColor: _navyCard,
+      dividerColor: _navyBord,
+      // Dialogues sombres cohérents (override du _withReadableDialogs)
+      dialogTheme: base.dialogTheme.copyWith(
+        backgroundColor: _navySurf,
+        titleTextStyle: base.dialogTheme.titleTextStyle
+            ?.copyWith(color: _navyText, fontWeight: FontWeight.w800),
+        contentTextStyle: base.dialogTheme.contentTextStyle
+            ?.copyWith(color: _navyMuted),
+      ),
+      bottomSheetTheme: base.bottomSheetTheme.copyWith(
+        backgroundColor: _navySurf,
+      ),
+      appBarTheme: base.appBarTheme.copyWith(
+        backgroundColor: _navySurf,
+        foregroundColor: _navyText,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationBarTheme: base.navigationBarTheme.copyWith(
+        backgroundColor: _navySurf,
+        indicatorColor: seed.withOpacity(.2),
+      ),
+      drawerTheme: base.drawerTheme.copyWith(
+        backgroundColor: _navySurf,
+      ),
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        fillColor: _navyHigh,
+        filled: true,
+      ),
+    );
   }
 }

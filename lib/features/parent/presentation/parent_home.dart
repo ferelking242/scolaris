@@ -81,7 +81,7 @@ class _ParentDashboardState extends ConsumerState<_ParentDashboard> {
     final firstName = user?.fullName.split(' ').first ?? 'Parent';
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         child: Column(

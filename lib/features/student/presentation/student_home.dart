@@ -277,7 +277,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
         .toList();
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         child: LayoutBuilder(builder: (_, constraints) {

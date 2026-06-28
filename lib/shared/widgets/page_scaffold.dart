@@ -41,13 +41,17 @@ class PageScaffold extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: const TextStyle(
-                              fontSize: 18, color: ink,
-                              fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                          style: TextStyle(
+                              fontSize: 18,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3)),
                       if (subtitle != null) ...[
                         const SizedBox(height: 2),
                         Text(subtitle!,
-                            style: const TextStyle(fontSize: 12.5, color: muted)),
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(.55))),
                       ],
                     ],
                   ),

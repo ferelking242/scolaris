@@ -64,7 +64,7 @@ class SettingsPage extends ConsumerWidget {
         : '?';
 
     return Container(
-      color: _zinc100,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,8 +73,8 @@ class SettingsPage extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 4),
               child: Text('Paramètres',
-                  style: const TextStyle(
-                      color: _zinc900,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 30,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -.6,
@@ -262,9 +262,11 @@ class _ProfileCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _zinc200, width: 1.0),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(.35),
+              width: 1.0),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(.05),
                 blurRadius: 12, offset: const Offset(0, 3), spreadRadius: -2),
@@ -298,12 +300,16 @@ class _ProfileCard extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name,
-                  style: const TextStyle(
-                      color: _zinc900, fontSize: 15.5, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800),
                   overflow: TextOverflow.ellipsis, maxLines: 1),
               const SizedBox(height: 2),
               Text(email,
-                  style: const TextStyle(color: _zinc400, fontSize: 12.5),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(.5),
+                      fontSize: 12.5),
                   overflow: TextOverflow.ellipsis, maxLines: 1),
               const SizedBox(height: 7),
               Container(
@@ -370,9 +376,11 @@ class _SettingsTileGroup extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: _white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _zinc200, width: 1.0),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(.3),
+              width: 1.0),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(.04),
                 blurRadius: 8, offset: const Offset(0, 2), spreadRadius: -1),
@@ -384,7 +392,8 @@ class _SettingsTileGroup extends StatelessWidget {
             children: List.generate(items.length, (i) => Column(children: [
               items[i],
               if (i < items.length - 1)
-                Divider(height: 1, indent: 62, endIndent: 0, color: _zinc200),
+                Divider(height: 1, indent: 62, endIndent: 0,
+                    color: Theme.of(context).colorScheme.outline.withOpacity(.2)),
             ])),
           ),
         ),
@@ -435,20 +444,29 @@ class _SettingsTile extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(title,
-                    style: const TextStyle(
-                        color: _zinc900, fontSize: 14, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
                 if (subtitle != null)
                   Text(subtitle!,
-                      style: const TextStyle(color: _zinc400, fontSize: 12, height: 1.3)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(.5),
+                          fontSize: 12,
+                          height: 1.3)),
               ]),
             ),
             if (trailing != null) ...[
               Text(trailing!,
-                  style: const TextStyle(
-                      color: _zinc400, fontSize: 13, fontWeight: FontWeight.w500)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(.5),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
               const SizedBox(width: 4),
             ],
-            Icon(Icons.chevron_right_rounded, color: _zinc400.withOpacity(.7), size: 18),
+            Icon(Icons.chevron_right_rounded,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(.35),
+                size: 18),
           ]),
         ),
       ),
@@ -509,20 +527,24 @@ class _SubPageShell extends StatelessWidget {
         child: Column(children: [
           // Header
           Container(
-            color: _white,
+            color: Theme.of(context).colorScheme.surface,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Row(children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
+                icon: Icon(Icons.arrow_back_rounded,
+                    color: Theme.of(context).colorScheme.onSurface, size: 22),
                 onPressed: () => Navigator.pop(context),
               ),
               const SizedBox(width: 4),
               Text(title,
-                  style: const TextStyle(
-                      color: _ink, fontSize: 17, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700)),
             ]),
           ),
-          Container(height: 1, color: _border.withOpacity(.4)),
+          Divider(height: 1,
+              color: Theme.of(context).colorScheme.outline.withOpacity(.25)),
           Expanded(child: child),
         ]),
       ),
@@ -812,7 +834,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
           _SectionLabel('settings.section.lang'.tr()),
           const SizedBox(height: 4),
           Text('settings.lang.subtitle'.tr(),
-              style: const TextStyle(color: _muted, fontSize: 11.5)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.5),
+                  fontSize: 11.5)),
           const SizedBox(height: 10),
           GridView.count(
             crossAxisCount: 2,
@@ -829,14 +853,18 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: selected ? accent.withOpacity(.08) : _white,
+                    color: selected
+                        ? accent.withOpacity(.08)
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected ? accent.withOpacity(.5) : _border,
+                      color: selected
+                          ? accent.withOpacity(.55)
+                          : Theme.of(context).colorScheme.outline.withOpacity(.3),
                       width: selected ? 1.6 : 1.0,
                     ),
                     boxShadow: selected
-                        ? [BoxShadow(color: accent.withOpacity(.08), blurRadius: 8)]
+                        ? [BoxShadow(color: accent.withOpacity(.1), blurRadius: 8)]
                         : [],
                   ),
                   child: Row(children: [
@@ -845,7 +873,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                     Expanded(
                       child: Text(l.$2,
                         style: TextStyle(
-                          color: selected ? accent : _ink,
+                          color: selected
+                              ? accent
+                              : Theme.of(context).colorScheme.onSurface,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -864,82 +894,117 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
           // ── Couleur d'accent ─────────────────────────────────────────────
           _SectionLabel('settings.section.accent'.tr()),
           const SizedBox(height: 8),
+          // Accent actuel + picker HSV
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
+                // Swatch couleur actuelle
                 Container(
-                  width: 32, height: 32,
+                  width: 36, height: 36,
                   decoration: BoxDecoration(
                     color: accent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _border),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [BoxShadow(
+                        color: accent.withOpacity(.35), blurRadius: 8, offset: const Offset(0,3))],
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('settings.accent.current'.tr(),
-                      style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 12.5, fontWeight: FontWeight.w700)),
                   Text(
-                    '#${accent.red.toRadixString(16).padLeft(2, '0')}'
-                    '${accent.green.toRadixString(16).padLeft(2, '0')}'
-                    '${accent.blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase(),
-                    style: const TextStyle(color: _muted, fontSize: 11.5),
+                    '#${accent.red.toRadixString(16).padLeft(2,'0')}'
+                    '${accent.green.toRadixString(16).padLeft(2,'0')}'
+                    '${accent.blue.toRadixString(16).padLeft(2,'0')}'.toUpperCase(),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
+                        fontSize: 11.5),
                   ),
                 ])),
                 const SizedBox(width: 8),
+                // Bouton picker custom
                 GestureDetector(
                   onTap: () => _openPicker(context, accent),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: accent.withOpacity(.25)),
+                      color: accent.withOpacity(.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accent.withOpacity(.3)),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.colorize_rounded, size: 13, color: accent),
+                      Icon(Icons.colorize_rounded, size: 14, color: accent),
                       const SizedBox(width: 5),
                       Text('settings.accent.custom'.tr(),
                           style: TextStyle(
-                              color: accent, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                              color: accent, fontSize: 12, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),
               ]),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
+
+              // Étiquette presets
               Text('settings.accent.presets'.tr(),
-                  style: const TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 10),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
+                      fontSize: 11, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+
+              // Grille presets — cercles 36px avec label en dessous
               Wrap(
-                spacing: 10, runSpacing: 10,
-                children: _presets.map((c) {
+                spacing: 12, runSpacing: 14,
+                children: _presets.indexed.map(((int, Color) entry) {
+                  final idx = entry.$1;
+                  final c   = entry.$2;
                   final sel = c.value == accent.value;
+                  final names = [
+                    'Terra','Orange','Ambre','Vert',
+                    'Bleu','Marine','Violet','Bordeaux',
+                    'Rose','Forêt','Acier','Charbon',
+                  ];
                   return GestureDetector(
                     onTap: () => ref.read(themeControllerProvider.notifier).setAccent(c),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 32, height: 32,
-                      decoration: BoxDecoration(
-                        color: c,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: sel ? _ink : Colors.transparent, width: 2.5),
-                        boxShadow: [
-                          BoxShadow(
-                              color: c.withOpacity(sel ? .4 : .15),
-                              blurRadius: sel ? 6 : 3),
-                        ],
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: sel
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Colors.transparent,
+                              width: 2.5),
+                          boxShadow: [
+                            BoxShadow(
+                                color: c.withOpacity(sel ? .45 : .2),
+                                blurRadius: sel ? 8 : 4),
+                          ],
+                        ),
+                        child: sel
+                            ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                            : null,
                       ),
-                      child: sel
-                          ? const Icon(Icons.check_rounded, color: _white, size: 13)
-                          : null,
-                    ),
+                      const SizedBox(height: 4),
+                      Text(idx < names.length ? names[idx] : '',
+                          style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                              color: sel
+                                  ? accent
+                                  : Theme.of(context).colorScheme.onSurface.withOpacity(.45))),
+                    ]),
                   );
                 }).toList(),
               ),
@@ -1091,17 +1156,21 @@ class _ThemeModeCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(.07) : _white,
+          color: selected
+              ? accent.withOpacity(.08)
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? accent.withOpacity(.55) : _border,
+            color: selected
+                ? accent.withOpacity(.6)
+                : Theme.of(context).colorScheme.outline.withOpacity(.3),
             width: selected ? 1.8 : 1.0,
           ),
           boxShadow: selected
               ? [BoxShadow(
-                  color: accent.withOpacity(.10),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2))]
+                  color: accent.withOpacity(.12),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3))]
               : [],
         ),
         child: Column(
@@ -1110,22 +1179,31 @@ class _ThemeModeCard extends StatelessWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: selected ? accent.withOpacity(.12) : const Color(0xFFF5EEE6),
+                color: selected
+                    ? accent.withOpacity(.15)
+                    : Theme.of(context).colorScheme.surfaceContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 19, color: selected ? accent : _muted),
+              child: Icon(icon, size: 19,
+                  color: selected
+                      ? accent
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(.5)),
             ),
             const SizedBox(height: 7),
             Text(label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: selected ? accent : _ink,
+                    color: selected
+                        ? accent
+                        : Theme.of(context).colorScheme.onSurface,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
             Text(sub,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: _muted.withOpacity(.65), fontSize: 9.5),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
+                    fontSize: 9.5),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],

@@ -151,7 +151,7 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
     final user = ref.watch(authSessionProvider);
     final firstName = user?.fullName.split(' ').first ?? 'Admin';
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
         child: Column(
