@@ -68,6 +68,9 @@ dependencies:
   collection: ^1.18.0
   equatable: ^2.0.5
 
+  # UI premium — ForUI (shadcn/radix pour Flutter)
+  forui: ^0.23.0
+
   # URL launcher
   url_launcher: ^6.3.0
 

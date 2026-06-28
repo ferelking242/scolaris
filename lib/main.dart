@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:forui/forui.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -59,14 +60,18 @@ class AkiliApp extends ConsumerWidget {
         supportedLocales: context.supportedLocales,
         locale: context.locale,
         builder: (ctx, child) {
-          Widget w = ResponsiveBreakpoints.builder(
-            breakpoints: const [
-              Breakpoint(start: 0,    end: 480,             name: MOBILE),
-              Breakpoint(start: 481,  end: 900,             name: TABLET),
-              Breakpoint(start: 901,  end: 1920,            name: DESKTOP),
-              Breakpoint(start: 1921, end: double.infinity, name: '4K'),
-            ],
-            child: child!,
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          Widget w = FTheme(
+            data: isDark ? FThemes.zinc.dark : FThemes.zinc.light,
+            child: ResponsiveBreakpoints.builder(
+              breakpoints: const [
+                Breakpoint(start: 0,    end: 480,             name: MOBILE),
+                Breakpoint(start: 481,  end: 900,             name: TABLET),
+                Breakpoint(start: 901,  end: 1920,            name: DESKTOP),
+                Breakpoint(start: 1921, end: double.infinity, name: '4K'),
+              ],
+              child: child!,
+            ),
           );
 
           // Échelle de texte : curseur d'accessibilité × bonus « grande police ».

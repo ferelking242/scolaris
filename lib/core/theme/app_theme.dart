@@ -17,8 +17,32 @@ class ScolarisPalette {
   static const menuAccent  = Color(0xFFC17F24);
 }
 
+/// Presets d'accent disponibles dans l'app.
+class ScolarisAccents {
+  ScolarisAccents._();
+  static const terracotta = Color(0xFF8B1A00);
+  static const sapphire   = Color(0xFF1565C0);
+  static const emerald    = Color(0xFF1B5E20);
+  static const amber      = Color(0xFFC17F24);
+  static const violet     = Color(0xFF6A1B9A);
+  static const slate      = Color(0xFF37474F);
+
+  static const all = [terracotta, sapphire, emerald, amber, violet, slate];
+  static const names = ['Terracotta', 'Saphir', 'Émeraude', 'Ambre', 'Violet', 'Ardoise'];
+}
+
 class AppTheme {
   AppTheme._();
+
+  /// Bouton noir pur — style shadcn "primary".
+  static ButtonStyle get blackButtonStyle => ElevatedButton.styleFrom(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      );
 
   // Texte sombre lisible (cohérent avec `ink` de page_scaffold).
   static const _dialogInk   = Color(0xFF1A0A00);
