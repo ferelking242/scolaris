@@ -319,4 +319,27 @@ final studentCountProvider = FutureProvider<int>((ref) async {
   if (schoolId == null) return 0;
   return SupabaseDbSource.getStudentCount(schoolId);
 });
+
+// ── Courses ────────────────────────────────────────────────────────────────
+/// Cours d'une classe spécifique (admin : gestion par classe).
+final coursesForClassProvider =
+    FutureProvider.family<List<SbCourse>, String>((ref, classId) async {
+  return SupabaseDbSource.getCoursesForClass(classId);
+});
+
+/// Tous les cours de l'école (vue admin globale).
+final coursesForSchoolProvider =
+    FutureProvider<List<SbCourse>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return [];
+  return SupabaseDbSource.getCoursesForSchool(schoolId);
+});
+
+/// Cours de l'élève connecté (déduit de sa classe via son profil).
+final myCoursesProvider = FutureProvider<List<SbCourse>>((ref) async {
+  final profile = await ref.watch(myStudentProfileProvider.future);
+  final classId = profile?.classId;
+  if (classId == null || classId.isEmpty) return [];
+  return SupabaseDbSource.getCoursesForClass(classId);
+});
   

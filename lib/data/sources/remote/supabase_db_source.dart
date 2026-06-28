@@ -932,6 +932,68 @@ class SbSubjectCatalog {
       };
 }
 
+// ── Course (cours par classe) ─────────────────────────────────────────────────
+/// Représente un cours créé par l'admin pour une classe donnée.
+/// Lié à une matière (subject) + un enseignant + une classe.
+class SbCourse {
+  final String id;
+  final String schoolId;
+  final String classId;
+  final String name;
+  final String? code;
+  final String? teacherId;
+  final String? teacherName;
+  final int coefficient;
+  final int? hoursWeek;
+  final String? description;
+  final String? color;
+  final String? icon;
+  final String? programSummary;
+  final int? chapterCount;
+  final List<String> daysOfWeek;
+
+  const SbCourse({
+    required this.id,
+    required this.schoolId,
+    required this.classId,
+    required this.name,
+    this.code,
+    this.teacherId,
+    this.teacherName,
+    this.coefficient = 1,
+    this.hoursWeek,
+    this.description,
+    this.color,
+    this.icon,
+    this.programSummary,
+    this.chapterCount,
+    this.daysOfWeek = const [],
+  });
+
+  factory SbCourse.fromJson(Map<String, dynamic> j) {
+    final rawDays = j['days_of_week'];
+    final days = rawDays is List ? rawDays.cast<String>() : <String>[];
+    final teacher = j['users'] as Map<String, dynamic>?;
+    return SbCourse(
+      id: j['id'] as String,
+      schoolId: j['school_id'] as String? ?? '',
+      classId: j['class_id'] as String? ?? '',
+      name: j['name'] as String? ?? '',
+      code: j['code'] as String?,
+      teacherId: j['teacher_id'] as String?,
+      teacherName: teacher?['full_name'] as String?,
+      coefficient: (j['coef'] as num?)?.toInt() ?? 1,
+      hoursWeek: (j['hours_week'] as num?)?.toInt(),
+      description: j['description'] as String?,
+      color: j['color'] as String?,
+      icon: j['icon'] as String?,
+      programSummary: j['program_summary'] as String?,
+      chapterCount: (j['chapter_count'] as num?)?.toInt(),
+      daysOfWeek: days,
+    );
+  }
+}
+
   // ── Subscription / Plan types ─────────────────────────────────────────────────
 
   class SbPlanPrice {
@@ -2234,5 +2296,97 @@ class SupabaseDbSource {
       if (logoUrl != null) 'logo_url': logoUrl.trim().isEmpty ? null : logoUrl.trim(),
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
+  }
+
+  // ── Courses ───────────────────────────────────────────────────────────────
+  static Future<List<SbCourse>> getCoursesForClass(String classId) async {
+    final data = await _db
+        .from('courses')
+        .select('*, users!teacher_id(full_name)')
+        .eq('class_id', classId)
+        .order('name');
+    return (data as List)
+        .map((j) => SbCourse.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<List<SbCourse>> getCoursesForSchool(String schoolId) async {
+    final data = await _db
+        .from('courses')
+        .select('*, users!teacher_id(full_name)')
+        .eq('school_id', schoolId)
+        .order('name');
+    return (data as List)
+        .map((j) => SbCourse.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> createCourse({
+    required String schoolId,
+    required String classId,
+    required String name,
+    String? code,
+    String? teacherId,
+    int coefficient = 1,
+    int? hoursWeek,
+    String? description,
+    String? color,
+    String? programSummary,
+    int? chapterCount,
+    List<String> daysOfWeek = const [],
+  }) async {
+    await _db.from('courses').insert({
+      'id': const Uuid().v4(),
+      'school_id': schoolId,
+      'class_id': classId,
+      'name': name.trim(),
+      if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
+      if (teacherId != null) 'teacher_id': teacherId,
+      'coef': coefficient,
+      if (hoursWeek != null) 'hours_week': hoursWeek,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (color != null && color.isNotEmpty) 'color': color,
+      if (programSummary != null && programSummary.trim().isNotEmpty)
+        'program_summary': programSummary.trim(),
+      if (chapterCount != null) 'chapter_count': chapterCount,
+      if (daysOfWeek.isNotEmpty) 'days_of_week': daysOfWeek,
+    });
+  }
+
+  static Future<void> updateCourse({
+    required String id,
+    String? name,
+    String? code,
+    String? teacherId,
+    int? coefficient,
+    int? hoursWeek,
+    String? description,
+    String? color,
+    String? programSummary,
+    int? chapterCount,
+    List<String>? daysOfWeek,
+  }) async {
+    final patch = <String, dynamic>{};
+    if (name != null) patch['name'] = name.trim();
+    if (code != null) patch['code'] = code.trim().isEmpty ? null : code.trim();
+    if (teacherId != null) patch['teacher_id'] = teacherId;
+    if (coefficient != null) patch['coef'] = coefficient;
+    if (hoursWeek != null) patch['hours_week'] = hoursWeek;
+    if (description != null) patch['description'] = description.trim().isEmpty ? null : description.trim();
+    if (color != null) patch['color'] = color;
+    if (programSummary != null) patch['program_summary'] = programSummary.trim().isEmpty ? null : programSummary.trim();
+    if (chapterCount != null) patch['chapter_count'] = chapterCount;
+    if (daysOfWeek != null) patch['days_of_week'] = daysOfWeek;
+    if (patch.isEmpty) return;
+    await _db.from('courses').update(patch).eq('id', id);
+  }
+
+  static Future<void> deleteCourse(String id) async {
+    await _db.from('courses').delete().eq('id', id);
+  }
+
+  static Future<List<SbCourse>> getMyCoursesForStudent(String classId) async {
+    return getCoursesForClass(classId);
   }
 }
