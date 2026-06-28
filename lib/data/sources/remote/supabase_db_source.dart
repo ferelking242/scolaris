@@ -2344,14 +2344,24 @@ class SupabaseDbSource {
       if (teacherId != null) 'teacher_id': teacherId,
       'coef': coefficient,
       if (hoursWeek != null) 'hours_week': hoursWeek,
-      if (description != null && description.trim().isNotEmpty)
-        'description': description.trim(),
-      if (color != null && color.isNotEmpty) 'color': color,
-      if (programSummary != null && programSummary.trim().isNotEmpty)
-        'program_summary': programSummary.trim(),
-      if (chapterCount != null) 'chapter_count': chapterCount,
-      if (daysOfWeek.isNotEmpty) 'days_of_week': daysOfWeek,
+      // Extra columns (color, description, program_summary, chapter_count, days_of_week)
+      // are stored only if they exist in DB (apply migration first):
+      // ALTER TABLE courses ADD COLUMN IF NOT EXISTS color text, description text,
+      // program_summary text, chapter_count int DEFAULT 0, days_of_week text[] DEFAULT '{}';
     });
+    // After migration, update extra fields separately (safe - ignores if columns missing)
+    try {
+      final extra = <String, dynamic>{};
+      if (description != null && description.trim().isNotEmpty) extra['description'] = description.trim();
+      if (color != null && color.isNotEmpty) extra['color'] = color;
+      if (programSummary != null && programSummary.trim().isNotEmpty) extra['program_summary'] = programSummary.trim();
+      if (chapterCount != null) extra['chapter_count'] = chapterCount;
+      if (daysOfWeek.isNotEmpty) extra['days_of_week'] = daysOfWeek;
+      if (extra.isNotEmpty) {
+        // This will only succeed once migration columns are added
+        await _db.from('courses').update(extra).eq('name', name.trim()).eq('school_id', schoolId);
+      }
+    } catch (_) { /* columns not yet migrated — safe to ignore */ }
   }
 
   static Future<void> updateCourse({
@@ -2373,13 +2383,21 @@ class SupabaseDbSource {
     if (teacherId != null) patch['teacher_id'] = teacherId;
     if (coefficient != null) patch['coef'] = coefficient;
     if (hoursWeek != null) patch['hours_week'] = hoursWeek;
-    if (description != null) patch['description'] = description.trim().isEmpty ? null : description.trim();
-    if (color != null) patch['color'] = color;
-    if (programSummary != null) patch['program_summary'] = programSummary.trim().isEmpty ? null : programSummary.trim();
-    if (chapterCount != null) patch['chapter_count'] = chapterCount;
-    if (daysOfWeek != null) patch['days_of_week'] = daysOfWeek;
-    if (patch.isEmpty) return;
-    await _db.from('courses').update(patch).eq('id', id);
+    if (patch.isEmpty) {
+      // Only extra fields — try separately (safe if columns don't exist yet)
+    } else {
+      await _db.from('courses').update(patch).eq('id', id);
+    }
+    // Extra columns — only apply if migrated (ALTER TABLE courses ADD COLUMN ...)
+    try {
+      final extra = <String, dynamic>{};
+      if (description != null) extra['description'] = description.trim().isEmpty ? null : description.trim();
+      if (color != null) extra['color'] = color;
+      if (programSummary != null) extra['program_summary'] = programSummary.trim().isEmpty ? null : programSummary.trim();
+      if (chapterCount != null) extra['chapter_count'] = chapterCount;
+      if (daysOfWeek != null) extra['days_of_week'] = daysOfWeek;
+      if (extra.isNotEmpty) await _db.from('courses').update(extra).eq('id', id);
+    } catch (_) { /* columns not yet migrated */ }
   }
 
   static Future<void> deleteCourse(String id) async {

@@ -10,40 +10,109 @@ const _terra = ScolarisPalette.terracotta;
 const _gold  = ScolarisPalette.gold;
 const _green = ScolarisPalette.forestGreen;
 
+// ── Subject icons par matière ──────────────────────────────────────────────────
+IconData _iconFor(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('math'))       return Icons.calculate_rounded;
+  if (n.contains('physique') || n.contains('chimie')) return Icons.science_rounded;
+  if (n.contains('svt') || n.contains('biolog') || n.contains('vie')) return Icons.eco_rounded;
+  if (n.contains('français') || n.contains('lettre')) return Icons.menu_book_rounded;
+  if (n.contains('anglais') || n.contains('langue')) return Icons.language_rounded;
+  if (n.contains('histoire') || n.contains('géo'))  return Icons.public_rounded;
+  if (n.contains('philo'))      return Icons.lightbulb_rounded;
+  if (n.contains('informatiq') || n.contains('info')) return Icons.computer_rounded;
+  if (n.contains('eps') || n.contains('sport'))    return Icons.sports_soccer_rounded;
+  if (n.contains('art') || n.contains('plastiq'))  return Icons.palette_rounded;
+  if (n.contains('musique'))    return Icons.music_note_rounded;
+  if (n.contains('droit'))      return Icons.gavel_rounded;
+  if (n.contains('économ') || n.contains('compta')) return Icons.bar_chart_rounded;
+  if (n.contains('civil'))      return Icons.account_balance_rounded;
+  if (n.contains('socio'))      return Icons.people_rounded;
+  if (n.contains('constit'))    return Icons.policy_rounded;
+  if (n.contains('éducation') || n.contains('civic')) return Icons.emoji_events_rounded;
+  return Icons.menu_book_rounded;
+}
+
+Color _parseColor(String? hex) {
+  if (hex == null) return _terra;
+  try { return Color(int.parse(hex.replaceFirst('#', '0xFF'))); } catch (_) { return _terra; }
+}
+
+// ── Filtre état ────────────────────────────────────────────────────────────────
+enum _SortBy { alpha, coefDesc, hoursDesc }
+
+class _FilterState {
+  final Set<String> days;
+  final _SortBy sort;
+  const _FilterState({this.days = const {}, this.sort = _SortBy.alpha});
+  bool get hasActive => days.isNotEmpty || sort != _SortBy.alpha;
+  _FilterState copyWith({Set<String>? days, _SortBy? sort}) =>
+      _FilterState(days: days ?? this.days, sort: sort ?? this.sort);
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 class CoursesPage extends ConsumerStatefulWidget {
   const CoursesPage({super.key});
-
   @override
   ConsumerState<CoursesPage> createState() => _CoursesPageState();
 }
 
 class _CoursesPageState extends ConsumerState<CoursesPage> {
   String _search = '';
+  _FilterState _filter = const _FilterState();
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+
+  List<SbCourse> _applyFilters(List<SbCourse> courses) {
+    var list = courses.where((c) {
+      if (_search.isNotEmpty) {
+        final q = _search.toLowerCase();
+        if (!c.name.toLowerCase().contains(q) &&
+            !(c.code?.toLowerCase().contains(q) ?? false) &&
+            !(c.teacherName?.toLowerCase().contains(q) ?? false)) return false;
+      }
+      if (_filter.days.isNotEmpty) {
+        if (!c.daysOfWeek.any((d) => _filter.days.contains(d))) return false;
+      }
+      return true;
+    }).toList();
+
+    switch (_filter.sort) {
+      case _SortBy.alpha:     list.sort((a, b) => a.name.compareTo(b.name));
+      case _SortBy.coefDesc:  list.sort((a, b) => b.coefficient.compareTo(a.coefficient));
+      case _SortBy.hoursDesc: list.sort((a, b) => (b.hoursWeek ?? 0).compareTo(a.hoursWeek ?? 0));
+    }
+    return list;
+  }
+
+  void _openFilterSheet(BuildContext ctx, List<SbCourse> courses) {
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FilterSheet(
+        courses: courses,
+        initial: _filter,
+        onApply: (f) => setState(() => _filter = f),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(myCoursesProvider);
     final profile = ref.watch(myStudentProfileProvider).valueOrNull;
+    final th = Theme.of(context);
+    final cs = th.colorScheme;
 
     return coursesAsync.when(
-      loading: () => const PageScaffold(
-        title: 'Mes cours',
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => PageScaffold(
-        title: 'Mes cours',
-        child: Center(child: Text('Erreur : $e')),
-      ),
+      loading: () => const PageScaffold(title: 'Mes cours', child: Center(child: CircularProgressIndicator())),
+      error:   (e, _) => PageScaffold(title: 'Mes cours', child: Center(child: Text('Erreur : $e'))),
       data: (courses) {
         final className = profile?.classe ?? '';
-        final filtered = _search.isEmpty
-            ? courses
-            : courses.where((c) =>
-                c.name.toLowerCase().contains(_search.toLowerCase()) ||
-                (c.code?.toLowerCase().contains(_search.toLowerCase()) ?? false) ||
-                (c.teacherName?.toLowerCase().contains(_search.toLowerCase()) ?? false)).toList();
-
+        final filtered  = _applyFilters(courses);
         return PageScaffold(
           title: 'Mes cours',
           subtitle: courses.isEmpty
@@ -54,37 +123,47 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
               : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   _StatsRow(courses: courses),
                   const SizedBox(height: 16),
-                  _SearchBar(onChanged: (q) => setState(() => _search = q)),
+
+                  // ── Barre recherche + filtre ─────────────────────────
+                  Row(children: [
+                    Expanded(child: _SearchBar(controller: _searchCtrl, onChanged: (q) => setState(() => _search = q))),
+                    const SizedBox(width: 8),
+                    _FilterBtn(
+                      active: _filter.hasActive,
+                      count: _filter.days.length + (_filter.sort != _SortBy.alpha ? 1 : 0),
+                      onTap: () => _openFilterSheet(context, courses),
+                    ),
+                  ]),
                   const SizedBox(height: 16),
+
                   if (filtered.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.search_off_rounded, size: 48, color: Color(0xFFAA9080)),
-                          SizedBox(height: 12),
-                          Text('Aucun cours trouvé', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF8B1A00))),
-                          SizedBox(height: 4),
-                          Text('Modifiez votre recherche.', style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
-                        ]),
-                      ),
-                    )
+                    _noResult(cs)
                   else
                     _CourseGrid(
                       courses: filtered,
-                      onOpen: (c) => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => CourseDetailPage(course: c)),
-                      ),
+                      onOpen: (c) => Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailPage(course: c))),
                     ),
                 ]),
         );
       },
     );
   }
+
+  Widget _noResult(ColorScheme cs) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.search_off_rounded, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text('Aucun cours trouvé', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
+            const SizedBox(height: 4),
+            Text('Modifiez votre recherche ou vos filtres.', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          ]),
+        ),
+      );
 }
 
-// ── Stats row ─────────────────────────────────────────────────────────────────
+// ── Stats ──────────────────────────────────────────────────────────────────────
 class _StatsRow extends StatelessWidget {
   final List<SbCourse> courses;
   const _StatsRow({required this.courses});
@@ -95,42 +174,121 @@ class _StatsRow extends StatelessWidget {
     final totalCoef = courses.fold<int>(0, (s, c) => s + c.coefficient);
     final totalChap = courses.fold<int>(0, (s, c) => s + (c.chapterCount ?? 0));
     return Row(children: [
-      _StatCard(value: '${courses.length}', label: 'Matières',  color: _terra),
+      _StatCard('${courses.length}', 'Matières',   _terra),
       const SizedBox(width: 8),
-      _StatCard(value: '${totalH}h',        label: 'Par sem.',  color: _gold),
+      _StatCard('${totalH}h',        'Par sem.',   _gold),
       const SizedBox(width: 8),
-      _StatCard(value: '$totalCoef',        label: 'Coef. tot.', color: _green),
+      _StatCard('$totalCoef',        'Coef. tot.', _green),
       const SizedBox(width: 8),
-      _StatCard(value: '$totalChap',        label: 'Chapitres', color: const Color(0xFF0D47A1)),
+      _StatCard('$totalChap',        'Chapitres',  const Color(0xFF0D47A1)),
     ]);
   }
 }
 
 class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
+  final String value, label;
   final Color color;
-  const _StatCard({required this.value, required this.label, required this.color});
-
+  const _StatCard(this.value, this.label, this.color);
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: .07),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: .2)),
-          ),
-          child: Column(children: [
-            Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
-            const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 9.5, color: Color(0xFF7A5C44)), textAlign: TextAlign.center),
-          ]),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: .25)),
         ),
-      );
+        child: Column(children: [
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 9.5, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
+        ]),
+      ),
+    );
+  }
 }
 
-// ── Grille des cours ──────────────────────────────────────────────────────────
+// ── Barre de recherche ─────────────────────────────────────────────────────────
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  const _SearchBar({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(children: [
+        Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+          decoration: InputDecoration(
+            hintText: 'Rechercher un cours…',
+            hintStyle: TextStyle(fontSize: 13.5, color: cs.onSurfaceVariant),
+            isCollapsed: true,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 11),
+          ),
+        )),
+        if (controller.text.isNotEmpty)
+          GestureDetector(
+            onTap: () { controller.clear(); onChanged(''); },
+            child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+          ),
+      ]),
+    );
+  }
+}
+
+// ── Bouton filtre ──────────────────────────────────────────────────────────────
+class _FilterBtn extends StatelessWidget {
+  final bool active;
+  final int count;
+  final VoidCallback onTap;
+  const _FilterBtn({required this.active, required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 46, height: 46,
+        decoration: BoxDecoration(
+          color: active ? _terra : cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: active ? _terra : cs.outlineVariant),
+        ),
+        child: Stack(alignment: Alignment.center, children: [
+          Icon(Icons.tune_rounded, size: 20, color: active ? Colors.white : cs.onSurfaceVariant),
+          if (active && count > 0)
+            Positioned(
+              top: 7, right: 7,
+              child: Container(
+                width: 14, height: 14,
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: Center(child: Text('$count', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: _terra))),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Grille cours ───────────────────────────────────────────────────────────────
 class _CourseGrid extends StatelessWidget {
   final List<SbCourse> courses;
   final void Function(SbCourse) onOpen;
@@ -138,111 +296,132 @@ class _CourseGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (_, c) {
-        final cols = c.maxWidth > 1100 ? 3 : c.maxWidth > 700 ? 2 : 1;
+        final cols = c.maxWidth > 1100 ? 3 : c.maxWidth > 600 ? 2 : 2;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: courses.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            mainAxisExtent: 215,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 170,
           ),
-          itemBuilder: (_, i) => _CourseCard(
-            course: courses[i],
-            onOpen: () => onOpen(courses[i]),
-          ),
+          itemBuilder: (_, i) => _CourseCard(course: courses[i], onOpen: () => onOpen(courses[i])),
         );
       });
 }
 
-// ── Carte cours ───────────────────────────────────────────────────────────────
+// ── Carte cours ────────────────────────────────────────────────────────────────
 class _CourseCard extends StatelessWidget {
   final SbCourse course;
   final VoidCallback onOpen;
   const _CourseCard({required this.course, required this.onOpen});
 
-  static Color parseColor(String? hex) {
-    if (hex == null) return _terra;
-    try { return Color(int.parse(hex.replaceFirst('#', '0xFF'))); } catch (_) { return _terra; }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = parseColor(course.color);
+    final color = _parseColor(course.color);
+    final cs    = Theme.of(context).colorScheme;
+    final icon  = _iconFor(course.name);
+
     return GestureDetector(
       onTap: onOpen,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: .22), width: 1.5),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: .10), blurRadius: 14, offset: const Offset(0, 5), spreadRadius: -2)],
+          border: Border.all(color: color.withValues(alpha: .25), width: 1.5),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: .08), blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // ── Header ─────────────────────────────────────────────────
-          Row(children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [color, color.withValues(alpha: .7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 20),
-            ),
-            const Spacer(),
-            if (course.teacherName != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(color: color.withValues(alpha: .08), borderRadius: BorderRadius.circular(6)),
-                child: Text(
-                  course.teacherName!.split(' ').last,
-                  style: TextStyle(fontSize: 9.5, color: color, fontWeight: FontWeight.w700),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Stack(children: [
+            // Gradient background strip
+            Positioned(
+              top: -20, right: -20,
+              child: Container(
+                width: 100, height: 100,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(colors: [color.withValues(alpha: .18), Colors.transparent]),
+                  shape: BoxShape.circle,
                 ),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // ── Header ──────────────────────────────────────────────
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [color, color.withValues(alpha: .75)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 21),
+                  ),
+                  const Spacer(),
+                  if (course.teacherName != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        course.teacherName!.split(' ').last,
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: color),
+                      ),
+                    ),
+                ]),
+                const SizedBox(height: 10),
+
+                // ── Nom ─────────────────────────────────────────────────
+                Text(course.name,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.2),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+
+                if (course.code != null) ...[
+                  const SizedBox(height: 2),
+                  Text(course.code!, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
+                ],
+
+                const Spacer(),
+
+                // ── Jours ────────────────────────────────────────────────
+                if (course.daysOfWeek.isNotEmpty) ...[
+                  Row(children: course.daysOfWeek.take(4).map((d) {
+                    const keys   = ['lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+                    const labels = ['L','Ma','Me','J','V','S'];
+                    final idx = keys.indexOf(d);
+                    return Container(
+                      margin: const EdgeInsets.only(right: 3),
+                      width: 22, height: 18,
+                      decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(4)),
+                      child: Center(child: Text(idx >= 0 ? labels[idx] : d[0].toUpperCase(),
+                          style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w800))),
+                    );
+                  }).toList()),
+                  const SizedBox(height: 6),
+                ],
+
+                // ── Footer ───────────────────────────────────────────────
+                Row(children: [
+                  _Tag('Coef ${course.coefficient}', color),
+                  const SizedBox(width: 5),
+                  if (course.hoursWeek != null) _Tag('${course.hoursWeek}h', _gold),
+                  const Spacer(),
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.arrow_forward_rounded, size: 14, color: color),
+                  ),
+                ]),
+              ]),
+            ),
           ]),
-          const SizedBox(height: 10),
-
-          // ── Nom ─────────────────────────────────────────────────────
-          Text(course.name,
-              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF1A0A00), letterSpacing: -0.3),
-              maxLines: 2, overflow: TextOverflow.ellipsis),
-          if (course.description != null) ...[
-            const SizedBox(height: 3),
-            Text(course.description!,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF9E8070)),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-          ],
-
-          const Spacer(),
-
-          // ── Jours ───────────────────────────────────────────────────
-          if (course.daysOfWeek.isNotEmpty) ...[
-            Row(children: course.daysOfWeek.take(5).map((d) {
-              const keys   = ['lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-              const labels = ['L','Ma','Me','J','V','S'];
-              final idx = keys.indexOf(d);
-              return Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: color.withValues(alpha: .08), borderRadius: BorderRadius.circular(4)),
-                child: Text(idx >= 0 ? labels[idx] : d[0].toUpperCase(), style: TextStyle(fontSize: 9.5, color: color, fontWeight: FontWeight.w800)),
-              );
-            }).toList()),
-            const SizedBox(height: 6),
-          ],
-
-          // ── Footer ──────────────────────────────────────────────────
-          Row(children: [
-            _Tag('Coef. ${course.coefficient}', color),
-            const SizedBox(width: 6),
-            if (course.hoursWeek != null) _Tag('${course.hoursWeek}h/sem', _gold),
-            const Spacer(),
-            Icon(Icons.arrow_forward_rounded, size: 16, color: color),
-          ]),
-        ]),
+        ),
       ),
     );
   }
@@ -254,67 +433,222 @@ class _Tag extends StatelessWidget {
   const _Tag(this.label, this.color);
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(6)),
-        child: Text(label, style: TextStyle(fontSize: 10.5, color: color, fontWeight: FontWeight.w700)),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(6)),
+        child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
       );
 }
 
-// ── Search bar ────────────────────────────────────────────────────────────────
-class _SearchBar extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFDDCCBB)),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(children: [
-          const Icon(Icons.search_rounded, size: 18, color: Color(0xFF7A5C44)),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            onChanged: onChanged,
-            style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A0A00)),
-            decoration: const InputDecoration(
-              hintText: 'Rechercher un cours…',
-              hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFF7A5C44)),
-              isCollapsed: true,
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 10),
-            ),
-          )),
-        ]),
-      );
-}
-
+// ── État vide ──────────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.menu_book_outlined, size: 56, color: Color(0xFFCCBBAA)),
-            SizedBox(height: 16),
-            Text('Aucun cours disponible', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF8B1A00))),
-            SizedBox(height: 6),
-            Text('Vos cours apparaîtront ici dès que l\'établissement les aura publiés.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.menu_book_outlined, size: 56, color: cs.onSurfaceVariant.withValues(alpha: .5)),
+          const SizedBox(height: 16),
+          Text('Aucun cours disponible', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+          const SizedBox(height: 6),
+          Text("Vos cours apparaîtront ici dès que l'établissement les aura publiés.",
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+        ]),
+      ),
+    );
+  }
 }
 
-// ── Page détail d'un cours ────────────────────────────────────────────────────
+// ── Filter Bottom Sheet ────────────────────────────────────────────────────────
+class _FilterSheet extends StatefulWidget {
+  final List<SbCourse> courses;
+  final _FilterState initial;
+  final void Function(_FilterState) onApply;
+  const _FilterSheet({required this.courses, required this.initial, required this.onApply});
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  late Set<String> _days;
+  late _SortBy _sort;
+
+  static const _dayLabels = {
+    'lundi': 'Lundi', 'mardi': 'Mardi', 'mercredi': 'Mercredi',
+    'jeudi': 'Jeudi', 'vendredi': 'Vendredi', 'samedi': 'Samedi',
+  };
+  static const _sortLabels = {
+    _SortBy.alpha:     'Alphabétique',
+    _SortBy.coefDesc:  'Coefficient (↓)',
+    _SortBy.hoursDesc: 'Heures/semaine (↓)',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _days = Set.from(widget.initial.days);
+    _sort = widget.initial.sort;
+  }
+
+  Set<String> get _availableDays {
+    final days = <String>{};
+    for (final c in widget.courses) days.addAll(c.daysOfWeek);
+    return days;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs   = Theme.of(context).colorScheme;
+    final avail = _availableDays;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(context).padding.bottom + 20),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)))),
+
+        // ── Header ─────────────────────────────────────────────────────────────
+        Row(children: [
+          Text('Filtrer & trier', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: cs.onSurface)),
+          const Spacer(),
+          TextButton(
+            onPressed: () { setState(() { _days = {}; _sort = _SortBy.alpha; }); },
+            child: const Text('Réinitialiser', style: TextStyle(color: _terra)),
+          ),
+        ]),
+        const SizedBox(height: 16),
+
+        // ── Jours de cours ─────────────────────────────────────────────────────
+        if (avail.isNotEmpty) ...[
+          _SectionLabel('Jour de cours', cs),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: _dayLabels.entries
+              .where((e) => avail.contains(e.key))
+              .map((e) {
+                final sel = _days.contains(e.key);
+                return FilterChip(
+                  label: Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                      color: sel ? Colors.white : cs.onSurface)),
+                  selected: sel,
+                  onSelected: (_) => setState(() => sel ? _days.remove(e.key) : _days.add(e.key)),
+                  selectedColor: _terra,
+                  backgroundColor: cs.surfaceContainer,
+                  checkmarkColor: Colors.white,
+                  showCheckmark: false,
+                  side: BorderSide(color: sel ? _terra : cs.outlineVariant),
+                );
+              }).toList(),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Trier par ──────────────────────────────────────────────────────────
+        _SectionLabel('Trier par', cs),
+        const SizedBox(height: 8),
+        ..._sortLabels.entries.map((e) {
+          final sel = _sort == e.key;
+          return GestureDetector(
+            onTap: () => setState(() => _sort = e.key),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: sel ? _terra.withValues(alpha: .08) : cs.surfaceContainer,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: sel ? _terra : cs.outlineVariant),
+              ),
+              child: Row(children: [
+                Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                    size: 18, color: sel ? _terra : cs.onSurfaceVariant),
+                const SizedBox(width: 10),
+                Text(e.value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                    color: sel ? _terra : cs.onSurface)),
+              ]),
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+
+        // ── Type de matière ────────────────────────────────────────────────────
+        _SectionLabel('Catégorie', cs),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: const [
+          _TypeChip('Toutes',      Icons.apps_rounded,            true),
+          _TypeChip('Sciences',    Icons.science_rounded,         false),
+          _TypeChip('Lettres',     Icons.menu_book_rounded,       false),
+          _TypeChip('Langues',     Icons.language_rounded,        false),
+          _TypeChip('Arts & EPS',  Icons.palette_rounded,         false),
+          _TypeChip('Humaines',    Icons.public_rounded,          false),
+          _TypeChip('Droit/Éco',   Icons.gavel_rounded,           false),
+        ]),
+        const SizedBox(height: 24),
+
+        // ── Appliquer ──────────────────────────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _terra, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              widget.onApply(_FilterState(days: _days, sort: _sort));
+              Navigator.pop(context);
+            },
+            child: const Text('Appliquer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  const _TypeChip(this.label, this.icon, this.selected);
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: selected ? _terra.withValues(alpha: .1) : cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: selected ? _terra : cs.outlineVariant),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: selected ? _terra : cs.onSurfaceVariant),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600,
+            color: selected ? _terra : cs.onSurface)),
+      ]),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final ColorScheme cs;
+  const _SectionLabel(this.label, this.cs);
+  @override
+  Widget build(BuildContext context) => Text(label,
+      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: cs.onSurfaceVariant, letterSpacing: 0.5));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Détail d'un cours
+// ══════════════════════════════════════════════════════════════════════════════
 class CourseDetailPage extends StatefulWidget {
   final SbCourse course;
   const CourseDetailPage({super.key, required this.course});
-
   @override
   State<CourseDetailPage> createState() => _CourseDetailPageState();
 }
@@ -324,89 +658,143 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   late final TabController _tab;
 
   @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 3, vsync: this);
-  }
+  void initState() { super.initState(); _tab = TabController(length: 3, vsync: this); }
 
   @override
   void dispose() { _tab.dispose(); super.dispose(); }
 
-  static Color _c(String? hex) {
-    if (hex == null) return _terra;
-    try { return Color(int.parse(hex.replaceFirst('#', '0xFF'))); } catch (_) { return _terra; }
-  }
-
   @override
   Widget build(BuildContext context) {
     final c     = widget.course;
-    final color = _c(c.color);
-    const tabs  = ['Infos', 'Programme', 'Ressources'];
+    final color = _parseColor(c.color);
+    final icon  = _iconFor(c.name);
+    final cs    = Theme.of(context).colorScheme;
+    final top   = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(children: [
-        // ── Hero ────────────────────────────────────────────────────
+        // ── Hero avec icône centrée ──────────────────────────────────────────
         Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [color, color.withValues(alpha: .75)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          ),
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 12, 20, 20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22), onPressed: () => Navigator.pop(context)),
-              const Spacer(),
-              if (c.teacherName != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .2), borderRadius: BorderRadius.circular(20)),
-                  child: Text(c.teacherName!, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-            ]),
-            const SizedBox(height: 12),
-            Container(
-              width: 54, height: 54,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .2), borderRadius: BorderRadius.circular(16)),
-              child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 28),
+            gradient: LinearGradient(
+              colors: [color.withValues(alpha: .95), color.withValues(alpha: .75)],
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
             ),
-            const SizedBox(height: 10),
-            Text(c.name, style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-            if (c.code != null) ...[
-              const SizedBox(height: 2),
-              Text(c.code!, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: .8))),
-            ],
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              _HeroChip(Icons.grade_rounded, 'Coef. ${c.coefficient}'),
-              if (c.hoursWeek != null) _HeroChip(Icons.access_time_rounded, '${c.hoursWeek}h/semaine'),
-              if (c.chapterCount != null && c.chapterCount! > 0) _HeroChip(Icons.list_alt_rounded, '${c.chapterCount} chapitres'),
-              if (c.daysOfWeek.isNotEmpty) _HeroChip(Icons.calendar_today_rounded, _fmtDays(c.daysOfWeek)),
-            ]),
+          ),
+          child: Stack(children: [
+            // Cercle décoratif en fond
+            Positioned(
+              top: -40, right: -40,
+              child: Container(
+                width: 200, height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .06),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 40, left: -30,
+              child: Container(
+                width: 130, height: 130,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .04),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: EdgeInsets.fromLTRB(16, top + 12, 16, 24),
+              child: Column(children: [
+                // ── Top bar ───────────────────────────────────────────────────
+                Row(children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  if (c.teacherName != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(c.teacherName!, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                ]),
+                const SizedBox(height: 16),
+
+                // ── Icône centrée ─────────────────────────────────────────────
+                Container(
+                  width: 88, height: 88,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .22),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: .35), width: 2),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: .2), blurRadius: 20, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 44),
+                ),
+                const SizedBox(height: 14),
+
+                // ── Nom + code ────────────────────────────────────────────────
+                Text(c.name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
+                if (c.code != null) ...[
+                  const SizedBox(height: 4),
+                  Text(c.code!, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: .8), fontWeight: FontWeight.w600)),
+                ],
+                const SizedBox(height: 14),
+
+                // ── Chips ─────────────────────────────────────────────────────
+                Wrap(spacing: 8, runSpacing: 6, alignment: WrapAlignment.center, children: [
+                  _HChip(Icons.grade_rounded, 'Coef. ${c.coefficient}'),
+                  if (c.hoursWeek != null) _HChip(Icons.access_time_rounded, '${c.hoursWeek}h/semaine'),
+                  if (c.chapterCount != null && c.chapterCount! > 0) _HChip(Icons.list_alt_rounded, '${c.chapterCount} chapitres'),
+                  if (c.daysOfWeek.isNotEmpty) _HChip(Icons.calendar_today_rounded, _fmtDays(c.daysOfWeek)),
+                ]),
+              ]),
+            ),
           ]),
         ),
 
-        // ── Tabs ────────────────────────────────────────────────────
+        // ── TabBar stylée ────────────────────────────────────────────────────
         Container(
-          color: Theme.of(context).colorScheme.surface,
+          decoration: BoxDecoration(
+            color: cs.surface,
+            border: Border(bottom: BorderSide(color: cs.outlineVariant)),
+          ),
           child: TabBar(
             controller: _tab,
-            tabs: tabs.map((t) => Tab(text: t)).toList(),
+            tabs: const [
+              Tab(icon: Icon(Icons.info_outline_rounded, size: 16), text: 'Infos'),
+              Tab(icon: Icon(Icons.list_alt_rounded, size: 16), text: 'Programme'),
+              Tab(icon: Icon(Icons.folder_open_rounded, size: 16), text: 'Ressources'),
+            ],
             labelColor: color,
-            unselectedLabelColor: const Color(0xFF7A5C44),
-            labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+            unselectedLabelColor: cs.onSurfaceVariant,
+            labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
             indicatorColor: color,
             indicatorWeight: 3,
+            indicatorSize: TabBarIndicatorSize.tab,
           ),
         ),
 
-        // ── Content ─────────────────────────────────────────────────
+        // ── Content ──────────────────────────────────────────────────────────
         Expanded(
           child: TabBarView(
             controller: _tab,
             children: [
               _InfoTab(course: c, color: color),
               _ProgramTab(course: c, color: color),
-              _ResourcesPlaceholder(),
+              _ResourcesTab(color: color),
             ],
           ),
         ),
@@ -420,10 +808,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 }
 
-class _HeroChip extends StatelessWidget {
+class _HChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _HeroChip(this.icon, this.label);
+  const _HChip(this.icon, this.label);
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -443,59 +831,80 @@ class _InfoTab extends StatelessWidget {
   const _InfoTab({required this.course, required this.color});
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (course.description != null && course.description!.isNotEmpty) ...[
-            _Section('Description'),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .04),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: .15)),
-              ),
-              child: Text(course.description!, style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A0A00), height: 1.5)),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (course.description != null && course.description!.isNotEmpty) ...[
+          _Sec('Description', cs),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: .2)),
             ),
-            const SizedBox(height: 16),
-          ],
-          _Section('Informations'),
-          const SizedBox(height: 10),
-          _InfoRow(Icons.book_outlined,       'Matière',       course.name,            color),
-          if (course.code != null) _InfoRow(Icons.tag_rounded, 'Code',                course.code!,           color),
-          _InfoRow(Icons.grade_rounded,        'Coefficient',   '${course.coefficient}', color),
-          if (course.hoursWeek != null) _InfoRow(Icons.access_time_rounded, 'Heures/semaine', '${course.hoursWeek}h', color),
-          if (course.chapterCount != null) _InfoRow(Icons.list_alt_rounded, 'Chapitres', '${course.chapterCount}', color),
-          if (course.teacherName != null) _InfoRow(Icons.person_outline_rounded, 'Enseignant', course.teacherName!, color),
-          if (course.daysOfWeek.isNotEmpty) _InfoRow(Icons.calendar_today_rounded, 'Jours de cours', _fmtDays(course.daysOfWeek), color),
-        ]),
-      );
+            child: Text(course.description!, style: TextStyle(fontSize: 13.5, color: cs.onSurface, height: 1.5)),
+          ),
+          const SizedBox(height: 16),
+        ],
 
-  String _fmtDays(List<String> d) {
-    const map = {'lundi': 'Lundi', 'mardi': 'Mardi', 'mercredi': 'Mercredi', 'jeudi': 'Jeudi', 'vendredi': 'Vendredi', 'samedi': 'Samedi'};
-    return d.map((x) => map[x] ?? x).join(', ');
+        _Sec('Informations', cs),
+        const SizedBox(height: 10),
+        _Row(Icons.book_outlined,          'Matière',          course.name,               color, cs),
+        if (course.code != null)
+          _Row(Icons.tag_rounded,          'Code',             course.code!,              color, cs),
+        _Row(Icons.grade_rounded,          'Coefficient',      '${course.coefficient}',   color, cs),
+        if (course.hoursWeek != null)
+          _Row(Icons.access_time_rounded,  'Heures/semaine',   '${course.hoursWeek}h',    color, cs),
+        if (course.chapterCount != null)
+          _Row(Icons.list_alt_rounded,     'Chapitres',        '${course.chapterCount}',  color, cs),
+        if (course.teacherName != null)
+          _Row(Icons.person_outline_rounded,'Enseignant',      course.teacherName!,       color, cs),
+        if (course.daysOfWeek.isNotEmpty)
+          _Row(Icons.calendar_today_rounded,'Jours de cours',  _fmt(course.daysOfWeek),   color, cs),
+      ]),
+    );
+  }
+
+  String _fmt(List<String> d) {
+    const m = {'lundi':'Lundi','mardi':'Mardi','mercredi':'Mercredi','jeudi':'Jeudi','vendredi':'Vendredi','samedi':'Samedi'};
+    return d.map((x) => m[x] ?? x).join(', ');
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
+class _Sec extends StatelessWidget {
   final String label;
-  final String value;
-  final Color color;
-  const _InfoRow(this.icon, this.label, this.value, this.color);
+  final ColorScheme cs;
+  const _Sec(this.label, this.cs);
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: cs.onSurface)),
+        const SizedBox(width: 8),
+        Expanded(child: Divider(color: cs.outlineVariant)),
+      ]);
+}
 
+class _Row extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  final Color color;
+  final ColorScheme cs;
+  const _Row(this.icon, this.label, this.value, this.color, this.cs);
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEEDDD0))),
+        decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: cs.outlineVariant)),
         child: Row(children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 10),
-          SizedBox(width: 110, child: Text(label, style: const TextStyle(fontSize: 12.5, color: Color(0xFF7A5C44)))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A0A00)))),
+          SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant))),
+          Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface))),
         ]),
       );
 }
@@ -507,65 +916,77 @@ class _ProgramTab extends StatelessWidget {
   const _ProgramTab({required this.course, required this.color});
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: (course.programSummary != null && course.programSummary!.isNotEmpty)
-            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Section('Programme annuel'),
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: .04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withValues(alpha: .15)),
-                  ),
-                  child: Text(course.programSummary!, style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A0A00), height: 1.6)),
-                ),
-                if (course.chapterCount != null && course.chapterCount! > 0) ...[
-                  const SizedBox(height: 16),
-                  _Section('Chapitres prévus'),
-                  const SizedBox(height: 10),
-                  ...List.generate(course.chapterCount!, (i) => Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEEDDD0))),
-                    child: Row(children: [
-                      Container(width: 24, height: 24, decoration: BoxDecoration(color: color.withValues(alpha: .1), shape: BoxShape.circle), child: Center(child: Text('${i + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)))),
-                      const SizedBox(width: 10),
-                      Text('Chapitre ${i + 1}', style: const TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
-                    ]),
-                  )),
-                ],
-              ])
-            : const Center(child: Padding(padding: EdgeInsets.all(32), child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.article_outlined, size: 48, color: Color(0xFFCCBBAA)),
-                SizedBox(height: 12),
-                Text('Programme non renseigné', style: TextStyle(fontSize: 14, color: Color(0xFF7A5C44))),
-              ]))),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (course.programSummary == null || course.programSummary!.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.list_alt_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: .4)),
+            const SizedBox(height: 12),
+            Text('Programme non disponible', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
+            const SizedBox(height: 6),
+            Text("L'enseignant n'a pas encore publié le programme de ce cours.",
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          ]),
+        ),
       );
+    }
+
+    final lines = course.programSummary!.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _Sec('Programme annuel', cs),
+        const SizedBox(height: 12),
+        ...lines.asMap().entries.map((e) {
+          final isChapter = e.value.trim().startsWith(RegExp(r'\d+[\.\)]\s|Chapitre|CHAPITRE|Part|Partie|Thème|Theme'));
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isChapter ? color.withValues(alpha: .07) : cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isChapter ? color.withValues(alpha: .25) : cs.outlineVariant),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (isChapter) ...[
+                Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5, right: 8),
+                    decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              ] else ...[
+                Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5, right: 8),
+                    decoration: BoxDecoration(color: cs.outlineVariant, shape: BoxShape.circle)),
+              ],
+              Expanded(child: Text(e.value.trim(),
+                  style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: isChapter ? FontWeight.w700 : FontWeight.w400, height: 1.4))),
+            ]),
+          );
+        }),
+      ]),
+    );
+  }
 }
 
-// ── Tab Ressources (placeholder) ──────────────────────────────────────────────
-class _ResourcesPlaceholder extends StatelessWidget {
-  const _ResourcesPlaceholder();
+// ── Tab Ressources ────────────────────────────────────────────────────────────
+class _ResourcesTab extends StatelessWidget {
+  final Color color;
+  const _ResourcesTab({required this.color});
   @override
-  Widget build(BuildContext context) => const Center(child: Padding(
-        padding: EdgeInsets.all(32),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.folder_outlined, size: 48, color: Color(0xFFCCBBAA)),
-          SizedBox(height: 12),
-          Text('Ressources', style: TextStyle(fontSize: 14, color: Color(0xFF7A5C44))),
-          SizedBox(height: 4),
-          Text('Les documents partagés par votre enseignant s\'afficheront ici.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF9E8070))),
+          Icon(Icons.folder_open_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: .4)),
+          const SizedBox(height: 12),
+          Text('Ressources à venir', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
+          const SizedBox(height: 6),
+          Text("Les documents, exercices et supports seront disponibles ici.",
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
         ]),
-      ));
-}
-
-class _Section extends StatelessWidget {
-  final String title;
-  const _Section(this.title);
-  @override
-  Widget build(BuildContext context) => Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A0A00)));
+      ),
+    );
+  }
 }

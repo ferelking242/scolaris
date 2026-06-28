@@ -10,6 +10,26 @@ const _terra = ScolarisPalette.terracotta;
 const _gold  = ScolarisPalette.gold;
 const _green = ScolarisPalette.forestGreen;
 
+IconData _iconFor(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('math'))       return Icons.calculate_rounded;
+  if (n.contains('physique') || n.contains('chimie')) return Icons.science_rounded;
+  if (n.contains('svt') || n.contains('biolog') || n.contains('vie')) return Icons.eco_rounded;
+  if (n.contains('français') || n.contains('lettre')) return Icons.menu_book_rounded;
+  if (n.contains('anglais') || n.contains('langue')) return Icons.language_rounded;
+  if (n.contains('histoire') || n.contains('géo'))   return Icons.public_rounded;
+  if (n.contains('philo'))      return Icons.lightbulb_rounded;
+  if (n.contains('informatiq')) return Icons.computer_rounded;
+  if (n.contains('eps') || n.contains('sport'))      return Icons.sports_soccer_rounded;
+  if (n.contains('art') || n.contains('plastiq'))    return Icons.palette_rounded;
+  if (n.contains('droit'))      return Icons.gavel_rounded;
+  if (n.contains('économ') || n.contains('compta'))  return Icons.bar_chart_rounded;
+  if (n.contains('socio'))      return Icons.people_rounded;
+  if (n.contains('constit'))    return Icons.policy_rounded;
+  if (n.contains('éducation'))  return Icons.emoji_events_rounded;
+  return Icons.menu_book_rounded;
+}
+
 // ── Couleurs prédéfinies pour les cours ──────────────────────────────────────
 const _courseColors = [
   '#8B1A00', '#C17F24', '#1B5E20', '#0D47A1', '#6A1B9A',
@@ -81,15 +101,15 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: sel ? _terra : Colors.white,
+                          color: sel ? _terra : Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: sel ? _terra : const Color(0xFFDDCCBB)),
+                          border: Border.all(color: sel ? _terra : Theme.of(context).colorScheme.outlineVariant),
                           boxShadow: sel ? [BoxShadow(color: _terra.withValues(alpha:.2), blurRadius: 8, offset: const Offset(0, 2))] : [],
                         ),
                         child: Text(
                           cls.name,
                           style: TextStyle(
-                            color: sel ? Colors.white : const Color(0xFF7A5C44),
+                            color: sel ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12.5,
                             fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                           ),
@@ -210,7 +230,7 @@ class _CoursesList extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 '${filtered.length} cours · ${courses.fold<int>(0, (s, c) => s + (c.hoursWeek ?? 0))}h/sem',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF7A5C44), fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
               ),
             ),
             ...filtered.map((c) => _CourseAdminCard(
@@ -240,11 +260,12 @@ class _CourseAdminCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = _parseColor(course.color);
+    final c  = _parseColor(course.color);
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: c.withValues(alpha: .2), width: 1.5),
         boxShadow: [BoxShadow(color: c.withValues(alpha: .08), blurRadius: 10, offset: const Offset(0, 3))],
@@ -259,14 +280,14 @@ class _CourseAdminCard extends StatelessWidget {
               gradient: LinearGradient(colors: [c, c.withValues(alpha: .7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 20),
+            child: Icon(_iconFor(course.name), color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
 
           // ── Infos ──────────────────────────────────────────────────
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(course.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A0A00))),
+              Text(course.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface)),
               const SizedBox(height: 2),
               Row(children: [
                 if (course.code != null) ...[
@@ -281,11 +302,11 @@ class _CourseAdminCard extends StatelessWidget {
               ]),
               if (course.teacherName != null) ...[
                 const SizedBox(height: 4),
-                Text(course.teacherName!, style: const TextStyle(fontSize: 11.5, color: Color(0xFF7A5C44))),
+                Text(course.teacherName!, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
               ],
               if (course.description != null) ...[
                 const SizedBox(height: 3),
-                Text(course.description!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF9E8070))),
+                Text(course.description!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
               ],
               if (course.daysOfWeek.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -428,10 +449,11 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
     final teachersAsync = ref.watch(teachersProvider);
     final selectedColor = Color(int.parse(_color.replaceFirst('#', '0xFF')));
 
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
@@ -440,11 +462,11 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // ── Handle ────────────────────────────────────────────────
-            Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: const Color(0xFFDDCCBB), borderRadius: BorderRadius.circular(2)))),
+            Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)))),
 
             Text(
               widget.existing == null ? 'Nouveau cours' : 'Modifier le cours',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A0A00)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: cs.onSurface),
             ),
             const SizedBox(height: 20),
 
@@ -486,7 +508,7 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
             const SizedBox(height: 16),
 
             // ── Jours de cours ────────────────────────────────────────
-            const Text('Jours de cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7A5C44))),
+            Text('Jours de cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
             Row(
               children: List.generate(_daysFr.length, (i) {
@@ -500,11 +522,11 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
                       margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: sel ? selectedColor : Colors.white,
+                        color: sel ? selectedColor : cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: sel ? selectedColor : const Color(0xFFDDCCBB)),
+                        border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
                       ),
-                      child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : const Color(0xFF7A5C44)))),
+                      child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
                     ),
                   ),
                 );
@@ -522,7 +544,7 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
             const SizedBox(height: 16),
 
             // ── Enseignant ────────────────────────────────────────────
-            const Text('Enseignant responsable', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7A5C44))),
+            Text('Enseignant responsable', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
             const SizedBox(height: 6),
             teachersAsync.when(
               loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
@@ -532,7 +554,7 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
                 decoration: InputDecoration(
                   hintText: 'Sélectionner un enseignant',
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFDDCCBB))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
                 ),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('— Aucun —')),
@@ -544,7 +566,7 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
             const SizedBox(height: 16),
 
             // ── Couleur ───────────────────────────────────────────────
-            const Text('Couleur du cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7A5C44))),
+            Text('Couleur du cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -603,23 +625,26 @@ class _Field extends StatelessWidget {
   const _Field({required this.controller, required this.label, required this.hint, this.maxLines = 1, this.validator});
 
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7A5C44))),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          validator: validator,
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A0A00)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFFAA9080)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFDDCCBB))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFDDCCBB))),
-          ),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+      const SizedBox(height: 6),
+      TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        validator: validator,
+        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: .5)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
         ),
-      ]);
+      ),
+    ]);
+  }
 }
 
 class _Stepper extends StatelessWidget {
@@ -632,18 +657,21 @@ class _Stepper extends StatelessWidget {
   const _Stepper({required this.label, required this.value, required this.min, required this.max, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF7A5C44))),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(border: Border.all(color: const Color(0xFFDDCCBB)), borderRadius: BorderRadius.circular(10)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            IconButton(icon: const Icon(Icons.remove_rounded, size: 16), onPressed: value > min ? () => onChanged(value - 1) : null, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 36)),
-            Text('$value', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A0A00))),
-            IconButton(icon: const Icon(Icons.add_rounded, size: 16), onPressed: value < max ? () => onChanged(value + 1) : null, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 36)),
-          ]),
-        ),
-      ]);
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(children: [
+      Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+      const SizedBox(height: 6),
+      Container(
+        decoration: BoxDecoration(border: Border.all(color: cs.outlineVariant), borderRadius: BorderRadius.circular(10)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          IconButton(icon: const Icon(Icons.remove_rounded, size: 16), onPressed: value > min ? () => onChanged(value - 1) : null, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 36)),
+          Text('$value', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface)),
+          IconButton(icon: const Icon(Icons.add_rounded, size: 16), onPressed: value < max ? () => onChanged(value + 1) : null, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 36)),
+        ]),
+      ),
+    ]);
+  }
 }
 
 class _SearchBar extends StatelessWidget {
@@ -651,37 +679,43 @@ class _SearchBar extends StatelessWidget {
   const _SearchBar({required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 42,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFDDCCBB))),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(children: [
-          const Icon(Icons.search_rounded, size: 18, color: Color(0xFF7A5C44)),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            onChanged: onChanged,
-            style: const TextStyle(fontSize: 13.5),
-            decoration: const InputDecoration(hintText: 'Rechercher un cours…', hintStyle: TextStyle(color: Color(0xFFAA9080)), isCollapsed: true, border: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 10)),
-          )),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 42,
+      decoration: BoxDecoration(color: cs.surfaceContainer, borderRadius: BorderRadius.circular(12), border: Border.all(color: cs.outlineVariant)),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(children: [
+        Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(child: TextField(
+          onChanged: onChanged,
+          style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+          decoration: InputDecoration(hintText: 'Rechercher un cours…', hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: .5)), isCollapsed: true, border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+        )),
+      ]),
+    );
+  }
 }
 
 class _EmptyClasses extends StatelessWidget {
   const _EmptyClasses();
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.class_outlined, size: 52, color: Color(0xFFCCBBAA)),
-            SizedBox(height: 14),
-            Text('Aucune classe créée', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF8B1A00))),
-            SizedBox(height: 6),
-            Text('Créez d\'abord des classes dans la section Classes.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.class_outlined, size: 52, color: cs.onSurfaceVariant.withValues(alpha: .4)),
+          const SizedBox(height: 14),
+          Text('Aucune classe créée', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _terra)),
+          const SizedBox(height: 6),
+          Text('Créez d\'abord des classes dans la section Classes.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+        ]),
+      ),
+    );
+  }
 }
 
 class _EmptyCourses extends ConsumerWidget {
@@ -698,9 +732,9 @@ class _EmptyCourses extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.menu_book_outlined, size: 52, color: Color(0xFFCCBBAA)),
             const SizedBox(height: 14),
-            const Text('Aucun cours pour cette classe', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF8B1A00))),
+            Text('Aucun cours pour cette classe', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _terra)),
             const SizedBox(height: 6),
-            const Text('Ajoutez des cours ou chargez les matières types.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Color(0xFF7A5C44))),
+            Builder(builder: (ctx) => Text('Ajoutez des cours ou chargez les matières types.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(ctx).colorScheme.onSurfaceVariant))),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => showModalBottomSheet(
