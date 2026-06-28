@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -17,10 +18,6 @@ import '../widgets/responsive_role_shell.dart';
 import '../widgets/subscription_alert_banner.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const _pageBg    = Color(0xFFF5EEE6);
-const _white     = Colors.white;
-const _ink       = Color(0xFF1A0A00);
-const _muted     = Color(0xFF7A5C44);
 const _terra     = ScolarisPalette.terracotta;
 const _orange    = ScolarisPalette.orange;
 const _gold      = ScolarisPalette.gold;
@@ -299,12 +296,13 @@ class _FullPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(children: [
           Container(
-            color: _white,
+            color: cs.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               GestureDetector(
@@ -312,14 +310,16 @@ class _FullPage extends StatelessWidget {
                 child: Container(
                   width: 38, height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5EEE6),
+                    color: cs.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.arrow_back_rounded, color: _ink, size: 20),
+                  child: Icon(Icons.arrow_back_rounded,
+                      color: cs.onSurface, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(color: _ink, fontSize: 17,
+              Text(title, style: TextStyle(
+                  color: cs.onSurface, fontSize: 17,
                   fontWeight: FontWeight.w700)),
             ]),
           ),
@@ -353,6 +353,11 @@ class _SmartHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final surfColor = cs.surface;
+    final onSurf    = cs.onSurface;
+    final mutedClr  = cs.onSurface.withOpacity(.5);
+
     final initials = (user?.fullName.isNotEmpty ?? false)
         ? user!.fullName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
@@ -360,64 +365,70 @@ class _SmartHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Top bar ──────────────────────────────────────────────────────
-        Container(
-          height: 56,
-          color: _white,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Row(children: [
-            _HeaderBtn(onTap: onMenu, child: const _HamburgerIcon()),
-            Image.asset('assets/images/logo_transparent.png', width: 28, height: 28,
-                errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/images/logo.png', width: 28, height: 28,
-                  errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.school_rounded, size: 26, color: _terra),
-                )),
-            const SizedBox(width: 7),
-            Text(AppConfig.appName,
-                style: const TextStyle(fontSize: 14, color: _ink,
-                    fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-            const Spacer(),
-            _HeaderBtn(onTap: onSearch,
-                child: const Icon(Icons.search_rounded, size: 20, color: _muted)),
-            _HeaderBtn(
-              onTap: onNotifications,
-              child: Stack(clipBehavior: Clip.none, children: [
-                const Icon(Icons.notifications_outlined, size: 20, color: _muted),
-                Positioned(top: -2, right: -2,
-                  child: Container(width: 7, height: 7,
-                      decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
+        // ── Top bar — frosted glass ──────────────────────────────────────
+        ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              height: 56,
+              color: surfColor.withOpacity(0.88),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(children: [
+                _HeaderBtn(onTap: onMenu, child: _HamburgerIcon(color: onSurf)),
+                Image.asset('assets/images/logo_transparent.png', width: 28, height: 28,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/logo.png', width: 28, height: 28,
+                      errorBuilder: (_, __, ___) =>
+                        Icon(Icons.school_rounded, size: 26, color: _terra),
+                    )),
+                const SizedBox(width: 7),
+                Text(AppConfig.appName,
+                    style: TextStyle(fontSize: 14, color: onSurf,
+                        fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                const Spacer(),
+                _HeaderBtn(onTap: onSearch,
+                    child: Icon(Icons.search_rounded, size: 20, color: mutedClr)),
+                _HeaderBtn(
+                  onTap: onNotifications,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Icon(Icons.notifications_outlined, size: 20, color: mutedClr),
+                    Positioned(top: -2, right: -2,
+                      child: Container(width: 7, height: 7,
+                          decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
+                  ]),
+                ),
+                GestureDetector(
+                  onTap: onAccount,
+                  child: Container(
+                    width: 32, height: 32,
+                    margin: const EdgeInsets.only(left: 2, right: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_terra, _orange],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [BoxShadow(
+                          color: _terra.withOpacity(.3),
+                          blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Center(child: Text(initials,
+                        style: const TextStyle(color: Colors.white, fontSize: 11,
+                            fontWeight: FontWeight.w800))),
+                  ),
+                ),
               ]),
             ),
-            // Account avatar button
-            GestureDetector(
-              onTap: onAccount,
-              child: Container(
-                width: 32, height: 32,
-                margin: const EdgeInsets.only(left: 2, right: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_terra, _orange],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(
-                      color: _terra.withOpacity(.3),
-                      blurRadius: 6, offset: const Offset(0, 2))],
-                ),
-                child: Center(child: Text(initials,
-                    style: const TextStyle(color: _white, fontSize: 11,
-                        fontWeight: FontWeight.w800))),
-              ),
-            ),
-          ]),
+          ),
         ),
+        // Divider under header
+        Container(height: 1, color: cs.outline.withOpacity(.15)),
 
         // ── Tab nav bar (optionnel) ───────────────────────────────────────
         if (showTabBar) ...[
           Container(
-            color: _white,
+            color: surfColor,
             height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
@@ -438,11 +449,11 @@ class _SmartHeader extends StatelessWidget {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(sel ? (e.activeIcon ?? e.icon) : e.icon,
-                          size: 15, color: sel ? _white : _muted),
+                          size: 15, color: sel ? Colors.white : mutedClr),
                       const SizedBox(width: 6),
                       Text(e.labelKey.tr(),
                           style: TextStyle(
-                              color: sel ? _white : _muted,
+                              color: sel ? Colors.white : mutedClr,
                               fontSize: 12.5,
                               fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
                     ]),
@@ -451,7 +462,7 @@ class _SmartHeader extends StatelessWidget {
               },
             ),
           ),
-          Container(height: 1, color: const Color(0xFFEEE5D8)),
+          Container(height: 1, color: cs.outline.withOpacity(.2)),
         ],
       ],
     );
@@ -459,18 +470,19 @@ class _SmartHeader extends StatelessWidget {
 }
 
 class _HamburgerIcon extends StatelessWidget {
-  const _HamburgerIcon();
+  final Color color;
+  const _HamburgerIcon({required this.color});
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(width: 20, height: 2, color: _ink),
+        Container(width: 20, height: 2, color: color),
         const SizedBox(height: 4),
-        Container(width: 14, height: 2, color: _ink),
+        Container(width: 14, height: 2, color: color),
         const SizedBox(height: 4),
-        Container(width: 17, height: 2, color: _ink),
+        Container(width: 17, height: 2, color: color),
       ],
     );
   }
