@@ -109,19 +109,27 @@ class AkiliApp extends ConsumerWidget {
 
           // Contraste élevé
           if (settings.contrasteEleve) {
-            final base = Theme.of(ctx);
+            final base    = Theme.of(ctx);
+            final isDarkMode = base.brightness == Brightness.dark;
             w = Theme(
               data: base.copyWith(
+                scaffoldBackgroundColor: isDarkMode ? Colors.black : Colors.white,
                 colorScheme: base.colorScheme.copyWith(
-                  surface:   Colors.white,
-                  onSurface: Colors.black,
-                  primary:   const Color(0xFF5C0000),
-                  onPrimary: Colors.white,
+                  surface:              isDarkMode ? const Color(0xFF0A0A0A) : Colors.white,
+                  surfaceContainer:     isDarkMode ? const Color(0xFF111111) : const Color(0xFFF0F0F0),
+                  surfaceContainerHigh: isDarkMode ? const Color(0xFF1A1A1A) : const Color(0xFFE0E0E0),
+                  onSurface:            isDarkMode ? Colors.white : Colors.black,
+                  onSurfaceVariant:     isDarkMode ? const Color(0xFFCCCCCC) : const Color(0xFF333333),
+                  outline:              isDarkMode ? const Color(0xFF444444) : const Color(0xFF888888),
+                  primary:              isDarkMode ? const Color(0xFFFF6B6B) : const Color(0xFF5C0000),
+                  onPrimary:            Colors.white,
                 ),
                 textTheme: base.textTheme.apply(
-                  bodyColor:    Colors.black,
-                  displayColor: Colors.black,
+                  bodyColor:    isDarkMode ? Colors.white : Colors.black,
+                  displayColor: isDarkMode ? Colors.white : Colors.black,
                 ),
+                cardColor:   isDarkMode ? const Color(0xFF111111) : Colors.white,
+                dividerColor: isDarkMode ? const Color(0xFF333333) : const Color(0xFF999999),
               ),
               child: w,
             );
