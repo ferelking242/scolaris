@@ -1,28 +1,28 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
 import '../pages/notifications_page.dart';
 import '../pages/search_page.dart';
 import '../widgets/responsive_role_shell.dart';
-import '../../core/services/shell_navigator.dart';
+import '../widgets/subscription_alert_banner.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const _pageBg    = Color(0xFFF5EEE6);
-const _white     = Colors.white;
-const _ink       = Color(0xFF1A0A00);
-const _muted     = Color(0xFF7A5C44);
 const _terra     = ScolarisPalette.terracotta;
 const _orange    = ScolarisPalette.orange;
 const _gold      = ScolarisPalette.gold;
 const _menuAcc   = ScolarisPalette.gold;
+const _white     = Colors.white;
 
 // African sidebar background — dark terracotta/brown, NOT green
 const _menuBg1   = Color(0xFF1A0A00);
@@ -82,9 +82,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _onAnim() {
     final t = _menuAnim.value;
     setState(() {
-      _scale  = 1 - 0.10 * t;
+      _scale  = 1 - 0.12 * t;
       _xShift = 0.68 * t;
-      _yShift = 0.05 * t;   // slight downward push so sidebar top icons are visible
+      _yShift = 0.095 * t;
       _radius = 28 * t;
     });
   }
@@ -149,19 +149,21 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _openAccount() {
     if (_menuOpen) _closeMenu();
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const AccountPage()));
+        MaterialPageRoute(builder: (_) => const _FullPage(
+            title: 'Mon compte', child: AccountPage())));
   }
 
   @override
   Widget build(BuildContext context) {
+    // Intention de navigation émise par une page (ex. actions rapides du dashboard).
+    ref.listen<String?>(navIntentProvider, (_, next) {
+      if (next != null) {
+        _navigateTo(next);
+        ref.read(navIntentProvider.notifier).state = null;
+      }
+    });
     final size = MediaQuery.sizeOf(context);
     final user = ref.watch(authSessionProvider);
-
-    ref.listen<String?>(shellNavProvider, (_, labelKey) {
-      if (labelKey == null) return;
-      _navigateTo(labelKey);
-      ref.read(shellNavProvider.notifier).state = null;
-    });
 
     return GestureDetector(
       onHorizontalDragStart: _onDragStart,
@@ -185,7 +187,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   onAccount: _openAccount,
                   onClose: _closeMenu,
                   opacity: _menuCtrl.value,
-                  width: size.width * 0.72,
+                  width: size.width,
                   role: widget.role,
                 ),
               ),
@@ -200,21 +202,36 @@ class _MobileShellState extends ConsumerState<MobileShell>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_radius),
-                  boxShadow: _menuOpen ? [
+                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
-                      blurRadius: 32,
-                      offset: const Offset(-8, 0),
+                      color: Colors.black.withOpacity(_menuOpen ? 0.45 : 0.12),
+                      blurRadius: _menuOpen ? 40 : 10,
+                      offset: Offset(_menuOpen ? -6 : 0, 0),
                     ),
-                  ] : [],
+                    if (_menuOpen) ...[
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 80,
+                        spreadRadius: -4,
+                        offset: const Offset(-2, 28),
+                      ),
+                      BoxShadow(
+                        color: _terra.withOpacity(0.12),
+                        blurRadius: 60,
+                        spreadRadius: -8,
+                        offset: const Offset(0, 40),
+                      ),
+                    ],
+                  ],
                 ),
                 child: GestureDetector(
                   onTap: _menuOpen ? _closeMenu : null,
                   behavior: HitTestBehavior.translucent,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(_radius),
-                    child: Scaffold(
-                      backgroundColor: _pageBg,
+                    child: Stack(children: [
+                      Scaffold(
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                       body: SafeArea(
                         bottom: true,
                         child: Column(children: [
@@ -227,11 +244,16 @@ class _MobileShellState extends ConsumerState<MobileShell>
                             onAccount: _openAccount,
                             pageIndex: _pageIndex,
                             entries: widget.drawerEntries,
+                            showTabBar: ref.watch(settingsProvider).afficherBarreOnglets,
                             onTabTap: (i) {
                               if (_menuOpen) _closeMenu();
                               setState(() => _pageIndex = i);
                             },
                           ),
+                          // Réservée à l'admin (staff) : seul lui paie et peut
+                          // agir sur l'abonnement de l'école.
+                          if (widget.role == UserRole.staff)
+                            const SubscriptionAlertBanner(),
                           Expanded(
                             child: KeyedSubtree(
                               key: ValueKey(_pageIndex),
@@ -241,10 +263,19 @@ class _MobileShellState extends ConsumerState<MobileShell>
                         ]),
                       ),
                     ),
-                  ),
+                      // Overlay: bloque toute interaction quand le menu est ouvert
+                      if (_menuOpen)
+                        Positioned.fill(
+                          child: Listener(
+                            behavior: HitTestBehavior.opaque,
+                            onPointerDown: (_) => _closeMenu(),
+                          ),
+                        ),
+                  ]),
                 ),
               ),
             ),
+          ),
 
             // 3 ─ Edge bubble
             if (_showEdgeBubble || (_menuCtrl.value > 0 && _menuCtrl.value < 0.15))
@@ -268,12 +299,13 @@ class _FullPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(children: [
           Container(
-            color: _white,
+            color: cs.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               GestureDetector(
@@ -281,14 +313,16 @@ class _FullPage extends StatelessWidget {
                 child: Container(
                   width: 38, height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5EEE6),
+                    color: cs.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.arrow_back_rounded, color: _ink, size: 20),
+                  child: Icon(Icons.arrow_back_rounded,
+                      color: cs.onSurface, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(color: _ink, fontSize: 17,
+              Text(title, style: TextStyle(
+                  color: cs.onSurface, fontSize: 17,
                   fontWeight: FontWeight.w700)),
             ]),
           ),
@@ -311,16 +345,22 @@ class _SmartHeader extends StatelessWidget {
   final List<RoleNavEntry> entries;
   final ValueChanged<int> onTabTap;
 
+  final bool showTabBar;
   const _SmartHeader({
     required this.title, required this.user,
     required this.onMenu, required this.onSearch,
     required this.onNotifications, required this.onAccount,
     required this.pageIndex, required this.entries,
-    required this.onTabTap,
+    required this.onTabTap, required this.showTabBar,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final surfColor = cs.surface;
+    final onSurf    = cs.onSurface;
+    final mutedClr  = cs.onSurface.withOpacity(.5);
+
     final initials = (user?.fullName.isNotEmpty ?? false)
         ? user!.fullName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
@@ -328,116 +368,124 @@ class _SmartHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Top bar ──────────────────────────────────────────────────────
-        Container(
-          height: 56,
-          color: _white,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Row(children: [
-            _HeaderBtn(onTap: onMenu, child: const _HamburgerIcon()),
-            Image.asset('assets/images/logo_transparent.png', width: 28, height: 28,
-                errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/images/logo.png', width: 28, height: 28,
-                  errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.school_rounded, size: 26, color: _terra),
-                )),
-            const SizedBox(width: 7),
-            Text(AppConfig.appName,
-                style: const TextStyle(fontSize: 14, color: _ink,
-                    fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-            const Spacer(),
-            _HeaderBtn(onTap: onSearch,
-                child: const Icon(Icons.search_rounded, size: 20, color: _muted)),
-            _HeaderBtn(
-              onTap: onNotifications,
-              child: Stack(clipBehavior: Clip.none, children: [
-                const Icon(Icons.notifications_outlined, size: 20, color: _muted),
-                Positioned(top: -2, right: -2,
-                  child: Container(width: 7, height: 7,
-                      decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
-              ]),
-            ),
-            // Account avatar button
-            GestureDetector(
-              onTap: onAccount,
-              child: Container(
-                width: 32, height: 32,
-                margin: const EdgeInsets.only(left: 2, right: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_terra, _orange],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(
-                      color: _terra.withOpacity(.3),
-                      blurRadius: 6, offset: const Offset(0, 2))],
-                ),
-                child: Center(child: Text(initials,
-                    style: const TextStyle(color: _white, fontSize: 11,
-                        fontWeight: FontWeight.w800))),
-              ),
-            ),
-          ]),
-        ),
-
-        // ── Tab nav bar ───────────────────────────────────────────────────
-        Container(
-          color: _white,
-          height: 44,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            itemCount: entries.length,
-            itemBuilder: (ctx, i) {
-              final e   = entries[i];
-              final sel = i == pageIndex;
-              return GestureDetector(
-                onTap: () => onTabTap(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: sel ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(sel ? (e.activeIcon ?? e.icon) : e.icon,
-                        size: 15, color: sel ? _white : _muted),
-                    const SizedBox(width: 6),
-                    Text(e.labelKey.tr(),
-                        style: TextStyle(
-                            color: sel ? _white : _muted,
-                            fontSize: 12.5,
-                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+        // ── Top bar — frosted glass ──────────────────────────────────────
+        ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              height: 56,
+              color: surfColor.withOpacity(0.88),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(children: [
+                _HeaderBtn(onTap: onMenu, child: _HamburgerIcon(color: onSurf)),
+                Image.asset('assets/images/logo_transparent.png', width: 28, height: 28,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/logo.png', width: 28, height: 28,
+                      errorBuilder: (_, __, ___) =>
+                        Icon(Icons.school_rounded, size: 26, color: _terra),
+                    )),
+                const SizedBox(width: 7),
+                Text(AppConfig.appName,
+                    style: TextStyle(fontSize: 14, color: onSurf,
+                        fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+                const Spacer(),
+                _HeaderBtn(onTap: onSearch,
+                    child: Icon(Icons.search_rounded, size: 20, color: mutedClr)),
+                _HeaderBtn(
+                  onTap: onNotifications,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Icon(Icons.notifications_outlined, size: 20, color: mutedClr),
+                    Positioned(top: -2, right: -2,
+                      child: Container(width: 7, height: 7,
+                          decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
                   ]),
                 ),
-              );
-            },
+                GestureDetector(
+                  onTap: onAccount,
+                  child: Container(
+                    width: 32, height: 32,
+                    margin: const EdgeInsets.only(left: 2, right: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_terra, _orange],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [BoxShadow(
+                          color: _terra.withOpacity(.3),
+                          blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Center(child: Text(initials,
+                        style: const TextStyle(color: Colors.white, fontSize: 11,
+                            fontWeight: FontWeight.w800))),
+                  ),
+                ),
+              ]),
+            ),
           ),
         ),
+        // Divider under header
+        Container(height: 1, color: cs.outline.withOpacity(.15)),
 
-        Container(height: 1, color: const Color(0xFFEEE5D8)),
+        // ── Tab nav bar (optionnel) ───────────────────────────────────────
+        if (showTabBar) ...[
+          Container(
+            color: surfColor,
+            height: 44,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              itemCount: entries.length,
+              itemBuilder: (ctx, i) {
+                final e   = entries[i];
+                final sel = i == pageIndex;
+                return GestureDetector(
+                  onTap: () => onTabTap(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: sel ? _terra : Colors.transparent,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(sel ? (e.activeIcon ?? e.icon) : e.icon,
+                          size: 15, color: sel ? Colors.white : mutedClr),
+                      const SizedBox(width: 6),
+                      Text(e.labelKey.tr(),
+                          style: TextStyle(
+                              color: sel ? Colors.white : mutedClr,
+                              fontSize: 12.5,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(height: 1, color: cs.outline.withOpacity(.2)),
+        ],
       ],
     );
   }
 }
 
 class _HamburgerIcon extends StatelessWidget {
-  const _HamburgerIcon();
+  final Color color;
+  const _HamburgerIcon({required this.color});
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(width: 20, height: 2, color: _ink),
+        Container(width: 20, height: 2, color: color),
         const SizedBox(height: 4),
-        Container(width: 14, height: 2, color: _ink),
+        Container(width: 14, height: 2, color: color),
         const SizedBox(height: 4),
-        Container(width: 17, height: 2, color: _ink),
+        Container(width: 17, height: 2, color: color),
       ],
     );
   }
@@ -508,6 +556,7 @@ class _SidebarPanel extends StatefulWidget {
 
 class _SidebarPanelState extends State<_SidebarPanel> {
   String _activeKey = '';
+  bool   _accountExpanded = false;
 
   @override
   void initState() {
@@ -540,74 +589,171 @@ class _SidebarPanelState extends State<_SidebarPanel> {
       child: Opacity(
         opacity: widget.opacity.clamp(0.0, 1.0),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_menuBg1, _menuBg2],
+              colors: Theme.of(context).brightness == Brightness.dark
+                  ? [const Color(0xFF0D1117), const Color(0xFF1C2128)]
+                  : [_menuBg1, _menuBg2],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
           child: Stack(children: [
             // Subtle African pattern background
-            CustomPaint(painter: _SidebarPatternPainter(), child: const SizedBox.expand()),
+            CustomPaint(
+              painter: _SidebarPatternPainter(
+                isDark: Theme.of(context).brightness == Brightness.dark,
+              ),
+              child: const SizedBox.expand(),
+            ),
 
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top: account icon + X ──────────────────────────────
+                // ── Top: account switcher + X ─────────────────────────
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
-                    child: Row(children: [
-                      // Account circle icon
-                      GestureDetector(
-                        onTap: widget.onAccount,
-                        child: Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _white.withOpacity(.12),
-                            border: Border.all(color: _gold.withOpacity(.4), width: 1.5),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 4, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Row: avatar + info + chevron + X
+                        Row(children: [
+                          // Avatar
+                          GestureDetector(
+                            onTap: widget.onAccount,
+                            child: Container(
+                              width: 44, height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _white.withOpacity(.12),
+                                border: Border.all(color: _gold.withOpacity(.4), width: 1.5),
+                              ),
+                              child: Center(child: Text(initials,
+                                  style: const TextStyle(color: _white,
+                                      fontWeight: FontWeight.w800, fontSize: 16))),
+                            ),
                           ),
-                          child: Center(
-                            child: Text(initials,
-                                style: const TextStyle(color: _white,
-                                    fontWeight: FontWeight.w800, fontSize: 16)),
+                          const SizedBox(width: 10),
+                          // Name + role — width limité, les boutons restent proches
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 148),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(
+                                  user?.fullName ?? 'Utilisateur',
+                                  style: const TextStyle(color: _white,
+                                      fontSize: 14, fontWeight: FontWeight.w700),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  (widget.user?.role.name ?? 'user').toUpperCase(),
+                                  style: TextStyle(color: _gold.withOpacity(.8),
+                                      fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.1),
+                                ),
+                              ]),
+                            ),
                           ),
-                        ),
-                      ),
-                      const Spacer(),
-                      // X close button
-                      GestureDetector(
-                        onTap: widget.onClose,
-                        child: Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: _white.withOpacity(.10),
-                            shape: BoxShape.circle,
+                          const SizedBox(width: 6),
+                          // Chevron pour déplie comptes
+                          GestureDetector(
+                            onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                            child: AnimatedRotation(
+                              turns: _accountExpanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 220),
+                              child: Icon(Icons.expand_more_rounded,
+                                  color: _white.withOpacity(.7), size: 20),
+                            ),
                           ),
-                          child: const Icon(Icons.close_rounded, color: _white, size: 18),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
+                          const SizedBox(width: 6),
+                          // X close
+                          Material(
+                            color: _white.withOpacity(.14),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: widget.onClose,
+                              child: const SizedBox(
+                                width: 38, height: 38,
+                                child: Icon(Icons.close_rounded, color: _white, size: 19),
+                              ),
+                            ),
+                          ),
+                        ]),
 
-                // ── Role badge ─────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _gold.withOpacity(.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _gold.withOpacity(.3)),
-                    ),
-                    child: Text(
-                      (widget.user?.role.name ?? 'user').toUpperCase(),
-                      style: const TextStyle(color: _gold, fontSize: 10,
-                          fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                        // ── Compte switcher expandable ──────────────────
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          child: _accountExpanded
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: _white.withOpacity(.06),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: _white.withOpacity(.08)),
+                                    ),
+                                    child: Column(children: [
+                                      _AccountTile(
+                                        initials: 'AD',
+                                        name: 'Admin École',
+                                        role: 'admin',
+                                        isActive: false,
+                                        onTap: () {},
+                                      ),
+                                      Container(height: .5, color: _white.withOpacity(.08)),
+                                      _AccountTile(
+                                        initials: 'PR',
+                                        name: 'Prof. Martin',
+                                        role: 'teacher',
+                                        isActive: false,
+                                        onTap: () {},
+                                      ),
+                                      Container(height: .5, color: _white.withOpacity(.08)),
+                                      // Ajouter un compte
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: const BorderRadius.vertical(
+                                              bottom: Radius.circular(14)),
+                                          onTap: () {},
+                                          splashColor: _gold.withOpacity(.1),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 12),
+                                            child: Row(children: [
+                                              Container(
+                                                width: 34, height: 34,
+                                                decoration: BoxDecoration(
+                                                  color: _gold.withOpacity(.15),
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                      color: _gold.withOpacity(.3),
+                                                      style: BorderStyle.solid),
+                                                ),
+                                                child: const Icon(Icons.add_rounded,
+                                                    color: _gold, size: 18),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              const Text('Ajouter un compte',
+                                                  style: TextStyle(
+                                                      color: _gold,
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600)),
+                                            ]),
+                                          ),
+                                        ),
+                                      ),
+                                    ]),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
                 ),
@@ -625,13 +771,23 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                       for (final group in _groups) ...[
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
-                          child: Text(
-                            group.labelKey == 'nav.main' ? 'NAVIGATION' : 'PLUS',
-                            style: TextStyle(
-                                color: _gold.withOpacity(.6),
-                                fontSize: 9, fontWeight: FontWeight.w800,
-                                letterSpacing: 1.5),
-                          ),
+                          child: Row(children: [
+                            Icon(
+                              group.labelKey == 'nav.main'
+                                  ? Icons.grid_view_rounded
+                                  : Icons.more_horiz_rounded,
+                              size: 11,
+                              color: _gold.withOpacity(.55),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              group.labelKey == 'nav.main' ? 'NAVIGATION' : 'PLUS',
+                              style: TextStyle(
+                                  color: _gold.withOpacity(.6),
+                                  fontSize: 9, fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5),
+                            ),
+                          ]),
                         ),
                         for (int i = 0; i < group.entries.length; i++)
                           _SidebarItem(
@@ -678,6 +834,57 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                 ),
               ],
             ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Account tile for switcher ─────────────────────────────────────────────
+class _AccountTile extends StatelessWidget {
+  final String initials, name, role;
+  final bool isActive;
+  final VoidCallback onTap;
+  const _AccountTile({
+    required this.initials, required this.name,
+    required this.role, required this.isActive, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: _gold.withOpacity(.1),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(children: [
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive ? _gold.withOpacity(.25) : _white.withOpacity(.10),
+                border: isActive ? Border.all(color: _gold.withOpacity(.5)) : null,
+              ),
+              child: Center(child: Text(initials,
+                  style: TextStyle(
+                      color: isActive ? _gold : _white.withOpacity(.7),
+                      fontSize: 12, fontWeight: FontWeight.w800))),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: TextStyle(
+                  color: isActive ? _white : _white.withOpacity(.8),
+                  fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400)),
+              Text(role.toUpperCase(), style: TextStyle(
+                  color: _gold.withOpacity(.6), fontSize: 9,
+                  fontWeight: FontWeight.w700, letterSpacing: 1.0)),
+            ])),
+            if (isActive)
+              Container(width: 6, height: 6,
+                  decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
           ]),
         ),
       ),
@@ -802,20 +1009,44 @@ class _SidebarLogoutItem extends StatelessWidget {
 
 // ── Sidebar background pattern ────────────────────────────────────────────
 class _SidebarPatternPainter extends CustomPainter {
+  final bool isDark;
+  const _SidebarPatternPainter({this.isDark = false});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = ScolarisPalette.gold.withOpacity(.04)
+    // Dark mode: vivid pattern with gold fill + outline; light mode: subtle outline
+    final strokePaint = Paint()
+      ..color = ScolarisPalette.gold.withOpacity(isDark ? .22 : .05)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    const sp = 48.0;
+      ..strokeWidth = isDark ? 1.6 : 1.2;
+    final fillPaint = isDark
+        ? (Paint()
+          ..color = ScolarisPalette.gold.withOpacity(.07)
+          ..style = PaintingStyle.fill)
+        : null;
+
+    const sp = 44.0;
     final cols = (size.width / sp).ceil() + 1;
     final rows = (size.height / sp).ceil() + 1;
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         final cx = c * sp + (r.isEven ? sp * 0.5 : 0);
         final cy = r * sp * 0.866;
-        _diamond(canvas, Offset(cx, cy), 8, p);
+        final o = Offset(cx, cy);
+        if (fillPaint != null) _diamond(canvas, o, 9, fillPaint);
+        _diamond(canvas, o, 9, strokePaint);
+      }
+    }
+    // Extra concentric diamond ring in the centre for visual interest
+    if (isDark) {
+      final cx = size.width * 0.5;
+      final cy = size.height * 0.42;
+      final accent = Paint()
+        ..color = ScolarisPalette.gold.withOpacity(.10)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      for (final r in [28.0, 46.0, 64.0]) {
+        _diamond(canvas, Offset(cx, cy), r, accent);
       }
     }
   }
@@ -831,5 +1062,5 @@ class _SidebarPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_) => false;
+  bool shouldRepaint(_SidebarPatternPainter old) => old.isDark != isDark;
 }
