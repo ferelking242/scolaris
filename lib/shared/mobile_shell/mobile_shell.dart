@@ -82,9 +82,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _onAnim() {
     final t = _menuAnim.value;
     setState(() {
-      _scale  = 1 - 0.12 * t;
-      _xShift = 0.68 * t;
-      _yShift = 0.095 * t;
+      _scale  = 1 - 0.75 * t;   // 100% → 25% (mini-card)
+      _xShift = 0.75 * t;        // pushed to right
+      _yShift = 0.275 * t;       // pushed to bottom-right corner
       _radius = 28 * t;
     });
   }
@@ -187,7 +187,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   onAccount: _openAccount,
                   onClose: _closeMenu,
                   opacity: _menuCtrl.value,
-                  width: size.width * 0.72,
+                  width: size.width,
                   role: widget.role,
                 ),
               ),
@@ -202,26 +202,22 @@ class _MobileShellState extends ConsumerState<MobileShell>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_radius),
-                  boxShadow: [
+                  boxShadow: _menuOpen ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(_menuOpen ? 0.45 : 0.12),
-                      blurRadius: _menuOpen ? 40 : 10,
-                      offset: Offset(_menuOpen ? -6 : 0, 0),
+                      color: Colors.black.withOpacity(0.55),
+                      blurRadius: 32,
+                      spreadRadius: 2,
                     ),
-                    if (_menuOpen) ...[
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.18),
-                        blurRadius: 80,
-                        spreadRadius: -4,
-                        offset: const Offset(-2, 28),
-                      ),
-                      BoxShadow(
-                        color: _terra.withOpacity(0.12),
-                        blurRadius: 60,
-                        spreadRadius: -8,
-                        offset: const Offset(0, 40),
-                      ),
-                    ],
+                    BoxShadow(
+                      color: _terra.withOpacity(0.18),
+                      blurRadius: 20,
+                      spreadRadius: -2,
+                    ),
+                  ] : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 8,
+                    ),
                   ],
                 ),
                 child: GestureDetector(
@@ -600,7 +596,12 @@ class _SidebarPanelState extends State<_SidebarPanel> {
           ),
           child: Stack(children: [
             // Subtle African pattern background
-            CustomPaint(painter: _SidebarPatternPainter(), child: const SizedBox.expand()),
+            CustomPaint(
+              painter: _SidebarPatternPainter(
+                isDark: Theme.of(context).brightness == Brightness.dark,
+              ),
+              child: const SizedBox.expand(),
+            ),
 
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -764,13 +765,23 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                       for (final group in _groups) ...[
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
-                          child: Text(
-                            group.labelKey == 'nav.main' ? 'NAVIGATION' : 'PLUS',
-                            style: TextStyle(
-                                color: _gold.withOpacity(.6),
-                                fontSize: 9, fontWeight: FontWeight.w800,
-                                letterSpacing: 1.5),
-                          ),
+                          child: Row(children: [
+                            Icon(
+                              group.labelKey == 'nav.main'
+                                  ? Icons.grid_view_rounded
+                                  : Icons.more_horiz_rounded,
+                              size: 11,
+                              color: _gold.withOpacity(.55),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              group.labelKey == 'nav.main' ? 'NAVIGATION' : 'PLUS',
+                              style: TextStyle(
+                                  color: _gold.withOpacity(.6),
+                                  fontSize: 9, fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5),
+                            ),
+                          ]),
                         ),
                         for (int i = 0; i < group.entries.length; i++)
                           _SidebarItem(
@@ -992,20 +1003,44 @@ class _SidebarLogoutItem extends StatelessWidget {
 
 // ── Sidebar background pattern ────────────────────────────────────────────
 class _SidebarPatternPainter extends CustomPainter {
+  final bool isDark;
+  const _SidebarPatternPainter({this.isDark = false});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = ScolarisPalette.gold.withOpacity(.04)
+    // Dark mode: vivid pattern with gold fill + outline; light mode: subtle outline
+    final strokePaint = Paint()
+      ..color = ScolarisPalette.gold.withOpacity(isDark ? .22 : .05)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    const sp = 48.0;
+      ..strokeWidth = isDark ? 1.6 : 1.2;
+    final fillPaint = isDark
+        ? (Paint()
+          ..color = ScolarisPalette.gold.withOpacity(.07)
+          ..style = PaintingStyle.fill)
+        : null;
+
+    const sp = 44.0;
     final cols = (size.width / sp).ceil() + 1;
     final rows = (size.height / sp).ceil() + 1;
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         final cx = c * sp + (r.isEven ? sp * 0.5 : 0);
         final cy = r * sp * 0.866;
-        _diamond(canvas, Offset(cx, cy), 8, p);
+        final o = Offset(cx, cy);
+        if (fillPaint != null) _diamond(canvas, o, 9, fillPaint);
+        _diamond(canvas, o, 9, strokePaint);
+      }
+    }
+    // Extra concentric diamond ring in the centre for visual interest
+    if (isDark) {
+      final cx = size.width * 0.5;
+      final cy = size.height * 0.42;
+      final accent = Paint()
+        ..color = ScolarisPalette.gold.withOpacity(.10)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      for (final r in [28.0, 46.0, 64.0]) {
+        _diamond(canvas, Offset(cx, cy), r, accent);
       }
     }
   }
@@ -1021,5 +1056,5 @@ class _SidebarPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_) => false;
+  bool shouldRepaint(_SidebarPatternPainter old) => old.isDark != isDark;
 }

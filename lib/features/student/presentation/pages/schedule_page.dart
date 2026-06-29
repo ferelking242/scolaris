@@ -16,7 +16,7 @@ const _border = Color(0xFFDDCCBB);
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 
-const _joursAll = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const _joursAll = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 /// Créneau horaire (dérivé dynamiquement des cours réels de la classe).
 class _Slot {
@@ -93,15 +93,11 @@ class _ScheduleViewState extends State<_ScheduleView> {
   void initState() {
     super.initState();
     final wd = DateTime.now().weekday; // 1=Lun … 7=Dim
-    _mobileDayIdx = (wd >= 1 && wd <= 6) ? wd - 1 : 0;
+    _mobileDayIdx = (wd >= 1 && wd <= 7) ? wd - 1 : 0;
   }
 
-  /// Nombre de jours affichés : 5 (Lun-Ven) ou 6 si des cours le samedi.
-  int get _dayCount {
-    final maxDay = widget.schedules.fold<int>(
-        5, (m, s) => s.dayOfWeek > m ? s.dayOfWeek : m);
-    return maxDay.clamp(5, 6);
-  }
+  /// Toujours 7 jours (Lun → Dim). Samedi et dimanche sont toujours visibles.
+  int get _dayCount => 7;
 
   List<String> get _jours => _joursAll.take(_dayCount).toList();
 
@@ -196,7 +192,7 @@ class _ScheduleViewState extends State<_ScheduleView> {
 
 int _todayDay() {
   final wd = DateTime.now().weekday;
-  return (wd >= 1 && wd <= 6) ? wd : 0; // 1-based, 0 = week-end
+  return (wd >= 1 && wd <= 7) ? wd : 1; // 1=Lun … 7=Dim
 }
 
 SbSchedule? _at(List<SbSchedule> schedules, int day, _Slot slot) =>
@@ -295,13 +291,19 @@ class _WeekTableView extends StatelessWidget {
                         style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
                             color: _muted.withValues(alpha: .6)))))),
             ...List.generate(jours.length, (idx) {
-              final isTod = (idx + 1) == today;
+              final day = idx + 1;
+              final isTod = day == today;
+              final isWeekend = day >= 6;
+              final dayHasCourses = schedules.any((s) => s.dayOfWeek == day);
+              final isHoliday = isWeekend && !dayHasCourses;
               return Expanded(
                 child: Container(
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: isTod ? _terra.withValues(alpha: .06) : null,
+                    color: isHoliday
+                        ? cs.surfaceContainerHighest.withValues(alpha: .35)
+                        : (isTod ? _terra.withValues(alpha: .06) : null),
                     border: const Border(left: BorderSide(color: _border)),
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -312,7 +314,15 @@ class _WeekTableView extends StatelessWidget {
                       ),
                     Text(jours[idx],
                         style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800,
-                            color: isTod ? _terra : cs.onSurface)),
+                            color: isTod ? _terra
+                                : isHoliday ? cs.onSurfaceVariant
+                                : cs.onSurface)),
+                    if (isHoliday) ...[
+                      const SizedBox(height: 2),
+                      Text(day == 7 ? 'Dimanche' : 'Fermé',
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600,
+                              color: cs.outlineVariant, letterSpacing: 0.3)),
+                    ],
                   ]),
                 ),
               );
@@ -339,9 +349,13 @@ class _WeekTableView extends StatelessWidget {
               ...List.generate(jours.length, (idx) {
                 final day = idx + 1;
                 final session = _at(schedules, day, slot);
+                final dayHasCourses = schedules.any((s) => s.dayOfWeek == day);
+                final isWeekend = day >= 6;
                 return Expanded(child: _TableCell(
                   session: session,
                   isToday: day == today,
+                  isHoliday: isWeekend && !dayHasCourses,
+                  holidayLabel: day == 7 ? 'DIMANCHE' : 'SAMEDI',
                 ));
               }),
             ]),
@@ -360,7 +374,14 @@ class _WeekTableView extends StatelessWidget {
 class _TableCell extends StatelessWidget {
   final SbSchedule? session;
   final bool isToday;
-  const _TableCell({this.session, required this.isToday});
+  final bool isHoliday;
+  final String holidayLabel;
+  const _TableCell({
+    this.session,
+    required this.isToday,
+    this.isHoliday = false,
+    this.holidayLabel = '',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -368,9 +389,22 @@ class _TableCell extends StatelessWidget {
     if (session == null) {
       return Container(
         decoration: BoxDecoration(
-          color: isToday ? _terra.withValues(alpha: .025) : cs.surface,
+          color: isHoliday
+              ? cs.surfaceContainerHighest.withValues(alpha: .45)
+              : (isToday ? _terra.withValues(alpha: .025) : cs.surface),
           border: const Border(left: BorderSide(color: _border)),
         ),
+        child: isHoliday
+            ? ClipRect(
+                child: CustomPaint(
+                  painter: _DiagonalTextPainter(
+                    holidayLabel,
+                    cs.onSurface.withValues(alpha: .08),
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              )
+            : null,
       );
     }
 
@@ -446,6 +480,79 @@ class _TableCell extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Holiday diagonal painter ─────────────────────────────────────────────────
+/// Peint un grand texte en diagonale du bas-gauche vers le haut-droit.
+class _DiagonalTextPainter extends CustomPainter {
+  final String text;
+  final Color color;
+  const _DiagonalTextPainter(this.text, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          color: color,
+          letterSpacing: 4,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout(maxWidth: size.width * 1.5);
+    final angle = -atan2(size.height, size.width);
+    canvas.save();
+    canvas.translate(4, size.height - 6);
+    canvas.rotate(angle);
+    tp.paint(canvas, Offset.zero);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_DiagonalTextPainter o) => o.text != text;
+}
+
+/// Overlay plein-écran avec un texte diagonal + fond légèrement teinté.
+class _HolidayOverlay extends StatelessWidget {
+  final String label;   // ex. 'DIMANCHE', 'SAMEDI'
+  const _HolidayOverlay(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textColor = cs.onSurface.withValues(alpha: .14);
+    return Stack(children: [
+      // Fond légèrement teinté
+      Positioned.fill(
+        child: Container(color: cs.surfaceContainerHighest.withValues(alpha: .3)),
+      ),
+      // Grand texte diagonal
+      Positioned.fill(
+        child: CustomPaint(painter: _DiagonalTextPainter(label, textColor)),
+      ),
+      // Icône centrée
+      Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(
+            label == 'DIMANCHE'
+                ? Icons.self_improvement_rounded
+                : Icons.weekend_rounded,
+            size: 28, color: cs.outlineVariant,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label == 'DIMANCHE' ? 'Pas de cours' : 'Cours selon l\'établissement',
+            style: TextStyle(fontSize: 10, color: cs.outlineVariant, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+        ]),
+      ),
+    ]);
   }
 }
 
@@ -588,13 +695,15 @@ class _MobileDayView extends StatelessWidget {
       // Day sessions
       Expanded(
         child: daySessions.isEmpty
-            ? Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.event_available_rounded, size: 40, color: cs.outlineVariant),
-                  const SizedBox(height: 10),
-                  Text('Aucun cours ce jour', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-                ]),
-              )
+            ? (day >= 6
+                ? _HolidayOverlay(day == 7 ? 'DIMANCHE' : 'SAMEDI')
+                : Center(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.event_available_rounded, size: 40, color: cs.outlineVariant),
+                      const SizedBox(height: 10),
+                      Text('Aucun cours ce jour', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+                    ]),
+                  ))
             : ListView.separated(
                 padding: const EdgeInsets.all(14),
                 itemCount: daySessions.length,
