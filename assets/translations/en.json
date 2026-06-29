@@ -8,7 +8,10 @@
     "activity": "ACTIVITY",
     "account": "ACCOUNT",
     "finance": "FEES",
-    "tools": "TOOLS"
+    "tools": "TOOLS",
+    "learning": "LEARNING TOOLS",
+    "university": "UNIVERSITY",
+    "primary_tools": "SCHOOL LIFE"
   },
   "common": {
     "ok": "OK",
@@ -88,7 +91,17 @@
     "settings": "Settings",
     "school": "My School",
     "main": "Main",
-    "other": "Other"
+    "other": "Other",
+    "cahier_textes": "Course Diary",
+    "simulateur": "Grade Simulator",
+    "annales": "Past Papers & Quiz",
+    "prepa_bac": "Exam Prep",
+    "releve_ects": "ECTS Transcript",
+    "inscription_ue": "Course Enrollment",
+    "carte_etudiante": "Student Card",
+    "cahier_liaison": "Home-School Diary",
+    "menu_cantine": "Cafeteria Menu",
+    "recompenses": "My Rewards"
   },
   "dashboard": {
     "hello": "Hello, {name}",

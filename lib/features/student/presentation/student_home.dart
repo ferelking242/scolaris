@@ -16,14 +16,21 @@ import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
+import 'pages/annales_quiz_page.dart';
 import 'pages/attendance_page.dart';
 import 'pages/bulletin_page.dart';
+import 'pages/cahier_textes_page.dart';
+import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/homework_student_page.dart';
+import 'pages/inscription_ue_page.dart';
 import 'pages/library/library_page.dart';
 import 'pages/notifications_page.dart';
+import 'pages/prepa_bac_page.dart';
+import 'pages/releve_ects_page.dart';
 import 'pages/schedule_page.dart';
+import 'pages/simulateur_moyenne_page.dart';
 import 'pages/student_documents_page.dart';
 import 'pages/student_payments_page.dart';
 
@@ -60,8 +67,15 @@ class StudentHome extends ConsumerWidget {
   }) {
     final hasBulletin =
         level == SchoolLevel.college || level == SchoolLevel.lycee;
+    final isCollege = level == SchoolLevel.college;
+    final isLycee   = level == SchoolLevel.lycee;
+    final isUniv    = level == SchoolLevel.universite ||
+                      level == SchoolLevel.master ||
+                      level == SchoolLevel.doctorat;
+    final isCollegeOrLycee = isCollege || isLycee;
 
     return [
+      // ── Accueil ───────────────────────────────────────────────────────────
       const RoleNavGroup(labelKey: 'sections.setup', entries: [
         RoleNavEntry(
           icon: Icons.home_rounded,
@@ -77,6 +91,7 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
+      // ── Scolarité ─────────────────────────────────────────────────────────
       RoleNavGroup(labelKey: 'sections.activity', entries: [
         const RoleNavEntry(
           icon: Icons.grading_outlined,
@@ -122,6 +137,60 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
+      // ── Outils pédagogiques (collège + lycée) ─────────────────────────────
+      if (isCollegeOrLycee)
+        RoleNavGroup(labelKey: 'sections.learning', entries: [
+          const RoleNavEntry(
+            icon: Icons.book_outlined,
+            activeIcon: Icons.book_rounded,
+            labelKey: 'nav.cahier_textes',
+            page: CahierTextesPage(),
+          ),
+          const RoleNavEntry(
+            icon: Icons.calculate_outlined,
+            activeIcon: Icons.calculate_rounded,
+            labelKey: 'nav.simulateur',
+            page: SimulateurMoyennePage(),
+          ),
+          const RoleNavEntry(
+            icon: Icons.quiz_outlined,
+            activeIcon: Icons.quiz_rounded,
+            labelKey: 'nav.annales',
+            page: AnnalesQuizPage(),
+          ),
+          if (isLycee)
+            const RoleNavEntry(
+              icon: Icons.school_outlined,
+              activeIcon: Icons.school_rounded,
+              labelKey: 'nav.prepa_bac',
+              page: PrepaBacPage(),
+            ),
+        ]),
+
+      // ── Université ────────────────────────────────────────────────────────
+      if (isUniv)
+        const RoleNavGroup(labelKey: 'sections.university', entries: [
+          RoleNavEntry(
+            icon: Icons.workspace_premium_outlined,
+            activeIcon: Icons.workspace_premium_rounded,
+            labelKey: 'nav.releve_ects',
+            page: ReleveEctsPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.app_registration_outlined,
+            activeIcon: Icons.app_registration_rounded,
+            labelKey: 'nav.inscription_ue',
+            page: InscriptionUEPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.credit_card_outlined,
+            activeIcon: Icons.credit_card_rounded,
+            labelKey: 'nav.carte_etudiante',
+            page: CarteEtudiantePage(),
+          ),
+        ]),
+
+      // ── Finance & Documents ───────────────────────────────────────────────
       const RoleNavGroup(labelKey: 'sections.finance', entries: [
         RoleNavEntry(
           icon: Icons.account_balance_wallet_outlined,
@@ -137,6 +206,7 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
+      // ── Compte ────────────────────────────────────────────────────────────
       const RoleNavGroup(labelKey: 'sections.account', entries: [
         RoleNavEntry(
           icon: Icons.notifications_outlined,

@@ -8,7 +8,10 @@
     "activity": "ACTIVITÉ",
     "account": "COMPTE",
     "finance": "SCOLARITÉ",
-    "tools": "OUTILS"
+    "tools": "OUTILS",
+    "learning": "OUTILS PÉDAGOGIQUES",
+    "university": "UNIVERSITÉ",
+    "primary_tools": "VIE SCOLAIRE"
   },
   "common": {
     "ok": "OK",
@@ -88,7 +91,17 @@
     "settings": "Paramètres",
     "school": "Mon École",
     "main": "Principal",
-    "other": "Autre"
+    "other": "Autre",
+    "cahier_textes": "Cahier de textes",
+    "simulateur": "Simulateur de moyenne",
+    "annales": "Annales & Quiz",
+    "prepa_bac": "Prépa-Bac",
+    "releve_ects": "Relevé ECTS",
+    "inscription_ue": "Inscription aux UE",
+    "carte_etudiante": "Carte étudiante",
+    "cahier_liaison": "Cahier de liaison",
+    "menu_cantine": "Menu Cantine",
+    "recompenses": "Mes récompenses"
   },
   "dashboard": {
     "hello": "Bonjour, {name}",

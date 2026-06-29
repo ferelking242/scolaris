@@ -8,7 +8,10 @@
     "activity": "SHUGHULI",
     "account": "AKAUNTI",
     "finance": "ADA",
-    "tools": "ZANA"
+    "tools": "ZANA",
+    "learning": "ZANA ZA KUJIFUNZA",
+    "university": "CHUO KIKUU",
+    "primary_tools": "MAISHA YA SHULE"
   },
   "common": {
     "ok": "Sawa",
@@ -88,7 +91,17 @@
     "settings": "Mipangilio",
     "school": "Shule Yangu",
     "main": "Kuu",
-    "other": "Nyingine"
+    "other": "Nyingine",
+    "cahier_textes": "Daftari ya Masomo",
+    "simulateur": "Kikokotoo cha Alama",
+    "annales": "Maswali ya Zamani",
+    "prepa_bac": "Maandalizi ya Mtihani",
+    "releve_ects": "Matokeo ya ECTS",
+    "inscription_ue": "Usajili wa Kozi",
+    "carte_etudiante": "Kadi ya Mwanafunzi",
+    "cahier_liaison": "Daftari la Mawasiliano",
+    "menu_cantine": "Menyu ya Mkahawa",
+    "recompenses": "Tuzo Zangu"
   },
   "dashboard": {
     "hello": "Habari, {name}",

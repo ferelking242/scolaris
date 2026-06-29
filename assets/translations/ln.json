@@ -8,7 +8,10 @@
     "activity": "MOSALA",
     "account": "KONTI",
     "finance": "MBONGO",
-    "tools": "BISALELI"
+    "tools": "BISALELI",
+    "learning": "BISALELI BYA KOTEYA",
+    "university": "UNIVERSITÉ",
+    "primary_tools": "BOMOI YA SUKULU"
   },
   "common": {
     "ok": "Malamu",
@@ -88,7 +91,17 @@
     "settings": "Bilanga",
     "school": "Sukulu na Ngai",
     "main": "Ya liboso",
-    "other": "Mosusu"
+    "other": "Mosusu",
+    "cahier_textes": "Livɛ ya Masɔlɔ",
+    "simulateur": "Simulator ya Manota",
+    "annales": "Mituna ya Kala",
+    "prepa_bac": "Kolɔngɔ ya Examɛn",
+    "releve_ects": "Matokɛ ya ECTS",
+    "inscription_ue": "Kotama na Kozi",
+    "carte_etudiante": "Karti ya Etudiant",
+    "cahier_liaison": "Livɛ ya Boyokani",
+    "menu_cantine": "Bilei ya Cantinɛ",
+    "recompenses": "Bilakisi na Ngai"
   },
   "dashboard": {
     "hello": "Mbote, {name}",
