@@ -113,8 +113,11 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
         ref.read(navIntentProvider.notifier).state = null;
       }
     });
+    final _isDark = Theme.of(context).brightness == Brightness.dark;
+    final _side1  = _isDark ? const Color(0xFF0D1117) : _sh1;
+    final _side2  = _isDark ? const Color(0xFF1C2128) : _sh2;
     return Scaffold(
-      backgroundColor: _sh1,
+      backgroundColor: _side1,
       body: SafeArea(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,9 +130,9 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               child: Stack(children: [
                 Positioned.fill(
                   child: Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_sh1, _sh2],
+                        colors: [_side1, _side2],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -413,14 +416,19 @@ class _HeaderState extends ConsumerState<_Header> {
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_sh1, _sh2],
+        gradient: LinearGradient(
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF0D1117), const Color(0xFF1C2128)]
+              : [_sh1, _sh2],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: _sh1.withOpacity(.4),
+            color: (Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF0D1117)
+                    : _sh1)
+                .withOpacity(.4),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),

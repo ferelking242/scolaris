@@ -202,25 +202,27 @@ class _MobileShellState extends ConsumerState<MobileShell>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_radius),
-                  boxShadow: _menuOpen ? [
+                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.38),
-                      blurRadius: 40,
-                      offset: const Offset(-6, 0),
+                      color: Colors.black.withOpacity(_menuOpen ? 0.45 : 0.12),
+                      blurRadius: _menuOpen ? 40 : 10,
+                      offset: Offset(_menuOpen ? -6 : 0, 0),
                     ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.18),
-                      blurRadius: 80,
-                      spreadRadius: -4,
-                      offset: const Offset(-2, 28),
-                    ),
-                    BoxShadow(
-                      color: _terra.withOpacity(0.08),
-                      blurRadius: 60,
-                      spreadRadius: -8,
-                      offset: const Offset(0, 40),
-                    ),
-                  ] : [],
+                    if (_menuOpen) ...[
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 80,
+                        spreadRadius: -4,
+                        offset: const Offset(-2, 28),
+                      ),
+                      BoxShadow(
+                        color: _terra.withOpacity(0.12),
+                        blurRadius: 60,
+                        spreadRadius: -8,
+                        offset: const Offset(0, 40),
+                      ),
+                    ],
+                  ],
                 ),
                 child: GestureDetector(
                   onTap: _menuOpen ? _closeMenu : null,
@@ -587,9 +589,11 @@ class _SidebarPanelState extends State<_SidebarPanel> {
       child: Opacity(
         opacity: widget.opacity.clamp(0.0, 1.0),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_menuBg1, _menuBg2],
+              colors: Theme.of(context).brightness == Brightness.dark
+                  ? [const Color(0xFF0D1117), const Color(0xFF1C2128)]
+                  : [_menuBg1, _menuBg2],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
