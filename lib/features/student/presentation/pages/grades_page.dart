@@ -247,46 +247,18 @@ class _TypeBadge extends StatelessWidget {
 class _MockGradesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DataPanel(
+    return _GradeTable(
       title: 'Toutes les notes — EMI',
-      child: DataTablePanel(
-        columns: const ['Matière', 'Type', 'Pér.', 'Note', '/Max'],
-        flex: const [3, 2, 1, 2, 1],
-        rows: [
-          for (final g in _mockEmiGrades)
-            [
-              Text(g.sub, style: TextStyle(
-                  color: cs.onSurface, fontSize: 12.5, fontWeight: FontWeight.w600)),
-              _TypeBadge(g.type),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: g.period == 'T2'
-                      ? const Color(0xFF0891B2).withValues(alpha: .10)
-                      : const Color(0xFFC17F24).withValues(alpha: .10),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(g.period, style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700,
-                    color: g.period == 'T2'
-                        ? const Color(0xFF0891B2)
-                        : const Color(0xFFC17F24))),
-              ),
-              Text(
-                g.score.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w900,
-                  color: g.score / g.max >= 0.7 ? _green
-                      : g.score / g.max >= 0.5 ? _gold
-                      : _terra,
-                ),
-              ),
-              Text(g.max.toStringAsFixed(0),
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-            ],
-        ],
-      ),
+      items: [
+        for (final g in _mockEmiGrades)
+          _GradeItem(
+            subject: g.sub,
+            type: g.type,
+            period: g.period,
+            score: g.score,
+            max: g.max,
+          ),
+      ],
     );
   }
 }
@@ -298,38 +270,139 @@ class _GradesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DataPanel(
+    return _GradeTable(
       title: 'Toutes les notes',
-      child: DataTablePanel(
-        columns: const ['Matière', 'Type', 'Pér.', 'Note', '/Max'],
-        flex: const [3, 2, 1, 2, 1],
-        rows: [
-          for (final g in grades)
-            [
-              Text(g.subjectName ?? g.title ?? '—',
-                  style: TextStyle(
-                      color: cs.onSurface, fontSize: 12.5, fontWeight: FontWeight.w600)),
-              _TypeBadge(g.type),
-              Text(g.period ?? '—',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-              Text(
-                g.score.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: g.outOf20 >= 14
-                      ? _green
-                      : g.outOf20 >= 10
-                          ? _gold
-                          : _terra,
-                ),
-              ),
-              Text(g.maxScore.toStringAsFixed(0),
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-            ],
-        ],
+      items: [
+        for (final g in grades)
+          _GradeItem(
+            subject: g.subjectName ?? g.title ?? '—',
+            type: g.type,
+            period: g.period ?? '—',
+            score: g.score,
+            max: g.maxScore,
+          ),
+      ],
+    );
+  }
+}
+
+// ── Data record ───────────────────────────────────────────────────────────────
+class _GradeItem {
+  final String subject;
+  final String? type;
+  final String period;
+  final double score;
+  final double max;
+  const _GradeItem({
+    required this.subject,
+    required this.type,
+    required this.period,
+    required this.score,
+    required this.max,
+  });
+}
+
+// ── Rendu flat — directement posé sur le fond ─────────────────────────────────
+class _GradeTable extends StatelessWidget {
+  final String title;
+  final List<_GradeItem> items;
+  const _GradeTable({required this.title, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Section header — barre rouge + titre
+      Row(children: [
+        Container(
+          width: 3, height: 16,
+          decoration: BoxDecoration(color: _terra, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 8),
+        Text(title,
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w800,
+                color: cs.onSurface, letterSpacing: 0.2)),
+      ]),
+      const SizedBox(height: 12),
+
+      // Colonne header
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Row(children: [
+          Expanded(flex: 3, child: _hdr('Matière', cs)),
+          Expanded(flex: 2, child: _hdr('Type', cs)),
+          SizedBox(width: 36, child: _hdr('Pér.', cs)),
+          SizedBox(width: 48, child: _hdr('Note', cs, right: true)),
+          SizedBox(width: 28, child: _hdr('/Max', cs, right: true)),
+        ]),
       ),
+      Divider(height: 1, color: cs.outlineVariant),
+
+      // Lignes
+      for (int i = 0; i < items.length; i++) ...[
+        _GradeRow(item: items[i], even: i.isEven),
+        if (i < items.length - 1)
+          Divider(height: 1, thickness: 0.5, color: cs.outlineVariant.withValues(alpha: .5)),
+      ],
+    ]);
+  }
+
+  static Widget _hdr(String t, ColorScheme cs, {bool right = false}) => Text(
+    t.toUpperCase(),
+    textAlign: right ? TextAlign.right : TextAlign.left,
+    style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant,
+        fontWeight: FontWeight.w700, letterSpacing: 0.8),
+  );
+}
+
+class _GradeRow extends StatelessWidget {
+  final _GradeItem item;
+  final bool even;
+  const _GradeRow({required this.item, required this.even});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs    = Theme.of(context).colorScheme;
+    final ratio = item.max > 0 ? item.score / item.max : 0.0;
+    final scoreColor = ratio >= 0.70 ? _green : ratio >= 0.50 ? _gold : _terra;
+
+    return Container(
+      color: even ? Colors.transparent : cs.surfaceContainerLow.withValues(alpha: .4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(
+          flex: 3,
+          child: Text(item.subject,
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                  color: cs.onSurface, height: 1.3)),
+        ),
+        Expanded(
+          flex: 2,
+          child: _TypeBadge(item.type),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text(item.period,
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600)),
+        ),
+        SizedBox(
+          width: 48,
+          child: Text(item.score.toStringAsFixed(1),
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900,
+                  color: scoreColor)),
+        ),
+        SizedBox(
+          width: 28,
+          child: Text('/${item.max.toStringAsFixed(0)}',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+        ),
+      ]),
     );
   }
 }

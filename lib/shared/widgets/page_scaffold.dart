@@ -252,13 +252,12 @@ class DataPanel extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cardBg,
+        color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border),
-        boxShadow: const [BoxShadow(
-          color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
         padding: padding,
@@ -279,8 +278,8 @@ class DataPanel extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(title!,
-                        style: const TextStyle(
-                            fontSize: 13, color: ink,
+                        style: TextStyle(
+                            fontSize: 13, color: cs.onSurface,
                             fontWeight: FontWeight.w800, letterSpacing: 0.2)),
                     const Spacer(),
                     ...headerActions,
@@ -381,6 +380,9 @@ class ActionButton extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fgColor = primary ? Colors.white : cs.onSurface;
+    final bgColor = primary ? _terra : cs.surfaceContainerHigh;
     return GestureDetector(
       onTap: onTap,
       child: MouseRegion(
@@ -389,21 +391,20 @@ class ActionButton extends StatelessWidget {
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: primary ? _terra : cardBg,
+            color: bgColor,
             borderRadius: BorderRadius.circular(9),
-            border: primary ? null : Border.all(color: border),
+            border: primary ? null : Border.all(color: cs.outlineVariant),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 13,
-                    color: primary ? Colors.white : ink),
+                Icon(icon, size: 13, color: fgColor),
                 const SizedBox(width: 6),
               ],
               Text(label,
                   style: TextStyle(
-                      color: primary ? Colors.white : ink,
+                      color: fgColor,
                       fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
@@ -467,35 +468,44 @@ class DataTablePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
-      ),
-      clipBehavior: Clip.antiAlias,
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerBg = isDark
+        ? cs.surfaceContainerHighest
+        : cs.surfaceContainerLow;
+    final rowEvenBg  = cs.surfaceContainer;
+    final rowOddBg   = isDark
+        ? cs.surfaceContainerLow
+        : cs.surfaceContainerLowest;
+    final divider    = cs.outlineVariant;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            color: subtleBg,
+            color: headerBg,
             child: Row(children: [
               for (var i = 0; i < columns.length; i++)
                 Expanded(
                   flex: _flex(i),
                   child: Text(columns[i].toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 10.5, color: muted,
+                      style: TextStyle(
+                          fontSize: 10.5, color: cs.onSurfaceVariant,
                           fontWeight: FontWeight.w700, letterSpacing: 0.8)),
                 ),
             ]),
           ),
+          // Rows
           for (var r = 0; r < rows.length; r++)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                border: const Border(top: BorderSide(color: border)),
-                color: r.isEven ? cardBg : const Color(0xFFFAF7F3),
+                border: Border(top: BorderSide(color: divider, width: 0.6)),
+                color: r.isEven ? rowEvenBg : rowOddBg,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
