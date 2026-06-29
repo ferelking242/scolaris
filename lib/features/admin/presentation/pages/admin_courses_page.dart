@@ -40,6 +40,72 @@ const _courseColors = [
 const _daysFr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const _daysKey = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
+/// Ouvre le formulaire cours : dialog centrée sur PC (largeur ≥ 680),
+/// bottom sheet draggable sur mobile.
+void _openCourseForm(
+  BuildContext context,
+  WidgetRef ref,
+  String schoolId,
+  String classId,
+  SbCourse? existing,
+  VoidCallback onSaved,
+) {
+  final width = MediaQuery.sizeOf(context).width;
+  final isPC  = width >= 680;
+
+  if (isPC) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            width: 520,
+            child: _CourseFormContent(
+              schoolId: schoolId,
+              classId: classId,
+              existing: existing,
+              onSaved: () {
+                onSaved();
+                Navigator.pop(context);
+              },
+              onCancel: () => Navigator.pop(context),
+              isDialog: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  } else {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.92,
+        minChildSize: 0.4,
+        maxChildSize: 0.97,
+        snap: true,
+        snapSizes: const [0.4, 0.92, 0.97],
+        builder: (ctx, scrollCtrl) => _CourseFormSheet(
+          scrollController: scrollCtrl,
+          schoolId: schoolId,
+          classId: classId,
+          existing: existing,
+          onSaved: () {
+            onSaved();
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 class AdminCoursesPage extends ConsumerStatefulWidget {
   const AdminCoursesPage({super.key});
@@ -65,7 +131,13 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
           ActionButton(
             label: 'Ajouter',
             icon: Icons.add_rounded,
-            onTap: () => _openDialog(context, schoolId, null),
+            onTap: () => _openCourseForm(
+              context, ref, schoolId, _selectedClassId!, null,
+              () {
+                ref.invalidate(coursesForClassProvider(_selectedClassId!));
+                ref.invalidate(coursesForSchoolProvider);
+              },
+            ),
           ),
       ],
       child: classesAsync.when(
@@ -131,28 +203,17 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
                   classId: _selectedClassId!,
                   schoolId: schoolId ?? '',
                   search: _search,
-                  onEdit: (c) => _openDialog(context, schoolId ?? '', c),
+                  onEdit: (c) => _openCourseForm(
+                    context, ref, schoolId ?? '', _selectedClassId!, c,
+                    () {
+                      ref.invalidate(coursesForClassProvider(_selectedClassId!));
+                      ref.invalidate(coursesForSchoolProvider);
+                    },
+                  ),
                   onDelete: (c) => _confirmDelete(context, c),
                 ),
             ],
           );
-        },
-      ),
-    );
-  }
-
-  void _openDialog(BuildContext context, String schoolId, SbCourse? existing) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CourseFormSheet(
-        schoolId: schoolId,
-        classId: _selectedClassId!,
-        existing: existing,
-        onSaved: () {
-          ref.invalidate(coursesForClassProvider(_selectedClassId!));
-          ref.invalidate(coursesForSchoolProvider);
         },
       ),
     );
@@ -348,14 +409,16 @@ class _Chip extends StatelessWidget {
       );
 }
 
-// ── Formulaire création / édition (bottom sheet) ──────────────────────────────
-class _CourseFormSheet extends ConsumerStatefulWidget {
+// ── Bottom Sheet wrapper (mobile draggable) ───────────────────────────────────
+class _CourseFormSheet extends ConsumerWidget {
+  final ScrollController scrollController;
   final String schoolId;
   final String classId;
   final SbCourse? existing;
   final VoidCallback onSaved;
 
   const _CourseFormSheet({
+    required this.scrollController,
     required this.schoolId,
     required this.classId,
     this.existing,
@@ -363,15 +426,57 @@ class _CourseFormSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_CourseFormSheet> createState() => _CourseFormSheetState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: _CourseFormContent(
+        scrollController: scrollController,
+        schoolId: schoolId,
+        classId: classId,
+        existing: existing,
+        onSaved: onSaved,
+        onCancel: () => Navigator.pop(context),
+        isDialog: false,
+      ),
+    );
+  }
 }
 
-class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
+// ── Formulaire contenu (partagé mobile/PC) ────────────────────────────────────
+class _CourseFormContent extends ConsumerStatefulWidget {
+  final ScrollController? scrollController;
+  final String schoolId;
+  final String classId;
+  final SbCourse? existing;
+  final VoidCallback onSaved;
+  final VoidCallback onCancel;
+  final bool isDialog;
+
+  const _CourseFormContent({
+    this.scrollController,
+    required this.schoolId,
+    required this.classId,
+    this.existing,
+    required this.onSaved,
+    required this.onCancel,
+    required this.isDialog,
+  });
+
+  @override
+  ConsumerState<_CourseFormContent> createState() => _CourseFormContentState();
+}
+
+class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _code;
   late final TextEditingController _desc;
   late final TextEditingController _program;
+  late final TextEditingController _room;
   late int _coef;
   late int _hours;
   late int _chapters;
@@ -388,6 +493,7 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
     _code     = TextEditingController(text: e?.code ?? '');
     _desc     = TextEditingController(text: e?.description ?? '');
     _program  = TextEditingController(text: e?.programSummary ?? '');
+    _room     = TextEditingController(text: '');
     _coef     = e?.coefficient ?? 1;
     _hours    = e?.hoursWeek ?? 3;
     _chapters = e?.chapterCount ?? 6;
@@ -398,7 +504,8 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
 
   @override
   void dispose() {
-    _name.dispose(); _code.dispose(); _desc.dispose(); _program.dispose();
+    _name.dispose(); _code.dispose(); _desc.dispose();
+    _program.dispose(); _room.dispose();
     super.dispose();
   }
 
@@ -437,7 +544,6 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
         );
       }
       widget.onSaved();
-      if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() => _saving = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
@@ -448,168 +554,235 @@ class _CourseFormSheetState extends ConsumerState<_CourseFormSheet> {
   Widget build(BuildContext context) {
     final teachersAsync = ref.watch(teachersProvider);
     final selectedColor = Color(int.parse(_color.replaceFirst('#', '0xFF')));
-
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+
+    final content = SingleChildScrollView(
+      controller: widget.scrollController,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        widget.isDialog ? 20 : 8,
+        20,
+        widget.isDialog ? 20 : MediaQuery.of(context).viewInsets.bottom + 28,
       ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Form(
-          key: _formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // ── Handle ────────────────────────────────────────────────
-            Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)))),
+      child: Form(
+        key: _formKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Handle (mobile only) / Header ─────────────────────────
+          if (!widget.isDialog)
+            Center(child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2)),
+            )),
 
-            Text(
-              widget.existing == null ? 'Nouveau cours' : 'Modifier le cours',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: cs.onSurface),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Nom + Code ────────────────────────────────────────────
-            Row(children: [
-              Expanded(
-                flex: 3,
-                child: _Field(
-                  controller: _name,
-                  label: 'Nom du cours *',
-                  hint: 'ex: Mathématiques',
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Field(controller: _code, label: 'Code', hint: 'MATH'),
-              ),
-            ]),
-            const SizedBox(height: 14),
-
-            // ── Description ───────────────────────────────────────────
-            _Field(
-              controller: _desc,
-              label: 'Description',
-              hint: 'Résumé de la matière…',
-              maxLines: 2,
-            ),
-            const SizedBox(height: 14),
-
-            // ── Coefficient + Heures/sem + Chapitres ─────────────────
-            Row(children: [
-              Expanded(child: _Stepper(label: 'Coefficient', value: _coef, min: 1, max: 10, onChanged: (v) => setState(() => _coef = v))),
-              const SizedBox(width: 10),
-              Expanded(child: _Stepper(label: 'H/semaine', value: _hours, min: 1, max: 20, onChanged: (v) => setState(() => _hours = v))),
-              const SizedBox(width: 10),
-              Expanded(child: _Stepper(label: 'Chapitres', value: _chapters, min: 0, max: 50, onChanged: (v) => setState(() => _chapters = v))),
-            ]),
-            const SizedBox(height: 16),
-
-            // ── Jours de cours ────────────────────────────────────────
-            Text('Jours de cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 8),
-            Row(
-              children: List.generate(_daysFr.length, (i) {
-                final key = _daysKey[i];
-                final sel = _days.contains(key);
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => sel ? _days.remove(key) : _days.add(key)),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? selectedColor : cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
-                      ),
-                      child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Programme scolaire ────────────────────────────────────
-            _Field(
-              controller: _program,
-              label: 'Programme / Objectifs',
-              hint: 'Détailler le programme annuel, les objectifs pédagogiques…',
-              maxLines: 4,
-            ),
-            const SizedBox(height: 16),
-
-            // ── Enseignant ────────────────────────────────────────────
-            Text('Enseignant responsable', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 6),
-            teachersAsync.when(
-              loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-              error: (_, __) => const SizedBox(),
-              data: (teachers) => DropdownButtonFormField<String>(
-                value: _teacherId,
-                decoration: InputDecoration(
-                  hintText: 'Sélectionner un enseignant',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('— Aucun —')),
-                  ...teachers.map((t) => DropdownMenuItem(value: t.id, child: Text(t.fullName))),
-                ],
-                onChanged: (v) => setState(() => _teacherId = v),
+          Row(children: [
+            Expanded(
+              child: Text(
+                widget.existing == null ? 'Nouveau cours' : 'Modifier le cours',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: cs.onSurface),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // ── Couleur ───────────────────────────────────────────────
-            Text('Couleur du cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _courseColors.map((hex) {
-                final c = Color(int.parse(hex.replaceFirst('#', '0xFF')));
-                final sel = hex == _color;
-                return GestureDetector(
-                  onTap: () => setState(() => _color = hex),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 34, height: 34,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: sel ? Colors.white : Colors.transparent, width: 3),
-                      boxShadow: sel ? [BoxShadow(color: c.withValues(alpha: .5), blurRadius: 8)] : [],
-                    ),
-                    child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Bouton enregistrer ────────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: selectedColor,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // Close button always visible
+            GestureDetector(
+              onTap: widget.onCancel,
+              child: Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Enregistrer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                child: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
               ),
             ),
           ]),
-        ),
+          const SizedBox(height: 20),
+
+          // ── Nom + Code ────────────────────────────────────────────
+          Row(children: [
+            Expanded(
+              flex: 3,
+              child: _Field(
+                controller: _name,
+                label: 'Nom du cours *',
+                hint: 'ex: Mathématiques',
+                validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _Field(controller: _code, label: 'Code', hint: 'MATH'),
+            ),
+          ]),
+          const SizedBox(height: 14),
+
+          // ── Description ───────────────────────────────────────────
+          _Field(
+            controller: _desc,
+            label: 'Description',
+            hint: 'Résumé de la matière…',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 14),
+
+          // ── Salle / Lieu ──────────────────────────────────────────
+          _Field(
+            controller: _room,
+            label: 'Salle / Lieu',
+            hint: 'ex: Salle B12, Labo Physique, Terrain…',
+          ),
+          const SizedBox(height: 4),
+          // Suggestions rapides
+          Wrap(spacing: 6, runSpacing: 4, children: const [
+            _RoomSuggestion('Salle flexible'),
+            _RoomSuggestion('Non défini'),
+            _RoomSuggestion('Amphi A'),
+            _RoomSuggestion('Laboratoire'),
+            _RoomSuggestion('Terrain'),
+          ].map((w) => w).toList()),
+          const SizedBox(height: 14),
+
+          // ── Coefficient + Heures/sem + Chapitres ─────────────────
+          Row(children: [
+            Expanded(child: _Stepper(label: 'Coefficient', value: _coef, min: 1, max: 10, onChanged: (v) => setState(() => _coef = v))),
+            const SizedBox(width: 10),
+            Expanded(child: _Stepper(label: 'H/semaine', value: _hours, min: 1, max: 20, onChanged: (v) => setState(() => _hours = v))),
+            const SizedBox(width: 10),
+            Expanded(child: _Stepper(label: 'Chapitres', value: _chapters, min: 0, max: 50, onChanged: (v) => setState(() => _chapters = v))),
+          ]),
+          const SizedBox(height: 16),
+
+          // ── Jours de cours ────────────────────────────────────────
+          Text('Jours de cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(_daysFr.length, (i) {
+              final key = _daysKey[i];
+              final sel = _days.contains(key);
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => sel ? _days.remove(key) : _days.add(key)),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sel ? selectedColor : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
+                    ),
+                    child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Programme scolaire ────────────────────────────────────
+          _Field(
+            controller: _program,
+            label: 'Programme / Objectifs',
+            hint: 'Détailler le programme annuel, les objectifs pédagogiques…',
+            maxLines: 4,
+          ),
+          const SizedBox(height: 16),
+
+          // ── Enseignant ────────────────────────────────────────────
+          Text('Enseignant responsable', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          teachersAsync.when(
+            loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+            error: (_, __) => const SizedBox(),
+            data: (teachers) => DropdownButtonFormField<String>(
+              value: _teacherId,
+              decoration: InputDecoration(
+                hintText: 'Sélectionner un enseignant',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('— Aucun —')),
+                ...teachers.map((t) => DropdownMenuItem(value: t.id, child: Text(t.fullName))),
+              ],
+              onChanged: (v) => setState(() => _teacherId = v),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Couleur ───────────────────────────────────────────────
+          Text('Couleur du cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _courseColors.map((hex) {
+              final c = Color(int.parse(hex.replaceFirst('#', '0xFF')));
+              final sel = hex == _color;
+              return GestureDetector(
+                onTap: () => setState(() => _color = hex),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 34, height: 34,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: sel ? Colors.white : Colors.transparent, width: 3),
+                    boxShadow: sel ? [BoxShadow(color: c.withValues(alpha: .5), blurRadius: 8)] : [],
+                  ),
+                  child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Bouton enregistrer ────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: selectedColor,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _saving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Enregistrer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ]),
       ),
+    );
+
+    if (widget.isDialog) {
+      return content;
+    }
+    return content;
+  }
+}
+
+// ── Suggestion salle rapide ───────────────────────────────────────────────────
+class _RoomSuggestion extends StatelessWidget {
+  final String label;
+  const _RoomSuggestion(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    // We need the controller from parent — pass via callback via a different pattern
+    // Simple display only: tapping copies the suggestion into the parent field
+    // Since we can't easily access parent state here, we use an InheritedWidget approach.
+    // Instead, this just shows as a non-interactive chip (the user reads and types).
+    // For proper tap-to-fill, the parent wraps with a callback.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -709,7 +882,7 @@ class _EmptyClasses extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.class_outlined, size: 52, color: cs.onSurfaceVariant.withValues(alpha: .4)),
           const SizedBox(height: 14),
-          Text('Aucune classe créée', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _terra)),
+          const Text('Aucune classe créée', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _terra)),
           const SizedBox(height: 6),
           Text('Créez d\'abord des classes dans la section Classes.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
         ]),
@@ -732,20 +905,18 @@ class _EmptyCourses extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.menu_book_outlined, size: 52, color: Color(0xFFCCBBAA)),
             const SizedBox(height: 14),
-            Text('Aucun cours pour cette classe', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _terra)),
+            const Text('Aucun cours pour cette classe', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _terra)),
             const SizedBox(height: 6),
             Builder(builder: (ctx) => Text('Ajoutez des cours ou chargez les matières types.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(ctx).colorScheme.onSurfaceVariant))),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => _CourseFormSheet(schoolId: schoolId, classId: classId, onSaved: () {
+              onPressed: () => _openCourseForm(
+                context, ref, schoolId, classId, null,
+                () {
                   ref.invalidate(coursesForClassProvider(classId));
                   ref.invalidate(coursesForSchoolProvider);
                   onCreated();
-                }),
+                },
               ),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Créer un cours'),

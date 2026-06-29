@@ -174,13 +174,13 @@ class _StatsRow extends StatelessWidget {
     final totalCoef = courses.fold<int>(0, (s, c) => s + c.coefficient);
     final totalChap = courses.fold<int>(0, (s, c) => s + (c.chapterCount ?? 0));
     return Row(children: [
-      _StatCard('${courses.length}', 'Matières',   _terra),
+      _StatCard('${courses.length}', 'Matières',   _terra,                    Icons.menu_book_rounded),
       const SizedBox(width: 8),
-      _StatCard('${totalH}h',        'Par sem.',   _gold),
+      _StatCard('${totalH}h',        'Par sem.',   _gold,                     Icons.access_time_rounded),
       const SizedBox(width: 8),
-      _StatCard('$totalCoef',        'Coef. tot.', _green),
+      _StatCard('$totalCoef',        'Coef. tot.', _green,                    Icons.grade_rounded),
       const SizedBox(width: 8),
-      _StatCard('$totalChap',        'Chapitres',  const Color(0xFF0D47A1)),
+      _StatCard('$totalChap',        'Chapitres',  const Color(0xFF0D47A1),   Icons.list_alt_rounded),
     ]);
   }
 }
@@ -188,22 +188,36 @@ class _StatsRow extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String value, label;
   final Color color;
-  const _StatCard(this.value, this.label, this.color);
+  final IconData icon;
+  const _StatCard(this.value, this.label, this.color, this.icon);
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .10),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: .25)),
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: .28)),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: .07), blurRadius: 8, offset: const Offset(0, 2))],
         ),
-        child: Column(children: [
-          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 9.5, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .13),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color, height: 1)),
+          ),
+          const SizedBox(height: 3),
+          Text(label, style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 2),
         ]),
       ),
     );
@@ -305,7 +319,7 @@ class _CourseGrid extends StatelessWidget {
             crossAxisCount: cols,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            mainAxisExtent: 170,
+            mainAxisExtent: 152,
           ),
           itemBuilder: (_, i) => _CourseCard(course: courses[i], onOpen: () => onOpen(courses[i])),
         );
@@ -389,28 +403,15 @@ class _CourseCard extends StatelessWidget {
 
                 const Spacer(),
 
-                // ── Jours ────────────────────────────────────────────────
-                if (course.daysOfWeek.isNotEmpty) ...[
-                  Row(children: course.daysOfWeek.take(4).map((d) {
-                    const keys   = ['lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-                    const labels = ['L','Ma','Me','J','V','S'];
-                    final idx = keys.indexOf(d);
-                    return Container(
-                      margin: const EdgeInsets.only(right: 3),
-                      width: 22, height: 18,
-                      decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(4)),
-                      child: Center(child: Text(idx >= 0 ? labels[idx] : d[0].toUpperCase(),
-                          style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w800))),
-                    );
-                  }).toList()),
-                  const SizedBox(height: 6),
-                ],
-
                 // ── Footer ───────────────────────────────────────────────
                 Row(children: [
                   _Tag('Coef ${course.coefficient}', color),
                   const SizedBox(width: 5),
                   if (course.hoursWeek != null) _Tag('${course.hoursWeek}h', _gold),
+                  if (course.daysOfWeek.isNotEmpty) ...[
+                    const SizedBox(width: 5),
+                    _Tag('${course.daysOfWeek.length}j/sem', color),
+                  ],
                   const Spacer(),
                   Container(
                     width: 28, height: 28,

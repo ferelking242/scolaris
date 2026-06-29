@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -7,7 +8,7 @@ import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/timetable_data.dart' show SubjectMeta, getSubjectMeta;
 
-const _bg     = Color(0xFFF5EEE6);
+// Schedule page uses scaffoldBackgroundColor for bg so it follows dark/light theme
 const _white  = Colors.white;
 const _ink    = Color(0xFF1A0A00);
 const _muted  = Color(0xFF7A5C44);
@@ -24,15 +25,33 @@ class _Slot {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-class SchedulePage extends ConsumerWidget {
+class SchedulePage extends ConsumerStatefulWidget {
   const SchedulePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SchedulePage> createState() => _SchedulePageState();
+}
+
+class _SchedulePageState extends ConsumerState<SchedulePage> {
+  @override
+  void dispose() {
+    // Restore portrait when leaving the page
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(myStudentProfileProvider);
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Container(
-      color: _bg,
+      color: bg,
       child: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorState(message: '$e'),
@@ -68,6 +87,7 @@ class _ScheduleView extends StatefulWidget {
 
 class _ScheduleViewState extends State<_ScheduleView> {
   int _mobileDayIdx = 0;
+  bool _landscapeSuggested = false;
 
   @override
   void initState() {
@@ -96,6 +116,36 @@ class _ScheduleViewState extends State<_ScheduleView> {
     return list;
   }
 
+  void _suggestLandscape(BuildContext context) {
+    if (_landscapeSuggested) return;
+    _landscapeSuggested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(children: [
+            Icon(Icons.screen_rotation_rounded, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text('Tournez l\'écran pour voir la semaine complète'),
+          ]),
+          action: SnackBarAction(
+            label: 'Activer',
+            textColor: _gold,
+            onPressed: () {
+              SystemChrome.setPreferredOrientations([
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ]);
+            },
+          ),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final slots = _slots;
@@ -108,17 +158,37 @@ class _ScheduleViewState extends State<_ScheduleView> {
         const Expanded(child: _EmptySchedule())
       else
         Expanded(
-          child: LayoutBuilder(builder: (ctx, box) {
-            return box.maxWidth >= 680
-                ? _WeekTableView(
-                    schedules: widget.schedules, jours: _jours, slots: slots)
-                : _MobileDayView(
-                    schedules: widget.schedules,
-                    jours: _jours,
-                    slots: slots,
-                    dayIdx: _mobileDayIdx.clamp(0, _dayCount - 1),
-                    onDayChanged: (i) => setState(() => _mobileDayIdx = i),
-                  );
+          child: OrientationBuilder(builder: (ctx, orientation) {
+            return LayoutBuilder(builder: (ctx2, box) {
+              final isWide = box.maxWidth >= 680 ||
+                  orientation == Orientation.landscape;
+
+              if (!isWide) {
+                _suggestLandscape(context);
+              }
+
+              return isWide
+                  ? _WeekTableView(
+                      schedules: widget.schedules, jours: _jours, slots: slots,
+                      onExitLandscape: orientation == Orientation.landscape
+                          ? () {
+                              SystemChrome.setPreferredOrientations([
+                                DeviceOrientation.portraitUp,
+                                DeviceOrientation.portraitDown,
+                                DeviceOrientation.landscapeLeft,
+                                DeviceOrientation.landscapeRight,
+                              ]);
+                            }
+                          : null,
+                    )
+                  : _MobileDayView(
+                      schedules: widget.schedules,
+                      jours: _jours,
+                      slots: slots,
+                      dayIdx: _mobileDayIdx.clamp(0, _dayCount - 1),
+                      onDayChanged: (i) => setState(() => _mobileDayIdx = i),
+                    );
+            });
           }),
         ),
     ]);
@@ -143,8 +213,9 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: _white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Row(children: [
         Container(
@@ -156,10 +227,10 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Emploi du Temps',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
+          Text('Emploi du Temps',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface)),
           Text('$courseCount cours cette semaine',
-              style: const TextStyle(fontSize: 11.5, color: _muted)),
+              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
         ])),
         // Classe réelle de l'élève (lecture seule).
         Container(
@@ -181,26 +252,43 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ─── Full week table (PC + tablet) ───────────────────────────────────────────
+// ─── Full week table (PC + tablet + landscape) ────────────────────────────────
 class _WeekTableView extends StatelessWidget {
   final List<SbSchedule> schedules;
   final List<String> jours;
   final List<_Slot> slots;
+  final VoidCallback? onExitLandscape;
   const _WeekTableView(
-      {required this.schedules, required this.jours, required this.slots});
+      {required this.schedules, required this.jours, required this.slots, this.onExitLandscape});
 
   @override
   Widget build(BuildContext context) {
     const timeW = 58.0;
     const rowH  = 96.0;
     final today = _todayDay();
+    final cs    = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
       child: Column(children: [
+        // Exit landscape button
+        if (onExitLandscape != null)
+          Container(
+            color: cs.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              TextButton.icon(
+                onPressed: onExitLandscape,
+                icon: const Icon(Icons.screen_lock_portrait_rounded, size: 14),
+                label: const Text('Portrait', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: _muted),
+              ),
+            ]),
+          ),
+
         const Divider(height: 1, color: _border),
         // ── Day header row ──
         Container(
-          color: _white,
+          color: cs.surface,
           child: Row(children: [
             SizedBox(width: timeW,
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 10),
@@ -225,7 +313,7 @@ class _WeekTableView extends StatelessWidget {
                       ),
                     Text(jours[idx],
                         style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800,
-                            color: isTod ? _terra : _ink)),
+                            color: isTod ? _terra : cs.onSurface)),
                   ]),
                 ),
               );
@@ -240,11 +328,11 @@ class _WeekTableView extends StatelessWidget {
             height: rowH,
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Container(
-                width: timeW, color: _white,
+                width: timeW, color: cs.surface,
                 alignment: Alignment.center,
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(slot.start, style: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w800, color: _ink)),
+                  Text(slot.start, style: TextStyle(
+                      fontSize: 11.5, fontWeight: FontWeight.w800, color: cs.onSurface)),
                   Text(slot.end, style: TextStyle(
                       fontSize: 10, color: _muted.withValues(alpha: .65))),
                 ]),
@@ -277,10 +365,11 @@ class _TableCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (session == null) {
       return Container(
         decoration: BoxDecoration(
-          color: isToday ? _terra.withValues(alpha: .025) : _white,
+          color: isToday ? _terra.withValues(alpha: .025) : cs.surface,
           border: const Border(left: BorderSide(color: _border)),
         ),
       );
@@ -293,7 +382,7 @@ class _TableCell extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isToday ? _terra.withValues(alpha: .025) : _white,
+        color: isToday ? _terra.withValues(alpha: .025) : cs.surface,
         border: const Border(left: BorderSide(color: _border)),
       ),
       padding: const EdgeInsets.all(4),
@@ -401,6 +490,7 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final subjects = schedules
         .map((s) => s.subjectName)
         .whereType<String>()
@@ -409,11 +499,11 @@ class _Legend extends StatelessWidget {
       ..sort();
     if (subjects.isEmpty) return const SizedBox.shrink();
     return Container(
-      color: _white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Matières', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800,
-            color: _muted, letterSpacing: 0.3)),
+        Text('Matières', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800,
+            color: cs.onSurfaceVariant, letterSpacing: 0.3)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 6,
           children: subjects.map((sub) {
@@ -457,6 +547,7 @@ class _MobileDayView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = _todayDay();
+    final cs    = Theme.of(context).colorScheme;
     final day   = dayIdx + 1;
     final daySessions = schedules.where((s) => s.dayOfWeek == day).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -464,7 +555,7 @@ class _MobileDayView extends StatelessWidget {
     return Column(children: [
       // Day tabs
       Container(
-        color: _white,
+        color: cs.surface,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Row(children: List.generate(jours.length, (i) {
           final sel   = i == dayIdx;
@@ -477,9 +568,9 @@ class _MobileDayView extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 2),
               padding: const EdgeInsets.symmetric(vertical: 7),
               decoration: BoxDecoration(
-                color: sel ? _terra : (isTod ? _terra.withValues(alpha: .08) : _bg),
+                color: sel ? _terra : (isTod ? _terra.withValues(alpha: .08) : cs.surfaceContainerHighest),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: sel ? _terra : (isTod ? _terra.withValues(alpha: .3) : _border)),
+                border: Border.all(color: sel ? _terra : (isTod ? _terra.withValues(alpha: .3) : cs.outlineVariant)),
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(jours[i].substring(0, 3).toUpperCase(),
@@ -487,7 +578,7 @@ class _MobileDayView extends StatelessWidget {
                         color: sel ? _white : (isTod ? _terra : _muted), letterSpacing: 0.3)),
                 const SizedBox(height: 2),
                 Text('$count', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900,
-                    color: sel ? _white : (isTod ? _terra : _ink))),
+                    color: sel ? _white : (isTod ? _terra : cs.onSurface))),
               ]),
             ),
           ));
@@ -500,9 +591,9 @@ class _MobileDayView extends StatelessWidget {
         child: daySessions.isEmpty
             ? Center(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.event_available_rounded, size: 40, color: _border),
+                  Icon(Icons.event_available_rounded, size: 40, color: cs.outlineVariant),
                   const SizedBox(height: 10),
-                  const Text('Aucun cours ce jour', style: TextStyle(color: _muted, fontSize: 14)),
+                  Text('Aucun cours ce jour', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
                 ]),
               )
             : ListView.separated(
@@ -524,13 +615,14 @@ class _MobileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = session;
+    final cs = Theme.of(context).colorScheme;
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SizedBox(
         width: 52,
         child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           const SizedBox(height: 10),
-          Text(s.startTime, style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w800, color: _ink)),
+          Text(s.startTime, style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w800, color: cs.onSurface)),
           Text(s.endTime, style: TextStyle(
               fontSize: 10, color: _muted.withValues(alpha: .65))),
         ]),
@@ -611,58 +703,67 @@ class _MobileCard extends StatelessWidget {
 class _EmptySchedule extends StatelessWidget {
   const _EmptySchedule();
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.calendar_month_rounded, size: 48, color: _border),
-          const SizedBox(height: 12),
-          const Text('Emploi du temps non publié',
-              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          const Text('Il apparaîtra ici dès que l\'école l\'aura mis en ligne.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12.5)),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.calendar_month_rounded, size: 48, color: cs.outlineVariant),
+        const SizedBox(height: 12),
+        Text('Emploi du temps non publié',
+            style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text('Il apparaîtra ici dès que l\'école l\'aura mis en ligne.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
+      ]),
+    );
+  }
 }
 
 class _NoClassState extends StatelessWidget {
   const _NoClassState();
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.class_outlined, size: 48, color: _border),
-            const SizedBox(height: 12),
-            const Text('Aucune classe assignée',
-                style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            const Text('Contacte l\'administration pour être affecté à une classe.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _muted, fontSize: 12.5)),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.class_outlined, size: 48, color: cs.outlineVariant),
+          const SizedBox(height: 12),
+          Text('Aucune classe assignée',
+              style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Contacte l\'administration pour être affecté à une classe.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
+        ]),
+      ),
+    );
+  }
 }
 
 class _ErrorState extends StatelessWidget {
   final String message;
   const _ErrorState({required this.message});
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
-            const SizedBox(height: 12),
-            Text('Erreur de chargement',
-                style: const TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(message,
-                textAlign: TextAlign.center,
-                maxLines: 3, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 12)),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
+          const SizedBox(height: 12),
+          Text('Erreur de chargement',
+              style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(message,
+              textAlign: TextAlign.center,
+              maxLines: 3, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
 }
