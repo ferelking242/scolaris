@@ -172,11 +172,10 @@ class _ScheduleViewState extends State<_ScheduleView> {
                       schedules: widget.schedules, jours: _jours, slots: slots,
                       onExitLandscape: orientation == Orientation.landscape
                           ? () {
+                              // Lock back to portrait only
                               SystemChrome.setPreferredOrientations([
                                 DeviceOrientation.portraitUp,
                                 DeviceOrientation.portraitDown,
-                                DeviceOrientation.landscapeLeft,
-                                DeviceOrientation.landscapeRight,
                               ]);
                             }
                           : null,

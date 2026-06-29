@@ -951,6 +951,7 @@ class SbCourse {
   final String? programSummary;
   final int? chapterCount;
   final List<String> daysOfWeek;
+  final String? room;
 
   const SbCourse({
     required this.id,
@@ -968,6 +969,7 @@ class SbCourse {
     this.programSummary,
     this.chapterCount,
     this.daysOfWeek = const [],
+    this.room,
   });
 
   factory SbCourse.fromJson(Map<String, dynamic> j) {
@@ -990,6 +992,7 @@ class SbCourse {
       programSummary: j['program_summary'] as String?,
       chapterCount: (j['chapter_count'] as num?)?.toInt(),
       daysOfWeek: days,
+      room: j['room'] as String?,
     );
   }
 }
@@ -2334,6 +2337,7 @@ class SupabaseDbSource {
     String? programSummary,
     int? chapterCount,
     List<String> daysOfWeek = const [],
+    String? room,
   }) async {
     await _db.from('courses').insert({
       'id': const Uuid().v4(),
@@ -2344,12 +2348,8 @@ class SupabaseDbSource {
       if (teacherId != null) 'teacher_id': teacherId,
       'coef': coefficient,
       if (hoursWeek != null) 'hours_week': hoursWeek,
-      // Extra columns (color, description, program_summary, chapter_count, days_of_week)
-      // are stored only if they exist in DB (apply migration first):
-      // ALTER TABLE courses ADD COLUMN IF NOT EXISTS color text, description text,
-      // program_summary text, chapter_count int DEFAULT 0, days_of_week text[] DEFAULT '{}';
     });
-    // After migration, update extra fields separately (safe - ignores if columns missing)
+    // Extra columns — safe update (columns already migrated)
     try {
       final extra = <String, dynamic>{};
       if (description != null && description.trim().isNotEmpty) extra['description'] = description.trim();
@@ -2357,11 +2357,11 @@ class SupabaseDbSource {
       if (programSummary != null && programSummary.trim().isNotEmpty) extra['program_summary'] = programSummary.trim();
       if (chapterCount != null) extra['chapter_count'] = chapterCount;
       if (daysOfWeek.isNotEmpty) extra['days_of_week'] = daysOfWeek;
+      if (room != null && room.trim().isNotEmpty) extra['room'] = room.trim();
       if (extra.isNotEmpty) {
-        // This will only succeed once migration columns are added
         await _db.from('courses').update(extra).eq('name', name.trim()).eq('school_id', schoolId);
       }
-    } catch (_) { /* columns not yet migrated — safe to ignore */ }
+    } catch (_) { /* safe to ignore on schema mismatch */ }
   }
 
   static Future<void> updateCourse({
@@ -2376,6 +2376,7 @@ class SupabaseDbSource {
     String? programSummary,
     int? chapterCount,
     List<String>? daysOfWeek,
+    String? room,
   }) async {
     final patch = <String, dynamic>{};
     if (name != null) patch['name'] = name.trim();
@@ -2383,12 +2384,10 @@ class SupabaseDbSource {
     if (teacherId != null) patch['teacher_id'] = teacherId;
     if (coefficient != null) patch['coef'] = coefficient;
     if (hoursWeek != null) patch['hours_week'] = hoursWeek;
-    if (patch.isEmpty) {
-      // Only extra fields — try separately (safe if columns don't exist yet)
-    } else {
+    if (patch.isNotEmpty) {
       await _db.from('courses').update(patch).eq('id', id);
     }
-    // Extra columns — only apply if migrated (ALTER TABLE courses ADD COLUMN ...)
+    // Extra columns
     try {
       final extra = <String, dynamic>{};
       if (description != null) extra['description'] = description.trim().isEmpty ? null : description.trim();
@@ -2396,8 +2395,9 @@ class SupabaseDbSource {
       if (programSummary != null) extra['program_summary'] = programSummary.trim().isEmpty ? null : programSummary.trim();
       if (chapterCount != null) extra['chapter_count'] = chapterCount;
       if (daysOfWeek != null) extra['days_of_week'] = daysOfWeek;
+      if (room != null) extra['room'] = room.trim().isEmpty ? null : room.trim();
       if (extra.isNotEmpty) await _db.from('courses').update(extra).eq('id', id);
-    } catch (_) { /* columns not yet migrated */ }
+    } catch (_) { /* safe to ignore on schema mismatch */ }
   }
 
   static Future<void> deleteCourse(String id) async {

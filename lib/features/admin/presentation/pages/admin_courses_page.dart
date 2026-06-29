@@ -493,7 +493,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
     _code     = TextEditingController(text: e?.code ?? '');
     _desc     = TextEditingController(text: e?.description ?? '');
     _program  = TextEditingController(text: e?.programSummary ?? '');
-    _room     = TextEditingController(text: '');
+    _room     = TextEditingController(text: e?.room ?? '');
     _coef     = e?.coefficient ?? 1;
     _hours    = e?.hoursWeek ?? 3;
     _chapters = e?.chapterCount ?? 6;
@@ -527,6 +527,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           programSummary: _program.text.isEmpty ? null : _program.text,
           chapterCount: _chapters,
           daysOfWeek: _days.toList(),
+          room: _room.text.isEmpty ? null : _room.text,
         );
       } else {
         await SupabaseDbSource.updateCourse(
@@ -541,6 +542,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           programSummary: _program.text,
           chapterCount: _chapters,
           daysOfWeek: _days.toList(),
+          room: _room.text.isEmpty ? null : _room.text,
         );
       }
       widget.onSaved();
