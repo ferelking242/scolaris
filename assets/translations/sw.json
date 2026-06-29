@@ -17,6 +17,8 @@
     "delete": "Futa",
     "edit": "Hariri",
     "search": "Tafuta",
+    "search_placeholder": "Tafuta wanafunzi, madarasa…",
+    "back": "Rudi",
     "loading": "Inapakia...",
     "retry": "Jaribu tena",
     "logout": "Toka",
@@ -26,6 +28,10 @@
     "light": "Mwanga",
     "dark": "Giza",
     "system": "Mfumo"
+  },
+  "sidebar": {
+    "collapse": "Punja",
+    "expand": "Panua"
   },
   "auth": {
     "login": "Ingia",

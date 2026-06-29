@@ -17,6 +17,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "search": "Search",
+    "search_placeholder": "Search students, classes…",
+    "back": "Back",
     "loading": "Loading...",
     "retry": "Retry",
     "logout": "Log out",
@@ -26,6 +28,10 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "sidebar": {
+    "collapse": "Collapse",
+    "expand": "Expand"
   },
   "auth": {
     "login": "Sign in",

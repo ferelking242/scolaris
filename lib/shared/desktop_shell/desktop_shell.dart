@@ -443,8 +443,8 @@ class _HeaderState extends ConsumerState<_Header> {
                 ? Icons.arrow_back_rounded
                 : (widget.mode == _SideMode.full ? Icons.menu_open_rounded : Icons.menu_rounded),
             tooltip: widget.showingOverlay
-                ? 'Retour'
-                : (widget.mode == _SideMode.full ? 'Réduire' : 'Étendre'),
+                ? 'common.back'.tr()
+                : (widget.mode == _SideMode.full ? 'sidebar.collapse'.tr() : 'sidebar.expand'.tr()),
             onTap: widget.showingOverlay ? (widget.onCloseOverlay ?? () {}) : widget.onToggle,
           ),
           const SizedBox(width: 14),
@@ -490,7 +490,7 @@ class _HeaderState extends ConsumerState<_Header> {
                     style: const TextStyle(fontSize: 12.5, color: _shTxt),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Rechercher élèves, classes…',
+                      hintText: 'common.search_placeholder'.tr(),
                       hintStyle: TextStyle(
                           fontSize: 12.5, color: _shMuted.withOpacity(.7)),
                       isCollapsed: true,

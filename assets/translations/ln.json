@@ -17,6 +17,8 @@
     "delete": "Longola",
     "edit": "Bongisa",
     "search": "Luka",
+    "search_placeholder": "Luka bayekoli, bakelasi…",
+    "back": "Zongela",
     "loading": "Ezali kosalema...",
     "retry": "Meka lisusu",
     "logout": "Bima",
@@ -26,6 +28,10 @@
     "light": "Polele",
     "dark": "Molili",
     "system": "Sistemi"
+  },
+  "sidebar": {
+    "collapse": "Kokota",
+    "expand": "Yebola"
   },
   "auth": {
     "login": "Kota",

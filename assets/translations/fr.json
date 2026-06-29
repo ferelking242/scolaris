@@ -17,6 +17,8 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "search": "Rechercher",
+    "search_placeholder": "Rechercher élèves, classes…",
+    "back": "Retour",
     "loading": "Chargement...",
     "retry": "Réessayer",
     "logout": "Se déconnecter",
@@ -26,6 +28,10 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système"
+  },
+  "sidebar": {
+    "collapse": "Réduire",
+    "expand": "Étendre"
   },
   "auth": {
     "login": "Connexion",

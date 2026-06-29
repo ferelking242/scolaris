@@ -135,22 +135,22 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _openNotifications() {
     if (_menuOpen) _closeMenu();
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const _FullPage(
-            title: 'Notifications', child: NotificationsPage())));
+        MaterialPageRoute(builder: (_) => _FullPage(
+            title: 'nav.notifications'.tr(), child: const NotificationsPage())));
   }
 
   void _openSearch() {
     if (_menuOpen) _closeMenu();
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const _FullPage(
-            title: 'Recherche', child: SearchPage())));
+        MaterialPageRoute(builder: (_) => _FullPage(
+            title: 'common.search'.tr(), child: const SearchPage())));
   }
 
   void _openAccount() {
     if (_menuOpen) _closeMenu();
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const _FullPage(
-            title: 'Mon compte', child: AccountPage())));
+        MaterialPageRoute(builder: (_) => _FullPage(
+            title: 'settings.account'.tr(), child: const AccountPage())));
   }
 
   @override
@@ -557,6 +557,7 @@ class _SidebarPanel extends StatefulWidget {
 class _SidebarPanelState extends State<_SidebarPanel> {
   String _activeKey = '';
   bool   _accountExpanded = false;
+  final Set<String> _collapsedSections = {};
 
   @override
   void initState() {
@@ -636,8 +637,9 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          // Name + role
-                          Expanded(
+                          // Name + role — largeur fixe pour que chevron+X restent collés
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 138),
                             child: GestureDetector(
                               onTap: () => setState(() => _accountExpanded = !_accountExpanded),
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -655,7 +657,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               ]),
                             ),
                           ),
-                          // Chevron pour déplie comptes
+                          // Chevron pour déplier comptes — positionné juste après le nom
                           GestureDetector(
                             onTap: () => setState(() => _accountExpanded = !_accountExpanded),
                             child: AnimatedRotation(
@@ -665,6 +667,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                   color: _white.withOpacity(.7), size: 20),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           const SizedBox(width: 6),
                           // X close
                           Material(
@@ -767,37 +770,55 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     children: [
                       for (final group in _groups) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
-                          child: Row(children: [
-                            Icon(
-                              group.labelKey == 'nav.main'
-                                  ? Icons.grid_view_rounded
-                                  : Icons.more_horiz_rounded,
-                              size: 11,
-                              color: _gold.withOpacity(.55),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              group.labelKey == 'nav.main' ? 'NAVIGATION' : 'PLUS',
-                              style: TextStyle(
-                                  color: _gold.withOpacity(.6),
-                                  fontSize: 9, fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.5),
-                            ),
-                          ]),
-                        ),
-                        for (int i = 0; i < group.entries.length; i++)
-                          _SidebarItem(
-                            entry: group.entries[i],
-                            selected: group.entries[i].labelKey == _activeKey,
-                            index: i,
-                            opacity: widget.opacity,
-                            onTap: () {
-                              setState(() => _activeKey = group.entries[i].labelKey);
-                              widget.onSelect(group.entries[i].labelKey);
-                            },
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            if (_collapsedSections.contains(group.labelKey)) {
+                              _collapsedSections.remove(group.labelKey);
+                            } else {
+                              _collapsedSections.add(group.labelKey);
+                            }
+                          }),
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
+                            child: Row(children: [
+                              Icon(
+                                group.labelKey == 'nav.main'
+                                    ? Icons.grid_view_rounded
+                                    : Icons.more_horiz_rounded,
+                                size: 11,
+                                color: _gold.withOpacity(.55),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                group.labelKey.tr().toUpperCase(),
+                                style: TextStyle(
+                                    color: _gold.withOpacity(.6),
+                                    fontSize: 9, fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5),
+                              ),
+                              const Spacer(),
+                              AnimatedRotation(
+                                turns: _collapsedSections.contains(group.labelKey) ? 0 : 0.5,
+                                duration: const Duration(milliseconds: 200),
+                                child: Icon(Icons.expand_less_rounded,
+                                    size: 12, color: _gold.withOpacity(.4)),
+                              ),
+                            ]),
                           ),
+                        ),
+                        if (!_collapsedSections.contains(group.labelKey))
+                          for (int i = 0; i < group.entries.length; i++)
+                            _SidebarItem(
+                              entry: group.entries[i],
+                              selected: group.entries[i].labelKey == _activeKey,
+                              index: i,
+                              opacity: widget.opacity,
+                              onTap: () {
+                                setState(() => _activeKey = group.entries[i].labelKey);
+                                widget.onSelect(group.entries[i].labelKey);
+                              },
+                            ),
                       ],
 
                       // ── Logout as last item ─────────────────────────

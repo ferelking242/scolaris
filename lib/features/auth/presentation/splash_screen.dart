@@ -122,13 +122,10 @@ class _SplashScreenState extends State<SplashScreen>
                                       color: Colors.white24, width: 1.5),
                                 ),
                                 child: const Center(
-                                  child: Text(
-                                    'S',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 44,
-                                    ),
+                                  child: Icon(
+                                    Icons.school_rounded,
+                                    color: Colors.white,
+                                    size: 48,
                                   ),
                                 ),
                               ),
