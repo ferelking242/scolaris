@@ -916,9 +916,43 @@ class _ProgramTab extends StatelessWidget {
   final Color color;
   const _ProgramTab({required this.course, required this.color});
 
+  /// Strip **bold** markdown and trim.
+  static String _clean(String s) => s.replaceAll(RegExp(r'\*{1,2}'), '').trim();
+
+  /// A line is a chapter header if it matches common patterns.
+  static bool _isHeader(String s) => RegExp(
+    r'^(chapitre|chapter|partie|part|thème|theme|module|unité|unite)\s',
+    caseSensitive: false,
+  ).hasMatch(s) || RegExp(r'^\d+[\.\)—\-]\s').hasMatch(s);
+
+  /// Parse raw text into structured (title, subtitle?) pairs.
+  static List<({String title, String? subtitle})> _parse(String raw) {
+    // Try splitting on \n first; if only one line try splitting on bullet dash.
+    var lines = raw.split('\n').map(_clean).where((l) => l.isNotEmpty).toList();
+
+    // If data came as one big blob separated by \n inside, we're done.
+    // Otherwise try em-dash as inline separator: "**Ch1** — Foo\n**Ch2** — Bar"
+    final chapters = <({String title, String? subtitle})>[];
+
+    // Pattern: lines may be "Chapitre 1 — Suites numériques" or just raw lines.
+    for (final line in lines) {
+      // Split title / subtitle at em-dash or " - "
+      final dashIdx = line.indexOf(RegExp(r'[—–\-]{1,2}'));
+      if (dashIdx > 0) {
+        final title = line.substring(0, dashIdx).trim();
+        final sub   = line.substring(dashIdx + 1).replaceFirst(RegExp(r'^[—–\-\s]+'), '').trim();
+        chapters.add((title: title, subtitle: sub.isEmpty ? null : sub));
+      } else {
+        chapters.add((title: line, subtitle: null));
+      }
+    }
+    return chapters;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
     if (course.programSummary == null || course.programSummary!.isEmpty) {
       return Center(
         child: Padding(
@@ -926,46 +960,140 @@ class _ProgramTab extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.list_alt_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: .4)),
             const SizedBox(height: 12),
-            Text('Programme non disponible', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
+            Text('Programme non disponible',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
             const SizedBox(height: 6),
             Text("L'enseignant n'a pas encore publié le programme de ce cours.",
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
           ]),
         ),
       );
     }
 
-    final lines = course.programSummary!.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final chapters = _parse(course.programSummary!);
+    final total    = chapters.length;
+    // Accent color with decent contrast
+    final accent   = color;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _Sec('Programme annuel', cs),
-        const SizedBox(height: 12),
-        ...lines.asMap().entries.map((e) {
-          final isChapter = e.value.trim().startsWith(RegExp(r'\d+[\.\)]\s|Chapitre|CHAPITRE|Part|Partie|Thème|Theme'));
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isChapter ? color.withValues(alpha: .07) : cs.surfaceContainer,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: isChapter ? color.withValues(alpha: .25) : cs.outlineVariant),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (isChapter) ...[
-                Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5, right: 8),
-                    decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              ] else ...[
-                Container(width: 6, height: 6, margin: const EdgeInsets.only(top: 5, right: 8),
-                    decoration: BoxDecoration(color: cs.outlineVariant, shape: BoxShape.circle)),
-              ],
-              Expanded(child: Text(e.value.trim(),
-                  style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: isChapter ? FontWeight.w700 : FontWeight.w400, height: 1.4))),
-            ]),
-          );
-        }),
+        const SizedBox(height: 20),
+        // ── Tree ──────────────────────────────────────────────────────────────
+        for (int i = 0; i < total; i++) ...[
+          _ChapterNode(
+            index: i,
+            total: total,
+            title: chapters[i].title,
+            subtitle: chapters[i].subtitle,
+            accent: accent,
+            cs: cs,
+          ),
+        ],
       ]),
     );
+  }
+}
+
+class _ChapterNode extends StatelessWidget {
+  final int    index;
+  final int    total;
+  final String title;
+  final String? subtitle;
+  final Color  accent;
+  final ColorScheme cs;
+
+  const _ChapterNode({
+    required this.index,
+    required this.total,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLast   = index == total - 1;
+    final nodeSize = 32.0;
+    final lineW    = 2.0;
+
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Left column: circle + vertical line ──
+        SizedBox(
+          width: nodeSize,
+          child: Column(children: [
+            // Numbered circle
+            Container(
+              width: nodeSize,
+              height: nodeSize,
+              decoration: BoxDecoration(
+                color: accent,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: _contrastColor(accent),
+                ),
+              ),
+            ),
+            // Vertical connector (hidden after last)
+            if (!isLast)
+              Expanded(
+                child: Container(
+                  width: lineW,
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  color: accent.withValues(alpha: .25),
+                ),
+              )
+            else
+              const SizedBox(height: 16),
+          ]),
+        ),
+        const SizedBox(width: 14),
+        // ── Right column: title + subtitle ──
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 24, top: 5),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                  height: 1.3,
+                ),
+              ),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  static Color _contrastColor(Color bg) {
+    final lum = bg.computeLuminance();
+    return lum > 0.35 ? const Color(0xFF1A1A1A) : Colors.white;
   }
 }
 
