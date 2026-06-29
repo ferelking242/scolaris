@@ -82,9 +82,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _onAnim() {
     final t = _menuAnim.value;
     setState(() {
-      _scale  = 1 - 0.75 * t;   // 100% → 25% (mini-card)
-      _xShift = 0.75 * t;        // pushed to right
-      _yShift = 0.275 * t;       // pushed to bottom-right corner
+      _scale  = 1 - 0.12 * t;
+      _xShift = 0.68 * t;
+      _yShift = 0.095 * t;
       _radius = 28 * t;
     });
   }
@@ -202,22 +202,26 @@ class _MobileShellState extends ConsumerState<MobileShell>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_radius),
-                  boxShadow: _menuOpen ? [
+                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.55),
-                      blurRadius: 32,
-                      spreadRadius: 2,
+                      color: Colors.black.withOpacity(_menuOpen ? 0.45 : 0.12),
+                      blurRadius: _menuOpen ? 40 : 10,
+                      offset: Offset(_menuOpen ? -6 : 0, 0),
                     ),
-                    BoxShadow(
-                      color: _terra.withOpacity(0.18),
-                      blurRadius: 20,
-                      spreadRadius: -2,
-                    ),
-                  ] : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.10),
-                      blurRadius: 8,
-                    ),
+                    if (_menuOpen) ...[
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 80,
+                        spreadRadius: -4,
+                        offset: const Offset(-2, 28),
+                      ),
+                      BoxShadow(
+                        color: _terra.withOpacity(0.12),
+                        blurRadius: 60,
+                        spreadRadius: -8,
+                        offset: const Offset(0, 40),
+                      ),
+                    ],
                   ],
                 ),
                 child: GestureDetector(
