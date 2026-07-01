@@ -430,6 +430,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _dividerSmall('ou'),
           const SizedBox(height: 16),
           _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
+          const SizedBox(height: 10),
+          _PreRegisterBtn(onTap: () => context.go(AppRoutes.preRegister)),
           const SizedBox(height: 18),
           _divider('Connexion rapide (démo · demo1234)'),
           const SizedBox(height: 10),
@@ -440,11 +442,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   // Connexion rapide aux comptes démo (mot de passe demo1234).
   Widget _demoQuickRow() {
-    const accounts = <(String, String, IconData, Color)>[
-      ('Admin·LSB',   'serge.bouya@lsb.cg',        Icons.admin_panel_settings_outlined, _terra),
-      ('Prof·ELC',    'jean.ngoubili@elc.cg',       Icons.menu_book_outlined,            Color(0xFF0277BD)),
-      ('Élève·CSFS',  'ferel.ondongo@csfs.cg',      Icons.school_outlined,               _green),
-      ('Admin·UDSN',  'alain.nzoussi@udsn.cg',      Icons.account_balance_outlined,      Color(0xFF7C3AED)),
+    // (label, email, icône, couleur, mot de passe)
+    const accounts = <(String, String, IconData, Color, String)>[
+      ('Super-Admin', 'kenganiboveldy@gmail.com',   Icons.shield_moon_outlined,          Color(0xFF0D3B1E), '12345678'),
+      ('Admin·LSB',   'serge.bouya@lsb.cg',        Icons.admin_panel_settings_outlined, _terra,            'demo1234'),
+      ('Prof·ELC',    'jean.ngoubili@elc.cg',       Icons.menu_book_outlined,            Color(0xFF0277BD), 'demo1234'),
+      ('Élève·CSFS',  'ferel.ondongo@csfs.cg',      Icons.school_outlined,               _green,            'demo1234'),
+      ('Admin·UDSN',  'alain.nzoussi@udsn.cg',      Icons.account_balance_outlined,      Color(0xFF7C3AED), 'demo1234'),
     ];
     return Wrap(
       spacing: 8,
@@ -452,7 +456,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         for (final a in accounts)
           GestureDetector(
-            onTap: _loading ? null : () => _fillAndLogin(a.$2, 'demo1234'),
+            onTap: _loading ? null : () => _fillAndLogin(a.$2, a.$5),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
@@ -1273,6 +1277,45 @@ class _RegisterSchoolBtn extends StatelessWidget {
               style: TextStyle(
                 color: _white,
                 fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: .3,
+              )),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Bouton « Nouvelle inscription » — pré-inscription publique (élève/parent),
+/// sans compte, via le code de l'école (lien/QR).
+class _PreRegisterBtn extends StatelessWidget {
+  final VoidCallback onTap;
+  const _PreRegisterBtn({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _terra.withOpacity(.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _terra.withOpacity(.30)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: _terra.withOpacity(.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.how_to_reg_outlined, size: 16, color: _terra),
+          ),
+          const SizedBox(width: 10),
+          const Text('Nouvelle inscription (élève / parent)',
+              style: TextStyle(
+                color: _terra,
+                fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .2,
               )),
         ]),
       ),

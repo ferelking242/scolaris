@@ -1,24 +1,19 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../data/enrollment_config.dart';
+import '../widgets/page_scaffold.dart';
 
-const _terra   = Color(0xFF8B1A00);
-const _orange  = Color(0xFFD4540A);
-const _gold    = Color(0xFFC17F24);
-const _green   = Color(0xFF2D6A4F);
-const _ink     = Color(0xFF1A0A00);
-const _muted   = Color(0xFF7A5C44);
-const _white   = Colors.white;
-const _bg      = Color(0xFFF5EEE6);
-const _borderC = Color(0xFFDDCCBB);
-const _sh1     = Color(0xFF1A0A00);
-const _sh2     = Color(0xFF3E1A00);
+// Accents de marque — constants dans les deux thèmes (cf. convention thème).
+const _terra  = Color(0xFF8B1A00);
+const _orange = Color(0xFFD4540A);
+const _gold   = Color(0xFFC17F24);
+const _green  = Color(0xFF2D6A4F);
 
 // ─────────────────────────────────────────────────────────────────────────────
-/// Page d'inscription configurable.
+/// Page d'inscription configurable — restylée sur le design system (sections
+/// `DataPanel`, neutres via `context.c*` → compatible mode sombre).
+///
 /// Utilisée pour :
 ///   1. Inscrire un élève depuis users_page (admin)
 ///   2. Auto-inscription publique (parent inscrit son enfant)
@@ -71,9 +66,20 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
   @override
   void dispose() {
-    for (final c in _controllers.values) c.dispose();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
+
+  /// Un champ est « rempli » s'il a une valeur non vide (toggle décoché = non).
+  bool _isFilled(EnrollmentField f) {
+    final v = _controllers[f.id]?.text ?? _values[f.id];
+    if (v == null || v == false) return false;
+    return v.toString().trim().isNotEmpty;
+  }
+
+  int get _filledCount => _config.enabledFields.where(_isFilled).length;
 
   Map<String, List<EnrollmentField>> get _fieldsByCategory {
     final result = <String, List<EnrollmentField>>{};
@@ -89,6 +95,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
     setState(() => _loading = true);
     await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
     setState(() { _loading = false; _submitted = true; });
 
     final data = <String, dynamic>{};
@@ -108,71 +115,75 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     final cats = _fieldsByCategory;
 
     return Container(
-      color: _bg,
+      color: context.cPage,
       child: Form(
         key: _formKey,
-        child: CustomScrollView(
-          slivers: [
-            // ── Header ──────────────────────────────────────────────────
-            SliverToBoxAdapter(child: _EnrollHeader(isAdmin: widget.isAdminMode)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ────────────────────────────────────────────────
+              _EnrollHeader(isAdmin: widget.isAdminMode),
+              const SizedBox(height: 14),
 
-            // ── Welcome message ──────────────────────────────────────────
-            if (_config.welcomeMessage != null)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _gold.withOpacity(.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _gold.withOpacity(.3)),
-                    ),
-                    child: Row(children: [
-                      const Icon(Icons.info_outline_rounded, color: _gold, size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(_config.welcomeMessage!,
-                            style: const TextStyle(color: _ink, fontSize: 12.5,
-                                height: 1.4)),
-                      ),
-                    ]),
+              // ── Message d'accueil ─────────────────────────────────────
+              if (_config.welcomeMessage != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _gold.withValues(alpha: .1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _gold.withValues(alpha: .3)),
                   ),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded, color: _gold, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_config.welcomeMessage!,
+                          style: TextStyle(
+                              color: context.cInk, fontSize: 12.5, height: 1.4)),
+                    ),
+                  ]),
                 ),
-              ),
+                const SizedBox(height: 14),
+              ],
 
-            // ── Progress indicator ───────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _ProgressBar(
-                filled: _values.length,
+              // ── Progression ───────────────────────────────────────────
+              _ProgressBar(
+                filled: _filledCount,
                 total: _config.enabledFields.length,
               ),
-            ),
+              const SizedBox(height: 14),
 
-            // ── Sélecteur de classe (admin uniquement) ───────────────────
-            if (widget.isAdminMode &&
-                widget.adminClasses != null &&
-                widget.adminClasses!.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _AdminClassPicker(
+              // ── Sélecteur de classe (admin uniquement) ────────────────
+              if (widget.isAdminMode &&
+                  widget.adminClasses != null &&
+                  widget.adminClasses!.isNotEmpty) ...[
+                _AdminClassPicker(
                   classes: widget.adminClasses!,
                   selectedId: _selectedClassId,
                   onChanged: (id) => setState(() => _selectedClassId = id),
                 ),
-              ),
+                const SizedBox(height: 14),
+              ],
 
-            // ── Field sections ───────────────────────────────────────────
-            for (final entry in cats.entries) ...[
-              SliverToBoxAdapter(
-                child: _CategoryHeader(label: entry.key),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _FieldWidget(
+              // ── Sections par catégorie ────────────────────────────────
+              for (final entry in cats.entries) ...[
+                DataPanel(
+                  title: entry.key,
+                  headerActions: [
+                    Text(
+                        '${entry.value.where(_isFilled).length}/${entry.value.length}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: context.cMuted,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                  child: Column(children: [
+                    for (var i = 0; i < entry.value.length; i++) ...[
+                      _FieldWidget(
                         field: entry.value[i],
                         required: _config.isRequired(entry.value[i].id),
                         controller: _controllers[entry.value[i].id],
@@ -180,21 +191,18 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                         onChanged: (v) =>
                             setState(() => _values[entry.value[i].id] = v),
                       ),
-                    ),
-                    childCount: entry.value.length,
-                  ),
+                      if (i < entry.value.length - 1) const SizedBox(height: 14),
+                    ],
+                  ]),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+              ],
 
-            // ── Submit ───────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
-                child: _SubmitButton(loading: _loading, onTap: _submit),
-              ),
-            ),
-          ],
+              // ── Bouton d'envoi ────────────────────────────────────────
+              const SizedBox(height: 4),
+              _SubmitButton(loading: _loading, onTap: _submit),
+            ],
+          ),
         ),
       ),
     );
@@ -202,7 +210,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header
+// Header (bandeau de marque — dégradé terracotta, texte blanc : OK en sombre)
 // ─────────────────────────────────────────────────────────────────────────────
 class _EnrollHeader extends StatelessWidget {
   final bool isAdmin;
@@ -211,67 +219,67 @@ class _EnrollHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_sh1, _sh2, Color(0xFF5A1A00)],
+          colors: [_terra, _orange],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: _sh1.withOpacity(.3),
-            blurRadius: 16, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+              color: _terra.withValues(alpha: .3),
+              blurRadius: 16,
+              offset: const Offset(0, 6)),
+        ],
       ),
-      child: Stack(children: [
-        Positioned.fill(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: CustomPaint(painter: _HexPainter()),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(22),
-          child: Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _terra.withOpacity(.3),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _terra.withOpacity(.5)),
-                  ),
-                  child: Text(
-                    isAdmin ? 'INSCRIPTION — ADMIN' : 'NOUVELLE INSCRIPTION',
-                    style: const TextStyle(color: _white, fontSize: 9,
-                        fontWeight: FontWeight.w800, letterSpacing: 1),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text('Formulaire d\'Inscription',
-                    style: TextStyle(color: _white, fontSize: 20,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(height: 4),
-                Text(
-                  isAdmin
-                      ? 'Remplissez les informations de l\'élève à inscrire.'
-                      : 'Complétez toutes les informations requises pour inscrire votre enfant.',
-                  style: TextStyle(color: _white.withOpacity(.6),
-                      fontSize: 12.5, height: 1.4),
-                ),
-              ]),
-            ),
-            const SizedBox(width: 16),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
-              width: 54, height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _white.withOpacity(.12),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _white.withOpacity(.2)),
+                color: Colors.white.withValues(alpha: .2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: .35)),
               ),
-              child: const Icon(Icons.how_to_reg_rounded, color: _white, size: 28),
+              child: Text(
+                isAdmin ? 'INSCRIPTION — ADMIN' : 'NOUVELLE INSCRIPTION',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text('Formulaire d\'inscription',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(
+              isAdmin
+                  ? 'Remplissez les informations de l\'élève à inscrire.'
+                  : 'Complétez les informations requises pour inscrire votre enfant.',
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: .85),
+                  fontSize: 12.5,
+                  height: 1.4),
             ),
           ]),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          width: 52, height: 52,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: .25)),
+          ),
+          child: const Icon(Icons.how_to_reg_rounded, color: Colors.white, size: 26),
         ),
       ]),
     );
@@ -279,7 +287,7 @@ class _EnrollHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Progress bar
+// Progression
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProgressBar extends StatelessWidget {
   final int filled;
@@ -289,68 +297,23 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = total == 0 ? 0.0 : (filled / total).clamp(0.0, 1.0);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Row(children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 6,
-              backgroundColor: _borderC,
-              valueColor: const AlwaysStoppedAnimation(_terra),
-            ),
+    return Row(children: [
+      Expanded(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: context.cSubtle,
+            valueColor: const AlwaysStoppedAnimation(_terra),
           ),
         ),
-        const SizedBox(width: 10),
-        Text('$filled/$total champs',
-            style: const TextStyle(fontSize: 11, color: _muted,
-                fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Category Header
-// ─────────────────────────────────────────────────────────────────────────────
-class _CategoryHeader extends StatelessWidget {
-  final String label;
-  const _CategoryHeader({required this.label});
-
-  static const _icons = {
-    'Identité':   Icons.badge_rounded,
-    'Documents':  Icons.folder_rounded,
-    'Académique': Icons.school_rounded,
-    'Contact':    Icons.contact_phone_rounded,
-    'Tuteur':     Icons.family_restroom_rounded,
-    'Paiement':   Icons.payment_rounded,
-    'Médical':    Icons.medical_information_rounded,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = _icons[label] ?? Icons.list_rounded;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(children: [
-        Container(
-          width: 30, height: 30,
-          decoration: BoxDecoration(
-            color: _terra.withOpacity(.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 15, color: _terra),
-        ),
-        const SizedBox(width: 10),
-        Text(label.toUpperCase(),
-            style: const TextStyle(color: _terra, fontSize: 11.5,
-                fontWeight: FontWeight.w800, letterSpacing: 0.8)),
-        const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: _borderC)),
-      ]),
-    );
+      ),
+      const SizedBox(width: 10),
+      Text('$filled/$total champs',
+          style: TextStyle(
+              fontSize: 11, color: context.cMuted, fontWeight: FontWeight.w600)),
+    ]);
   }
 }
 
@@ -387,19 +350,19 @@ class _FieldWidget extends StatelessWidget {
             onChanged: onChanged);
       case FieldType.textarea:
         return _TextAreaField(field: field, required: required,
-            controller: controller!);
+            controller: controller!, onChanged: onChanged);
       case FieldType.date:
         return _DateField(field: field, required: required,
             controller: controller!, onChanged: onChanged);
       default:
         return _TextInputField(field: field, required: required,
-            controller: controller!);
+            controller: controller!, onChanged: onChanged);
     }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Reusable field shell
+// Coquille réutilisable (libellé + astérisque + hint)
 // ─────────────────────────────────────────────────────────────────────────────
 class _FieldShell extends StatelessWidget {
   final EnrollmentField field;
@@ -416,19 +379,21 @@ class _FieldShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text(field.label,
-            style: const TextStyle(fontSize: 12.5, color: _ink,
-                fontWeight: FontWeight.w700)),
+        Flexible(
+          child: Text(field.label,
+              style: TextStyle(
+                  fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w700)),
+        ),
         if (required) ...[
           const SizedBox(width: 4),
-          const Text('*', style: TextStyle(color: _terra,
-              fontWeight: FontWeight.w900)),
+          const Text('*',
+              style: TextStyle(color: _terra, fontWeight: FontWeight.w900)),
         ],
       ]),
       if (field.hint != null) ...[
         const SizedBox(height: 2),
         Text(field.hint!,
-            style: const TextStyle(fontSize: 10.5, color: _muted)),
+            style: TextStyle(fontSize: 10.5, color: context.cMuted)),
       ],
       const SizedBox(height: 6),
       child,
@@ -437,17 +402,48 @@ class _FieldShell extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Text input
+// Décoration d'input theme-aware
+// ─────────────────────────────────────────────────────────────────────────────
+InputDecoration _decor(BuildContext context, String hint, {Widget? suffix}) =>
+    InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: context.cSubtle,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: context.cBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _terra, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _terra),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _terra, width: 1.5),
+      ),
+    );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Texte
 // ─────────────────────────────────────────────────────────────────────────────
 class _TextInputField extends StatelessWidget {
   final EnrollmentField field;
   final bool required;
   final TextEditingController controller;
+  final ValueChanged<dynamic> onChanged;
 
   const _TextInputField({
     required this.field,
     required this.required,
     required this.controller,
+    required this.onChanged,
   });
 
   @override
@@ -457,6 +453,7 @@ class _TextInputField extends StatelessWidget {
       required: required,
       child: TextFormField(
         controller: controller,
+        onChanged: onChanged,
         keyboardType: field.type == FieldType.email
             ? TextInputType.emailAddress
             : field.type == FieldType.phone
@@ -464,8 +461,8 @@ class _TextInputField extends StatelessWidget {
                 : field.type == FieldType.number
                     ? TextInputType.number
                     : TextInputType.text,
-        decoration: _inputDecor(field.placeholder),
-        style: const TextStyle(fontSize: 13, color: _ink),
+        decoration: _decor(context, field.placeholder),
+        style: TextStyle(fontSize: 13, color: context.cInk),
         validator: required
             ? (v) => (v == null || v.trim().isEmpty)
                 ? 'Ce champ est obligatoire'
@@ -477,17 +474,19 @@ class _TextInputField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Textarea
+// Zone de texte
 // ─────────────────────────────────────────────────────────────────────────────
 class _TextAreaField extends StatelessWidget {
   final EnrollmentField field;
   final bool required;
   final TextEditingController controller;
+  final ValueChanged<dynamic> onChanged;
 
   const _TextAreaField({
     required this.field,
     required this.required,
     required this.controller,
+    required this.onChanged,
   });
 
   @override
@@ -497,9 +496,10 @@ class _TextAreaField extends StatelessWidget {
       required: required,
       child: TextFormField(
         controller: controller,
+        onChanged: onChanged,
         maxLines: 3,
-        decoration: _inputDecor(field.placeholder),
-        style: const TextStyle(fontSize: 13, color: _ink),
+        decoration: _decor(context, field.placeholder),
+        style: TextStyle(fontSize: 13, color: context.cInk),
         validator: required
             ? (v) => (v == null || v.trim().isEmpty)
                 ? 'Ce champ est obligatoire'
@@ -511,7 +511,7 @@ class _TextAreaField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Date picker
+// Date
 // ─────────────────────────────────────────────────────────────────────────────
 class _DateField extends StatelessWidget {
   final EnrollmentField field;
@@ -539,12 +539,6 @@ class _DateField extends StatelessWidget {
             initialDate: DateTime(now.year - 15),
             firstDate: DateTime(1940),
             lastDate: now,
-            builder: (ctx, child) => Theme(
-              data: ThemeData.light().copyWith(
-                colorScheme: const ColorScheme.light(primary: _terra),
-              ),
-              child: child!,
-            ),
           );
           if (picked != null) {
             final str =
@@ -558,10 +552,10 @@ class _DateField extends StatelessWidget {
         child: AbsorbPointer(
           child: TextFormField(
             controller: controller,
-            decoration: _inputDecor('JJ/MM/AAAA',
-                suffix: const Icon(Icons.calendar_today_rounded,
-                    size: 16, color: _muted)),
-            style: const TextStyle(fontSize: 13, color: _ink),
+            decoration: _decor(context, 'JJ/MM/AAAA',
+                suffix: Icon(Icons.calendar_today_rounded,
+                    size: 16, color: context.cMuted)),
+            style: TextStyle(fontSize: 13, color: context.cInk),
             validator: required
                 ? (v) => (v == null || v.trim().isEmpty)
                     ? 'Ce champ est obligatoire'
@@ -605,23 +599,22 @@ class _SelectField extends StatelessWidget {
             height: 46,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: _white,
+              color: context.cSubtle,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: state.hasError ? _terra : _borderC),
+                  color: state.hasError ? _terra : context.cBorder),
             ),
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
               underline: const SizedBox.shrink(),
+              dropdownColor: context.cCard,
               hint: Text(field.placeholder.isEmpty
                   ? 'Sélectionner...'
                   : field.placeholder,
-                  style: const TextStyle(fontSize: 13, color: _muted)),
-              icon: const Icon(Icons.expand_more_rounded,
-                  size: 16, color: _muted),
-              style: const TextStyle(fontSize: 13, color: _ink,
-                  fontFamily: 'Poppins'),
+                  style: TextStyle(fontSize: 13, color: context.cMuted)),
+              icon: Icon(Icons.expand_more_rounded, size: 16, color: context.cMuted),
+              style: TextStyle(fontSize: 13, color: context.cInk),
               items: field.options
                   .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                   .toList(),
@@ -657,28 +650,24 @@ class _ToggleField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: _white,
+        color: context.cSubtle,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _borderC),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(field.label,
-                style: const TextStyle(fontSize: 12.5, color: _ink,
-                    fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w700)),
             if (field.hint != null)
               Text(field.hint!,
-                  style: const TextStyle(fontSize: 11, color: _muted)),
+                  style: TextStyle(fontSize: 11, color: context.cMuted)),
           ]),
         ),
-        Switch(
-          value: value,
-          activeColor: _terra,
-          onChanged: onChanged,
-        ),
+        Switch(value: value, activeColor: _terra, onChanged: onChanged),
       ]),
     );
   }
@@ -718,25 +707,24 @@ class _PhotoFieldState extends State<_PhotoField> {
         child: Container(
           height: 100,
           decoration: BoxDecoration(
-            color: _selected ? _terra.withOpacity(.06) : _white,
+            color: _selected ? _terra.withValues(alpha: .06) : context.cSubtle,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-                color: _selected ? _terra.withOpacity(.3) : _borderC,
-                style: BorderStyle.solid),
+                color: _selected ? _terra.withValues(alpha: .3) : context.cBorder),
           ),
           child: _selected
-              ? Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+              ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.check_circle_rounded, color: _green, size: 24),
                   SizedBox(width: 8),
                   Text('Photo sélectionnée',
                       style: TextStyle(color: _green, fontWeight: FontWeight.w700,
                           fontSize: 13)),
                 ])
-              : Column(mainAxisAlignment: MainAxisAlignment.center, children: const [
-                  Icon(Icons.add_a_photo_rounded, color: _muted, size: 28),
-                  SizedBox(height: 8),
+              : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.add_a_photo_rounded, color: context.cMuted, size: 28),
+                  const SizedBox(height: 8),
                   Text('Cliquez pour ajouter une photo',
-                      style: TextStyle(color: _muted, fontSize: 12)),
+                      style: TextStyle(color: context.cMuted, fontSize: 12)),
                 ]),
         ),
       ),
@@ -745,7 +733,7 @@ class _PhotoFieldState extends State<_PhotoField> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// File
+// Fichier
 // ─────────────────────────────────────────────────────────────────────────────
 class _FileField extends StatefulWidget {
   final EnrollmentField field;
@@ -778,26 +766,26 @@ class _FileFieldState extends State<_FileField> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: _white,
+            color: context.cSubtle,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: _fileName != null
-                ? _green.withOpacity(.3)
-                : _borderC),
+                ? _green.withValues(alpha: .3)
+                : context.cBorder),
           ),
           child: Row(children: [
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
                 color: _fileName != null
-                    ? _green.withOpacity(.1)
-                    : _muted.withOpacity(.08),
+                    ? _green.withValues(alpha: .1)
+                    : context.cCard,
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Icon(
                 _fileName != null
                     ? Icons.check_circle_outline_rounded
                     : Icons.upload_file_rounded,
-                color: _fileName != null ? _green : _muted,
+                color: _fileName != null ? _green : context.cMuted,
                 size: 18,
               ),
             ),
@@ -808,19 +796,19 @@ class _FileFieldState extends State<_FileField> {
                   _fileName ?? 'Cliquez pour sélectionner un fichier',
                   style: TextStyle(
                       fontSize: 12.5,
-                      color: _fileName != null ? _ink : _muted,
+                      color: _fileName != null ? context.cInk : context.cMuted,
                       fontWeight: _fileName != null
                           ? FontWeight.w600
                           : FontWeight.normal),
                 ),
                 Text('PDF, JPG, PNG — max 5 Mo',
-                    style: const TextStyle(fontSize: 10, color: _muted)),
+                    style: TextStyle(fontSize: 10, color: context.cMuted)),
               ]),
             ),
             if (_fileName != null)
               GestureDetector(
                 onTap: () => setState(() { _fileName = null; }),
-                child: const Icon(Icons.close_rounded, size: 16, color: _muted),
+                child: Icon(Icons.close_rounded, size: 16, color: context.cMuted),
               ),
           ]),
         ),
@@ -830,7 +818,7 @@ class _FileFieldState extends State<_FileField> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Submit button
+// Bouton d'envoi (dégradé de marque — texte blanc OK en sombre)
 // ─────────────────────────────────────────────────────────────────────────────
 class _SubmitButton extends StatelessWidget {
   final bool loading;
@@ -848,7 +836,7 @@ class _SubmitButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: loading
-                ? [_muted, _muted.withOpacity(.7)]
+                ? [context.cMuted, context.cMuted.withValues(alpha: .7)]
                 : [_terra, _orange],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -856,7 +844,7 @@ class _SubmitButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: loading
               ? []
-              : [BoxShadow(color: _terra.withOpacity(.3),
+              : [BoxShadow(color: _terra.withValues(alpha: .3),
                   blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Center(
@@ -867,10 +855,10 @@ class _SubmitButton extends StatelessWidget {
                       strokeWidth: 2, color: Colors.white),
                 )
               : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.how_to_reg_rounded, color: _white, size: 18),
+                  Icon(Icons.how_to_reg_rounded, color: Colors.white, size: 18),
                   SizedBox(width: 10),
                   Text('Valider l\'inscription',
-                      style: TextStyle(color: _white, fontSize: 15,
+                      style: TextStyle(color: Colors.white, fontSize: 15,
                           fontWeight: FontWeight.w800)),
                 ]),
         ),
@@ -880,7 +868,7 @@ class _SubmitButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Success view
+// Écran de succès
 // ─────────────────────────────────────────────────────────────────────────────
 class _SuccessView extends StatelessWidget {
   final bool isAdmin;
@@ -889,7 +877,7 @@ class _SuccessView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: _bg,
+      color: context.cPage,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -897,25 +885,25 @@ class _SuccessView extends StatelessWidget {
             Container(
               width: 80, height: 80,
               decoration: BoxDecoration(
-                color: _green.withOpacity(.1),
+                color: _green.withValues(alpha: .1),
                 shape: BoxShape.circle,
-                border: Border.all(color: _green.withOpacity(.3), width: 2),
+                border: Border.all(color: _green.withValues(alpha: .3), width: 2),
               ),
               child: const Icon(Icons.check_rounded, color: _green, size: 40),
             ),
             const SizedBox(height: 20),
-            const Text('Inscription enregistrée !',
+            Text('Inscription enregistrée !',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: _ink, fontSize: 20,
+                style: TextStyle(color: context.cInk, fontSize: 20,
                     fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Text(
               isAdmin
                   ? 'Le dossier de l\'élève a été créé avec succès.'
                   : 'Votre dossier a été soumis. L\'équipe administrative '
-                    'vous contactera sous 48h pour confirmer l\'inscription.',
+                    'vous contactera pour confirmer l\'inscription.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _muted, fontSize: 13, height: 1.5),
+              style: TextStyle(color: context.cMuted, fontSize: 13, height: 1.5),
             ),
             if (isAdmin) ...[
               const SizedBox(height: 24),
@@ -929,7 +917,7 @@ class _SuccessView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text('Retour à la liste',
-                      style: TextStyle(color: _white, fontWeight: FontWeight.w700,
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700,
                           fontSize: 13)),
                 ),
               ),
@@ -942,35 +930,7 @@ class _SuccessView extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Input decoration helper
-// ─────────────────────────────────────────────────────────────────────────────
-InputDecoration _inputDecor(String hint, {Widget? suffix}) => InputDecoration(
-  hintText: hint,
-  hintStyle: const TextStyle(fontSize: 13, color: _muted),
-  suffixIcon: suffix,
-  filled: true,
-  fillColor: _white,
-  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(color: _borderC),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(color: _borderC),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(color: _terra, width: 1.5),
-  ),
-  errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(10),
-    borderSide: const BorderSide(color: _terra),
-  ),
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Class picker — admin mode only
+// Sélecteur de classe — mode admin uniquement
 // ─────────────────────────────────────────────────────────────────────────────
 class _AdminClassPicker extends StatelessWidget {
   final List<SbClass> classes;
@@ -985,87 +945,38 @@ class _AdminClassPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            width: 30, height: 30,
-            decoration: BoxDecoration(
-              color: _terra.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.class_rounded, size: 15, color: _terra),
-          ),
-          const SizedBox(width: 10),
-          const Text('AFFECTATION À UNE CLASSE',
-              style: TextStyle(color: _terra, fontSize: 11.5,
-                  fontWeight: FontWeight.w800, letterSpacing: 0.8)),
-          const SizedBox(width: 8),
-          Expanded(child: Container(height: 1, color: _borderC)),
-        ]),
-        const SizedBox(height: 10),
-        Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: _white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _borderC),
-          ),
-          child: DropdownButton<String>(
-            value: selectedId,
-            isExpanded: true,
-            underline: const SizedBox.shrink(),
-            hint: const Text('Sélectionner une classe (optionnel)',
-                style: TextStyle(fontSize: 13, color: _muted)),
-            icon: const Icon(Icons.expand_more_rounded, size: 16, color: _muted),
-            style: const TextStyle(fontSize: 13, color: _ink),
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('— Aucune classe —',
-                    style: TextStyle(color: _muted, fontStyle: FontStyle.italic)),
-              ),
-              for (final c in classes)
-                DropdownMenuItem(value: c.id, child: Text(c.name)),
-            ],
-            onChanged: onChanged,
-          ),
+    return DataPanel(
+      title: 'Affectation à une classe',
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: context.cSubtle,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: context.cBorder),
         ),
-      ]),
+        child: DropdownButton<String>(
+          value: selectedId,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          dropdownColor: context.cCard,
+          hint: Text('Sélectionner une classe (optionnel)',
+              style: TextStyle(fontSize: 13, color: context.cMuted)),
+          icon: Icon(Icons.expand_more_rounded, size: 16, color: context.cMuted),
+          style: TextStyle(fontSize: 13, color: context.cInk),
+          items: [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text('— Aucune classe —',
+                  style: TextStyle(
+                      color: context.cMuted, fontStyle: FontStyle.italic)),
+            ),
+            for (final c in classes)
+              DropdownMenuItem(value: c.id, child: Text(c.name)),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hex painter
-// ─────────────────────────────────────────────────────────────────────────────
-class _HexPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x05FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.6;
-    const r = 18.0;
-    final dx = r * math.sqrt(3);
-    final dy = r * 1.5;
-    for (double y = -r; y < size.height + r * 2; y += dy) {
-      for (double x = -dx; x < size.width + dx; x += dx) {
-        final off = ((y / dy).floor() % 2 == 0) ? 0.0 : dx / 2;
-        final path = Path();
-        for (int i = 0; i < 6; i++) {
-          final a = math.pi / 180 * (60 * i - 30);
-          final p = Offset(x + off + r * math.cos(a), y + r * math.sin(a));
-          i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
-        }
-        path.close();
-        canvas.drawPath(path, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }

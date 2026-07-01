@@ -6,12 +6,15 @@ import '../../domain/entities/user_entity.dart';
 import '../../features/admin/presentation/admin_home.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/enrollment/presentation/public_enrollment_screen.dart';
 import '../../features/parent/presentation/parent_home.dart';
+import '../../features/platform/presentation/platform_home.dart';
 import '../../features/school_registration/school_registration_screen.dart';
 import '../../features/student/presentation/primary_student_home.dart';
 import '../../features/student/presentation/student_home.dart';
 import '../../features/teacher/presentation/teacher_home.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../permissions/platform_admin.dart';
 
 class AppRoutes {
   static const splash          = '/';
@@ -22,10 +25,15 @@ class AppRoutes {
   static const parent          = '/parent';
   static const teacher         = '/teacher';
   static const staff           = '/staff';
+  static const platform        = '/platform';
+  static const preRegister     = '/inscription';
 }
 
 /// Retourne la route home d'un utilisateur selon son rôle ET son sous-type.
 String roleHome(AppUser user) {
+  // Les créateurs (allowlist) atterrissent sur la console plateforme, quel que
+  // soit leur rôle d'école.
+  if (PlatformAdmins.isPlatformAdmin(user)) return AppRoutes.platform;
   switch (user.role) {
     case UserRole.student:
       if (user.roleTitle == 'primaire') return AppRoutes.studentPrimary;
@@ -49,8 +57,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final atSplash         = loc == AppRoutes.splash;
       final atLogin          = loc == AppRoutes.login;
       final atRegisterSchool = loc == AppRoutes.registerSchool;
+      final atPreRegister    = loc.startsWith(AppRoutes.preRegister);
 
       if (atRegisterSchool) return null;
+      // Pré-inscription publique (lien/QR) — accessible sans compte.
+      if (atPreRegister) return null;
 
       // Non authentifié → page de connexion (pas de mode démo).
       if (user == null) {
@@ -71,6 +82,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.registerSchool,
           builder: (_, __) => const SchoolRegistrationScreen()),
+      // Pré-inscription publique : sans code → saisie du code ; avec code → form.
+      GoRoute(path: AppRoutes.preRegister,
+          builder: (_, __) => const PreRegEntryScreen()),
+      GoRoute(path: '${AppRoutes.preRegister}/:code',
+          builder: (_, state) => PublicEnrollmentScreen(
+              schoolCode: state.pathParameters['code'] ?? '')),
       GoRoute(path: AppRoutes.student,
           builder: (_, __) => const StudentHome()),
       GoRoute(path: AppRoutes.studentPrimary,
@@ -81,6 +98,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const TeacherHome()),
       GoRoute(path: AppRoutes.staff,
           builder: (_, __) => const AdminHome()),
+      GoRoute(path: AppRoutes.platform,
+          builder: (_, __) => const PlatformHome()),
     ],
   );
 });

@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 
 // ── Scolaris African palette for all shared pages ─────────────────────────
+// Neutres FIGÉS (thème clair uniquement). Conservés pour compatibilité, mais
+// à remplacer progressivement par l'extension `context.c*` ci-dessous, qui
+// s'adapte automatiquement au mode clair/sombre. Ne plus en ajouter.
 const ink      = Color(0xFF1A0A00);
 const muted    = Color(0xFF7A5C44);
 const border   = Color(0xFFDDCCBB);
 const cardBg   = Colors.white;
 const pageBg   = Color(0xFFF5EEE6);
 const subtleBg = Color(0xFFF0E8DC);
+
+/// Neutres DÉRIVÉS DU THÈME — équivalents adaptatifs des constantes ci-dessus.
+/// `context.cInk` remplace `ink`, `context.cMuted` remplace `muted`, etc.
+/// Les accents de marque (terracotta, or, vert) restent des constantes.
+extension ScolarisThemeColors on BuildContext {
+  ColorScheme get _cs => Theme.of(this).colorScheme;
+  Color get cInk    => _cs.onSurface;                 // ← ink
+  Color get cMuted  => _cs.onSurfaceVariant;          // ← muted
+  Color get cBorder => _cs.outlineVariant;            // ← border
+  Color get cCard   => _cs.surface;                   // ← cardBg
+  Color get cPage   => Theme.of(this).scaffoldBackgroundColor; // ← pageBg
+  Color get cSubtle => _cs.surfaceContainerHigh;      // ← subtleBg
+}
 
 const _terra  = Color(0xFF8B1A00);
 const _orange = Color(0xFFD4540A);
@@ -230,6 +246,40 @@ class HeaderActionButton extends StatelessWidget {
                   style: TextStyle(
                       color: filled ? _terra : Colors.white,
                       fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lien de retour discret (pastille) à poser en haut du `child` d'un
+/// `PageScaffold` ouvert en route. Par défaut, `Navigator.maybePop`.
+class BackLinkRow extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const BackLinkRow({super.key, this.label = 'Retour', this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: context.cSubtle,
+        borderRadius: BorderRadius.circular(9),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9),
+          onTap: onTap ?? () => Navigator.of(context).maybePop(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.arrow_back_rounded, size: 15, color: context.cMuted),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: context.cMuted,
+                      fontWeight: FontWeight.w600)),
             ]),
           ),
         ),

@@ -145,11 +145,11 @@ class AdminReportsPage extends ConsumerWidget {
         DataPanel(
           title: 'Effectifs par classe',
           child: classRows.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(20),
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Center(
                       child: Text('Aucune classe.',
-                          style: TextStyle(color: muted))),
+                          style: TextStyle(color: context.cMuted))),
                 )
               : DataTablePanel(
                   columns: const ['Classe', 'Niveau', 'Effectif', 'Remplissage'],
@@ -158,17 +158,17 @@ class AdminReportsPage extends ConsumerWidget {
                     for (final r in classRows)
                       [
                         Text(r.name,
-                            style: const TextStyle(
-                                color: ink,
+                            style: TextStyle(
+                                color: context.cInk,
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600)),
                         Text(r.level,
                             style:
-                                const TextStyle(fontSize: 12, color: muted)),
+                                TextStyle(fontSize: 12, color: context.cMuted)),
                         Text('${r.count} / ${r.capacity}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12.5,
-                                color: ink,
+                                color: context.cInk,
                                 fontWeight: FontWeight.w700)),
                         _FillBar(count: r.count, capacity: r.capacity),
                       ],
@@ -210,12 +210,12 @@ class AdminReportsPage extends ConsumerWidget {
         content: SizedBox(
           width: 460,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                   'Copiez ce texte et collez-le dans Excel / Google Sheets '
                   '(données séparées par des virgules).',
-                  style: TextStyle(fontSize: 12, color: muted)),
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
             ),
             const SizedBox(height: 12),
             Container(
@@ -223,13 +223,13 @@ class AdminReportsPage extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5EEE6),
+                color: context.cSubtle,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: SingleChildScrollView(
                 child: SelectableText(csv,
-                    style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 12, color: ink)),
+                    style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 12, color: context.cInk)),
               ),
             ),
           ]),
@@ -300,12 +300,12 @@ class _Tile extends StatelessWidget {
       this.color});
   @override
   Widget build(BuildContext context) {
-    final c = color ?? ink;
+    final c = color ?? context.cInk;
     return Container(
       width: 200,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: subtleBg,
+        color: context.cSubtle,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -314,11 +314,11 @@ class _Tile extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: cardBg,
+              color: context.cCard,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: border),
+              border: Border.all(color: context.cBorder),
             ),
-            child: Icon(icon, size: 16, color: color ?? muted),
+            child: Icon(icon, size: 16, color: color ?? context.cMuted),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -326,9 +326,9 @@ class _Tile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11,
-                        color: muted,
+                        color: context.cMuted,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(value,

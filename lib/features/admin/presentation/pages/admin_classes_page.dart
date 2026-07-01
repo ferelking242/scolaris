@@ -111,14 +111,14 @@ class AdminClassesPage extends ConsumerWidget {
                     for (final cl in classes)
                       [
                         Text(cl.name,
-                            style: const TextStyle(
-                                color: ink,
+                            style: TextStyle(
+                                color: context.cInk,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700)),
                         Text(cl.level ?? '—',
-                            style: const TextStyle(fontSize: 12, color: muted)),
+                            style: TextStyle(fontSize: 12, color: context.cMuted)),
                         Text(cl.section ?? '—',
-                            style: const TextStyle(fontSize: 12, color: muted)),
+                            style: TextStyle(fontSize: 12, color: context.cMuted)),
                         _CapacityBar(max: cl.maxStudents),
                         Align(
                           alignment: Alignment.centerLeft,
@@ -422,8 +422,8 @@ class _ClassRosterDialogState extends ConsumerState<_ClassRosterDialog> {
             return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // Élèves de la classe
               Text('Dans la classe (${inClass.length})',
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: ink)),
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
               const SizedBox(height: 6),
               Expanded(
                 child: inClass.isEmpty
@@ -442,9 +442,9 @@ class _ClassRosterDialogState extends ConsumerState<_ClassRosterDialog> {
               ),
               const Divider(height: 20),
               // Élèves disponibles
-              const Text('Ajouter un élève',
+              Text('Ajouter un élève',
                   style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: ink)),
+                      fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
               const SizedBox(height: 6),
               TextField(
                 decoration: const InputDecoration(
@@ -512,7 +512,7 @@ class _RosterTile extends StatelessWidget {
       title: Text(student.fullName,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
       subtitle: subtitle != null
-          ? Text(subtitle!, style: const TextStyle(fontSize: 11, color: muted))
+          ? Text(subtitle!, style: TextStyle(fontSize: 11, color: context.cMuted))
           : null,
       trailing: busy
           ? const SizedBox(
@@ -522,7 +522,7 @@ class _RosterTile extends StatelessWidget {
           : IconButton(
               icon: Icon(
                   isAdd ? Icons.add_circle_outline : Icons.remove_circle_outline,
-                  color: isAdd ? _terra : muted),
+                  color: isAdd ? _terra : context.cMuted),
               tooltip: isAdd ? 'Ajouter à la classe' : 'Retirer de la classe',
               onPressed: onTap,
             ),
@@ -537,18 +537,18 @@ class _Hint extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(12),
         child: Text(text,
-            style: const TextStyle(color: muted, fontSize: 12.5)),
+            style: TextStyle(color: context.cMuted, fontSize: 12.5)),
       );
 }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(32),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(32),
         child: Center(
           child: Text('Aucune classe créée.',
-              style: TextStyle(color: muted, fontSize: 14)),
+              style: TextStyle(color: context.cMuted, fontSize: 14)),
         ),
       );
 }
@@ -558,7 +558,7 @@ class _CapacityBar extends StatelessWidget {
   const _CapacityBar({required this.max});
   @override
   Widget build(BuildContext context) => Text('/ $max',
-      style: const TextStyle(fontSize: 12, color: muted));
+      style: TextStyle(fontSize: 12, color: context.cMuted));
 }
 
 class _IconBtn extends StatelessWidget {

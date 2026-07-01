@@ -12,8 +12,15 @@ import 'tuition_tracking_page.dart';
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF16A34A);
 
-class AdminBillingPage extends ConsumerWidget {
+class AdminBillingPage extends ConsumerStatefulWidget {
   const AdminBillingPage({super.key});
+  @override
+  ConsumerState<AdminBillingPage> createState() => _AdminBillingPageState();
+}
+
+class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
+  /// Sous-vue affichée inline : 'overview' | 'fees' | 'tracking'.
+  String _view = 'overview';
 
   void _newInvoice(BuildContext context, WidgetRef ref) {
     final schoolId = ref.read(currentSchoolIdProvider);
@@ -115,7 +122,16 @@ class AdminBillingPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // Sous-vues inline (pas de route plein écran).
+    if (_view == 'fees') {
+      return TuitionFeesPage(onBack: () => setState(() => _view = 'overview'));
+    }
+    if (_view == 'tracking') {
+      return TuitionTrackingPage(
+          onBack: () => setState(() => _view = 'overview'));
+    }
+
     final invoicesAsync = ref.watch(invoicesProvider);
     return invoicesAsync.when(
       loading: () => const PageScaffold(
@@ -142,14 +158,12 @@ class AdminBillingPage extends ConsumerWidget {
             ActionButton(
               label: 'Frais de scolarité',
               icon: Icons.event_repeat_rounded,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TuitionFeesPage())),
+              onTap: () => setState(() => _view = 'fees'),
             ),
             ActionButton(
               label: 'Suivi scolarité',
               icon: Icons.grid_on_rounded,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TuitionTrackingPage())),
+              onTap: () => setState(() => _view = 'tracking'),
             ),
             ActionButton(
               label: 'Nouvelle facture',
@@ -162,41 +176,61 @@ class AdminBillingPage extends ConsumerWidget {
             DataPanel(
               title: 'Ce mois',
               child: LayoutBuilder(builder: (ctx, c) {
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _StatBox(
-                        label: 'Encaissé',
-                        value: fmt.format(collected),
-                        color: _green),
-                    _StatBox(
-                        label: 'En attente',
-                        value: fmt.format(pending),
-                        color: const Color(0xFFEA580C)),
-                    _StatBox(
-                        label: 'En retard',
-                        value: fmt.format(overdue),
-                        color: const Color(0xFFDC2626)),
-                    _StatBox(
-                        label: 'Factures',
-                        value: '${invoices.length}',
-                        color: const Color(0xFF6D28D9)),
-                  ],
-                );
+                final boxes = [
+                  _StatBox(
+                      label: 'Encaissé',
+                      value: fmt.format(collected),
+                      color: _green),
+                  _StatBox(
+                      label: 'En attente',
+                      value: fmt.format(pending),
+                      color: const Color(0xFFEA580C)),
+                  _StatBox(
+                      label: 'En retard',
+                      value: fmt.format(overdue),
+                      color: const Color(0xFFDC2626)),
+                  _StatBox(
+                      label: 'Factures',
+                      value: '${invoices.length}',
+                      color: const Color(0xFF6D28D9)),
+                ];
+                if (c.maxWidth < 560) {
+                  return Column(children: [
+                    Row(children: [
+                      Expanded(child: boxes[0]),
+                      const SizedBox(width: 10),
+                      Expanded(child: boxes[1]),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: boxes[2]),
+                      const SizedBox(width: 10),
+                      Expanded(child: boxes[3]),
+                    ]),
+                  ]);
+                }
+                return Row(children: [
+                  for (var i = 0; i < boxes.length; i++)
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
+                        child: boxes[i],
+                      ),
+                    ),
+                ]);
               }),
             ),
             const SizedBox(height: 14),
             DataPanel(
               title: 'Toutes les factures',
               child: invoices.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Center(
                           child: Text(
                               'Aucune facture. Cliquez « Nouvelle facture » pour commencer.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: muted))),
+                              style: TextStyle(color: context.cMuted))),
                     )
                   : DataTablePanel(
                       columns: const [
@@ -211,18 +245,18 @@ class AdminBillingPage extends ConsumerWidget {
                         for (final inv in invoices)
                           [
                             Text(inv.invoiceNumber ?? inv.id.substring(0, 8),
-                                style: const TextStyle(
-                                    color: ink,
+                                style: TextStyle(
+                                    color: context.cInk,
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600)),
                             Text(inv.studentName ?? '—',
-                                style: const TextStyle(
-                                    fontSize: 12.5, color: ink)),
+                                style: TextStyle(
+                                    fontSize: 12.5, color: context.cInk)),
                             Text(
                                 '${NumberFormat.decimalPattern("fr").format(inv.amount)} ${inv.currency}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12.5,
-                                    color: ink,
+                                    color: context.cInk,
                                     fontWeight: FontWeight.w700)),
                             Align(
                                 alignment: Alignment.centerLeft,
@@ -235,8 +269,8 @@ class AdminBillingPage extends ConsumerWidget {
                                   onTap: () => _collect(context, ref, inv),
                                 ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded,
-                                    size: 16, color: muted),
+                                icon: Icon(Icons.delete_outline_rounded,
+                                    size: 16, color: context.cMuted),
                                 tooltip: 'Supprimer',
                                 onPressed: () => _delete(context, ref, inv),
                               ),
@@ -263,34 +297,11 @@ class AdminBillingPage extends ConsumerWidget {
     );
   }
 
-  static Widget _statusPill(String s) {
-    Color c;
-    String label;
-    switch (s) {
-      case 'paid':
-        c = _green;
-        label = 'Payé';
-        break;
-      case 'overdue':
-        c = const Color(0xFFDC2626);
-        label = 'En retard';
-        break;
-      default:
-        c = const Color(0xFFEA580C);
-        label = 'En attente';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: c.withValues(alpha: .3)),
-      ),
-      child: Text(label,
-          style:
-              TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
-    );
-  }
+  static Widget _statusPill(String s) => switch (s) {
+        'paid' => StatusPill.success('Payé'),
+        'overdue' => StatusPill.danger('En retard'),
+        _ => StatusPill.warning('En attente'),
+      };
 }
 
 // ── Dialogue : nouvelle facture ──────────────────────────────────────────────
@@ -495,7 +506,7 @@ class _StatBox extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: .2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: muted)),
+          Text(label, style: TextStyle(fontSize: 11, color: context.cMuted)),
           const SizedBox(height: 4),
           Text(value,
               style: TextStyle(

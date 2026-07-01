@@ -18,9 +18,13 @@ const _moisFr = [
 ];
 
 /// Écran admin : grille des frais de scolarité (par classe) + génération de
-/// l'échéancier annuel de tous les élèves en un clic.
+/// l'échéancier annuel de tous les élèves en un clic. Design system :
+/// `PageScaffold` + un `DataPanel` par classe.
 class TuitionFeesPage extends ConsumerWidget {
-  const TuitionFeesPage({super.key});
+  /// Si fourni, la barre de retour appelle ce callback (mode inline) au lieu de
+  /// `Navigator.maybePop` (mode route).
+  final VoidCallback? onBack;
+  const TuitionFeesPage({super.key, this.onBack});
 
   Future<void> _generate(BuildContext context, WidgetRef ref, String year) async {
     final schoolId = ref.read(currentSchoolIdProvider);
@@ -85,77 +89,50 @@ class TuitionFeesPage extends ConsumerWidget {
     };
     final configured = fees.length;
 
-    return Scaffold(
-      backgroundColor: pageBg,
-      body: Column(
-        children: [
-          GradientHeader(
-            title: 'Frais de scolarité',
-            subtitle: classesAsync.isLoading
-                ? 'Chargement…'
-                : 'Année $year · $configured/${classes.length} classe(s) configurée(s)',
-            icon: Icons.payments_rounded,
-            actions: [
-              HeaderActionButton(
-                label: 'Générer l\'échéancier',
-                icon: Icons.event_repeat_rounded,
-                filled: true,
-                onTap: configured == 0
-                    ? null
-                    : () => _generate(context, ref, year),
-              ),
-            ],
-          ),
-          Expanded(
-            child: classesAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator(color: _terra)),
-              error: (e, _) => Center(
-                  child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text('Erreur : $e',
-                          style: const TextStyle(color: muted)))),
-              data: (classes) =>
-                  _list(context, ref, classes, fees, year, configured),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    return PageScaffold(
+      title: 'Frais de scolarité',
+      subtitle: classesAsync.isLoading
+          ? 'Chargement…'
+          : 'Année $year · $configured/${classes.length} classe(s) configurée(s)',
+      actions: [
+        ActionButton(
+          label: 'Générer l\'échéancier',
+          icon: Icons.event_repeat_rounded,
+          primary: true,
+          onTap: configured == 0 ? () {} : () => _generate(context, ref, year),
+        ),
+      ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
+        const SizedBox(height: 14),
 
-  Widget _list(
-    BuildContext context,
-    WidgetRef ref,
-    List<SbClass> classes,
-    Map<String, SbFeeStructure> fees,
-    String year,
-    int configured,
-  ) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-      children: [
-        // Aide
+        // Aide.
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: _gold.withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _gold.withValues(alpha: .25)),
           ),
-          child: const Row(children: [
-            Icon(Icons.info_outline_rounded, color: _gold, size: 18),
-            SizedBox(width: 10),
+          child: Row(children: [
+            const Icon(Icons.info_outline_rounded, color: _gold, size: 18),
+            const SizedBox(width: 10),
             Expanded(child: Text(
               'Définis le tarif de chaque classe (une fois par an), puis clique '
               '« Générer l\'échéancier » : chaque élève reçoit ses échéances. '
               'Re-générable à tout moment (rattrape les nouveaux élèves).',
-              style: TextStyle(color: muted, fontSize: 12.5, height: 1.5),
+              style: TextStyle(color: context.cMuted, fontSize: 12, height: 1.5),
             )),
           ]),
         ),
-        const SizedBox(height: 16),
-        if (classes.isEmpty)
+        const SizedBox(height: 14),
+
+        if (classesAsync.isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator(color: _terra)),
+          )
+        else if (classes.isEmpty)
           const EmptyState(
             icon: Icons.class_outlined,
             title: 'Aucune classe',
@@ -173,12 +150,12 @@ class TuitionFeesPage extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-      ],
+      ]),
     );
   }
 }
 
-// ── Carte éditable d'une classe ─────────────────────────────────────────────
+// ── Carte éditable d'une classe (DataPanel) ─────────────────────────────────
 class _ClassFeeCard extends ConsumerStatefulWidget {
   final SbClass classe;
   final String academicYear;
@@ -263,130 +240,98 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
     final configured = widget.existing != null;
     final total = (double.tryParse(_amount.text.trim().replaceAll(',', '.')) ?? 0) * _periods;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: configured ? _green.withValues(alpha: .35) : border),
-        boxShadow: const [BoxShadow(
-          color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
-      ),
+    return DataPanel(
+      title: widget.classe.name,
+      headerActions: [
+        if (configured)
+          StatusPill.success('Configuré')
+        else
+          StatusPill.neutral('À définir'),
+      ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // En-tête de carte
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          decoration: BoxDecoration(
-            color: configured
-                ? _green.withValues(alpha: .05)
-                : const Color(0xFFFBF7F0),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border(bottom: BorderSide(color: border.withValues(alpha: .6))),
-          ),
-          child: Row(children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                  color: _terra.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(11)),
-              child: const Icon(Icons.class_rounded, color: _terra, size: 19),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(widget.classe.name,
-                style: const TextStyle(
-                    color: ink, fontSize: 15.5, fontWeight: FontWeight.w800))),
-            if (configured)
-              StatusPill.success('Configuré')
-            else
-              StatusPill.neutral('À définir'),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Wrap(spacing: 12, runSpacing: 12, children: [
-              // Rythme
-              _Field(label: 'Rythme', child: DropdownButton<String>(
-                value: _rhythm, isDense: true, underline: const SizedBox(),
-                items: const [
-                  DropdownMenuItem(value: 'monthly', child: Text('Mensualités')),
-                  DropdownMenuItem(value: 'term', child: Text('Tranches')),
-                ],
-                onChanged: (v) => setState(() {
-                  _rhythm = v ?? 'monthly';
-                  _periods = _rhythm == 'term' ? 3 : 10; // défaut cohérent
-                }),
-              )),
-              // Montant
-              _Field(label: 'Montant / ${isTerm ? "tranche" : "mois"}', child: SizedBox(
-                width: 110,
-                child: TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    isDense: true, border: InputBorder.none, hintText: '75000',
-                    suffixText: 'XAF', suffixStyle: TextStyle(fontSize: 11, color: muted),
-                  ),
-                ),
-              )),
-              // Nb périodes
-              _Field(label: isTerm ? 'Nb tranches' : 'Nb mois',
-                child: DropdownButton<int>(
-                  value: _periods, isDense: true, underline: const SizedBox(),
-                  items: [for (int n = 1; n <= 12; n++)
-                    DropdownMenuItem(value: n, child: Text('$n'))],
-                  onChanged: (v) => setState(() => _periods = v ?? _periods),
-                )),
-              // Mois de début
-              _Field(label: 'Début', child: DropdownButton<int>(
-                value: _startMonth, isDense: true, underline: const SizedBox(),
-                items: [for (int m = 1; m <= 12; m++)
-                  DropdownMenuItem(value: m, child: Text(_moisFr[m - 1]))],
-                onChanged: (v) => setState(() => _startMonth = v ?? _startMonth),
-              )),
-              // Jour d'échéance
-              _Field(label: 'Échéance le', child: DropdownButton<int>(
-                value: _dueDay, isDense: true, underline: const SizedBox(),
-                items: [for (int d = 1; d <= 28; d++)
-                  DropdownMenuItem(value: d, child: Text('$d'))],
-                onChanged: (v) => setState(() => _dueDay = v ?? _dueDay),
-              )),
-            ]),
-            const SizedBox(height: 14),
-            Row(children: [
-              if (total > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _terra.withValues(alpha: .06),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.functions_rounded, size: 14, color: _terra),
-                    const SizedBox(width: 6),
-                    Text('Total année : ${NumberFormat.decimalPattern("fr").format(total)} XAF',
-                        style: const TextStyle(
-                            color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
-                  ]),
-                ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                icon: _saving
-                    ? const SizedBox(width: 14, height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save_rounded, size: 16),
-                label: Text(configured ? 'Mettre à jour' : 'Enregistrer'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _terra,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          _Field(label: 'Rythme', child: DropdownButton<String>(
+            value: _rhythm, isDense: true, underline: const SizedBox(),
+            dropdownColor: context.cCard,
+            items: const [
+              DropdownMenuItem(value: 'monthly', child: Text('Mensualités')),
+              DropdownMenuItem(value: 'term', child: Text('Tranches')),
+            ],
+            onChanged: (v) => setState(() {
+              _rhythm = v ?? 'monthly';
+              _periods = _rhythm == 'term' ? 3 : 10;
+            }),
+          )),
+          _Field(label: 'Montant / ${isTerm ? "tranche" : "mois"}', child: SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(fontSize: 13, color: context.cInk),
+              decoration: InputDecoration(
+                isDense: true, border: InputBorder.none, hintText: '75000',
+                hintStyle: TextStyle(color: context.cMuted),
+                suffixText: 'XAF',
+                suffixStyle: TextStyle(fontSize: 11, color: context.cMuted),
               ),
-            ]),
-          ]),
-        ),
+            ),
+          )),
+          _Field(label: isTerm ? 'Nb tranches' : 'Nb mois',
+            child: DropdownButton<int>(
+              value: _periods, isDense: true, underline: const SizedBox(),
+              dropdownColor: context.cCard,
+              items: [for (int n = 1; n <= 12; n++)
+                DropdownMenuItem(value: n, child: Text('$n'))],
+              onChanged: (v) => setState(() => _periods = v ?? _periods),
+            )),
+          _Field(label: 'Début', child: DropdownButton<int>(
+            value: _startMonth, isDense: true, underline: const SizedBox(),
+            dropdownColor: context.cCard,
+            items: [for (int m = 1; m <= 12; m++)
+              DropdownMenuItem(value: m, child: Text(_moisFr[m - 1]))],
+            onChanged: (v) => setState(() => _startMonth = v ?? _startMonth),
+          )),
+          _Field(label: 'Échéance le', child: DropdownButton<int>(
+            value: _dueDay, isDense: true, underline: const SizedBox(),
+            dropdownColor: context.cCard,
+            items: [for (int d = 1; d <= 28; d++)
+              DropdownMenuItem(value: d, child: Text('$d'))],
+            onChanged: (v) => setState(() => _dueDay = v ?? _dueDay),
+          )),
+        ]),
+        const SizedBox(height: 14),
+        Row(children: [
+          if (total > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _terra.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.functions_rounded, size: 14, color: _terra),
+                const SizedBox(width: 6),
+                Text('Total année : ${NumberFormat.decimalPattern("fr").format(total)} XAF',
+                    style: const TextStyle(
+                        color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox(width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.save_rounded, size: 16),
+            label: Text(configured ? 'Mettre à jour' : 'Enregistrer'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _terra,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+        ]),
       ]),
     );
   }
@@ -400,17 +345,16 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label.toUpperCase(),
-          style: const TextStyle(
-              color: muted, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: .4)),
+          style: TextStyle(
+              color: context.cMuted, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: .4)),
       const SizedBox(height: 4),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F1E8),
+          color: context.cSubtle,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: border),
+          border: Border.all(color: context.cBorder),
         ),
-        // Material requis par DropdownButton / TextField (transparent).
         child: Material(type: MaterialType.transparency, child: child),
       ),
     ]);

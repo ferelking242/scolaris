@@ -135,7 +135,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     }
 
     return Scaffold(
-      backgroundColor: pageBg,
+      backgroundColor: context.cPage,
       body: Column(children: [
         GradientHeader(
           title: 'Bulletins',
@@ -147,7 +147,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             loading: () =>
                 const Center(child: CircularProgressIndicator(color: _terra)),
             error: (e, _) => Center(child: Text('Erreur : $e',
-                style: const TextStyle(color: muted))),
+                style: TextStyle(color: context.cMuted))),
             data: (cls) => cls.isEmpty
                 ? const Center(child: EmptyState(
                     icon: Icons.class_outlined,
@@ -173,9 +173,9 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.cCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border),
+            border: Border.all(color: context.cBorder),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _label('CLASSE'),
@@ -255,7 +255,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           Padding(
             padding: const EdgeInsets.only(left: 28),
             child: Text('Publié le ${DateFormat('d MMM yyyy', 'fr').format(publishedAt)}',
-                style: const TextStyle(color: muted, fontSize: 11.5)),
+                style: TextStyle(color: context.cMuted, fontSize: 11.5)),
           ),
         ],
         const SizedBox(height: 12),
@@ -288,7 +288,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
 
   // ── petits widgets ────────────────────────────────────────────────────────
   Widget _label(String t) => Text(t,
-      style: const TextStyle(color: muted, fontSize: 9,
+      style: TextStyle(color: context.cMuted, fontSize: 9,
           fontWeight: FontWeight.w700, letterSpacing: .5));
 
   Widget _dropdown<T>({
@@ -298,9 +298,9 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   }) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F1E8),
+          color: context.cSubtle,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: border),
+          border: Border.all(color: context.cBorder),
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<T>(
@@ -317,13 +317,13 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: active ? _terra : const Color(0xFFF7F1E8),
+          color: active ? _terra : context.cSubtle,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: active ? _terra : border),
+          border: Border.all(color: active ? _terra : context.cBorder),
         ),
         child: Text(p,
             style: TextStyle(
-                color: active ? Colors.white : muted,
+                color: active ? Colors.white : context.cMuted,
                 fontSize: 13, fontWeight: FontWeight.w700)),
       ),
     );
@@ -335,7 +335,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   }) => Opacity(
         opacity: onTap == null ? .5 : 1,
         child: Material(
-          color: filled ? color : Colors.white,
+          color: filled ? color : context.cCard,
           borderRadius: BorderRadius.circular(11),
           child: InkWell(
             borderRadius: BorderRadius.circular(11),
@@ -374,9 +374,9 @@ class _StudentRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         // Rang
@@ -394,11 +394,11 @@ class _StudentRow extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(card.studentName ?? '—',
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: ink, fontSize: 14, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: context.cInk, fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
           Text('${card.lines.length} matière(s)'
               '${card.mention != null ? ' · ${card.mention}' : ''}',
-              style: const TextStyle(color: muted, fontSize: 11.5)),
+              style: TextStyle(color: context.cMuted, fontSize: 11.5)),
         ])),
         const SizedBox(width: 10),
         Text(avg.toStringAsFixed(2),

@@ -22,7 +22,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.cCard,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _SessionSheet(
@@ -38,7 +38,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.cCard,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _SessionSheet(
@@ -77,11 +77,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         error: (e, _) => Center(child: Text('Erreur : $e')),
         data: (classes) {
           if (classes.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(24),
+            return Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                   child: Text('Créez d\'abord une classe.',
-                      style: TextStyle(color: muted))),
+                      style: TextStyle(color: context.cMuted))),
             );
           }
           _classId ??= classes.first.id;
@@ -178,11 +178,11 @@ class _DaySection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
           child: Row(children: [
             Text(_days[day - 1],
-                style: const TextStyle(
-                    color: ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w800)),
             const SizedBox(width: 8),
             Text('${sessions.length} cours',
-                style: const TextStyle(fontSize: 11, color: muted)),
+                style: TextStyle(fontSize: 11, color: context.cMuted)),
             const Spacer(),
             TextButton.icon(
               onPressed: onAdd,
@@ -195,13 +195,13 @@ class _DaySection extends StatelessWidget {
             ),
           ]),
         ),
-        if (sessions.isNotEmpty) const Divider(height: 1, color: border),
+        if (sessions.isNotEmpty) Divider(height: 1, color: context.cBorder),
         for (final s in sessions)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(
-                    bottom: BorderSide(color: Color(0xFFF0E8DC)))),
+                    bottom: BorderSide(color: context.cBorder))),
             child: Row(children: [
               Container(
                 width: 4,
@@ -214,9 +214,9 @@ class _DaySection extends StatelessWidget {
               SizedBox(
                 width: 88,
                 child: Text('${s.startTime} – ${s.endTime}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
-                        color: ink,
+                        color: context.cInk,
                         fontWeight: FontWeight.w700)),
               ),
               Expanded(
@@ -232,17 +232,17 @@ class _DaySection extends StatelessWidget {
                         if (s.room != null && s.room!.isNotEmpty)
                           'Salle ${s.room}',
                       ].join(' · '),
-                          style: const TextStyle(fontSize: 11, color: muted)),
+                          style: TextStyle(fontSize: 11, color: context.cMuted)),
                     ]),
               ),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 17, color: muted),
+                icon: Icon(Icons.edit_outlined, size: 17, color: context.cMuted),
                 tooltip: 'Modifier',
                 onPressed: () => onEdit(s),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded,
-                    size: 17, color: muted),
+                icon: Icon(Icons.delete_outline_rounded,
+                    size: 17, color: context.cMuted),
                 tooltip: 'Supprimer',
                 onPressed: () => onDelete(s),
               ),
@@ -376,8 +376,8 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text('${_isEdit ? "Modifier" : "Nouveau cours"} — ${_days[widget.dayOfWeek - 1]}',
-              style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w800, color: ink)),
+              style: TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w800, color: context.cInk)),
         ),
         const SizedBox(height: 16),
         // Matière
@@ -476,7 +476,7 @@ class _TimeField extends StatelessWidget {
             labelText: label,
             prefixIcon: const Icon(Icons.schedule_rounded),
             border: const OutlineInputBorder()),
-        child: Text(value, style: const TextStyle(fontSize: 14, color: ink)),
+        child: Text(value, style: TextStyle(fontSize: 14, color: context.cInk)),
       ),
     );
   }

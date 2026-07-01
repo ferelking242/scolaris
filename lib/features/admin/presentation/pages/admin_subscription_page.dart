@@ -139,12 +139,12 @@ class AdminSubscriptionPage extends ConsumerWidget {
           }),
         ),
         const SizedBox(height: 10),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'Paiement annuel = 2 mois offerts. Essai gratuit 1 mois. '
             'Prix indicatifs (FCFA), déclinables par pays.',
-            style: TextStyle(fontSize: 11.5, color: muted),
+            style: TextStyle(fontSize: 11.5, color: context.cMuted),
           ),
         ),
       ]),
@@ -305,7 +305,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
                 style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: c)),
             const SizedBox(width: 6),
             Text('${widget.currency} maintenant',
-                style: const TextStyle(fontSize: 12.5, color: muted)),
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
           ]),
 
           // Détail prorata si crédit applicable
@@ -323,7 +323,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
                 _ProratRow(
                   label: 'Prix offre ${widget.plan.name} (${_yearly ? "an" : "mois"})',
                   value: '${_fmt.format(full)} ${widget.currency}',
-                  color: ink,
+                  color: context.cInk,
                 ),
                 const SizedBox(height: 4),
                 if (s != null && s.creditBalance > 0 && (s.price == null || s.currentPeriodEnd == null))
@@ -364,7 +364,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
                 else
                   Text(
                     'Dès le prochain cycle : ${_fmt.format(full)} ${widget.currency}/${_yearly ? "an" : "mois"}',
-                    style: const TextStyle(fontSize: 10.5, color: muted),
+                    style: TextStyle(fontSize: 10.5, color: context.cMuted),
                   ),
               ]),
             ),
@@ -373,7 +373,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(widget.plan.limitLabel,
-                  style: const TextStyle(fontSize: 12, color: muted)),
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
             ),
           ],
         ]),
@@ -403,15 +403,15 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: sel ? c.withValues(alpha: .12) : Colors.white,
+          color: sel ? c.withValues(alpha: .12) : context.cCard,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: sel ? c : border, width: sel ? 2 : 1),
+          border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
         ),
         child: Text(label,
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 11.5,
-                color: sel ? c : ink,
+                color: sel ? c : context.cInk,
                 fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
       ),
     );
@@ -487,7 +487,7 @@ class _StatusBanner extends StatelessWidget {
               ),
             ]),
             const SizedBox(height: 3),
-            Text(detail, style: const TextStyle(fontSize: 12.5, color: muted)),
+            Text(detail, style: TextStyle(fontSize: 12.5, color: context.cMuted)),
             if ((sub?.creditBalance ?? 0) > 0) ...[
               const SizedBox(height: 4),
               Row(children: [
@@ -521,9 +521,9 @@ class _UsageBar extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text('${fmt.format(count)} élève${count > 1 ? 's' : ''}',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: context.cInk)),
         Text(unlimited ? 'Illimité' : 'sur ${fmt.format(limit)}',
-            style: const TextStyle(fontSize: 13, color: muted)),
+            style: TextStyle(fontSize: 13, color: context.cMuted)),
       ]),
       const SizedBox(height: 10),
       ClipRRect(
@@ -531,7 +531,7 @@ class _UsageBar extends StatelessWidget {
         child: LinearProgressIndicator(
           value: unlimited ? 1.0 : ratio,
           minHeight: 9,
-          backgroundColor: subtleBg,
+          backgroundColor: context.cSubtle,
           valueColor: AlwaysStoppedAnimation(barColor),
         ),
       ),
@@ -589,10 +589,10 @@ class _PlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCurrent ? color.withValues(alpha: .06) : cardBg,
+        color: isCurrent ? color.withValues(alpha: .06) : context.cCard,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isCurrent ? color : border,
+          color: isCurrent ? color : context.cBorder,
           width: isCurrent ? 2 : 1,
         ),
       ),
@@ -614,7 +614,7 @@ class _PlanCard extends StatelessWidget {
         ]),
         if (plan.tagline != null) ...[
           const SizedBox(height: 2),
-          Text(plan.tagline!, style: const TextStyle(fontSize: 12, color: muted)),
+          Text(plan.tagline!, style: TextStyle(fontSize: 12, color: context.cMuted)),
         ],
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
@@ -622,7 +622,7 @@ class _PlanCard extends StatelessWidget {
             Text(monthly != null ? fmt.format(monthly) : '—',
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
             const SizedBox(width: 4),
-            Text('$currency /mois', style: const TextStyle(fontSize: 11.5, color: muted)),
+            Text('$currency /mois', style: TextStyle(fontSize: 11.5, color: context.cMuted)),
           ],
         ),
         if (monthly != null) ...[
@@ -675,7 +675,7 @@ class _PlanCard extends StatelessWidget {
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(_featureLabels[f] ?? f,
-                        style: const TextStyle(fontSize: 12, color: ink, height: 1.3)),
+                        style: TextStyle(fontSize: 12, color: context.cInk, height: 1.3)),
                   ),
                 ]),
               ),

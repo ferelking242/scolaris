@@ -121,16 +121,16 @@ class AdminSubjectsPage extends ConsumerWidget {
                     for (final s in subjects)
                       [
                         Text(s.name,
-                            style: const TextStyle(
-                                color: ink,
+                            style: TextStyle(
+                                color: context.cInk,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700)),
                         Text(s.code ?? '—',
                             style:
-                                const TextStyle(fontSize: 12, color: muted)),
+                                TextStyle(fontSize: 12, color: context.cMuted)),
                         Text('${s.coefficient}',
                             style:
-                                const TextStyle(fontSize: 12, color: muted)),
+                                TextStyle(fontSize: 12, color: context.cMuted)),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -348,13 +348,13 @@ class _LoadCatalogDialogState extends ConsumerState<_LoadCatalogDialog> {
       content: SizedBox(
         width: 420,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Sélectionnez les cycles. Les matières types seront ajoutées '
               'à votre liste (celles déjà présentes sont ignorées). Vous '
               'pourrez ensuite les ajuster.',
-              style: TextStyle(fontSize: 12.5, color: muted),
+              style: TextStyle(fontSize: 12.5, color: context.cMuted),
             ),
           ),
           const SizedBox(height: 12),
@@ -367,7 +367,7 @@ class _LoadCatalogDialogState extends ConsumerState<_LoadCatalogDialog> {
               subtitle: catalogAsync.maybeWhen(
                 data: (cat) => Text(
                     '${cat.where((c) => c.cycle == entry.key).length} matières',
-                    style: const TextStyle(fontSize: 11, color: muted)),
+                    style: TextStyle(fontSize: 11, color: context.cMuted)),
                 orElse: () => null,
               ),
               value: _cycles.contains(entry.key),
@@ -410,14 +410,14 @@ class _LoadCatalogDialogState extends ConsumerState<_LoadCatalogDialog> {
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(32),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(32),
         child: Center(
           child: Text(
             'Aucune matière. Cliquez « Charger les matières types » pour '
             'démarrer rapidement.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: muted, fontSize: 14),
+            style: TextStyle(color: context.cMuted, fontSize: 14),
           ),
         ),
       );
@@ -433,7 +433,7 @@ class _IconBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: muted),
+          child: Icon(icon, size: 16, color: context.cMuted),
         ),
       );
 }

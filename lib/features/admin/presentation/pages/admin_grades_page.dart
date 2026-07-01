@@ -217,21 +217,21 @@ class _ClassGradesPanel extends ConsumerWidget {
     final c = _mentionColor(avg);
     return [
       Text('$rank',
-          style: const TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w700)),
+          style: TextStyle(fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
       Row(children: [
         Avatar(name: s.fullName, size: 24),
         const SizedBox(width: 8),
         Flexible(
           child: Text(s.fullName,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: context.cInk, fontSize: 12.5, fontWeight: FontWeight.w600)),
         ),
       ]),
       hasGrades
           ? Text(avg.toStringAsFixed(2),
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: c))
-          : const Text('—', style: TextStyle(fontSize: 13, color: muted)),
+          : Text('—', style: TextStyle(fontSize: 13, color: context.cMuted)),
       hasGrades
           ? Align(
               alignment: Alignment.centerLeft,
@@ -246,10 +246,10 @@ class _ClassGradesPanel extends ConsumerWidget {
                         fontSize: 11, color: c, fontWeight: FontWeight.w700)),
               ),
             )
-          : const Text('Pas de notes',
-              style: TextStyle(fontSize: 11, color: muted)),
+          : Text('Pas de notes',
+              style: TextStyle(fontSize: 11, color: context.cMuted)),
       IconButton(
-        icon: const Icon(Icons.chevron_right_rounded, size: 20, color: muted),
+        icon: Icon(Icons.chevron_right_rounded, size: 20, color: context.cMuted),
         tooltip: 'Voir le bulletin',
         onPressed: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => _StudentBulletinPage(
@@ -650,16 +650,16 @@ class _Empty extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.cCard,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: border),
+          border: Border.all(color: context.cBorder),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 44, color: const Color(0xFFDDCCBB)),
+          Icon(icon, size: 44, color: context.cBorder),
           const SizedBox(height: 12),
           Text(text,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: muted)),
+              style: TextStyle(fontSize: 13, color: context.cMuted)),
         ]),
       );
 }

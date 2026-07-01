@@ -6,14 +6,11 @@ import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/enrollment_config.dart';
 import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../widgets/preregistration_link_panel.dart';
 
 const _terra   = Color(0xFF8B1A00);
 const _green   = Color(0xFF2D6A4F);
 const _gold    = Color(0xFFC17F24);
-const _ink     = Color(0xFF1A0A00);
-const _muted   = Color(0xFF7A5C44);
-const _white   = Colors.white;
-const _borderC = Color(0xFFDDCCBB);
 
 class EnrollmentConfigPage extends ConsumerStatefulWidget {
   const EnrollmentConfigPage({super.key});
@@ -27,6 +24,7 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
   bool _saved = false;
   bool _saving = false;
   bool _loading = true;
+  bool _previewing = false;
 
   @override
   void initState() {
@@ -111,22 +109,7 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
     }
   }
 
-  void _preview() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            backgroundColor: _terra,
-            foregroundColor: _white,
-            title: const Text('Prévisualisation du formulaire',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            elevation: 0,
-          ),
-          body: EnrollmentPage(config: _config, isAdminMode: true),
-        ),
-      ),
-    );
-  }
+  void _preview() => setState(() => _previewing = true);
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +119,46 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
+    // Prévisualisation inline (dans le shell), pas de route plein écran.
+    if (_previewing) {
+      return Container(
+        color: context.cPage,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Material(
+                color: context.cSubtle,
+                borderRadius: BorderRadius.circular(9),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => setState(() => _previewing = false),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.arrow_back_rounded,
+                          size: 15, color: context.cMuted),
+                      const SizedBox(width: 6),
+                      Text('Retour à la configuration',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: context.cMuted,
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: EnrollmentPage(config: _config, isAdminMode: true),
+          ),
+        ]),
+      );
+    }
+
     final cats = EnrollmentFields.categories;
     final enabledCount = _config.enabledFields.length;
     final requiredCount =
@@ -164,6 +187,10 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
+          // ── Lien de pré-inscription (partage lien + QR + période) ───────
+          const PreRegistrationLinkPanel(),
+          const SizedBox(height: 16),
+
           // ── Info banner ─────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(14),
@@ -181,19 +208,19 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
                 child: const Icon(Icons.tune_rounded, color: _gold, size: 18),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Personnalisation du formulaire d\'inscription',
-                        style: TextStyle(fontSize: 12.5, color: _ink,
+                        style: TextStyle(fontSize: 12.5, color: context.cInk,
                             fontWeight: FontWeight.w700)),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Activez ou désactivez les champs selon les besoins de votre '
                       'établissement. Les champs marqués ★ sont obligatoires '
                       'et ne peuvent pas être désactivés.',
-                      style: TextStyle(fontSize: 11, color: _muted, height: 1.4),
+                      style: TextStyle(fontSize: 11, color: context.cMuted, height: 1.4),
                     ),
                   ],
                 ),
@@ -222,7 +249,7 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
               icon: Icons.list_alt_rounded,
               label: 'Total champs',
               value: '${EnrollmentFields.all.length}',
-              color: _muted,
+              color: context.cMuted,
             ),
           ]),
           const SizedBox(height: 16),
@@ -302,7 +329,7 @@ class _CatSectionState extends State<_CatSection> {
                 ),
                 const SizedBox(width: 10),
                 Text(widget.category,
-                    style: const TextStyle(color: _ink, fontSize: 13,
+                    style: TextStyle(color: context.cInk, fontSize: 13,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(width: 8),
                 Container(
@@ -318,14 +345,14 @@ class _CatSectionState extends State<_CatSection> {
                 const Spacer(),
                 Icon(
                   _open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                  size: 18, color: _muted,
+                  size: 18, color: context.cMuted,
                 ),
               ]),
             ),
           ),
 
           if (_open) ...[
-            Container(height: 1, color: _borderC),
+            Container(height: 1, color: context.cBorder),
             for (final field in fields) ...[
               _FieldConfigRow(
                 field: field,
@@ -378,7 +405,7 @@ class _FieldConfigRow extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: enabled ? Colors.white : const Color(0xFFFAF7F3),
+      color: enabled ? context.cCard : context.cSubtle,
       child: Row(children: [
         // Type icon
         Container(
@@ -386,11 +413,11 @@ class _FieldConfigRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: enabled
                 ? _terra.withOpacity(.07)
-                : _muted.withOpacity(.07),
+                : context.cMuted.withOpacity(.07),
             borderRadius: BorderRadius.circular(7),
           ),
           child: Icon(_typeIcon, size: 13,
-              color: enabled ? _terra : _muted.withOpacity(.5)),
+              color: enabled ? _terra : context.cMuted.withOpacity(.5)),
         ),
         const SizedBox(width: 10),
 
@@ -402,7 +429,7 @@ class _FieldConfigRow extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: enabled ? _ink : _muted.withOpacity(.5))),
+                      color: enabled ? context.cInk : context.cMuted.withOpacity(.5))),
               if (locked) ...[
                 const SizedBox(width: 6),
                 Container(
@@ -421,7 +448,7 @@ class _FieldConfigRow extends StatelessWidget {
             if (field.hint != null)
               Text(field.hint!,
                   style: TextStyle(fontSize: 10,
-                      color: enabled ? _muted : _muted.withOpacity(.4))),
+                      color: enabled ? context.cMuted : context.cMuted.withOpacity(.4))),
           ]),
         ),
 
@@ -436,18 +463,18 @@ class _FieldConfigRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: state.required
                       ? _terra.withOpacity(.1)
-                      : _muted.withOpacity(.06),
+                      : context.cMuted.withOpacity(.06),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                       color: state.required
                           ? _terra.withOpacity(.3)
-                          : _borderC),
+                          : context.cBorder),
                 ),
                 child: Text(
                   state.required ? 'Obligatoire' : 'Optionnel',
                   style: TextStyle(
                       fontSize: 10,
-                      color: state.required ? _terra : _muted,
+                      color: state.required ? _terra : context.cMuted,
                       fontWeight: FontWeight.w700),
                 ),
               ),
@@ -488,9 +515,9 @@ class _MiniStat extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.cCard,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _borderC),
+          border: Border.all(color: context.cBorder),
         ),
         child: Row(children: [
           Container(
@@ -504,7 +531,7 @@ class _MiniStat extends StatelessWidget {
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
-                style: const TextStyle(fontSize: 10, color: _muted)),
+                style: TextStyle(fontSize: 10, color: context.cMuted)),
             Text(value,
                 style: TextStyle(fontSize: 18, color: color,
                     fontWeight: FontWeight.w900)),

@@ -198,11 +198,11 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Couleur accent',
+                      Text('Couleur accent',
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: _muted)),
+                              color: context.cMuted)),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 10,

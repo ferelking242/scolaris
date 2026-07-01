@@ -8,6 +8,7 @@ import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
 import 'pages/enrollment_config_page.dart';
+import 'pages/prereg_queue_page.dart';
 import 'pages/notification_center_page.dart';
 import 'pages/timetable_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
@@ -24,14 +25,35 @@ import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/users_page.dart';
 
+// Accents de marque — volontairement constants, lisibles en clair comme en sombre.
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
+
+// Neutres dérivés du thème courant (s'adaptent clair/sombre).
+class _DashColors {
+  final Color ink;      // texte principal
+  final Color muted;    // texte secondaire
+  final Color card;     // fond des cartes
+  final Color border;   // contour des cartes
+  final Color divider;  // séparateurs internes
+  final Color skeleton; // blocs de chargement
+  const _DashColors(
+      this.ink, this.muted, this.card, this.border, this.divider, this.skeleton);
+
+  factory _DashColors.of(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return _DashColors(
+      cs.onSurface,
+      cs.onSurfaceVariant,
+      cs.surface,
+      cs.outlineVariant,
+      cs.outlineVariant.withOpacity(.5),
+      cs.surfaceContainerHighest,
+    );
+  }
+}
 
 class AdminHome extends ConsumerWidget {
   const AdminHome({super.key});
@@ -61,6 +83,10 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'nav.enrollment',
           page: PermissionGuard(permission: StaffPermissions.students, child: EnrollmentConfigPage()),
+          permission: StaffPermissions.students),
+      RoleNavEntry(icon: Icons.fact_check_outlined, activeIcon: Icons.fact_check_rounded,
+          labelKey: 'Pré-inscriptions',
+          page: PermissionGuard(permission: StaffPermissions.students, child: PreRegQueuePage()),
           permission: StaffPermissions.students),
     ]),
     RoleNavGroup(labelKey: 'sections.activity', entries: [
@@ -203,34 +229,35 @@ class _DashGreeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = _DashColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$greet, $name',
-              style: const TextStyle(
-                  color: _ink, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -.4)),
+              style: TextStyle(
+                  color: c.ink, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -.4)),
           const SizedBox(height: 3),
           Row(children: [
-            const Icon(Icons.grid_view_rounded, size: 12, color: _muted),
+            Icon(Icons.grid_view_rounded, size: 12, color: c.muted),
             const SizedBox(width: 5),
-            const Text('Tableau de bord — Administration',
-                style: TextStyle(color: _muted, fontSize: 12)),
+            Text('Tableau de bord — Administration',
+                style: TextStyle(color: c.muted, fontSize: 12)),
           ]),
         ])),
         const SizedBox(width: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: _white,
+            color: c.card,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFDDD0C4)),
+            border: Border.all(color: c.border),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.calendar_today_rounded, size: 12, color: _muted),
+            Icon(Icons.calendar_today_rounded, size: 12, color: c.muted),
             const SizedBox(width: 6),
-            Text(date, style: const TextStyle(
-                color: _ink, fontSize: 11.5, fontWeight: FontWeight.w600)),
+            Text(date, style: TextStyle(
+                color: c.ink, fontSize: 11.5, fontWeight: FontWeight.w600)),
           ]),
         ),
       ],
@@ -307,13 +334,14 @@ class _DashKpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = _DashColors.of(context);
     final (icon, label, value, accent) = kpi;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _white,
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDD0C4)),
+        border: Border.all(color: c.border),
         boxShadow: const [BoxShadow(
             color: Color(0x05000000), blurRadius: 6, offset: Offset(0, 2))],
       ),
@@ -330,13 +358,13 @@ class _DashKpiCard extends StatelessWidget {
         const SizedBox(height: 10),
         if (loading)
           Container(height: 20, width: 60, decoration: BoxDecoration(
-              color: const Color(0xFFEEE5D8), borderRadius: BorderRadius.circular(5)))
+              color: c.skeleton, borderRadius: BorderRadius.circular(5)))
         else
           Text(value, style: TextStyle(
               color: accent, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.3)),
         const SizedBox(height: 3),
-        Text(label, style: const TextStyle(
-            color: _muted, fontSize: 11, fontWeight: FontWeight.w500)),
+        Text(label, style: TextStyle(
+            color: c.muted, fontSize: 11, fontWeight: FontWeight.w500)),
       ]),
     );
   }
@@ -359,38 +387,39 @@ class _DashActivity extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = _DashColors.of(context);
     final recent = ref.watch(recentStudentsProvider);
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDD0C4)),
+        border: Border.all(color: c.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 12, 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
           child: Row(children: [
-            Icon(Icons.timeline_rounded, size: 15, color: _muted),
-            SizedBox(width: 7),
+            Icon(Icons.timeline_rounded, size: 15, color: c.muted),
+            const SizedBox(width: 7),
             Text('Dernières inscriptions',
-                style: TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: c.ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
           ]),
         ),
-        const Divider(height: 1, color: Color(0xFFEEE5D8)),
+        Divider(height: 1, color: c.divider),
         recent.when(
           loading: () => Column(
               children: List.generate(3, (_) => const _ActivitySkeleton())),
-          error: (e, _) => const Padding(
-            padding: EdgeInsets.all(16),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(16),
             child: Text('Activité indisponible.',
-                style: TextStyle(color: _muted, fontSize: 12)),
+                style: TextStyle(color: c.muted, fontSize: 12)),
           ),
           data: (list) => list.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(20),
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Text(
                       'Aucune inscription pour le moment. Ajoutez un élève depuis Utilisateurs.',
-                      style: TextStyle(color: _muted, fontSize: 12.5)),
+                      style: TextStyle(color: c.muted, fontSize: 12.5)),
                 )
               : Column(
                   children: [
@@ -420,18 +449,19 @@ class _ActivitySkeleton extends StatelessWidget {
   const _ActivitySkeleton();
   @override
   Widget build(BuildContext context) {
+    final sk = Theme.of(context).colorScheme.surfaceContainerHighest;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
       child: Row(children: [
         Container(width: 34, height: 34, decoration: BoxDecoration(
-            color: const Color(0xFFEEE5D8), borderRadius: BorderRadius.circular(9))),
+            color: sk, borderRadius: BorderRadius.circular(9))),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(height: 11, width: 140, decoration: BoxDecoration(
-              color: const Color(0xFFEEE5D8), borderRadius: BorderRadius.circular(4))),
+              color: sk, borderRadius: BorderRadius.circular(4))),
           const SizedBox(height: 6),
           Container(height: 9, width: 90, decoration: BoxDecoration(
-              color: const Color(0xFFEEE5D8), borderRadius: BorderRadius.circular(4))),
+              color: sk, borderRadius: BorderRadius.circular(4))),
         ])),
       ]),
     );
@@ -450,6 +480,7 @@ class _ActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = _DashColors.of(context);
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -464,15 +495,15 @@ class _ActivityItem extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(
-                color: _ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            Text(title, style: TextStyle(
+                color: c.ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
             const SizedBox(height: 1),
-            Text(sub, style: const TextStyle(color: _muted, fontSize: 11.5)),
+            Text(sub, style: TextStyle(color: c.muted, fontSize: 11.5)),
           ])),
-          Text(time, style: const TextStyle(color: _muted, fontSize: 11)),
+          Text(time, style: TextStyle(color: c.muted, fontSize: 11)),
         ]),
       ),
-      if (!last) const Divider(height: 1, indent: 62, color: Color(0xFFEEE5D8)),
+      if (!last) Divider(height: 1, indent: 62, color: c.divider),
     ]);
   }
 }
@@ -489,23 +520,24 @@ class _DashQuickActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = _DashColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDD0C4)),
+        border: Border.all(color: c.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Row(children: [
-            Icon(Icons.bolt_rounded, size: 15, color: _muted),
-            SizedBox(width: 7),
+            Icon(Icons.bolt_rounded, size: 15, color: c.muted),
+            const SizedBox(width: 7),
             Text('Actions rapides',
-                style: TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: c.ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
           ]),
         ),
-        const Divider(height: 1, color: Color(0xFFEEE5D8)),
+        Divider(height: 1, color: c.divider),
         ...List.generate(_actions.length, (i) {
           final a = _actions[i];
           return Column(children: [
@@ -529,16 +561,16 @@ class _DashQuickActions extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text(a.$2,
-                        style: const TextStyle(
-                            color: _ink, fontSize: 12.5, fontWeight: FontWeight.w500))),
+                        style: TextStyle(
+                            color: c.ink, fontSize: 12.5, fontWeight: FontWeight.w500))),
                     Icon(Icons.chevron_right_rounded, size: 15,
-                        color: _muted.withOpacity(.5)),
+                        color: c.muted.withOpacity(.5)),
                   ]),
                 ),
               ),
             ),
             if (i < _actions.length - 1)
-              const Divider(height: 1, indent: 58, color: Color(0xFFEEE5D8)),
+              Divider(height: 1, indent: 58, color: c.divider),
           ]);
         }),
       ]),
@@ -601,23 +633,24 @@ class _DashToday extends ConsumerWidget {
           fmt(announcements, 'annonce active', 'annonces actives')),
     ];
 
+    final c = _DashColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDD0C4)),
+        border: Border.all(color: c.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Row(children: [
-            Icon(Icons.today_rounded, size: 15, color: _muted),
-            SizedBox(width: 7),
+            Icon(Icons.today_rounded, size: 15, color: c.muted),
+            const SizedBox(width: 7),
             Text("Aujourd'hui",
-                style: TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: c.ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
           ]),
         ),
-        const Divider(height: 1, color: Color(0xFFEEE5D8)),
+        Divider(height: 1, color: c.divider),
         ...List.generate(items.length, (i) {
           final it = items[i];
           return Column(children: [
@@ -633,11 +666,11 @@ class _DashToday extends ConsumerWidget {
                 Icon(it.$1, size: 13, color: it.$2),
                 const SizedBox(width: 8),
                 Expanded(child: Text(it.$3,
-                    style: const TextStyle(color: _ink, fontSize: 12))),
+                    style: TextStyle(color: c.ink, fontSize: 12))),
               ]),
             ),
             if (i < items.length - 1)
-              const Divider(height: 1, indent: 30, color: Color(0xFFEEE5D8)),
+              Divider(height: 1, indent: 30, color: c.divider),
           ]);
         }),
         const SizedBox(height: 4),

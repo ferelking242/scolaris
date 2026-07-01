@@ -23,6 +23,12 @@ class UsersPage extends ConsumerStatefulWidget {
 class _UsersPageState extends ConsumerState<UsersPage> {
   String _filter = 'All';
 
+  // Inscription inline (au lieu d'une route plein écran).
+  bool _enrolling = false;
+  EnrollmentConfig? _enrollConfig;
+  List<SbClass> _enrollClasses = const [];
+  String? _enrollSchoolId;
+
   Future<void> _openEnrollment() async {
     final schoolId = ref.read(authSessionProvider)?.schoolId;
     if (schoolId == null) {
@@ -53,30 +59,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         ? EnrollmentConfig.fromJson(configJson)
         : EnrollmentConfig.defaults();
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            backgroundColor: _terra,
-            foregroundColor: Colors.white,
-            title: const Text('Inscrire un élève',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            elevation: 0,
-          ),
-          body: EnrollmentPage(
-            isAdminMode: true,
-            config: config,
-            adminClasses: classes,
-            onSubmit: (data) => _saveStudent(schoolId, data),
-          ),
-        ),
-      ),
-    );
+    // Ouverture inline (dans le shell), pas de route plein écran.
+    setState(() {
+      _enrollConfig = config;
+      _enrollClasses = classes;
+      _enrollSchoolId = schoolId;
+      _enrolling = true;
+    });
   }
 
   /// Enregistre réellement la fiche élève (users + student_profiles).
   Future<void> _saveStudent(String schoolId, Map<String, dynamic> data) async {
-    final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     String s(String k) => (data[k]?.toString() ?? '').trim();
     final fullName = '${s('first_name')} ${s('last_name')}'.trim();
@@ -121,7 +114,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ref.invalidate(studentsProvider);
       ref.invalidate(studentCountProvider);
       if (!mounted) return;
-      navigator.pop();
+      setState(() => _enrolling = false); // referme l'inscription inline
       messenger.showSnackBar(SnackBar(
         content: Row(children: [
           const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
@@ -289,6 +282,16 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Inscription inline : remplace la liste par le formulaire (shell conservé).
+    if (_enrolling && _enrollConfig != null && _enrollSchoolId != null) {
+      return _InlineEnroll(
+        config: _enrollConfig!,
+        classes: _enrollClasses,
+        onBack: () => setState(() => _enrolling = false),
+        onSubmit: (data) => _saveStudent(_enrollSchoolId!, data),
+      );
+    }
+
     final usersAsync = ref.watch(usersProvider);
     return usersAsync.when(
       loading: () => const PageScaffold(
@@ -340,11 +343,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                 SearchInput(hint: 'Rechercher un utilisateur…')
               ],
               child: users.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Center(
                           child: Text('Aucun utilisateur.',
-                              style: TextStyle(color: muted))),
+                              style: TextStyle(color: context.cMuted))),
                     )
                   : DataTablePanel(
                       columns: const [
@@ -365,8 +368,8 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                               Flexible(
                                 child: Text(u.fullName,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        color: ink,
+                                    style: TextStyle(
+                                        color: context.cInk,
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w600)),
                               ),
@@ -374,7 +377,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                             Text(u.email,
                                 overflow: TextOverflow.ellipsis,
                                 style:
-                                    const TextStyle(fontSize: 12, color: muted)),
+                                    TextStyle(fontSize: 12, color: context.cMuted)),
                             _RoleBadge(role: u.role),
                             _StatusDot(active: u.isActive),
                             Text(
@@ -382,7 +385,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                   ? _relativeTime(u.lastSeenAt!)
                                   : '—',
                               style:
-                                  const TextStyle(fontSize: 12, color: muted),
+                                  TextStyle(fontSize: 12, color: context.cMuted),
                             ),
                             Row(mainAxisSize: MainAxisSize.min, children: [
                               // Accès : login déjà actif, ou activable (Pro/Max,
@@ -436,6 +439,66 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   }
 }
 
+/// Vue d'inscription **inline** : barre de retour + formulaire, dans le shell.
+class _InlineEnroll extends StatelessWidget {
+  final EnrollmentConfig config;
+  final List<SbClass> classes;
+  final VoidCallback onBack;
+  final void Function(Map<String, dynamic>) onSubmit;
+  const _InlineEnroll({
+    required this.config,
+    required this.classes,
+    required this.onBack,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: context.cPage,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Barre de retour (reste dans la page Utilisateurs).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Material(
+              color: context.cSubtle,
+              borderRadius: BorderRadius.circular(9),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(9),
+                onTap: onBack,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.arrow_back_rounded,
+                        size: 15, color: context.cMuted),
+                    const SizedBox(width: 6),
+                    Text('Retour aux utilisateurs',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: context.cMuted,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: EnrollmentPage(
+            isAdminMode: true,
+            config: config,
+            adminClasses: classes,
+            onSubmit: onSubmit,
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _FilterRow extends StatelessWidget {
   final String current;
   final List<String> options;
@@ -457,7 +520,7 @@ class _FilterRow extends StatelessWidget {
                   selectedColor: const Color(0xFF8B1A00).withValues(alpha: .12),
                   labelStyle: TextStyle(
                     fontSize: 12,
-                    color: current == o ? const Color(0xFF8B1A00) : muted,
+                    color: current == o ? const Color(0xFF8B1A00) : context.cMuted,
                     fontWeight: current == o ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
@@ -472,7 +535,7 @@ class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.role});
   @override
   Widget build(BuildContext context) {
-    final color = _color(role);
+    final color = _color(role) ?? context.cMuted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -486,7 +549,7 @@ class _RoleBadge extends StatelessWidget {
     );
   }
 
-  static Color _color(String r) {
+  static Color? _color(String r) {
     switch (r) {
       case 'admin':
         return const Color(0xFF8B1A00);
@@ -499,7 +562,7 @@ class _RoleBadge extends StatelessWidget {
       case 'finance':
         return const Color(0xFFC17F24);
       default:
-        return muted;
+        return null; // ← neutre résolu depuis le thème dans build()
     }
   }
 }
@@ -514,14 +577,14 @@ class _StatusDot extends StatelessWidget {
           height: 7,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active ? const Color(0xFF16A34A) : muted,
+            color: active ? const Color(0xFF16A34A) : context.cMuted,
           ),
         ),
         const SizedBox(width: 6),
         Text(active ? 'Actif' : 'Inactif',
             style: TextStyle(
                 fontSize: 12,
-                color: active ? const Color(0xFF16A34A) : muted)),
+                color: active ? const Color(0xFF16A34A) : context.cMuted)),
       ]);
 }
 
@@ -536,7 +599,7 @@ class _IconBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: color ?? muted),
+          child: Icon(icon, size: 16, color: color ?? context.cMuted),
         ),
       );
 }
@@ -655,11 +718,11 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                       prefixIcon: Icon(Icons.work_outline)),
                 ),
                 const SizedBox(height: 14),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Accès accordés',
                       style: TextStyle(
-                          fontSize: 12, color: muted, fontWeight: FontWeight.w700)),
+                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -668,7 +731,7 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                       label: Text(p.label, style: const TextStyle(fontSize: 12)),
                       avatar: Icon(p.icon,
                           size: 15,
-                          color: _perms.contains(p.key) ? _terra : muted),
+                          color: _perms.contains(p.key) ? _terra : context.cMuted),
                       selected: _perms.contains(p.key),
                       onSelected: (v) => setState(() {
                         if (v) {
@@ -679,8 +742,8 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                       }),
                       selectedColor: _terra.withValues(alpha: .12),
                       checkmarkColor: _terra,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: border),
+                      backgroundColor: context.cCard,
+                      side: BorderSide(color: context.cBorder),
                     ),
                 ]),
               ],
@@ -895,11 +958,11 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                       prefixIcon: Icon(Icons.work_outline)),
                 ),
                 const SizedBox(height: 14),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Modèle de départ',
                       style: TextStyle(
-                          fontSize: 12, color: muted, fontWeight: FontWeight.w700)),
+                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -907,16 +970,16 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                     ActionChip(
                       label: Text(preset, style: const TextStyle(fontSize: 12)),
                       onPressed: () => _applyPreset(preset),
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: border),
+                      backgroundColor: context.cCard,
+                      side: BorderSide(color: context.cBorder),
                     ),
                 ]),
                 const SizedBox(height: 14),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Accès accordés',
                       style: TextStyle(
-                          fontSize: 12, color: muted, fontWeight: FontWeight.w700)),
+                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -925,7 +988,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                       label: Text(p.label, style: const TextStyle(fontSize: 12)),
                       avatar: Icon(p.icon,
                           size: 15,
-                          color: _perms.contains(p.key) ? _terra : muted),
+                          color: _perms.contains(p.key) ? _terra : context.cMuted),
                       selected: _perms.contains(p.key),
                       onSelected: (v) => setState(() {
                         if (v) {
@@ -936,8 +999,8 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                       }),
                       selectedColor: _terra.withValues(alpha: .12),
                       checkmarkColor: _terra,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: border),
+                      backgroundColor: context.cCard,
+                      side: BorderSide(color: context.cBorder),
                     ),
                 ]),
               ],
@@ -1025,18 +1088,18 @@ class _TypeChoice extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? _terra.withValues(alpha: .08) : Colors.white,
+            color: selected ? _terra.withValues(alpha: .08) : context.cCard,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: selected ? _terra : border, width: selected ? 2 : 1),
+                color: selected ? _terra : context.cBorder, width: selected ? 2 : 1),
           ),
           child: Column(children: [
-            Icon(icon, size: 20, color: selected ? _terra : muted),
+            Icon(icon, size: 20, color: selected ? _terra : context.cMuted),
             const SizedBox(height: 5),
             Text(label,
                 style: TextStyle(
                     fontSize: 12.5,
-                    color: selected ? _terra : ink,
+                    color: selected ? _terra : context.cInk,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
           ]),
         ),
@@ -1118,7 +1181,7 @@ class _EnableAccessDialogState extends State<_EnableAccessDialog> {
               child: Text(
                   'Donne un identifiant de connexion à ${widget.user.fullName}'
                   '${isStudent ? " (élève)" : " (parent)"}.',
-                  style: const TextStyle(fontSize: 12.5, color: muted)),
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted)),
             ),
             const SizedBox(height: 14),
             TextFormField(

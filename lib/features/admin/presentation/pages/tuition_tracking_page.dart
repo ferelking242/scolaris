@@ -26,15 +26,18 @@ String _periodShort(String p) {
 
 enum _Cell { paid, late, pending, none }
 
-/// Suivi de la scolarité : matrice élève × période (qui a payé).
+/// Suivi de la scolarité : matrice élève × période (qui a payé). Design system :
+/// `PageScaffold` + `DataPanel`.
 class TuitionTrackingPage extends ConsumerWidget {
-  const TuitionTrackingPage({super.key});
+  /// Si fourni, la barre de retour appelle ce callback (mode inline) au lieu de
+  /// `Navigator.maybePop` (mode route).
+  final VoidCallback? onBack;
+  const TuitionTrackingPage({super.key, this.onBack});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoicesAsync = ref.watch(invoicesProvider);
 
-    // Sous-titre calculé pour l'en-tête.
     String? subtitle;
     final inv = invoicesAsync.valueOrNull;
     if (inv != null) {
@@ -50,29 +53,24 @@ class TuitionTrackingPage extends ConsumerWidget {
       }
     }
 
-    return Scaffold(
-      backgroundColor: pageBg,
-      body: Column(
-        children: [
-          GradientHeader(
-            title: 'Suivi scolarité',
-            subtitle: invoicesAsync.isLoading ? 'Chargement…' : subtitle,
-            icon: Icons.grid_on_rounded,
+    return PageScaffold(
+      title: 'Suivi scolarité',
+      subtitle: invoicesAsync.isLoading ? 'Chargement…' : subtitle,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
+        const SizedBox(height: 14),
+        invoicesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator(color: _terra)),
           ),
-          Expanded(
-            child: invoicesAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator(color: _terra)),
-              error: (e, _) => Center(
-                  child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text('Erreur : $e',
-                          style: const TextStyle(color: muted)))),
-              data: (invoices) => _body(context, invoices),
-            ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
           ),
-        ],
-      ),
+          data: (invoices) => _body(context, invoices),
+        ),
+      ]),
     );
   }
 
@@ -81,21 +79,16 @@ class TuitionTrackingPage extends ConsumerWidget {
         invoices.where((i) => i.isTuition && i.period != null).toList();
 
     if (tuition.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(16, 32, 16, 16),
-        child: EmptyState(
-          icon: Icons.event_busy_rounded,
-          title: 'Aucune échéance',
-          description:
-              'Génère d\'abord l\'échéancier depuis « Frais de scolarité ».',
-        ),
+      return const EmptyState(
+        icon: Icons.event_busy_rounded,
+        title: 'Aucune échéance',
+        description:
+            'Génère d\'abord l\'échéancier depuis « Frais de scolarité ».',
       );
     }
 
-    // Périodes (colonnes), triées.
     final periods = tuition.map((i) => i.period!).toSet().toList()..sort();
 
-    // Élèves (lignes), groupés par id, triés par nom.
     final byStudent = <String, ({String name, Map<String, SbInvoice> byPeriod})>{};
     for (final inv in tuition) {
       final sid = inv.studentId ?? '—';
@@ -106,13 +99,11 @@ class TuitionTrackingPage extends ConsumerWidget {
     final students = byStudent.entries.toList()
       ..sort((a, b) => a.value.name.toLowerCase().compareTo(b.value.name.toLowerCase()));
 
-    // Stats globales.
     final paidCount = tuition.where((i) => i.isPaid).length;
     final lateCount = tuition.where((i) => i.isLate).length;
     final pendingCount = tuition.length - paidCount - lateCount;
     final pct = (paidCount / tuition.length * 100).round();
 
-    // % payé par période (en-têtes de colonnes).
     final periodPct = <String, int>{
       for (final p in periods)
         p: () {
@@ -122,74 +113,66 @@ class TuitionTrackingPage extends ConsumerWidget {
         }()
     };
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-      children: [
-        // Stats
-        Row(children: [
-          Expanded(child: _Stat(label: 'Échéances', value: '${tuition.length}', color: const Color(0xFF6D28D9))),
-          const SizedBox(width: 10),
-          Expanded(child: _Stat(label: 'Réglées', value: '$paidCount', color: _green)),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Vue d'ensemble.
+      DataPanel(
+        title: 'Vue d\'ensemble',
+        child: Column(children: [
+          Wrap(spacing: 10, runSpacing: 10, children: [
+            _Stat(label: 'Échéances', value: '${tuition.length}', color: const Color(0xFF6D28D9)),
+            _Stat(label: 'Réglées', value: '$paidCount', color: _green),
+            _Stat(label: 'En retard', value: '$lateCount', color: _terra),
+            _Stat(label: 'Taux réglé', value: '$pct %', color: _gold),
+          ]),
+          const SizedBox(height: 14),
+          _ProgressBar(paid: paidCount, late: lateCount, pending: pendingCount),
+          const SizedBox(height: 12),
+          const Wrap(spacing: 14, runSpacing: 8, children: [
+            _LegendDot(color: _green, label: 'Payé'),
+            _LegendDot(color: _gold, label: 'En attente'),
+            _LegendDot(color: _terra, label: 'En retard'),
+            _LegendDot(color: Color(0xFFB8A892), label: 'Aucune'),
+          ]),
         ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _Stat(label: 'En retard', value: '$lateCount', color: _terra)),
-          const SizedBox(width: 10),
-          Expanded(child: _Stat(label: 'Taux réglé', value: '$pct %', color: _gold)),
-        ]),
-        const SizedBox(height: 16),
+      ),
+      const SizedBox(height: 14),
 
-        // Barre de progression globale
-        _ProgressBar(paid: paidCount, late: lateCount, pending: pendingCount),
-        const SizedBox(height: 16),
-
-        // Légende
-        const Wrap(spacing: 14, runSpacing: 8, children: [
-          _LegendDot(color: _green, label: 'Payé'),
-          _LegendDot(color: _gold, label: 'En attente'),
-          _LegendDot(color: _terra, label: 'En retard'),
-          _LegendDot(color: Color(0xFFB8A892), label: 'Aucune'),
-        ]),
-        const SizedBox(height: 12),
-
-        // Matrice : colonne « Élève » figée + périodes scrollables.
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+      // Matrice de paiement.
+      DataPanel(
+        title: 'Matrice de paiement',
+        padding: const EdgeInsets.all(12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: border),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: const [BoxShadow(
-                color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+              border: Border.all(color: context.cBorder),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Colonne figée
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _corner(),
+                _corner(context),
                 for (int i = 0; i < students.length; i++)
-                  _nameCell(students[i].value.name, i),
+                  _nameCell(context, students[i].value.name, i),
               ]),
-              Container(width: 1, color: border),
-              // Périodes scrollables
+              Container(width: 1, color: context.cBorder),
               Expanded(child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    for (final p in periods) _periodHeader(p, periodPct[p] ?? 0),
+                    for (final p in periods) _periodHeader(context, p, periodPct[p] ?? 0),
                   ]),
                   for (int i = 0; i < students.length; i++)
                     Row(children: [
                       for (final p in periods)
-                        _chip(_cellOf(students[i].value.byPeriod[p]), i),
+                        _chip(context, _cellOf(students[i].value.byPeriod[p]), i),
                     ]),
                 ]),
               )),
             ]),
           ),
         ),
-      ],
-    );
+      ),
+    ]);
   }
 
   static const _rowH  = 46.0;
@@ -197,7 +180,8 @@ class TuitionTrackingPage extends ConsumerWidget {
   static const _nameW = 150.0;
   static const _cellW = 56.0;
 
-  Color _zebra(int i) => i.isEven ? Colors.white : const Color(0xFFFBF7F0);
+  Color _zebra(BuildContext context, int i) =>
+      i.isEven ? context.cCard : context.cSubtle;
 
   _Cell _cellOf(SbInvoice? inv) {
     if (inv == null) return _Cell.none;
@@ -206,41 +190,41 @@ class TuitionTrackingPage extends ConsumerWidget {
     return _Cell.pending;
   }
 
-  Widget _corner() => Container(
+  Widget _corner(BuildContext context) => Container(
         width: _nameW, height: _headH,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: const BoxDecoration(color: Color(0xFFF7F1E8)),
-        child: const Text('ÉLÈVE',
-            style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5)),
+        decoration: BoxDecoration(color: context.cSubtle),
+        child: Text('ÉLÈVE',
+            style: TextStyle(color: context.cMuted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5)),
       );
 
-  Widget _nameCell(String name, int i) => Container(
+  Widget _nameCell(BuildContext context, String name, int i) => Container(
         width: _nameW, height: _rowH,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        color: _zebra(i),
+        color: _zebra(context, i),
         child: Text(name,
             maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
+            style: TextStyle(color: context.cInk, fontSize: 12.5, fontWeight: FontWeight.w600)),
       );
 
-  Widget _periodHeader(String p, int pct) => Container(
+  Widget _periodHeader(BuildContext context, String p, int pct) => Container(
         width: _cellW, height: _headH,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(color: Color(0xFFF7F1E8)),
+        decoration: BoxDecoration(color: context.cSubtle),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(_periodShort(p),
-              style: const TextStyle(color: ink, fontSize: 10.5, fontWeight: FontWeight.w800)),
+              style: TextStyle(color: context.cInk, fontSize: 10.5, fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
           Text('$pct%',
               style: TextStyle(
-                  color: pct >= 100 ? _green : (pct == 0 ? muted : _gold),
+                  color: pct >= 100 ? _green : (pct == 0 ? context.cMuted : _gold),
                   fontSize: 9, fontWeight: FontWeight.w700)),
         ]),
       );
 
-  Widget _chip(_Cell cell, int i) {
+  Widget _chip(BuildContext context, _Cell cell, int i) {
     final (color, icon) = switch (cell) {
       _Cell.paid    => (_green, Icons.check_rounded),
       _Cell.late    => (_terra, Icons.priority_high_rounded),
@@ -250,7 +234,7 @@ class TuitionTrackingPage extends ConsumerWidget {
     return Container(
       width: _cellW, height: _rowH,
       alignment: Alignment.center,
-      color: _zebra(i),
+      color: _zebra(context, i),
       child: Container(
         width: 26, height: 26,
         decoration: BoxDecoration(
@@ -269,6 +253,7 @@ class _Stat extends StatelessWidget {
   const _Stat({required this.label, required this.value, required this.color});
   @override
   Widget build(BuildContext context) => Container(
+        width: 150,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: .08),
@@ -278,7 +263,7 @@ class _Stat extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: muted, fontSize: 11.5, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: context.cMuted, fontSize: 11.5, fontWeight: FontWeight.w600)),
         ]),
       );
 }
@@ -296,8 +281,7 @@ class _ProgressBar extends StatelessWidget {
         if (paid > 0) Expanded(flex: paid, child: Container(height: 10, color: _green)),
         if (pending > 0) Expanded(flex: pending, child: Container(height: 10, color: _gold)),
         if (late > 0) Expanded(flex: late, child: Container(height: 10, color: _terra)),
-        // garde-fou si tout est à zéro (improbable ici) → barre neutre
-        if (!hasData) Expanded(child: Container(height: 10, color: border)),
+        if (!hasData) Expanded(child: Container(height: 10, color: context.cBorder)),
       ]),
     );
   }
@@ -312,6 +296,6 @@ class _LegendDot extends StatelessWidget {
         Container(width: 10, height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(color: muted, fontSize: 11.5)),
+        Text(label, style: TextStyle(color: context.cMuted, fontSize: 11.5)),
       ]);
 }
