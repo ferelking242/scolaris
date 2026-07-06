@@ -65,7 +65,7 @@ Définis dans `lib/domain/entities/user_entity.dart` — **4 rôles**, le staff 
 |-----------|---------------------------------------------------|-----------------------------------|
 | `staff`   | admin, secrétaire, DG, surveillant, comptable…    | `/staff` → `AdminHome`            |
 | `teacher` | prof, enseignant                                  | `/teacher` → `TeacherHome`        |
-| `student` | élève (+ variante `primaire`)                     | `/student` ou `/student-primary`  |
+| `student` | élève (shell unique, se reconfigure par niveau)   | `/student` → `StudentHome`        |
 | `parent`  | parent, tuteur                                    | `/parent` → `ParentHome`          |
 
 Les sous-rôles du staff (finance, surveillance…) existent comme *features* mais passent

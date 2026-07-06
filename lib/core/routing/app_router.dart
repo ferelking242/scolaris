@@ -10,7 +10,6 @@ import '../../features/enrollment/presentation/public_enrollment_screen.dart';
 import '../../features/parent/presentation/parent_home.dart';
 import '../../features/platform/presentation/platform_home.dart';
 import '../../features/school_registration/school_registration_screen.dart';
-import '../../features/student/presentation/primary_student_home.dart';
 import '../../features/student/presentation/student_home.dart';
 import '../../features/teacher/presentation/teacher_home.dart';
 import '../../presentation/providers/auth_providers.dart';
@@ -21,7 +20,6 @@ class AppRoutes {
   static const login           = '/login';
   static const registerSchool  = '/register-school';
   static const student         = '/student';
-  static const studentPrimary  = '/student-primary';
   static const parent          = '/parent';
   static const teacher         = '/teacher';
   static const staff           = '/staff';
@@ -36,7 +34,8 @@ String roleHome(AppUser user) {
   if (PlatformAdmins.isPlatformAdmin(user)) return AppRoutes.platform;
   switch (user.role) {
     case UserRole.student:
-      if (user.roleTitle == 'primaire') return AppRoutes.studentPrimary;
+      // Un seul shell élève : StudentHome se reconfigure selon le niveau réel
+      // (classes.level via studentSchoolLevelProvider), primaire compris.
       return AppRoutes.student;
     case UserRole.parent:
       return AppRoutes.parent;
@@ -90,8 +89,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               schoolCode: state.pathParameters['code'] ?? '')),
       GoRoute(path: AppRoutes.student,
           builder: (_, __) => const StudentHome()),
-      GoRoute(path: AppRoutes.studentPrimary,
-          builder: (_, __) => const PrimaryStudentHome()),
       GoRoute(path: AppRoutes.parent,
           builder: (_, __) => const ParentHome()),
       GoRoute(path: AppRoutes.teacher,

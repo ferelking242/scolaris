@@ -270,18 +270,6 @@ class FeaturesCatalog {
     ),
 
     AppFeature(
-      id: 'homework',
-      title: 'Devoirs & Travaux',
-      description: 'Liste des travaux à rendre, dépôt en ligne, suivi des corrections.',
-      icon: Icons.assignment_rounded,
-      color: Color(0xFFD4540A),
-      category: FeatureCategory.academic,
-      roles: {UserRole.staff, UserRole.teacher, UserRole.student},
-      status: FeatureStatus.available,
-      levels: _allStudentLevels,
-    ),
-
-    AppFeature(
       id: 'attendance_student',
       title: 'Présences & Absences',
       description: 'Historique des présences, justifications, alertes d\'absence.',

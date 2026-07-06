@@ -16,14 +16,17 @@ import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
+import 'primary_student_home.dart' show PrimaryDashboard;
 import 'pages/annales_quiz_page.dart';
 import 'pages/attendance_page.dart';
 import 'pages/bulletin_page.dart';
+import 'pages/cahier_liaison_page.dart';
 import 'pages/cahier_textes_page.dart';
+import 'pages/carnet_recompenses_page.dart';
 import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
+import 'pages/menu_cantine_page.dart';
 import 'pages/grades_page.dart';
-import 'pages/homework_student_page.dart';
 import 'pages/inscription_ue_page.dart';
 import 'pages/library/library_page.dart';
 import 'pages/notifications_page.dart';
@@ -65,7 +68,8 @@ class StudentHome extends ConsumerWidget {
     required SchoolLevel level,
     required String? planCode,
   }) {
-    final hasBulletin =
+    final isPrimaire = level == SchoolLevel.primaire;
+    final hasBulletin = level == SchoolLevel.primaire ||
         level == SchoolLevel.college || level == SchoolLevel.lycee;
     final isCollege = level == SchoolLevel.college;
     final isLycee   = level == SchoolLevel.lycee;
@@ -74,16 +78,20 @@ class StudentHome extends ConsumerWidget {
                       level == SchoolLevel.doctorat;
     final isCollegeOrLycee = isCollege || isLycee;
 
+    // Dashboard : variante « enfant » en primaire, sinon le dashboard standard.
+    final Widget dashboard =
+        isPrimaire ? const PrimaryDashboard() : const _StudentDashboard();
+
     return [
       // ── Accueil ───────────────────────────────────────────────────────────
-      const RoleNavGroup(labelKey: 'sections.setup', entries: [
+      RoleNavGroup(labelKey: 'sections.setup', entries: [
         RoleNavEntry(
           icon: Icons.home_rounded,
           activeIcon: Icons.home_rounded,
           labelKey: 'nav.dashboard',
-          page: _StudentDashboard(),
+          page: dashboard,
         ),
-        RoleNavEntry(
+        const RoleNavEntry(
           icon: Icons.menu_book_outlined,
           activeIcon: Icons.menu_book_rounded,
           labelKey: 'nav.courses',
@@ -104,12 +112,6 @@ class StudentHome extends ConsumerWidget {
           activeIcon: Icons.calendar_month_rounded,
           labelKey: 'nav.schedule',
           page: SchedulePage(),
-        ),
-        const RoleNavEntry(
-          icon: Icons.assignment_outlined,
-          activeIcon: Icons.assignment_rounded,
-          labelKey: 'nav.homework',
-          page: HomeworkStudentPage(),
         ),
         const RoleNavEntry(
           icon: Icons.fact_check_outlined,
@@ -165,6 +167,29 @@ class StudentHome extends ConsumerWidget {
               labelKey: 'nav.prepa_bac',
               page: PrepaBacPage(),
             ),
+        ]),
+
+      // ── Outils primaire ───────────────────────────────────────────────────
+      if (isPrimaire)
+        const RoleNavGroup(labelKey: 'sections.primary_tools', entries: [
+          RoleNavEntry(
+            icon: Icons.import_contacts_outlined,
+            activeIcon: Icons.import_contacts_rounded,
+            labelKey: 'nav.cahier_liaison',
+            page: CahierLiaisonPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.restaurant_outlined,
+            activeIcon: Icons.restaurant_rounded,
+            labelKey: 'nav.menu_cantine',
+            page: MenuCantinePage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.emoji_events_outlined,
+            activeIcon: Icons.emoji_events_rounded,
+            labelKey: 'nav.recompenses',
+            page: CarnetRecompensesPage(),
+          ),
         ]),
 
       // ── Université ────────────────────────────────────────────────────────
@@ -278,8 +303,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final gradesAsync = ref.watch(myGradesProvider);
     final grades      = gradesAsync.valueOrNull ?? const <SbGrade>[];
     final absences    = ref.watch(myAbsencesProvider).valueOrNull ?? const <SbAbsence>[];
-    final assignments = ref.watch(myAssignmentsProvider).valueOrNull ?? const <SbAssignment>[];
-    final submissions = ref.watch(mySubmissionsProvider).valueOrNull ?? const <SbSubmission>[];
 
     final classId = profile?.classId;
     final scheduleAsync = (classId != null && classId.isNotEmpty)
@@ -292,13 +315,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final moyenne = grades.isEmpty
         ? null
         : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
-
-    final submittedIds =
-        submissions.where((s) => s.isSubmitted).map((s) => s.assignmentId).toSet();
-    final aRendre = assignments
-        .where((a) =>
-            !submittedIds.contains(a.id) && a.deadline.isAfter(DateTime.now()))
-        .length;
 
     final todayDay = DateTime.now().weekday;
     final edt = (schedules.where((s) => s.dayOfWeek == todayDay).toList()
@@ -360,7 +376,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                 loading: loading,
                 moyenne: moyenne,
                 absences: absences.length,
-                aRendre: aRendre,
                 notes: grades.length,
               ),
             ),
@@ -378,7 +393,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               onTap: {
                 'notes':         () => _push(const GradesPage()),
                 'edt':           () => _push(const SchedulePage()),
-                'devoirs':       () => _push(const HomeworkStudentPage()),
                 'presences':     () => _push(const AttendancePage()),
                 'cours':         () => _push(const CoursesPage()),
                 'messages':      () => _push(const MessagingPage()),
@@ -668,10 +682,10 @@ class _HeroBadge extends StatelessWidget {
 class _QuickStats extends StatelessWidget {
   final bool loading;
   final double? moyenne;
-  final int absences, aRendre, notes;
+  final int absences, notes;
   const _QuickStats({
     required this.loading, required this.moyenne,
-    required this.absences, required this.aRendre, required this.notes,
+    required this.absences, required this.notes,
   });
 
   @override
@@ -685,8 +699,6 @@ class _QuickStats extends StatelessWidget {
        val: loading ? '0' : '$absences',
        sub: absences > 1 ? ' jours' : ' jour',
        c: absences == 0 ? _green : _terra),
-      (icon: Icons.assignment_rounded, label: 'Devoirs',
-       val: loading ? '0' : '$aRendre', sub: ' à rendre', c: _terra),
       (icon: Icons.grading_rounded, label: 'Notes',
        val: loading ? '0' : '$notes', sub: ' reçues', c: _orange),
     ];
@@ -837,7 +849,6 @@ class _PremiumShortcutsGrid extends StatelessWidget {
     (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',     c: _terra),
     (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',  c: _green),
     (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',      c: _terra),
-    (key: 'devoirs',      icon: Icons.assignment_rounded,       label: 'Devoirs',    c: _orange),
     (key: 'bulletin',     icon: Icons.receipt_long_rounded,     label: 'Bulletin',   c: _gold),
     (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
     (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),

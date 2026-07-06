@@ -11,7 +11,6 @@ import 'pages/attendance_today_page.dart';
 import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
-import 'pages/homework_page.dart';
 
 class TeacherHome extends StatelessWidget {
   const TeacherHome({super.key});
@@ -49,11 +48,6 @@ class TeacherHome extends StatelessWidget {
               activeIcon: Icons.qr_code_2_rounded,
               labelKey: 'nav.qr',
               page: QrPanel()),
-          RoleNavEntry(
-              icon: Icons.assignment_outlined,
-              activeIcon: Icons.assignment_rounded,
-              labelKey: 'nav.homework',
-              page: HomeworkPage()),
           RoleNavEntry(
               icon: Icons.bar_chart_outlined,
               activeIcon: Icons.bar_chart_rounded,
