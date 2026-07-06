@@ -17,10 +17,12 @@ class AttendanceTodayPage extends ConsumerStatefulWidget {
 class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
   String? _selectedClassId;
   Map<String, _Status> _statusMap = {};
+  String? _seededClassId; // classe dont le pointage du jour a déjà été chargé
 
   @override
   Widget build(BuildContext context) {
     final classesAsync = ref.watch(classesProvider);
+    final assignAsync  = ref.watch(teacherAssignmentsProvider);
 
     return classesAsync.when(
       loading: () => const PageScaffold(
@@ -31,8 +33,20 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
         title: 'Présences — aujourd\'hui',
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (classes) {
-        if (classes.isNotEmpty && _selectedClassId == null) {
+      data: (allClasses) {
+        // Scope : seulement les classes que ce prof enseigne.
+        final assign = assignAsync.valueOrNull;
+        if (assign == null) {
+          return const PageScaffold(
+            title: 'Présences — aujourd\'hui',
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final classes =
+            allClasses.where((c) => assign.teachesClass(c.id)).toList();
+        if (classes.isNotEmpty &&
+            (_selectedClassId == null ||
+                !classes.any((c) => c.id == _selectedClassId))) {
           _selectedClassId = classes.first.id;
         }
         return _buildContent(classes);
@@ -51,12 +65,29 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
     if (selectedClass == null) {
       return const PageScaffold(
         title: 'Présences — aujourd\'hui',
-        child: Center(child: Text('Aucune classe disponible.')),
+        child: Center(child: Text('Aucune classe ne vous est assignée.')),
       );
     }
 
     final studentsAsync =
         ref.watch(studentsByClassProvider(selectedClass.name));
+    final attendanceAsync =
+        ref.watch(attendanceForClassProvider(selectedClass.id));
+
+    // Pré-remplir le pointage déjà saisi aujourd'hui (une fois par classe) —
+    // reflète ce qui est en base au lieu du défaut « présent implicite ».
+    final todayRecords = attendanceAsync.valueOrNull;
+    if (todayRecords != null && _seededClassId != selectedClass.id) {
+      _seededClassId = selectedClass.id;
+      _statusMap = {
+        for (final r in todayRecords)
+          r.studentId: r.status == 'late'
+              ? _Status.late
+              : r.status == 'absent'
+                  ? _Status.absent
+                  : _Status.present,
+      };
+    }
 
     return studentsAsync.when(
       loading: () => const PageScaffold(
@@ -79,11 +110,6 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
           title: 'Présences — aujourd\'hui',
           subtitle: 'Marquez présent, retard ou absent',
           actions: [
-            ActionButton(
-                label: 'Scanner QR',
-                icon: Icons.qr_code_scanner_rounded,
-                onTap: () {}),
-            const SizedBox(width: 8),
             ActionButton(
                 label: 'Enregistrer',
                 icon: Icons.check_rounded,

@@ -29,6 +29,7 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
     final teacherId = ref.watch(authSessionProvider)?.id;
     final classesAsync  = ref.watch(classesProvider);
     final subjectsAsync = ref.watch(subjectsProvider);
+    final assignAsync   = ref.watch(teacherAssignmentsProvider);
 
     return classesAsync.when(
       loading: () => const PageScaffold(
@@ -37,14 +38,52 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
       error: (e, _) => PageScaffold(
           title: 'Carnet de notes',
           child: Center(child: Text('Erreur : $e'))),
-      data: (classes) {
-        if (classes.isNotEmpty && _selectedClassId == null) {
+      data: (allClasses) {
+        // Scope : seulement les classes que ce prof enseigne réellement
+        // (emploi du temps + statut de titulaire).
+        final assign = assignAsync.valueOrNull;
+        if (assign == null) {
+          return const PageScaffold(
+              title: 'Carnet de notes',
+              child: Center(child: CircularProgressIndicator()));
+        }
+        final classes =
+            allClasses.where((c) => assign.teachesClass(c.id)).toList();
+
+        if (classes.isEmpty) {
+          return const PageScaffold(
+            title: 'Carnet de notes',
+            subtitle: 'Saisir et consulter les notes de vos classes',
+            child: DataPanel(
+              child: Padding(
+                padding: EdgeInsets.all(28),
+                child: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.school_outlined,
+                        size: 40, color: Color(0xFFDDCCBB)),
+                    SizedBox(height: 10),
+                    Text('Aucune classe ne vous est assignée.',
+                        style: TextStyle(
+                            color: Color(0xFF7A5C44), fontSize: 13)),
+                    SizedBox(height: 4),
+                    Text(
+                        "Contactez l'administration pour être affecté à un cours.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Color(0xFFA98E76), fontSize: 11)),
+                  ]),
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (_selectedClassId == null ||
+            !classes.any((c) => c.id == _selectedClassId)) {
           _selectedClassId = classes.first.id;
         }
-        final selectedClass = classes.isEmpty
-            ? null
-            : classes.firstWhere((c) => c.id == _selectedClassId,
-                orElse: () => classes.first);
+        final selectedClass = classes.firstWhere((c) => c.id == _selectedClassId,
+            orElse: () => classes.first);
 
         return PageScaffold(
           title: 'Carnet de notes',
@@ -67,43 +106,54 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
               subjectsAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => const SizedBox.shrink(),
-                data: (subjects) => Row(children: [
-                  Expanded(
-                    flex: 3,
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedSubjectId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Matière',
-                        prefixIcon: Icon(Icons.menu_book_outlined),
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                data: (subjects) {
+                  // Matières autorisées : toutes si titulaire (primaire),
+                  // sinon seulement celles enseignées dans cette classe
+                  // (emploi du temps). Repli sur tout si l'EDT ne précise rien.
+                  final taught = assign.isTitulaire(selectedClass.id)
+                      ? subjects
+                      : subjects
+                          .where((s) => assign
+                              .subjectsFor(selectedClass.id)
+                              .contains(s.id))
+                          .toList();
+                  final allowed = taught.isEmpty ? subjects : taught;
+                  return Row(children: [
+                    Expanded(
+                      flex: 3,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedSubjectId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Matière',
+                          prefixIcon: Icon(Icons.menu_book_outlined),
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        items: [
+                          for (final s in allowed)
+                            DropdownMenuItem(value: s.id, child: Text(s.name)),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _selectedSubjectId = v),
                       ),
-                      items: [
-                        for (final s in subjects)
-                          DropdownMenuItem(value: s.id, child: Text(s.name)),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _selectedSubjectId = v),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: _PeriodPicker(
-                      value: _selectedPeriod,
-                      onChanged: (p) => setState(() => _selectedPeriod = p),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: _PeriodPicker(
+                        value: _selectedPeriod,
+                        onChanged: (p) => setState(() => _selectedPeriod = p),
+                      ),
                     ),
-                  ),
-                ]),
+                  ]);
+                },
               ),
               const SizedBox(height: 16),
 
               // ── Tableau de notes ────────────────────────────────────────
-              if (selectedClass != null &&
-                  _selectedSubjectId != null &&
-                  schoolId != null)
+              if (_selectedSubjectId != null && schoolId != null)
                 _GradesPanel(
                   key: ValueKey(
                       '${selectedClass.id}|$_selectedSubjectId|$_selectedPeriod'),
@@ -263,15 +313,64 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     return _ctrls[studentId]![type]!;
   }
 
+  /// Note déjà enregistrée en base pour (élève, type) = **validée → verrouillée**.
+  SbGrade? _existing(String studentId, String type) => _loadedGrades
+      .where((g) => g.studentId == studentId && g.type == type)
+      .firstOrNull;
+
+  bool _isLocked(String studentId, String type) =>
+      _existing(studentId, type) != null;
+
+  /// Moyenne = notes verrouillées (base) + notes saisies non encore validées.
   double? _avg(String studentId) {
-    final m = _ctrls[studentId];
-    if (m == null) return null;
-    final vals = m.values
-        .map((c) => double.tryParse(c.text.trim().replaceAll(',', '.')))
-        .whereType<double>()
-        .toList();
+    final vals = <double>[];
+    for (final type in _types) {
+      final existing = _existing(studentId, type);
+      if (existing != null) {
+        vals.add(existing.score);
+        continue;
+      }
+      final c = _ctrls[studentId]?[type];
+      final v = double.tryParse((c?.text ?? '').trim().replaceAll(',', '.'));
+      if (v != null) vals.add(v);
+    }
     if (vals.isEmpty) return null;
     return vals.fold(0.0, (s, v) => s + v) / vals.length;
+  }
+
+  /// Cellule : lecture seule verrouillée si déjà validée, sinon saisissable.
+  Widget _cell(String studentId, String type) {
+    final existing = _existing(studentId, type);
+    if (existing != null) {
+      return _LockedGrade(value: existing.score);
+    }
+    return _GradeInput(
+      controller: _ctrl(studentId, type),
+      onChanged: () => setState(() {}),
+    );
+  }
+
+  /// Confirme la validation (action irréversible pour le prof) puis enregistre.
+  Future<void> _confirmAndSave(List<SbStudent> students) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Valider les notes ?'),
+        content: const Text(
+            'Une fois validées, ces notes ne pourront plus être modifiées. '
+            'Pour corriger une note validée, contactez l’administration.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: _terra),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Valider')),
+        ],
+      ),
+    );
+    if (ok == true) await _save(students);
   }
 
   Future<void> _save(List<SbStudent> students) async {
@@ -280,6 +379,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     try {
       for (final s in students) {
         for (final type in _types) {
+          // Note déjà validée → verrouillée, on n'y touche pas.
+          if (_isLocked(s.id, type)) continue;
           final raw =
               _ctrls[s.id]?[type]?.text.trim().replaceAll(',', '.') ?? '';
           if (raw.isEmpty) continue;
@@ -297,15 +398,17 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
           );
         }
       }
+      // Recharge les notes → les nouvelles apparaissent désormais verrouillées.
+      _gradesLoaded = false;
       ref.invalidate(gradesForClassSubjectPeriodProvider(_key));
       ref.invalidate(gradesForStudentProvider);
       ref.invalidate(myGradesProvider);
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: const Row(children: [
-          Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+          Icon(Icons.lock_rounded, color: Colors.white, size: 16),
           SizedBox(width: 8),
-          Text('Notes enregistrées avec succès'),
+          Text('Notes validées et verrouillées'),
         ]),
         backgroundColor: _green,
         behavior: SnackBarBehavior.floating,
@@ -360,6 +463,19 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: LinearProgressIndicator(),
                       ),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Row(children: [
+                        Icon(Icons.lock_rounded, size: 13, color: muted),
+                        SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Les notes validées sont verrouillées. Pour corriger une note, contactez l’administration.',
+                            style: TextStyle(fontSize: 11, color: muted),
+                          ),
+                        ),
+                      ]),
+                    ),
                     DataTablePanel(
                       columns: const [
                         'Élève',
@@ -390,18 +506,9 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                             Text(s.matricule ?? '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: muted)),
-                            _GradeInput(
-                              controller: _ctrl(s.id, 'interro1'),
-                              onChanged: () => setState(() {}),
-                            ),
-                            _GradeInput(
-                              controller: _ctrl(s.id, 'interro2'),
-                              onChanged: () => setState(() {}),
-                            ),
-                            _GradeInput(
-                              controller: _ctrl(s.id, 'examen'),
-                              onChanged: () => setState(() {}),
-                            ),
+                            _cell(s.id, 'interro1'),
+                            _cell(s.id, 'interro2'),
+                            _cell(s.id, 'examen'),
                             Builder(builder: (_) {
                               final avg = _avg(s.id);
                               if (avg == null) {
@@ -429,7 +536,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _saving ? null : () => _save(students),
+                        onPressed:
+                            _saving ? null : () => _confirmAndSave(students),
                         icon: _saving
                             ? const SizedBox(
                                 width: 16,
@@ -437,10 +545,10 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white))
-                            : const Icon(Icons.check_rounded, size: 18),
+                            : const Icon(Icons.lock_rounded, size: 18),
                         label: Text(_saving
-                            ? 'Enregistrement…'
-                            : 'Enregistrer les notes'),
+                            ? 'Validation…'
+                            : 'Valider les notes'),
                         style: FilledButton.styleFrom(
                           backgroundColor: _terra,
                           padding:
@@ -481,6 +589,37 @@ class _GradeInput extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
                 borderSide:
                     const BorderSide(color: Color(0xFFDDCCBB))),
+          ),
+        ),
+      );
+}
+
+// ── Note verrouillée (déjà validée, lecture seule) ────────────────────────────
+class _LockedGrade extends StatelessWidget {
+  final double value;
+  const _LockedGrade({required this.value});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 44,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3EAE0),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFE2D0C0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value.toStringAsFixed(1),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: ink,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(width: 2),
+              const Icon(Icons.lock_rounded, size: 10, color: muted),
+            ],
           ),
         ),
       );

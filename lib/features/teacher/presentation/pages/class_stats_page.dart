@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
@@ -36,7 +39,7 @@ class _ClassData {
   final String name;
   final int effectif;
   final double moyenne;
-  final double presence;
+  final int nbSubjects;
   final double reussite;
   final List<_SubjectStat> subjects;
   final List<_StudentStat> topStudents;
@@ -45,7 +48,7 @@ class _ClassData {
     required this.name,
     required this.effectif,
     required this.moyenne,
-    required this.presence,
+    required this.nbSubjects,
     required this.reussite,
     required this.subjects,
     required this.topStudents,
@@ -53,110 +56,156 @@ class _ClassData {
   });
 }
 
-const _data = <String, _ClassData>{
-  'Tle C': _ClassData(
-    name: 'Tle C',
-    effectif: 32,
-    moyenne: 13.8,
-    presence: .94,
-    reussite: .88,
-    subjects: [
-      _SubjectStat(matiere: 'EPS',               moyenne: 16.2, min: 12.0, max: 20.0),
-      _SubjectStat(matiere: 'Mathématiques',      moyenne: 15.5, min: 8.5,  max: 19.5),
-      _SubjectStat(matiere: 'Sciences Physiques', moyenne: 14.2, min: 7.0,  max: 19.0),
-      _SubjectStat(matiere: 'SVT',               moyenne: 13.8, min: 9.0,  max: 18.5),
-      _SubjectStat(matiere: 'Philosophie',        moyenne: 13.5, min: 8.0,  max: 18.0),
-      _SubjectStat(matiere: 'Histoire-Géo',       moyenne: 13.0, min: 7.5,  max: 18.0),
-      _SubjectStat(matiere: 'Français',           moyenne: 12.5, min: 7.0,  max: 17.5),
-      _SubjectStat(matiere: 'Anglais',            moyenne: 10.8, min: 5.5,  max: 17.0),
-    ],
-    topStudents: [
-      _StudentStat(name: 'Junior Mafoua',      moyenne: 16.4),
-      _StudentStat(name: 'Stéphanie Loemba',   moyenne: 16.1),
-      _StudentStat(name: 'Roméo Nsianganga',   moyenne: 15.9),
-    ],
-    lowStudents: [
-      _StudentStat(name: 'Régis Bouboutou',    moyenne: 8.9),
-      _StudentStat(name: 'Martial Loemba-Bita',moyenne: 9.4),
-    ],
-  ),
-  '1ère C': _ClassData(
-    name: '1ère C',
-    effectif: 30,
-    moyenne: 12.6,
-    presence: .91,
-    reussite: .80,
-    subjects: [
-      _SubjectStat(matiere: 'Mathématiques',     moyenne: 13.0, min: 6.0,  max: 18.5),
-      _SubjectStat(matiere: 'Sciences Physiques',moyenne: 12.8, min: 5.5,  max: 18.0),
-      _SubjectStat(matiere: 'SVT',              moyenne: 13.2, min: 7.0,  max: 18.0),
-      _SubjectStat(matiere: 'Français',          moyenne: 12.0, min: 6.0,  max: 17.0),
-      _SubjectStat(matiere: 'Anglais',           moyenne: 11.0, min: 5.0,  max: 16.5),
-    ],
-    topStudents: [
-      _StudentStat(name: 'Cynthia Ngakosso',   moyenne: 15.9),
-      _StudentStat(name: 'Franck Mbemba',      moyenne: 14.7),
-    ],
-    lowStudents: [
-      _StudentStat(name: 'Prince Yombi',       moyenne: 8.1),
-    ],
-  ),
-  '2nde A': _ClassData(
-    name: '2nde A',
-    effectif: 28,
-    moyenne: 11.8,
-    presence: .89,
-    reussite: .71,
-    subjects: [
-      _SubjectStat(matiere: 'Mathématiques',     moyenne: 11.5, min: 4.5,  max: 17.0),
-      _SubjectStat(matiere: 'Français',          moyenne: 12.2, min: 5.0,  max: 17.5),
-      _SubjectStat(matiere: 'Sciences Physiques',moyenne: 10.8, min: 4.0,  max: 16.5),
-    ],
-    topStudents: [
-      _StudentStat(name: 'Gloire Mabika',      moyenne: 14.8),
-    ],
-    lowStudents: [
-      _StudentStat(name: 'Boris Nzoungou',     moyenne: 7.2),
-      _StudentStat(name: 'Christa Balossa',    moyenne: 7.9),
-    ],
-  ),
-};
+/// Calcule les stats réelles d'une classe à partir des notes + élèves.
+_ClassData _compute(
+    String className, List<SbGrade> grades, List<SbStudent> students) {
+  // Moyennes par élève (sur 20).
+  final byStudent = <String, List<double>>{};
+  for (final g in grades) {
+    (byStudent[g.studentId] ??= []).add(g.outOf20);
+  }
+  final graded = <_StudentStat>[];
+  for (final s in students) {
+    final l = byStudent[s.id];
+    if (l != null && l.isNotEmpty) {
+      graded.add(_StudentStat(
+          name: s.fullName, moyenne: l.reduce((a, b) => a + b) / l.length));
+    }
+  }
+  graded.sort((a, b) => b.moyenne.compareTo(a.moyenne));
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-class ClassStatsPage extends StatefulWidget {
-  const ClassStatsPage({super.key});
-  @override
-  State<ClassStatsPage> createState() => _ClassStatsPageState();
+  final classMoy = graded.isEmpty
+      ? 0.0
+      : graded.map((e) => e.moyenne).reduce((a, b) => a + b) / graded.length;
+  final reussite = graded.isEmpty
+      ? 0.0
+      : graded.where((e) => e.moyenne >= 10).length / graded.length;
+
+  // Moyennes par matière.
+  final bySubj = <String, List<double>>{};
+  for (final g in grades) {
+    (bySubj[g.subjectName ?? '—'] ??= []).add(g.outOf20);
+  }
+  final subjects = bySubj.entries.map((e) {
+    final l = e.value;
+    return _SubjectStat(
+      matiere: e.key,
+      moyenne: l.reduce((a, b) => a + b) / l.length,
+      min: l.reduce((a, b) => a < b ? a : b),
+      max: l.reduce((a, b) => a > b ? a : b),
+    );
+  }).toList();
+
+  return _ClassData(
+    name: className,
+    effectif: students.length,
+    moyenne: classMoy,
+    nbSubjects: subjects.length,
+    reussite: reussite,
+    subjects: subjects,
+    topStudents: graded.take(3).toList(),
+    lowStudents: graded.reversed.take(2).toList(),
+  );
 }
 
-class _ClassStatsPageState extends State<ClassStatsPage> {
-  String _selectedClass = 'Tle C';
+// ── Page ──────────────────────────────────────────────────────────────────────
+class ClassStatsPage extends ConsumerStatefulWidget {
+  const ClassStatsPage({super.key});
+  @override
+  ConsumerState<ClassStatsPage> createState() => _ClassStatsPageState();
+}
+
+class _ClassStatsPageState extends ConsumerState<ClassStatsPage> {
+  String? _selectedClassId;
 
   @override
   Widget build(BuildContext context) {
-    final d = _data[_selectedClass]!;
+    final classesAsync = ref.watch(classesProvider);
+    final assign = ref.watch(teacherAssignmentsProvider).valueOrNull;
+    final allClasses = classesAsync.valueOrNull;
+
+    if (allClasses == null || assign == null) {
+      return const ColoredBox(
+          color: _bg, child: Center(child: CircularProgressIndicator()));
+    }
+
+    final classes =
+        allClasses.where((c) => assign.teachesClass(c.id)).toList();
+    if (classes.isEmpty) {
+      return const ColoredBox(
+        color: _bg,
+        child: Center(
+          child: Text('Aucune classe ne vous est assignée.',
+              style: TextStyle(color: _muted)),
+        ),
+      );
+    }
+
+    if (_selectedClassId == null ||
+        !classes.any((c) => c.id == _selectedClassId)) {
+      _selectedClassId = classes.first.id;
+    }
+    final selectedClass =
+        classes.firstWhere((c) => c.id == _selectedClassId);
+
+    final gradesAsync = ref.watch(gradesForClassProvider(selectedClass.id));
+    final studentsAsync =
+        ref.watch(studentsByClassProvider(selectedClass.name));
+
     return Container(
       color: _bg,
       child: Column(children: [
         _TopBar(
-          selectedClass: _selectedClass,
-          classes: _data.keys.toList(),
-          onSelect: (c) => setState(() => _selectedClass = c),
+          classes: classes,
+          selectedId: _selectedClassId,
+          onSelect: (id) => setState(() => _selectedClassId = id),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              _KpiRow(data: d),
-              const SizedBox(height: 14),
-              _SubjectBarsCard(subjects: d.subjects),
-              const SizedBox(height: 14),
-              _RankingCard(title: 'Top élèves', students: d.topStudents, isTop: true),
-              const SizedBox(height: 10),
-              _RankingCard(title: 'En difficulté', students: d.lowStudents, isTop: false),
-              const SizedBox(height: 40),
-            ]),
-          ),
+          child: Builder(builder: (_) {
+            final grades = gradesAsync.valueOrNull;
+            final students = studentsAsync.valueOrNull;
+            if (grades == null || students == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (grades.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.bar_chart_rounded, size: 44, color: _border),
+                      SizedBox(height: 12),
+                      Text('Aucune note saisie pour cette classe.',
+                          style: TextStyle(color: _muted)),
+                    ],
+                  ),
+                ),
+              );
+            }
+            final d = _compute(selectedClass.name, grades, students);
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                _KpiRow(data: d),
+                const SizedBox(height: 14),
+                _SubjectBarsCard(subjects: d.subjects),
+                const SizedBox(height: 14),
+                if (d.topStudents.isNotEmpty)
+                  _RankingCard(
+                      title: 'Top élèves',
+                      students: d.topStudents,
+                      isTop: true),
+                const SizedBox(height: 10),
+                if (d.lowStudents.isNotEmpty)
+                  _RankingCard(
+                      title: 'En difficulté',
+                      students: d.lowStudents,
+                      isTop: false),
+                const SizedBox(height: 40),
+              ]),
+            );
+          }),
         ),
       ]),
     );
@@ -165,12 +214,12 @@ class _ClassStatsPageState extends State<ClassStatsPage> {
 
 // ── Top bar ────────────────────────────────────────────────────────────────────
 class _TopBar extends StatelessWidget {
-  final String selectedClass;
-  final List<String> classes;
+  final List<SbClass> classes;
+  final String? selectedId;
   final ValueChanged<String> onSelect;
   const _TopBar({
-    required this.selectedClass,
     required this.classes,
+    required this.selectedId,
     required this.onSelect,
   });
   @override
@@ -189,17 +238,17 @@ class _TopBar extends StatelessWidget {
         const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Statistiques de Classe',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
-          Text('Analyse des performances — semestre 2',
+          Text('Analyse des performances — données réelles',
               style: TextStyle(fontSize: 12, color: _muted)),
         ])),
         DropdownButton<String>(
-          value: selectedClass,
+          value: selectedId,
           underline: const SizedBox.shrink(),
           style: const TextStyle(fontSize: 13, color: _ink, fontWeight: FontWeight.w700),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
           items: classes.map((c) =>
-              DropdownMenuItem(value: c, child: Text(c))).toList(),
-          onChanged: (v) => onSelect(v!),
+              DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+          onChanged: (v) { if (v != null) onSelect(v); },
         ),
       ]),
     );
@@ -214,9 +263,9 @@ class _KpiRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final kpis = [
       (data.moyenne.toStringAsFixed(1), 'Moyenne', _terra, Icons.grade_rounded),
-      ('${(data.presence * 100).toInt()}%', 'Présence', _green, Icons.how_to_reg_rounded),
       ('${(data.reussite * 100).toInt()}%', 'Réussite', _orange, Icons.check_circle_rounded),
       ('${data.effectif}', 'Élèves', _gold, Icons.groups_rounded),
+      ('${data.nbSubjects}', 'Matières', _green, Icons.menu_book_rounded),
     ];
     return Row(children: kpis.asMap().entries.map((e) {
       final isLast = e.key == kpis.length - 1;
@@ -261,7 +310,7 @@ class _SubjectBarsCard extends StatelessWidget {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _ink)),
         const SizedBox(height: 14),
         ...sorted.map((s) {
-          final pct = s.moyenne / 20;
+          final pct = (s.moyenne / 20).clamp(0.0, 1.0);
           final color = s.moyenne >= 14 ? _green :
               s.moyenne >= 12 ? _orange : _terra;
           return Padding(
@@ -272,7 +321,7 @@ class _SubjectBarsCard extends StatelessWidget {
                     fontSize: 12.5, color: _ink, fontWeight: FontWeight.w600))),
                 Text(s.moyenne.toStringAsFixed(1),
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
-                Text('/20', style: TextStyle(fontSize: 11, color: _muted)),
+                const Text('/20', style: TextStyle(fontSize: 11, color: _muted)),
                 const SizedBox(width: 8),
                 Text('(${s.min.toStringAsFixed(1)}–${s.max.toStringAsFixed(1)})',
                     style: TextStyle(fontSize: 10, color: _muted.withOpacity(.7))),

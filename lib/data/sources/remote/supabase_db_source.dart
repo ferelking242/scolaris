@@ -2128,6 +2128,7 @@ class SupabaseDbSource {
     String? section,
     String? room,
     String? branchId,
+    String? mainTeacherId,
     int maxStudents = 35,
     String academicYear = '2025-2026',
   }) async {
@@ -2140,6 +2141,8 @@ class SupabaseDbSource {
       if (section != null && section.isNotEmpty) 'section': section,
       if (room != null && room.isNotEmpty) 'room': room,
       if (branchId != null) 'branch_id': branchId,
+      if (mainTeacherId != null && mainTeacherId.isNotEmpty)
+        'main_teacher_id': mainTeacherId,
       'max_students': maxStudents,
       'academic_year': academicYear,
       'is_active': true,
@@ -2161,12 +2164,42 @@ class SupabaseDbSource {
     await _db.from('classes').update(patch).eq('id', id);
   }
 
+  /// Définit (ou retire, si null) le professeur **titulaire** d'une classe.
+  /// Le titulaire enseigne toute sa classe (modèle primaire) et voit son
+  /// carnet/ses présences pour cette classe.
+  static Future<void> setClassMainTeacher(
+      String classId, String? teacherId) async {
+    await _db.from('classes').update({
+      'main_teacher_id': (teacherId != null && teacherId.isNotEmpty)
+          ? teacherId
+          : null,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', classId);
+  }
+
   // ── Emploi du temps (schedules) ─────────────────────────────────────────────
   static Future<List<SbSchedule>> getSchedulesForClass(String classId) async {
     final data = await _db
         .from('schedules')
         .select('*, subjects(name), users!teacher_id(full_name)')
         .eq('class_id', classId)
+        .eq('is_active', true)
+        .order('day_of_week')
+        .order('start_time');
+    return (data as List)
+        .map((j) => SbSchedule.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Créneaux d'un enseignant (toutes classes) — source des *affectations*
+  /// réelles d'un prof : chaque ligne porte (class_id, subject_id) avec le vrai
+  /// subject_id (celui des notes). Sert à scoper le carnet/les présences aux
+  /// seules classes + matières qu'il enseigne.
+  static Future<List<SbSchedule>> getSchedulesForTeacher(String teacherId) async {
+    final data = await _db
+        .from('schedules')
+        .select('*, subjects(name), users!teacher_id(full_name)')
+        .eq('teacher_id', teacherId)
         .eq('is_active', true)
         .order('day_of_week')
         .order('start_time');

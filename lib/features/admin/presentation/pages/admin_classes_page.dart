@@ -176,6 +176,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
       text: (widget.existing?.maxStudents ?? 35).toString());
   SbClassLevel? _level;
   SbBranch? _branch;
+  late String? _mainTeacherId = widget.existing?.mainTeacherId;
   bool _loading = false;
   String? _error;
 
@@ -208,6 +209,8 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
           room: _room.text.trim(),
           maxStudents: cap,
         );
+        await SupabaseDbSource.setClassMainTeacher(
+            widget.existing!.id, _mainTeacherId);
       } else {
         final sec = _section.text.trim();
         final name = sec.isEmpty ? _level!.name : '${_level!.name} $sec';
@@ -220,6 +223,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
           room: _room.text.trim(),
           maxStudents: cap,
           branchId: _branch?.id,
+          mainTeacherId: _mainTeacherId,
         );
       }
       widget.onSaved();
@@ -323,6 +327,30 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
               decoration: const InputDecoration(
                   labelText: 'Salle (optionnel)',
                   prefixIcon: Icon(Icons.meeting_room_outlined)),
+            ),
+            const SizedBox(height: 12),
+            // Titulaire : enseigne toute la classe (modèle primaire). Voit son
+            // carnet/ses présences pour cette classe (cf. teacherAssignments).
+            ref.watch(teachersProvider).when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (teachers) => DropdownButtonFormField<String?>(
+                value: teachers.any((t) => t.id == _mainTeacherId)
+                    ? _mainTeacherId
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Titulaire (optionnel)',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('Aucun titulaire')),
+                  for (final t in teachers)
+                    DropdownMenuItem(value: t.id, child: Text(t.fullName)),
+                ],
+                onChanged: (v) => setState(() => _mainTeacherId = v),
+              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),

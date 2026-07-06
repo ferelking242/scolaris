@@ -73,6 +73,84 @@ final schedulesForClassProvider =
   return SupabaseDbSource.getSchedulesForClass(classId);
 });
 
+// ── Affectations du prof connecté (scope des classes/matières) ───────────────
+/// Ce qu'un enseignant a le droit d'enseigner, dérivé de **deux** sources
+/// combinées (aucune n'est fiable seule) :
+///  1. l'emploi du temps (`schedules.teacher_id`) → matière exacte par classe
+///     (cas du spécialiste collège/lycée) ;
+///  2. le statut de titulaire (`classes.main_teacher_id`) → toute la classe
+///     (cas de l'instituteur du primaire, sans matière spécifique).
+class TeacherAssignments {
+  /// Toutes les classes que le prof enseigne (emploi du temps ∪ titulaire).
+  final Set<String> classIds;
+  /// classId → matières (subject_id) enseignées dans cette classe (emploi du temps).
+  final Map<String, Set<String>> subjectsByClass;
+  /// Classes dont il est titulaire (il y enseigne *toutes* les matières).
+  final Set<String> titulaireClassIds;
+
+  const TeacherAssignments({
+    required this.classIds,
+    required this.subjectsByClass,
+    required this.titulaireClassIds,
+  });
+
+  static const empty = TeacherAssignments(
+      classIds: {}, subjectsByClass: {}, titulaireClassIds: {});
+
+  bool get isEmpty => classIds.isEmpty;
+  bool teachesClass(String classId) => classIds.contains(classId);
+  bool isTitulaire(String classId) => titulaireClassIds.contains(classId);
+  Set<String> subjectsFor(String classId) =>
+      subjectsByClass[classId] ?? const <String>{};
+}
+
+/// Emploi du temps complet du prof connecté (tous ses créneaux).
+final teacherSchedulesProvider = FutureProvider<List<SbSchedule>>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return const [];
+  return SupabaseDbSource.getSchedulesForTeacher(session.id);
+});
+
+/// Nombre total d'élèves dans les classes du prof connecté.
+final teacherStudentCountProvider = FutureProvider<int>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return 0;
+  final assign = await ref.watch(teacherAssignmentsProvider.future);
+  final allClasses = await ref.watch(classesProvider.future);
+  final myClasses = allClasses.where((c) => assign.teachesClass(c.id));
+  var total = 0;
+  for (final c in myClasses) {
+    final studs =
+        await SupabaseDbSource.getStudents(classe: c.name, schoolId: schoolId);
+    total += studs.length;
+  }
+  return total;
+});
+
+final teacherAssignmentsProvider = FutureProvider<TeacherAssignments>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return TeacherAssignments.empty;
+  final teacherId = session.id;
+
+  final schedules = await SupabaseDbSource.getSchedulesForTeacher(teacherId);
+  final allClasses = await ref.watch(classesProvider.future);
+
+  final subjectsByClass = <String, Set<String>>{};
+  for (final s in schedules) {
+    final set = subjectsByClass.putIfAbsent(s.classId, () => <String>{});
+    if (s.subjectId != null && s.subjectId!.isNotEmpty) set.add(s.subjectId!);
+  }
+  final titulaire =
+      allClasses.where((c) => c.mainTeacherId == teacherId).map((c) => c.id).toSet();
+  final classIds = <String>{...subjectsByClass.keys, ...titulaire};
+
+  return TeacherAssignments(
+    classIds: classIds,
+    subjectsByClass: subjectsByClass,
+    titulaireClassIds: titulaire,
+  );
+});
+
 /// Enseignants de l'école courante (pour affecter un prof à un cours).
 final teachersProvider = FutureProvider<List<SbUser>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);

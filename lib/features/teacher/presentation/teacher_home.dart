@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
@@ -71,45 +72,60 @@ class TeacherHome extends StatelessWidget {
   }
 }
 
-class _TeacherDashboard extends StatelessWidget {
+class _TeacherDashboard extends ConsumerWidget {
   const _TeacherDashboard();
   @override
-  Widget build(BuildContext context) {
-    return const DashboardScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final assign     = ref.watch(teacherAssignmentsProvider).valueOrNull;
+    final schedules  = ref.watch(teacherSchedulesProvider).valueOrNull ?? const [];
+    final studentsN  = ref.watch(teacherStudentCountProvider).valueOrNull;
+    final loading    = assign == null;
+
+    final classesN = assign?.classIds.length ?? 0;
+    final subjectsN = assign == null
+        ? 0
+        : <String>{for (final set in assign.subjectsByClass.values) ...set}.length;
+    final today = DateTime.now().weekday;
+    final coursToday = schedules.where((s) => s.dayOfWeek == today).length;
+
+    return DashboardScaffold(
+      loading: loading,
       stats: [
-        DashStat(icon: Icons.class_rounded,      label: 'Mes classes',     value: '6'),
-        DashStat(icon: Icons.people_outline,      label: 'Élèves',          value: '178'),
-        DashStat(icon: Icons.grading_rounded,     label: 'Moyenne classe',  value: '13.8'),
-        DashStat(icon: Icons.assignment_outlined, label: 'Copies à noter',  value: '4'),
+        DashStat(icon: Icons.class_rounded, label: 'Mes classes', value: '$classesN'),
+        DashStat(icon: Icons.people_outline, label: 'Mes élèves', value: '${studentsN ?? 0}'),
+        DashStat(icon: Icons.menu_book_rounded, label: 'Mes matières', value: '$subjectsN'),
+        DashStat(icon: Icons.event_available_rounded, label: "Cours aujourd'hui", value: '$coursToday'),
       ],
       sections: [
         DashSection(
-          title: 'Cours aujourd\'hui',
-          count: '3',
-          emptyText: 'Aucun cours supplémentaire pour cette période.',
-          footerLabel: 'COURS',
-          actionLabel: 'Voir classes',
+          title: "Cours aujourd'hui",
+          count: '$coursToday',
+          emptyText: coursToday == 0
+              ? 'Aucun cours prévu aujourd\'hui.'
+              : '$coursToday créneau(x) à assurer aujourd\'hui.',
+          footerLabel: 'EMPLOI DU TEMPS',
         ),
         DashSection(
-          title: 'File de notation',
-          count: '4',
-          emptyText: 'Aucun devoir en attente de notation.',
-          footerLabel: 'NOTATION',
-          actionLabel: 'Ouvrir carnet',
-          dotColor: Color(0xFFC17F24),
+          title: 'Classes suivies',
+          count: '$classesN',
+          emptyText: classesN == 0
+              ? 'Aucune classe ne vous est assignée.'
+              : 'Sur $subjectsN matière(s) enseignée(s).',
+          footerLabel: 'CLASSES',
+          dotColor: const Color(0xFFC17F24),
         ),
       ],
-      explore: [
+      explore: const [
         ExploreCard(
-          icon: Icons.qr_code_scanner_rounded,
-          title: 'Scanner les présences',
-          description: 'Utilisez le QR pour pointer les élèves rapidement.',
+          icon: Icons.grading_rounded,
+          title: 'Saisir les notes',
+          description: 'Ouvrez le carnet pour valider les notes de vos classes.',
           suggested: true,
         ),
         ExploreCard(
           icon: Icons.bar_chart_rounded,
           title: 'Statistiques de classe',
-          description: 'Analysez les performances par matière et trimestre.',
+          description: 'Analysez les performances réelles par matière.',
         ),
       ],
     );
