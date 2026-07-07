@@ -5,12 +5,28 @@ import '../../shared/data/features_catalog.dart';
 import 'auth_providers.dart';
 
 // ── École courante (tenant) ─────────────────────────────────────────────────
-/// Identifiant de l'école de l'utilisateur connecté. TOUTES les requêtes de
-/// données sont filtrées par cette valeur → isolation multi-tenant (chaque
-/// école ne voit que ses propres données). Si null (pas connecté / pas d'école),
-/// les providers renvoient une liste vide plutôt que les données globales.
+/// École active choisie via le sélecteur (Phase B — identité portable).
+/// null = école par défaut du compte (`user.schoolId`). Une fois posée par le
+/// sélecteur d'école, toutes les requêtes basculent sur cette école.
+final activeSchoolIdProvider = StateProvider<String?>((ref) => null);
+
+/// Identifiant de l'école courante. TOUTES les requêtes de données sont filtrées
+/// dessus → isolation multi-tenant. Résolution : école **sélectionnée** (parmi
+/// les adhésions) sinon l'école du compte. Si null, les providers renvoient une
+/// liste vide plutôt que les données globales.
 final currentSchoolIdProvider = Provider<String?>((ref) {
+  final override = ref.watch(activeSchoolIdProvider);
+  if (override != null && override.isNotEmpty) return override;
   return ref.watch(authSessionProvider)?.schoolId;
+});
+
+/// Adhésions (écoles) du compte connecté — source du sélecteur d'école.
+/// Fail-safe : [] tant que la migration `school_members` n'est pas appliquée
+/// (l'app reste alors en mono-école via `currentSchoolIdProvider`).
+final myMembershipsProvider = FutureProvider<List<SbMembership>>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return const [];
+  return SupabaseDbSource.getMyMemberships(session.id);
 });
 
 // ── School ────────────────────────────────────────────────────────────────────

@@ -935,6 +935,36 @@ class SbSubjectCatalog {
 // ── Course (cours par classe) ─────────────────────────────────────────────────
 /// Représente un cours créé par l'admin pour une classe donnée.
 /// Lié à une matière (subject) + un enseignant + une classe.
+/// Adhésion d'un compte à une école (Phase B — identité portable).
+class SbMembership {
+  final String id;
+  final String userId;
+  final String schoolId;
+  final String? schoolName;
+  final String? role;
+  final String status; // active | pending | revoked
+  const SbMembership({
+    required this.id,
+    required this.userId,
+    required this.schoolId,
+    this.schoolName,
+    this.role,
+    this.status = 'active',
+  });
+
+  factory SbMembership.fromJson(Map<String, dynamic> j) {
+    final school = SbStudent._firstMap(j['schools']);
+    return SbMembership(
+      id: j['id'] as String? ?? '',
+      userId: j['user_id'] as String? ?? '',
+      schoolId: j['school_id'] as String? ?? '',
+      schoolName: school?['name'] as String?,
+      role: j['role'] as String?,
+      status: j['status'] as String? ?? 'active',
+    );
+  }
+}
+
 class SbCourse {
   final String id;
   final String schoolId;
@@ -2206,6 +2236,24 @@ class SupabaseDbSource {
     return (data as List)
         .map((j) => SbSchedule.fromJson(j as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Adhésions (écoles) du compte connecté — identité portable (Phase B).
+  /// Fail-safe : si la table `school_members` n'existe pas encore (migration
+  /// non appliquée), renvoie [] → l'app retombe sur l'école unique du compte.
+  static Future<List<SbMembership>> getMyMemberships(String userId) async {
+    try {
+      final data = await _db
+          .from('school_members')
+          .select('*, schools(name)')
+          .eq('user_id', userId)
+          .eq('status', 'active');
+      return (data as List)
+          .map((j) => SbMembership.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   static Future<void> createSchedule({

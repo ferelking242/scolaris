@@ -181,19 +181,30 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                             color: context.cMuted,
                             fontWeight: FontWeight.w700)),
                   ],
-                  child: Column(children: [
-                    for (var i = 0; i < entry.value.length; i++) ...[
-                      _FieldWidget(
-                        field: entry.value[i],
-                        required: _config.isRequired(entry.value[i].id),
-                        controller: _controllers[entry.value[i].id],
-                        value: _values[entry.value[i].id],
-                        onChanged: (v) =>
-                            setState(() => _values[entry.value[i].id] = v),
-                      ),
-                      if (i < entry.value.length - 1) const SizedBox(height: 14),
-                    ],
-                  ]),
+                  child: LayoutBuilder(builder: (_, c) {
+                    const gap = 14.0;
+                    final twoCol = c.maxWidth >= 520;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (final f in entry.value)
+                          SizedBox(
+                            width: (!twoCol || _spansFull(f.type))
+                                ? c.maxWidth
+                                : (c.maxWidth - gap) / 2,
+                            child: _FieldWidget(
+                              field: f,
+                              required: _config.isRequired(f.id),
+                              controller: _controllers[f.id],
+                              value: _values[f.id],
+                              onChanged: (v) =>
+                                  setState(() => _values[f.id] = v),
+                            ),
+                          ),
+                      ],
+                    );
+                  }),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -316,6 +327,11 @@ class _ProgressBar extends StatelessWidget {
     ]);
   }
 }
+
+/// Champs qui prennent toute la largeur (même en grille 2 colonnes) : ils
+/// respirent mal sur une demi-largeur.
+bool _spansFull(FieldType t) =>
+    t == FieldType.textarea || t == FieldType.photo || t == FieldType.file;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Field Widget — adapte l'UI selon le FieldType

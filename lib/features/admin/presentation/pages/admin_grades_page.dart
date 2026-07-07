@@ -99,6 +99,7 @@ class AdminGradesPage extends ConsumerStatefulWidget {
 class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
   String? _classId;
   String _period = 'S1';
+  SbStudent? _bulletinStudent; // fiche bulletin inline (null = liste)
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +118,16 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
             ? null
             : classes.firstWhere((c) => c.id == _classId,
                 orElse: () => classes.first);
+
+        // Bulletin inline : remplace la liste par la fiche de l'élève.
+        if (_bulletinStudent != null) {
+          return _StudentBulletinPage(
+            student: _bulletinStudent!,
+            className: selected?.name ?? '',
+            period: _period,
+            onBack: () => setState(() => _bulletinStudent = null),
+          );
+        }
 
         return PageScaffold(
           title: 'Notes & Bulletins',
@@ -142,6 +153,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
                       key: ValueKey('${selected.id}|$_period'),
                       classObj: selected,
                       period: _period,
+                      onOpen: (s) => setState(() => _bulletinStudent = s),
                     ),
                 ]),
         );
@@ -154,8 +166,12 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
 class _ClassGradesPanel extends ConsumerWidget {
   final SbClass classObj;
   final String period;
+  final void Function(SbStudent) onOpen;
   const _ClassGradesPanel(
-      {super.key, required this.classObj, required this.period});
+      {super.key,
+      required this.classObj,
+      required this.period,
+      required this.onOpen});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -251,13 +267,7 @@ class _ClassGradesPanel extends ConsumerWidget {
       IconButton(
         icon: Icon(Icons.chevron_right_rounded, size: 20, color: context.cMuted),
         tooltip: 'Voir le bulletin',
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => _StudentBulletinPage(
-            student: s,
-            className: classObj.name,
-            period: period,
-          ),
-        )),
+        onPressed: () => onOpen(s),
       ),
     ];
   }
@@ -270,10 +280,12 @@ class _StudentBulletinPage extends ConsumerWidget {
   final SbStudent student;
   final String className;
   final String period;
+  final VoidCallback onBack;
   const _StudentBulletinPage({
     required this.student,
     required this.className,
     required this.period,
+    required this.onBack,
   });
 
   String get _periodLabel => switch (period) {
@@ -288,26 +300,27 @@ class _StudentBulletinPage extends ConsumerWidget {
     final subjectsAsync = ref.watch(subjectsProvider);
     final school = ref.watch(schoolProvider).valueOrNull;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5EEE6),
-      appBar: AppBar(
-        backgroundColor: _terra,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Bulletin',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-      ),
-      body: gradesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur : $e')),
-        data: (allGrades) {
-          final subjects = subjectsAsync.valueOrNull ?? const [];
-          final rows = _rowsFor(student.id, allGrades, subjects, period);
-          final avg = _generalAvg(rows);
+    return PageScaffold(
+      title: 'Bulletin',
+      subtitle: '${student.fullName} · $className · $_periodLabel',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(label: 'Retour aux notes', onTap: onBack),
+        const SizedBox(height: 14),
+        gradesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+          ),
+          data: (allGrades) {
+            final subjects = subjectsAsync.valueOrNull ?? const [];
+            final rows = _rowsFor(student.id, allGrades, subjects, period);
+            final avg = _generalAvg(rows);
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
+            return Column(children: [
               _InfoCard(
                 name: student.fullName,
                 classe: className,
@@ -354,12 +367,12 @@ class _StudentBulletinPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 8),
               ],
-            ]),
-          );
-        },
-      ),
+            ]);
+          },
+        ),
+      ]),
     );
   }
 }
@@ -442,9 +455,9 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         Avatar(name: name, size: 46),
@@ -452,14 +465,14 @@ class _InfoCard extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name,
-                style: const TextStyle(
-                    color: ink, fontSize: 15, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text('$classe · $periodLabel',
-                style: const TextStyle(color: muted, fontSize: 11.5)),
+                style: TextStyle(color: context.cMuted, fontSize: 11.5)),
             const SizedBox(height: 2),
             Text('Matricule : ${matricule ?? '—'}',
-                style: const TextStyle(color: muted, fontSize: 11.5)),
+                style: TextStyle(color: context.cMuted, fontSize: 11.5)),
           ]),
         ),
       ]),
@@ -477,15 +490,15 @@ class _GradesTable extends StatelessWidget {
     final generalAvg = _generalAvg(rows);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: const BoxDecoration(
-            color: ink,
+            color: _terra,
             borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
           ),
           child: const Row(children: [
@@ -519,15 +532,15 @@ class _GradesTable extends StatelessWidget {
           final isEven = e.key % 2 == 0;
           final c = r.moyenne >= 14 ? _green : r.moyenne >= 10 ? _orange : _terra;
           return Container(
-            color: isEven ? const Color(0xFFF5EEE6).withValues(alpha: .5) : Colors.white,
+            color: isEven ? context.cSubtle : context.cCard,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
                     flex: 5,
                     child: Text(r.matiere,
-                        style: const TextStyle(
-                            color: ink, fontSize: 13, fontWeight: FontWeight.w600))),
+                        style: TextStyle(
+                            color: context.cInk, fontSize: 13, fontWeight: FontWeight.w600))),
                 Expanded(
                     flex: 1,
                     child: Center(
@@ -549,7 +562,7 @@ class _GradesTable extends StatelessWidget {
               Text(r.appreciation,
                   style: TextStyle(
                       fontSize: 10.5,
-                      color: muted.withValues(alpha: .8),
+                      color: context.cMuted,
                       fontStyle: FontStyle.italic)),
             ]),
           );
@@ -557,21 +570,21 @@ class _GradesTable extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: ink.withValues(alpha: .04),
+            color: context.cSubtle,
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
           ),
           child: Row(children: [
-            const Expanded(
+            Expanded(
                 flex: 5,
                 child: Text('Moyenne Générale',
                     style: TextStyle(
-                        color: ink, fontSize: 13, fontWeight: FontWeight.w800))),
+                        color: context.cInk, fontSize: 13, fontWeight: FontWeight.w800))),
             Expanded(
                 flex: 1,
                 child: Center(
                     child: Text('$totalCoef',
-                        style: const TextStyle(
-                            color: muted,
+                        style: TextStyle(
+                            color: context.cMuted,
                             fontSize: 11,
                             fontWeight: FontWeight.w700)))),
             Expanded(

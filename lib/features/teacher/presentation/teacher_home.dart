@@ -8,6 +8,7 @@ import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/qr_panel.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
+import '../../../shared/widgets/school_switcher.dart';
 import 'pages/attendance_today_page.dart';
 import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
@@ -88,7 +89,10 @@ class _TeacherDashboard extends ConsumerWidget {
     final today = DateTime.now().weekday;
     final coursToday = schedules.where((s) => s.dayOfWeek == today).length;
 
-    return DashboardScaffold(
+    return Column(children: [
+      const SchoolSwitcher(),
+      Expanded(
+        child: DashboardScaffold(
       loading: loading,
       stats: [
         DashStat(icon: Icons.class_rounded, label: 'Mes classes', value: '$classesN'),
@@ -128,6 +132,8 @@ class _TeacherDashboard extends ConsumerWidget {
           description: 'Analysez les performances réelles par matière.',
         ),
       ],
-    );
+        ),
+      ),
+    ]);
   }
 }

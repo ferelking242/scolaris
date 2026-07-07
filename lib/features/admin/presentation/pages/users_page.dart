@@ -29,6 +29,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   List<SbClass> _enrollClasses = const [];
   String? _enrollSchoolId;
 
+  // Fiche élève inline (id de l'utilisateur consulté).
+  String? _viewId;
+
   Future<void> _openEnrollment() async {
     final schoolId = ref.read(authSessionProvider)?.schoolId;
     if (schoolId == null) {
@@ -171,6 +174,114 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     );
   }
 
+  // ── Fiche élève (profil inline) ─────────────────────────────────────────
+  Widget _studentProfileView(SbUser u) {
+    final students = ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
+    SbStudent? st;
+    for (final s in students) {
+      if (s.id == u.id) { st = s; break; }
+    }
+    final familiesEnabled =
+        ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
+    final canEnable = familiesEnabled && u.authUid == null;
+    final classLabel = st?.classGroup.isNotEmpty == true ? st!.classGroup : null;
+
+    final subParts = <String>[
+      if (st?.matricule != null) 'N° ${st!.matricule}',
+      if (classLabel != null) classLabel,
+    ];
+    final sub = subParts.isEmpty ? 'Fiche élève' : subParts.join(' · ');
+
+    return PageScaffold(
+      title: u.fullName,
+      subtitle: sub,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(
+          label: 'Tous les utilisateurs',
+          onTap: () => setState(() => _viewId = null),
+        ),
+        const SizedBox(height: 14),
+
+        // En-tête.
+        Row(children: [
+          Avatar(name: u.fullName, size: 54),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(u.fullName,
+                  style: TextStyle(
+                      color: context.cInk,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Row(children: [
+                if (classLabel != null) ...[
+                  _MiniChip(icon: Icons.class_rounded, label: classLabel),
+                  const SizedBox(width: 6),
+                ],
+                u.isActive
+                    ? StatusPill.success('Actif')
+                    : StatusPill.neutral('Bloqué'),
+              ]),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 16),
+
+        // Actions.
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          ActionButton(
+              label: 'Modifier', icon: Icons.edit_outlined,
+              onTap: () => _editUser(u)),
+          if (canEnable)
+            ActionButton(
+                label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
+                onTap: () => _enableAccess(u)),
+          ActionButton(
+            label: u.isActive ? 'Bloquer' : 'Réactiver',
+            icon: u.isActive
+                ? Icons.block_rounded
+                : Icons.check_circle_outline_rounded,
+            onTap: () => _toggleActive(u),
+          ),
+        ]),
+        const SizedBox(height: 16),
+
+        // Identité.
+        DataPanel(
+          title: 'Identité',
+          child: Column(children: [
+            _ProfileKV(label: 'Matricule', value: st?.matricule ?? '—'),
+            _ProfileKV(label: 'Niveau', value: st?.niveau ?? '—'),
+            _ProfileKV(label: 'Classe', value: classLabel ?? 'Sans classe'),
+            _ProfileKV(label: 'Email', value: u.email.isEmpty ? '—' : u.email),
+          ]),
+        ),
+        const SizedBox(height: 14),
+
+        // Compte & accès.
+        DataPanel(
+          title: 'Compte & accès',
+          child: Column(children: [
+            const _ProfileKV(label: 'Rôle', value: 'Élève'),
+            _ProfileKV(
+                label: 'Statut', value: u.isActive ? 'Actif' : 'Bloqué'),
+            _ProfileKV(
+                label: 'Connexion',
+                value: u.authUid != null
+                    ? 'Compte activé'
+                    : 'Fiche sans connexion'),
+            _ProfileKV(
+                label: 'Dernière connexion',
+                value: u.lastSeenAt != null
+                    ? _relativeTime(u.lastSeenAt!)
+                    : 'Jamais'),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   void _openInvite() {
     final schoolId = ref.read(authSessionProvider)?.schoolId;
     if (schoolId == null) {
@@ -303,6 +414,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allUsers) {
+        // Fiche élève inline : remplace la liste par le profil.
+        if (_viewId != null) {
+          final match = allUsers.where((u) => u.id == _viewId).toList();
+          if (match.isNotEmpty) {
+            return _studentProfileView(match.first);
+          }
+          // Utilisateur disparu (supprimé) → on referme la fiche.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _viewId = null);
+          });
+        }
         final users = allUsers
             .where((u) =>
                 _filter == 'All' || u.role == _filter.toLowerCase())
@@ -362,18 +484,30 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                       rows: [
                         for (final u in users)
                           [
-                            Row(children: [
-                              Avatar(name: u.fullName, size: 24),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(u.fullName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: context.cInk,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                            ]),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: u.role == 'student'
+                                  ? () => setState(() => _viewId = u.id)
+                                  : null,
+                              child: Row(children: [
+                                Avatar(name: u.fullName, size: 24),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(u.fullName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: context.cInk,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                                if (u.role == 'student') ...[
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.chevron_right_rounded,
+                                      size: 15,
+                                      color: context.cMuted.withValues(alpha: .5)),
+                                ],
+                              ]),
+                            ),
                             Text(u.email,
                                 overflow: TextOverflow.ellipsis,
                                 style:
@@ -493,6 +627,58 @@ class _InlineEnroll extends StatelessWidget {
             adminClasses: classes,
             onSubmit: onSubmit,
           ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Puce compacte (icône + texte) — ex. classe dans l'en-tête de la fiche élève.
+class _MiniChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MiniChip({required this.icon, required this.label});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.cSubtle,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: context.cMuted),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11, color: context.cInk, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+/// Ligne clé/valeur des panneaux de la fiche élève.
+class _ProfileKV extends StatelessWidget {
+  final String label;
+  final String value;
+  const _ProfileKV({required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 150,
+          child: Text(label,
+              style: TextStyle(fontSize: 12, color: context.cMuted)),
+        ),
+        Expanded(
+          child: Text(value,
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: context.cInk,
+                  fontWeight: FontWeight.w600)),
         ),
       ]),
     );
