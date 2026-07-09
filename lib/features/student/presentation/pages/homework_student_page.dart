@@ -9,11 +9,6 @@ const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
 
 /// Vue fusionnée : un devoir (assignment) + la remise de l'élève (submission).
 class _StudentHW {
@@ -62,11 +57,12 @@ class _HomeworkStudentPageState extends ConsumerState<HomeworkStudentPage>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final assignmentsAsync = ref.watch(myAssignmentsProvider);
     final submissionsAsync = ref.watch(mySubmissionsProvider);
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: assignmentsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorState(message: '$e'),
@@ -124,8 +120,9 @@ class _Header extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: _white,
+      color: cs.surface,
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -133,32 +130,33 @@ class _Header extends StatelessWidget {
             Container(
               width: 40, height: 40,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF1A0A00), _terra]),
+                gradient: LinearGradient(colors: [cs.surface.withOpacity(0), _terra],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: const Center(child: Icon(Icons.assignment_turned_in_rounded, color: _white, size: 20)),
+              child: Center(child: Icon(Icons.assignment_turned_in_rounded, color: Colors.white, size: 20)),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Mes Devoirs',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
+              Text('Mes Devoirs',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
               Text('$total devoirs · $retard en retard',
                   style: TextStyle(fontSize: 12,
-                      color: retard > 0 ? _terra : _muted)),
+                      color: retard > 0 ? _terra : cs.onSurfaceVariant)),
             ])),
             if (retard > 0) Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                   color: _terra, borderRadius: BorderRadius.circular(20)),
               child: Text('$retard retard${retard > 1 ? 's' : ''}',
-                  style: const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
             ),
           ]),
         ),
         TabBar(
           controller: tab,
           labelColor: _terra,
-          unselectedLabelColor: _muted,
+          unselectedLabelColor: cs.onSurfaceVariant,
           indicatorColor: _terra,
           indicatorWeight: 2.5,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
@@ -185,11 +183,12 @@ class _ListTab extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (hws.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.check_circle_outline_rounded, size: 56, color: _green.withOpacity(.4)),
         const SizedBox(height: 12),
-        Text(emptyMsg, style: const TextStyle(color: _muted, fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(emptyMsg, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.w600)),
       ]));
     }
     return ListView.separated(
@@ -212,6 +211,7 @@ class _HWStudentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final daysLeft = hw.echeance.difference(now).inDays;
     final overdue = hw.echeance.isBefore(now) && !hw.done;
@@ -223,7 +223,7 @@ class _HWStudentCard extends StatelessWidget {
     } else if (today) {
       cardColor = _orange.withOpacity(.06);
     } else {
-      cardColor = _white;
+      cardColor = cs.surface;
     }
 
     final Color borderColor;
@@ -232,7 +232,7 @@ class _HWStudentCard extends StatelessWidget {
     } else if (today) {
       borderColor = _orange.withOpacity(.25);
     } else {
-      borderColor = _border;
+      borderColor = cs.outlineVariant;
     }
 
     return Container(
@@ -240,7 +240,7 @@ class _HWStudentCard extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
-        boxShadow: const [BoxShadow(color: Color(0x07000000), blurRadius: 6, offset: Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -253,11 +253,11 @@ class _HWStudentCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: hw.done ? _green : Colors.transparent,
                 border: Border.all(
-                    color: hw.done ? _green : _border, width: 2),
+                    color: hw.done ? _green : cs.outlineVariant, width: 2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: hw.done
-                  ? const Icon(Icons.check_rounded, size: 14, color: _white)
+                  ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
                   : null,
             ),
           ),
@@ -291,7 +291,7 @@ class _HWStudentCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _terra, borderRadius: BorderRadius.circular(6)),
                     child: const Text('En retard', style: TextStyle(
-                        color: _white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                        color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
                   )
                 else if (today)
                   Container(
@@ -299,28 +299,28 @@ class _HWStudentCard extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: _orange, borderRadius: BorderRadius.circular(6)),
                     child: const Text('Aujourd\'hui', style: TextStyle(
-                        color: _white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                        color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
                   )
                 else if (!hw.done && daysLeft > 0)
-                  Text('J-$daysLeft', style: TextStyle(color: _muted, fontSize: 11)),
+                  Text('J-$daysLeft', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
               ]),
               const SizedBox(height: 6),
               Text(hw.titre, style: TextStyle(
-                  color: _ink, fontSize: 13.5, fontWeight: FontWeight.w700,
+                  color: cs.onSurface, fontSize: 13.5, fontWeight: FontWeight.w700,
                   decoration: hw.done ? TextDecoration.lineThrough : null)),
               const SizedBox(height: 3),
               Row(children: [
-                Icon(Icons.person_outline_rounded, size: 12, color: _muted),
+                Icon(Icons.person_outline_rounded, size: 12, color: cs.onSurfaceVariant),
                 const SizedBox(width: 3),
-                Text(hw.enseignant, style: const TextStyle(color: _muted, fontSize: 11.5)),
+                Text(hw.enseignant, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5)),
               ]),
               const SizedBox(height: 3),
               Row(children: [
-                Icon(Icons.calendar_today_outlined, size: 11, color: _muted),
+                Icon(Icons.calendar_today_outlined, size: 11, color: cs.onSurfaceVariant),
                 const SizedBox(width: 3),
                 Text(
                   '${hw.echeance.day.toString().padLeft(2,'0')}/${hw.echeance.month.toString().padLeft(2,'0')}/${hw.echeance.year}',
-                  style: const TextStyle(color: _muted, fontSize: 11),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                 ),
               ]),
             ],
@@ -335,20 +335,23 @@ class _ErrorState extends StatelessWidget {
   final String message;
   const _ErrorState({required this.message});
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
-            const SizedBox(height: 12),
-            const Text('Erreur de chargement',
-                style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(message,
-                textAlign: TextAlign.center,
-                maxLines: 3, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 12)),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline_rounded, size: 44, color: _terra),
+          const SizedBox(height: 12),
+          Text('Erreur de chargement',
+              style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(message,
+              textAlign: TextAlign.center,
+              maxLines: 3, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
 }

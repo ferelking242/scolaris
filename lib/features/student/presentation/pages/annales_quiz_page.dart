@@ -6,12 +6,6 @@ import '../../../../shared/widgets/page_scaffold.dart';
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _orange = ScolarisPalette.orange;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 class _QuizQuestion {
@@ -177,15 +171,15 @@ class _AnnalesQuizPageState extends State<AnnalesQuizPage> {
             Container(
               width: 48, height: 48,
               decoration: BoxDecoration(
-                color: _white.withOpacity(.15),
+                color: Colors.white.withOpacity(.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.quiz_rounded, color: _white, size: 24),
+              child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 24),
             ),
             const SizedBox(width: 14),
             const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Quiz d\'auto-évaluation', style: TextStyle(
-                  color: _white, fontSize: 14, fontWeight: FontWeight.w800)),
+                  color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
               SizedBox(height: 3),
               Text('Teste tes connaissances par matière · Correction immédiate',
                   style: TextStyle(color: Colors.white70, fontSize: 11)),
@@ -194,8 +188,8 @@ class _AnnalesQuizPageState extends State<AnnalesQuizPage> {
         ),
         const SizedBox(height: 20),
 
-        const Text('Choisir un quiz', style: TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w800, color: _ink)),
+        Text('Choisir un quiz', style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w800, color: context.cInk)),
         const SizedBox(height: 12),
 
         ..._quizSets.map((q) => Padding(
@@ -221,9 +215,9 @@ class _QuizCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         Container(
@@ -236,15 +230,15 @@ class _QuizCard extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(quiz.titre, style: const TextStyle(
-              fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
+          Text(quiz.titre, style: TextStyle(
+              fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
           const SizedBox(height: 3),
           Text(quiz.matiere, style: TextStyle(fontSize: 11.5, color: quiz.color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 5),
           Row(children: [
-            _Chip(label: '${quiz.nbQuestions} questions', color: _muted),
+            _Chip(label: '${quiz.nbQuestions} questions'),
             const SizedBox(width: 6),
-            _Chip(label: '${quiz.dureeMin} min', color: _muted),
+            _Chip(label: '${quiz.dureeMin} min'),
           ]),
         ])),
         GestureDetector(
@@ -256,7 +250,7 @@ class _QuizCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text('Commencer', style: TextStyle(
-                color: _white, fontSize: 12, fontWeight: FontWeight.w700)),
+                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
           ),
         ),
       ]),
@@ -266,14 +260,13 @@ class _QuizCard extends StatelessWidget {
 
 class _Chip extends StatelessWidget {
   final String label;
-  final Color color;
-  const _Chip({required this.label, required this.color});
+  const _Chip({required this.label});
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
     decoration: BoxDecoration(
-      color: _bg, borderRadius: BorderRadius.circular(6)),
-    child: Text(label, style: TextStyle(fontSize: 10.5, color: color, fontWeight: FontWeight.w600)),
+      color: context.cSubtle, borderRadius: BorderRadius.circular(6)),
+    child: Text(label, style: TextStyle(fontSize: 10.5, color: context.cMuted, fontWeight: FontWeight.w600)),
   );
 }
 
@@ -318,13 +311,14 @@ class _QuizRunnerState extends State<_QuizRunner> {
 
   @override
   Widget build(BuildContext context) {
-    if (_done) return _buildResult();
+    final cs = Theme.of(context).colorScheme;
+    if (_done) return _buildResult(context, cs);
 
     final total = widget.quiz.questions.length;
     final progress = (_current + 1) / total;
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -335,15 +329,19 @@ class _QuizRunnerState extends State<_QuizRunner> {
                 onTap: widget.onFinish,
                 child: Container(
                   width: 36, height: 36,
-                  decoration: BoxDecoration(color: _white, shape: BoxShape.circle, border: Border.all(color: _border)),
-                  child: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: cs.outlineVariant),
+                  ),
+                  child: Icon(Icons.arrow_back_rounded, size: 18, color: cs.onSurface),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(widget.quiz.titre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
+                Text(widget.quiz.titre, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: cs.onSurface)),
                 Text('Question ${_current + 1} sur $total',
-                    style: const TextStyle(fontSize: 11, color: _muted)),
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
               ])),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -362,7 +360,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: progress,
-                backgroundColor: _border.withOpacity(.5),
+                backgroundColor: cs.outlineVariant.withOpacity(.5),
                 valueColor: AlwaysStoppedAnimation(widget.quiz.color),
                 minHeight: 6,
               ),
@@ -373,12 +371,12 @@ class _QuizRunnerState extends State<_QuizRunner> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: _white,
+                color: cs.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _border),
+                border: Border.all(color: cs.outlineVariant),
               ),
               child: Text(q.question,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _ink, height: 1.5)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.5)),
             ),
             const SizedBox(height: 16),
 
@@ -386,9 +384,9 @@ class _QuizRunnerState extends State<_QuizRunner> {
             ...q.options.asMap().entries.map((entry) {
               final i = entry.key;
               final opt = entry.value;
-              Color bg = _white;
-              Color border = _border;
-              Color textColor = _ink;
+              Color bg = cs.surface;
+              Color border = cs.outlineVariant;
+              Color textColor = cs.onSurface;
               IconData? trailingIcon;
 
               if (_answered) {
@@ -425,7 +423,8 @@ class _QuizRunnerState extends State<_QuizRunner> {
                         ),
                         child: Center(child: Text(
                             String.fromCharCode('A'.codeUnitAt(0) + i),
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: border == _border ? _muted : border))),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+                                color: border == cs.outlineVariant ? cs.onSurfaceVariant : border))),
                       ),
                       const SizedBox(width: 10),
                       Expanded(child: Text(opt, style: TextStyle(
@@ -451,7 +450,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
                   const Icon(Icons.lightbulb_rounded, color: _gold, size: 16),
                   const SizedBox(width: 8),
                   Expanded(child: Text(q.explication,
-                      style: const TextStyle(fontSize: 12, color: _ink, height: 1.5))),
+                      style: TextStyle(fontSize: 12, color: cs.onSurface, height: 1.5))),
                 ]),
               ),
             ],
@@ -470,7 +469,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
                   onPressed: _next,
                   child: Text(
                     _current < widget.quiz.questions.length - 1 ? 'Question suivante →' : 'Voir mon résultat',
-                    style: const TextStyle(color: _white, fontWeight: FontWeight.w700, fontSize: 14),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
                   ),
                 ),
               ),
@@ -480,14 +479,14 @@ class _QuizRunnerState extends State<_QuizRunner> {
     );
   }
 
-  Widget _buildResult() {
+  Widget _buildResult(BuildContext context, ColorScheme cs) {
     final total = widget.quiz.questions.length;
     final pct = _score / total;
     final color = pct >= 0.8 ? _green : pct >= 0.5 ? _gold : _terra;
     final mention = pct >= 0.8 ? 'Excellent !' : pct >= 0.6 ? 'Bien joué !' : pct >= 0.4 ? 'Continuez !' : 'À revoir';
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -506,7 +505,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
             Text(mention, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
             const SizedBox(height: 8),
             Text('$_score / $total bonnes réponses',
-                style: const TextStyle(fontSize: 16, color: _ink, fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text('${(pct * 100).round()} %',
                 style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: color)),
@@ -515,12 +514,12 @@ class _QuizRunnerState extends State<_QuizRunner> {
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: _border),
+                    side: BorderSide(color: cs.outlineVariant),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: widget.onFinish,
-                  child: const Text('Retour', style: TextStyle(color: _muted, fontWeight: FontWeight.w700)),
+                  child: Text('Retour', style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -534,7 +533,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
                   onPressed: () => setState(() {
                     _current = 0; _selected = null; _answered = false; _score = 0; _done = false;
                   }),
-                  child: const Text('Recommencer', style: TextStyle(color: _white, fontWeight: FontWeight.w700)),
+                  child: const Text('Recommencer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ),
               ),
             ]),

@@ -11,9 +11,6 @@ import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/surface.dart';
-import 'pages/cahier_liaison_page.dart';
-import 'pages/carnet_recompenses_page.dart';
-import 'pages/menu_cantine_page.dart';
 
 // ── Couleurs ──────────────────────────────────────────────────────────────
 const _terra  = ScolarisPalette.terracotta;   // #8B1A00
@@ -80,17 +77,6 @@ class PrimaryStudentHome extends StatelessWidget {
           RoleNavEntry(icon: Icons.receipt_long_outlined,
               activeIcon: Icons.receipt_long_rounded,
               labelKey: 'nav.bulletin',   page: _PrimaryBulletinPage()),
-        ]),
-        RoleNavGroup(labelKey: 'sections.primary_tools', entries: [
-          RoleNavEntry(icon: Icons.import_contacts_outlined,
-              activeIcon: Icons.import_contacts_rounded,
-              labelKey: 'nav.cahier_liaison', page: CahierLiaisonPage()),
-          RoleNavEntry(icon: Icons.restaurant_outlined,
-              activeIcon: Icons.restaurant_rounded,
-              labelKey: 'nav.menu_cantine',  page: MenuCantinePage()),
-          RoleNavEntry(icon: Icons.emoji_events_outlined,
-              activeIcon: Icons.emoji_events_rounded,
-              labelKey: 'nav.recompenses',   page: CarnetRecompensesPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded,
