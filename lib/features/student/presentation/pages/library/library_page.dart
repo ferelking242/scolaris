@@ -165,9 +165,9 @@ class _LibraryPageState extends State<LibraryPage>
                 tabAlignment: TabAlignment.start,
                 labelColor: _accent,
                 unselectedLabelColor: cs.onSurfaceVariant,
-                labelStyle: const TextStyle(
+                labelStyle: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700),
-                unselectedLabelStyle: const TextStyle(
+                unselectedLabelStyle: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500),
                 indicatorColor: _accent,
                 indicatorWeight: 2.5,
@@ -239,7 +239,7 @@ class _LibraryHeader extends StatelessWidget {
               Text('Bibliothèque', style: TextStyle(
                   color: cs.onSurface, fontSize: 22,
                   fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text('Toutes tes ressources pédagogiques',
                   style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
             ]),
@@ -278,7 +278,7 @@ class _MiniStat extends StatelessWidget {
     return Column(children: [
       Text('$n', style: TextStyle(
           color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 1),
+      SizedBox(height: 1),
       Text(label, style: TextStyle(
           color: cs.onSurfaceVariant, fontSize: 9.5, fontWeight: FontWeight.w500)),
     ]);
@@ -313,7 +313,7 @@ class _SearchBarWidget extends StatelessWidget {
             color: const Color(0xFFF0EBE5),
             borderRadius: BorderRadius.circular(11),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: Row(children: [
             Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
             const SizedBox(width: 8),
@@ -322,7 +322,7 @@ class _SearchBarWidget extends StatelessWidget {
               focusNode: focusNode,
               onChanged: onChanged,
               style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Livres, examens, supports…',
                 hintStyle: TextStyle(fontSize: 13.5, color: cs.onSurfaceVariant),
                 isCollapsed: true,
@@ -333,7 +333,7 @@ class _SearchBarWidget extends StatelessWidget {
             if (controller.text.isNotEmpty)
               GestureDetector(
                 onTap: onClear,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.only(left: 4),
                   child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
                 ),
@@ -389,7 +389,7 @@ class _SearchDropdown extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (shown.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text('Aucun résultat.',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
@@ -412,7 +412,7 @@ class _SearchDropdown extends StatelessWidget {
                 results.isNotEmpty
                     ? 'Voir tous les résultats (${results.length})'
                     : 'Recherche avancée',
-                style: const TextStyle(
+                style: TextStyle(
                     color: _accent,
                     fontSize: 13,
                     fontWeight: FontWeight.w700),
@@ -453,10 +453,10 @@ class _QuickResultTile extends StatelessWidget {
           Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(result.title,
-                style: const TextStyle(
+                style: TextStyle(
                     color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w600),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 1),
+            SizedBox(height: 1),
             Text(result.sub,
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -499,7 +499,7 @@ class _SectionLabel extends StatelessWidget {
       if (action != null)
         GestureDetector(
           onTap: onAction,
-          child: Text(action!, style: const TextStyle(
+          child: Text(action!, style: TextStyle(
               color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
         ),
     ]);
@@ -551,7 +551,7 @@ class _FilterDropdown extends StatelessWidget {
                   fontSize: 12,
                   fontWeight:
                       active ? FontWeight.w700 : FontWeight.w500)),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Icon(Icons.expand_more_rounded,
               size: 14, color: active ? _accent : cs.onSurfaceVariant),
         ]),
@@ -579,8 +579,8 @@ class _OptionsSheet extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Text(title, style: const TextStyle(
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Text(title, style: TextStyle(
               color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
         ),
         Divider(height: 1, color: cs.outlineVariant),
@@ -656,7 +656,7 @@ class _BookCover extends StatelessWidget {
                           color: Colors.white.withOpacity(0.75),
                           fontSize: 8.5, fontWeight: FontWeight.w700)),
                   Text(book.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.white, fontSize: 11,
                           fontWeight: FontWeight.w900, height: 1.3),
                       maxLines: 3, overflow: TextOverflow.ellipsis),
@@ -673,9 +673,9 @@ class _BookCover extends StatelessWidget {
               ),
             ]),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(book.title,
-              style: const TextStyle(
+              style: TextStyle(
                   color: cs.onSurface, fontSize: 11, fontWeight: FontWeight.w700),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           Text(book.author,
@@ -699,7 +699,7 @@ class _BookListTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(12),
@@ -732,10 +732,10 @@ class _BookListTile extends StatelessWidget {
           Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(book.title,
-                style: const TextStyle(
+                style: TextStyle(
                     color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(book.author,
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5)),
             const SizedBox(height: 5),
@@ -761,7 +761,7 @@ class _BookListTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(book.classe,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: cs.onSurfaceVariant, fontSize: 9.5)),
               ),
             ]),
@@ -770,13 +770,13 @@ class _BookListTile extends StatelessWidget {
             Row(children: [
               const Icon(Icons.star_rounded,
                   size: 11, color: Color(0xFFC17F24)),
-              const SizedBox(width: 2),
+              SizedBox(width: 2),
               Text(book.rating.toStringAsFixed(1),
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 11, fontWeight: FontWeight.w700)),
             ]),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text('${book.pages}p',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
             if (book.isFavorite) ...[
@@ -803,8 +803,8 @@ class _ExamTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(12),
@@ -826,9 +826,9 @@ class _ExamTile extends StatelessWidget {
           Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${exam.subject} · ${exam.year}',
-                style: const TextStyle(
+                style: TextStyle(
                     color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text('${exam.levelLabel} · ${exam.session}',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ])),
@@ -847,8 +847,8 @@ class _ExamTile extends StatelessWidget {
                       color: _success,
                       fontSize: 10, fontWeight: FontWeight.w800)),
             ),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward_ios_rounded,
+          SizedBox(width: 8),
+          Icon(Icons.arrow_forward_ios_rounded,
               size: 11, color: cs.onSurfaceVariant),
         ]),
       ),
@@ -868,8 +868,8 @@ class _MaterialTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(12),
@@ -888,10 +888,10 @@ class _MaterialTile extends StatelessWidget {
           Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(material.title,
-                style: const TextStyle(
+                style: TextStyle(
                     color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text('${material.subject} · ${material.teacher}',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ])),
@@ -900,7 +900,7 @@ class _MaterialTile extends StatelessWidget {
                 style: TextStyle(
                     color: material.color,
                     fontSize: 11, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 3),
+            SizedBox(height: 3),
             Text(material.addedDate,
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
             if (material.isDownloaded) ...[
@@ -1079,7 +1079,7 @@ class _ContinueCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 218,
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(12),
@@ -1099,7 +1099,7 @@ class _ContinueCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center, children: [
             Text(entry.title,
-                style: const TextStyle(
+                style: TextStyle(
                     color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 5),
@@ -1192,7 +1192,7 @@ class _CategoryGrid extends StatelessWidget {
         children: cats.map((cat) => GestureDetector(
           onTap: cat.onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(
+            padding: EdgeInsets.symmetric(
                 horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: cs.surface,
@@ -1213,13 +1213,13 @@ class _CategoryGrid extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(cat.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: cs.onSurface,
                         fontSize: 11.5, fontWeight: FontWeight.w700),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 1),
+                SizedBox(height: 1),
                 Text(cat.count,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: cs.onSurfaceVariant, fontSize: 10),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
@@ -1283,7 +1283,7 @@ class _BooksTab extends StatelessWidget {
           _FilterDropdown(
               label: 'Classe', options: _classes,
               value: classe, onChanged: onClasseChanged),
-          const Spacer(),
+          Spacer(),
           Text('${books.length} livre${books.length > 1 ? 's' : ''}',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
@@ -1296,7 +1296,7 @@ class _BooksTab extends StatelessWidget {
               baseColor: Color(0xFFEAE3DB),
               highlightColor: Color(0xFFF5F0EA)),
           child: books.isEmpty
-              ? const Center(child: Text('Aucun livre ne correspond.',
+              ? Center(child: Text('Aucun livre ne correspond.',
                   style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding:
@@ -1376,7 +1376,7 @@ class _ExamsTab extends StatelessWidget {
               ),
             ),
           )),
-          const Spacer(),
+          Spacer(),
           Text('${exams.length} sujet${exams.length > 1 ? 's' : ''}',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
@@ -1389,7 +1389,7 @@ class _ExamsTab extends StatelessWidget {
               baseColor: Color(0xFFEAE3DB),
               highlightColor: Color(0xFFF5F0EA)),
           child: exams.isEmpty
-              ? const Center(child: Text('Aucun examen.',
+              ? Center(child: Text('Aucun examen.',
                   style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -1444,7 +1444,7 @@ class _MaterialsTab extends StatelessWidget {
           _FilterDropdown(
               label: 'Matière', options: _subjects,
               value: subject, onChanged: onSubjectChanged),
-          const Spacer(),
+          Spacer(),
           Text('${mats.length} support${mats.length > 1 ? 's' : ''}',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
@@ -1457,7 +1457,7 @@ class _MaterialsTab extends StatelessWidget {
               baseColor: Color(0xFFEAE3DB),
               highlightColor: Color(0xFFF5F0EA)),
           child: mats.isEmpty
-              ? const Center(child: Text('Aucun support.',
+              ? Center(child: Text('Aucun support.',
                   style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -1501,7 +1501,7 @@ class _FavoritesTab extends StatelessWidget {
           baseColor: Color(0xFFEAE3DB),
           highlightColor: Color(0xFFF5F0EA)),
       child: total == 0
-          ? const Center(child: Text('Aucun favori enregistré.',
+          ? Center(child: Text('Aucun favori enregistré.',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)))
           : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),

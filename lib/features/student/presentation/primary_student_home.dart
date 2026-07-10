@@ -274,7 +274,7 @@ class _HeroCard extends StatelessWidget {
                     fontSize: 12, fontWeight: FontWeight.w500)),
             const SizedBox(height: 3),
             Text(name,
-                style: const TextStyle(color: Colors.white, fontSize: 20,
+                style: TextStyle(color: Colors.white, fontSize: 20,
                     fontWeight: FontWeight.w900, height: 1.1)),
             const SizedBox(height: 8),
             Row(children: [
@@ -304,7 +304,7 @@ class _HeroCard extends StatelessWidget {
               children: [
                 const TextSpan(text: 'Examens dans '),
                 TextSpan(text: '47 jours',
-                    style: const TextStyle(color: _gold,
+                    style: TextStyle(color: _gold,
                         fontWeight: FontWeight.w800, fontSize: 14)),
               ],
             )),
@@ -352,7 +352,7 @@ class _Avatar extends StatelessWidget {
         ],
       ),
       child: Center(child: Text(initials,
-          style: const TextStyle(color: _dark, fontSize: 22,
+          style: TextStyle(color: _dark, fontSize: 22,
               fontWeight: FontWeight.w900))),
     );
   }
@@ -390,12 +390,12 @@ class _MoyenneDonut extends StatelessWidget {
     return Container(
       height: 170,
       decoration: ScolarisSurface.card(radius: 18),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Moyenne', style: TextStyle(
             color: cs.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        const Text('Générale', style: TextStyle(
+        SizedBox(height: 2),
+        Text('Générale', style: TextStyle(
             color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w800)),
         const Spacer(),
         if (loading)
@@ -423,7 +423,7 @@ class _MoyenneDonut extends StatelessWidget {
                 )),
                 Column(mainAxisSize: MainAxisSize.min, children: [
                   Text(avg.toStringAsFixed(1),
-                      style: const TextStyle(color: _gold, fontSize: 18,
+                      style: TextStyle(color: _gold, fontSize: 18,
                           fontWeight: FontWeight.w900)),
                   Text('/10', style: TextStyle(
                       color: cs.onSurfaceVariant, fontSize: 10, fontWeight: FontWeight.w600)),
@@ -497,7 +497,7 @@ class _NotesBarChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('Notes /10', style: TextStyle(
+          Text('Notes /10', style: TextStyle(
               color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700)),
           const Spacer(),
           Container(
@@ -534,7 +534,7 @@ class _NotesBarChart extends StatelessWidget {
                 if (i < 0 || i >= notes.length) return const SizedBox();
                 final name = notes[i].m;
                 final short = name.length > 4 ? name.substring(0, 3) : name;
-                return Text(short, style: const TextStyle(
+                return Text(short, style: TextStyle(
                     color: cs.onSurfaceVariant, fontSize: 9, fontWeight: FontWeight.w600));
               },
             )),
@@ -563,7 +563,7 @@ class _NotesBarChart extends StatelessWidget {
               tooltipRoundedRadius: 8.0,
               getTooltipItem: (g, _, r, __) => BarTooltipItem(
                 '${r.toY}/10',
-                const TextStyle(color: Colors.white, fontSize: 11,
+                TextStyle(color: Colors.white, fontSize: 11,
                     fontWeight: FontWeight.w700),
               ),
             ),
@@ -696,7 +696,7 @@ class _NoteRow extends StatelessWidget {
         // Matière + progress
         Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(matiere, style: const TextStyle(
+          Text(matiere, style: TextStyle(
               color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
           const SizedBox(height: 5),
           ClipRRect(
@@ -723,7 +723,7 @@ class _NoteRow extends StatelessWidget {
                     color: good ? _green : _terra,
                     fontSize: 9, fontWeight: FontWeight.w800)),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(date, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
         ]),
       ]),
@@ -768,15 +768,15 @@ class _NextDevoirCard extends StatelessWidget {
                       fontWeight: FontWeight.w800)),
             ),
           ]),
-          const SizedBox(height: 4),
-          const Text('Additions et soustractions',
+          SizedBox(height: 4),
+          Text('Additions et soustractions',
               style: TextStyle(color: cs.onSurface, fontSize: 13,
                   fontWeight: FontWeight.w700)),
-          const SizedBox(height: 3),
+          SizedBox(height: 3),
           Row(children: [
             Icon(Icons.schedule_rounded, size: 11, color: cs.onSurfaceVariant),
-            const SizedBox(width: 4),
-            const Text('À remettre demain · M. Mbuyi',
+            SizedBox(width: 4),
+            Text('À remettre demain · M. Mbuyi',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ]),
         ])),
@@ -873,7 +873,7 @@ class _SectionHeader extends StatelessWidget {
       const Spacer(),
       GestureDetector(
         onTap: onAction,
-        child: Text(action, style: const TextStyle(color: _terra,
+        child: Text(action, style: TextStyle(color: _terra,
             fontSize: 12, fontWeight: FontWeight.w600)),
       ),
     ]);
@@ -926,7 +926,7 @@ class _PrimaryNotesPage extends StatelessWidget {
                 const SizedBox(height: 4),
                 RichText(text: TextSpan(children: [
                   TextSpan(text: avg.toStringAsFixed(1),
-                      style: const TextStyle(color: _gold, fontSize: 38,
+                      style: TextStyle(color: _gold, fontSize: 38,
                           fontWeight: FontWeight.w900)),
                   const TextSpan(text: '/10',
                       style: TextStyle(color: Colors.white60, fontSize: 18,
@@ -946,8 +946,8 @@ class _PrimaryNotesPage extends StatelessWidget {
               ),
             ]),
           ),
-          const SizedBox(height: 20),
-          const Text('Notes du Trimestre 2', style: TextStyle(
+          SizedBox(height: 20),
+          Text('Notes du Trimestre 2', style: TextStyle(
               color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           for (final n in _notes) ...[
@@ -1027,7 +1027,7 @@ class _PrimarySchedulePage extends StatelessWidget {
                 final isToday = e.key == todayIdx;
                 return Tab(child: Text(
                     isToday ? '${e.value} ·' : e.value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w700)));
               }).toList(),
             ),
@@ -1095,7 +1095,7 @@ class _EdtCard extends StatelessWidget {
           Text(matiere, style: TextStyle(
               color: isNow ? Colors.white : cs.onSurface,
               fontSize: 15, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text('M. Mbuyi · Salle 3', style: TextStyle(
               color: isNow ? Colors.white.withOpacity(0.70) : cs.onSurfaceVariant,
               fontSize: 11)),
@@ -1188,7 +1188,7 @@ class _DevoirsHeader extends StatelessWidget {
           decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.20), shape: BoxShape.circle),
           child: Center(child: Text('$count',
-              style: const TextStyle(color: Colors.white, fontSize: 18,
+              style: TextStyle(color: Colors.white, fontSize: 18,
                   fontWeight: FontWeight.w900))),
         ),
       ]),
@@ -1240,18 +1240,18 @@ class _DevoirCard extends StatelessWidget {
               ),
             ],
           ]),
-          const SizedBox(height: 5),
-          Text(titre, style: const TextStyle(
+          SizedBox(height: 5),
+          Text(titre, style: TextStyle(
               color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Row(children: [
             Icon(Icons.schedule_rounded, size: 11, color: cs.onSurfaceVariant),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(echeance,
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ]),
         ])),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Icon(Icons.check_circle_outline_rounded,
             color: cs.onSurfaceVariant.withOpacity(0.40), size: 24),
       ]),
@@ -1329,8 +1329,8 @@ class _PrimaryBulletinPage extends StatelessWidget {
               ]),
             ]),
           ),
-          const SizedBox(height: 20),
-          const Text('Détail par matière',
+          SizedBox(height: 20),
+          Text('Détail par matière',
               style: TextStyle(color: cs.onSurface, fontSize: 15,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
@@ -1346,14 +1346,14 @@ class _PrimaryBulletinPage extends StatelessWidget {
                     horizontal: 16, vertical: 10),
                 color: const Color(0xFFF3EAE0),
                 child: Row(children: [
-                  const Expanded(flex: 4,
+                  Expanded(flex: 4,
                       child: Text('Matière', style: TextStyle(
                           color: cs.onSurfaceVariant, fontSize: 11,
                           fontWeight: FontWeight.w700))),
                   for (final t in ['T1', 'T2', 'T3'])
                     SizedBox(width: 46,
                         child: Text(t, textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: cs.onSurfaceVariant, fontSize: 11,
                                 fontWeight: FontWeight.w700))),
                 ]),
@@ -1433,7 +1433,7 @@ class _BulletinRow extends StatelessWidget {
                   blurRadius: 5)],
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Text(row.m, style: TextStyle(
               color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w600)),
         ])),
