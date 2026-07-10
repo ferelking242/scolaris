@@ -35,7 +35,7 @@ String colorToHex(Color c) =>
 /// vit en mémoire tant que l'utilisateur n'a pas sauvegardé.
 class RoleDraft {
   final String draftId; // stable en mémoire (id réel si existant, sinon uuid local)
-  final String? persistedId; // null tant que non sauvegardé côté serveur
+  String? persistedId; // null tant que non sauvegardé côté serveur
   String name;
   String description;
   bool isAdminRole;
@@ -101,7 +101,7 @@ class RoleDraft {
         isNew: true,
         isDirty: true,
         level: 'Support / Famille',
-        color: colorToHex(ScolarisPalette.all[(DateTime.now().millisecond) % ScolarisPalette.all.length]),
+        color: colorToHex(ScolarisAccents.all[(DateTime.now().millisecond) % ScolarisAccents.all.length]),
         iconKey: 'star',
       );
 }

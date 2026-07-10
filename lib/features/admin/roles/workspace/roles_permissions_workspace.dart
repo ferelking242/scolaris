@@ -818,7 +818,7 @@ class _SummaryColumn extends StatelessWidget {
         const SizedBox(height: 16),
         _FieldLabel('Couleur'),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final c in ScolarisPalette.all)
+          for (final c in ScolarisAccents.all)
             GestureDetector(
               onTap: role.locked ? null : () => onMutate((r) => r.color = colorToHex(c)),
               child: Container(
