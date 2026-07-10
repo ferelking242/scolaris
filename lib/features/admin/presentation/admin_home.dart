@@ -7,6 +7,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
+import '../roles/role_setup_screen.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/notification_center_page.dart';
@@ -132,6 +133,21 @@ class AdminHome extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authSessionProvider);
+
+    // Le fondateur (permissions = {'*'}) doit configurer la hiérarchie des
+    // rôles du personnel avant d'accéder au tableau de bord, tant qu'aucun
+    // rôle n'a encore été créé pour son école.
+    final isFounder = user?.hasFullAccess ?? false;
+    if (isFounder) {
+      final rolesConfigured = ref.watch(staffRolesConfiguredProvider);
+      final done = rolesConfigured.asData?.value;
+      if (rolesConfigured.isLoading) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator(color: ScolarisPalette.terracotta)));
+      }
+      if (done == false) {
+        return RoleSetupScreen(onDone: () => ref.invalidate(staffRolesConfiguredProvider));
+      }
+    }
 
     // Menu dynamique : on ne garde que les entrées dont la permission est
     // satisfaite (null = toujours visible). Les groupes vides sont retirés.
