@@ -8,6 +8,7 @@ import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
 import '../roles/role_setup_screen.dart';
+import '../roles/roles_permissions_page.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/notification_center_page.dart';
@@ -127,6 +128,10 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'nav.school',
           page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminSchoolPage()),
           permission: StaffPermissions.schoolConfig),
+      RoleNavEntry(icon: Icons.account_tree_outlined, activeIcon: Icons.account_tree_rounded,
+          labelKey: 'Rôles & permissions',
+          page: PermissionGuard(permission: StaffPermissions.staffManage, child: RolesPermissionsPage()),
+          permission: StaffPermissions.staffManage),
     ]),
   ];
 

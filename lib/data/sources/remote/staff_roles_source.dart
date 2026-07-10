@@ -20,9 +20,16 @@ class SbRoleTemplate {
   final String cycle;
   final String name;
   final String? description;
+  final String level;
+  final String color;
+  final String iconKey;
   /// Ensemble de "permission.sous_permission" accordées par défaut.
   final Set<String> grants;
-  const SbRoleTemplate({required this.id, required this.cycle, required this.name, this.description, required this.grants});
+  const SbRoleTemplate({
+    required this.id, required this.cycle, required this.name, this.description,
+    this.level = 'Pédagogique', this.color = '#8B1A00', this.iconKey = 'badge',
+    required this.grants,
+  });
 }
 
 /// Rôle réel d'une école (créé à partir d'un template ou de zéro).
@@ -32,11 +39,27 @@ class SbStaffRole {
   final String name;
   final String? description;
   final bool isAdminRole;
+  final String level;
+  final String color;
+  final String iconKey;
+  final String? parentRoleId;
   final Set<String> grants; // "permission.sous_permission"
   const SbStaffRole({
     required this.id, required this.schoolId, required this.name,
     this.description, required this.isAdminRole, required this.grants,
+    this.level = 'Pédagogique', this.color = '#8B1A00', this.iconKey = 'badge',
+    this.parentRoleId,
   });
+
+  SbStaffRole copyWith({
+    String? name, String? description, String? level, String? color,
+    String? iconKey, Set<String>? grants,
+  }) => SbStaffRole(
+        id: id, schoolId: schoolId, isAdminRole: isAdminRole, parentRoleId: parentRoleId,
+        name: name ?? this.name, description: description ?? this.description,
+        level: level ?? this.level, color: color ?? this.color, iconKey: iconKey ?? this.iconKey,
+        grants: grants ?? this.grants,
+      );
 }
 
 class StaffRolesSource {
@@ -58,7 +81,7 @@ class StaffRolesSource {
   /// Modèles de rôles prédéfinis pour un cycle donné ('primaire'|'college'|'lycee'|'universite').
   static Future<List<SbRoleTemplate>> fetchRoleTemplates(String cycle) async {
     final templates = await _sb.from('role_templates')
-        .select('id,cycle,name,description,order_num')
+        .select('id,cycle,name,description,order_num,level,color,icon_key')
         .eq('cycle', cycle)
         .order('order_num');
     final ids = (templates as List).map((t) => t['id'] as String).toList();
@@ -74,13 +97,16 @@ class StaffRolesSource {
       return SbRoleTemplate(
         id: t['id'] as String, cycle: t['cycle'] as String, name: t['name'] as String,
         description: t['description'] as String?, grants: grants,
+        level: t['level'] as String? ?? 'Pédagogique',
+        color: t['color'] as String? ?? '#8B1A00',
+        iconKey: t['icon_key'] as String? ?? 'badge',
       );
     }).toList();
   }
 
   static Future<List<SbStaffRole>> fetchStaffRoles(String schoolId) async {
     final roles = await _sb.from('staff_roles')
-        .select('id,school_id,name,description,is_admin_role')
+        .select('id,school_id,name,description,is_admin_role,level,color,icon_key,parent_role_id')
         .eq('school_id', schoolId)
         .order('created_at');
     final ids = (roles as List).map((r) => r['id'] as String).toList();
@@ -98,6 +124,10 @@ class StaffRolesSource {
         id: r['id'] as String, schoolId: r['school_id'] as String, name: r['name'] as String,
         description: r['description'] as String?, isAdminRole: r['is_admin_role'] as bool,
         grants: grants,
+        level: r['level'] as String? ?? 'Pédagogique',
+        color: r['color'] as String? ?? '#8B1A00',
+        iconKey: r['icon_key'] as String? ?? 'badge',
+        parentRoleId: r['parent_role_id'] as String?,
       );
     }).toList();
   }
@@ -109,6 +139,10 @@ class StaffRolesSource {
     String? description,
     bool isAdminRole = false,
     String? basedOnTemplateId,
+    String level = 'Pédagogique',
+    String color = '#8B1A00',
+    String iconKey = 'badge',
+    String? parentRoleId,
     required Set<String> grants,
   }) async {
     final row = await _sb.from('staff_roles').insert({
@@ -117,6 +151,10 @@ class StaffRolesSource {
       'description': description,
       'is_admin_role': isAdminRole,
       'based_on_template_id': basedOnTemplateId,
+      'level': level,
+      'color': color,
+      'icon_key': iconKey,
+      'parent_role_id': parentRoleId,
     }).select('id').single();
     final roleId = row['id'] as String;
     if (!isAdminRole && grants.isNotEmpty) {
@@ -148,6 +186,26 @@ class StaffRolesSource {
 
   static Future<void> deleteRole(String roleId) async {
     await _sb.from('staff_roles').delete().eq('id', roleId);
+  }
+
+  static Future<void> updateRoleMeta({
+    required String roleId,
+    String? name,
+    String? description,
+    String? level,
+    String? color,
+    String? iconKey,
+    String? parentRoleId,
+  }) async {
+    final update = <String, dynamic>{};
+    if (name != null) update['name'] = name;
+    if (description != null) update['description'] = description;
+    if (level != null) update['level'] = level;
+    if (color != null) update['color'] = color;
+    if (iconKey != null) update['icon_key'] = iconKey;
+    if (parentRoleId != null) update['parent_role_id'] = parentRoleId == '' ? null : parentRoleId;
+    if (update.isEmpty) return;
+    await _sb.from('staff_roles').update(update).eq('id', roleId);
   }
 
   static Future<void> renameRole(String roleId, String name, String? description) async {
