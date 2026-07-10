@@ -9,11 +9,6 @@ import 'pdf_reader_page.dart';
 
 // ── Palette propre (un seul accent, pas de couleurs idiotes) ───────────────
 const _accent  = Color(0xFFCC4A1A);
-const _bg      = Color(0xFFF6F4F1);
-const _surface = Colors.white;
-const _ink     = Color(0xFF1C1008);
-const _muted   = Color(0xFF8A7060);
-const _divider = Color(0xFFEAE3DB);
 const _success = Color(0xFF2D7A4F);
 
 // ── Search result model ─────────────────────────────────────────────────────
@@ -114,10 +109,11 @@ class _LibraryPageState extends State<LibraryPage>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _searchFocus.unfocus(),
       child: Container(
-        color: _bg,
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: Column(children: [
 
           // ── Header compact ─────────────────────────────────────────
@@ -125,7 +121,7 @@ class _LibraryPageState extends State<LibraryPage>
 
           // ── Barre de recherche ─────────────────────────────────────
           Container(
-            color: _surface,
+            color: cs.surface,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: Column(children: [
               _SearchBarWidget(
@@ -161,21 +157,21 @@ class _LibraryPageState extends State<LibraryPage>
 
           // ── Onglets internes ───────────────────────────────────────
           Container(
-            color: _surface,
+            color: cs.surface,
             child: Column(children: [
               TabBar(
                 controller: _tab,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 labelColor: _accent,
-                unselectedLabelColor: _muted,
+                unselectedLabelColor: cs.onSurfaceVariant,
                 labelStyle: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700),
                 unselectedLabelStyle: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500),
                 indicatorColor: _accent,
                 indicatorWeight: 2.5,
-                dividerColor: _divider,
+                dividerColor: cs.outlineVariant,
                 tabs: _tabLabels
                     .map((t) => Tab(text: t, height: 40))
                     .toList(),
@@ -231,20 +227,21 @@ class _LibraryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: _surface,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
       child: SafeArea(
         bottom: false,
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          const Expanded(
+          Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Bibliothèque', style: TextStyle(
-                  color: _ink, fontSize: 22,
+                  color: cs.onSurface, fontSize: 22,
                   fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-              SizedBox(height: 2),
+              const SizedBox(height: 2),
               Text('Toutes tes ressources pédagogiques',
-                  style: TextStyle(color: _muted, fontSize: 12.5)),
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
             ]),
           ),
           Skeletonizer(
@@ -254,9 +251,9 @@ class _LibraryHeader extends StatelessWidget {
                 highlightColor: Color(0xFFF5F0EA)),
             child: Row(children: [
               _MiniStat(n: MockLibraryData.totalBooks,     label: 'Livres'),
-              _statDiv(),
+              _statDiv(cs),
               _MiniStat(n: MockLibraryData.totalExams,     label: 'Examens'),
-              _statDiv(),
+              _statDiv(cs),
               _MiniStat(n: MockLibraryData.totalMaterials, label: 'Supports'),
             ]),
           ),
@@ -265,9 +262,9 @@ class _LibraryHeader extends StatelessWidget {
     );
   }
 
-  Widget _statDiv() => Container(
+  Widget _statDiv(ColorScheme cs) => Container(
       height: 26, width: 1,
-      color: _divider,
+      color: cs.outlineVariant,
       margin: const EdgeInsets.symmetric(horizontal: 10));
 }
 
@@ -276,13 +273,16 @@ class _MiniStat extends StatelessWidget {
   final String label;
   const _MiniStat({required this.n, required this.label});
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Text('$n', style: const TextStyle(
-        color: _ink, fontSize: 15, fontWeight: FontWeight.w900)),
-    const SizedBox(height: 1),
-    Text(label, style: const TextStyle(
-        color: _muted, fontSize: 9.5, fontWeight: FontWeight.w500)),
-  ]);
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(children: [
+      Text('$n', style: TextStyle(
+          color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 1),
+      Text(label, style: TextStyle(
+          color: cs.onSurfaceVariant, fontSize: 9.5, fontWeight: FontWeight.w500)),
+    ]);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -304,6 +304,7 @@ class _SearchBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(children: [
       Expanded(
         child: Container(
@@ -314,16 +315,16 @@ class _SearchBarWidget extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(children: [
-            const Icon(Icons.search_rounded, size: 18, color: _muted),
+            Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
             const SizedBox(width: 8),
             Expanded(child: TextField(
               controller: controller,
               focusNode: focusNode,
               onChanged: onChanged,
-              style: const TextStyle(fontSize: 13.5, color: _ink),
+              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
               decoration: const InputDecoration(
                 hintText: 'Livres, examens, supports…',
-                hintStyle: TextStyle(fontSize: 13.5, color: _muted),
+                hintStyle: TextStyle(fontSize: 13.5, color: cs.onSurfaceVariant),
                 isCollapsed: true,
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 13),
@@ -334,7 +335,7 @@ class _SearchBarWidget extends StatelessWidget {
                 onTap: onClear,
                 child: const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.close_rounded, size: 16, color: _muted),
+                  child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
                 ),
               ),
           ]),
@@ -372,12 +373,13 @@ class _SearchDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final shown = results.take(7).toList();
     return Container(
       decoration: BoxDecoration(
-        color: _surface,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _divider),
+        border: Border.all(color: cs.outlineVariant),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.09),
@@ -390,13 +392,13 @@ class _SearchDropdown extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text('Aucun résultat.',
-                style: TextStyle(color: _muted, fontSize: 13)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
           )
         else
           ...shown.map((r) => _QuickResultTile(
               result: r, onTap: () => onTapResult(r))),
 
-        const Divider(height: 1, thickness: 1, color: _divider),
+        Divider(height: 1, thickness: 1, color: cs.outlineVariant),
         // Bouton "Voir tout"
         InkWell(
           onTap: onSeeAll,
@@ -433,6 +435,7 @@ class _QuickResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -451,11 +454,11 @@ class _QuickResultTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(result.title,
                 style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w600),
+                    color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w600),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 1),
             Text(result.sub,
-                style: const TextStyle(color: _muted, fontSize: 11),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ])),
           const SizedBox(width: 8),
@@ -487,17 +490,20 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text, {this.action, this.onAction});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-    Expanded(child: Text(text, style: const TextStyle(
-        color: _ink, fontSize: 14,
-        fontWeight: FontWeight.w800, letterSpacing: -0.2))),
-    if (action != null)
-      GestureDetector(
-        onTap: onAction,
-        child: Text(action!, style: const TextStyle(
-            color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
-      ),
-  ]);
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(children: [
+      Expanded(child: Text(text, style: TextStyle(
+          color: cs.onSurface, fontSize: 14,
+          fontWeight: FontWeight.w800, letterSpacing: -0.2))),
+      if (action != null)
+        GestureDetector(
+          onTap: onAction,
+          child: Text(action!, style: const TextStyle(
+              color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
+        ),
+    ]);
+  }
 }
 
 class _FilterDropdown extends StatelessWidget {
@@ -514,11 +520,12 @@ class _FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final active = value != options.first;
     return GestureDetector(
       onTap: () => showModalBottomSheet(
         context: context,
-        backgroundColor: _surface,
+        backgroundColor: cs.surface,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
         builder: (_) => _OptionsSheet(
@@ -540,13 +547,13 @@ class _FilterDropdown extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(value,
               style: TextStyle(
-                  color: active ? _accent : _muted,
+                  color: active ? _accent : cs.onSurfaceVariant,
                   fontSize: 12,
                   fontWeight:
                       active ? FontWeight.w700 : FontWeight.w500)),
           const SizedBox(width: 4),
           Icon(Icons.expand_more_rounded,
-              size: 14, color: active ? _accent : _muted),
+              size: 14, color: active ? _accent : cs.onSurfaceVariant),
         ]),
       ),
     );
@@ -567,15 +574,16 @@ class _OptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Text(title, style: const TextStyle(
-              color: _ink, fontSize: 16, fontWeight: FontWeight.w800)),
+              color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
         ),
-        const Divider(height: 1, color: _divider),
+        Divider(height: 1, color: cs.outlineVariant),
         ...options.map((o) => InkWell(
           onTap: () { onChanged(o); Navigator.pop(context); },
           child: Padding(
@@ -584,7 +592,7 @@ class _OptionsSheet extends StatelessWidget {
             child: Row(children: [
               Expanded(child: Text(o,
                   style: TextStyle(
-                      color: o == value ? _accent : _ink,
+                      color: o == value ? _accent : cs.onSurface,
                       fontSize: 14,
                       fontWeight: o == value
                           ? FontWeight.w700
@@ -608,6 +616,7 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -667,10 +676,10 @@ class _BookCover extends StatelessWidget {
           const SizedBox(height: 6),
           Text(book.title,
               style: const TextStyle(
-                  color: _ink, fontSize: 11, fontWeight: FontWeight.w700),
+                  color: cs.onSurface, fontSize: 11, fontWeight: FontWeight.w700),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           Text(book.author,
-              style: const TextStyle(color: _muted, fontSize: 9.5),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 9.5),
               maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
       ),
@@ -686,14 +695,15 @@ class _BookListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: _surface,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _divider),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(children: [
           // Mini couverture
@@ -723,11 +733,11 @@ class _BookListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(book.title,
                 style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+                    color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text(book.author,
-                style: const TextStyle(color: _muted, fontSize: 11.5)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5)),
             const SizedBox(height: 5),
             Row(children: [
               Container(
@@ -752,7 +762,7 @@ class _BookListTile extends StatelessWidget {
                 ),
                 child: Text(book.classe,
                     style: const TextStyle(
-                        color: _muted, fontSize: 9.5)),
+                        color: cs.onSurfaceVariant, fontSize: 9.5)),
               ),
             ]),
           ])),
@@ -763,12 +773,12 @@ class _BookListTile extends StatelessWidget {
               const SizedBox(width: 2),
               Text(book.rating.toStringAsFixed(1),
                   style: const TextStyle(
-                      color: _ink,
+                      color: cs.onSurface,
                       fontSize: 11, fontWeight: FontWeight.w700)),
             ]),
             const SizedBox(height: 4),
             Text('${book.pages}p',
-                style: const TextStyle(color: _muted, fontSize: 10)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
             if (book.isFavorite) ...[
               const SizedBox(height: 4),
               const Icon(Icons.favorite_rounded,
@@ -789,15 +799,16 @@ class _ExamTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: _surface,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _divider),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(children: [
           Container(
@@ -816,10 +827,10 @@ class _ExamTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${exam.subject} · ${exam.year}',
                 style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+                    color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
             Text('${exam.levelLabel} · ${exam.session}',
-                style: const TextStyle(color: _muted, fontSize: 11)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ])),
           if (exam.hasCorrection)
             Container(
@@ -838,7 +849,7 @@ class _ExamTile extends StatelessWidget {
             ),
           const SizedBox(width: 8),
           const Icon(Icons.arrow_forward_ios_rounded,
-              size: 11, color: _muted),
+              size: 11, color: cs.onSurfaceVariant),
         ]),
       ),
     );
@@ -853,15 +864,16 @@ class _MaterialTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: _surface,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _divider),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(children: [
           Container(
@@ -877,11 +889,11 @@ class _MaterialTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(material.title,
                 style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+                    color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text('${material.subject} · ${material.teacher}',
-                style: const TextStyle(color: _muted, fontSize: 11)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(material.size,
@@ -890,7 +902,7 @@ class _MaterialTile extends StatelessWidget {
                     fontSize: 11, fontWeight: FontWeight.w700)),
             const SizedBox(height: 3),
             Text(material.addedDate,
-                style: const TextStyle(color: _muted, fontSize: 10)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10)),
             if (material.isDownloaded) ...[
               const SizedBox(height: 3),
               const Icon(Icons.download_done_rounded,
@@ -920,6 +932,7 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1061,15 +1074,16 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 218,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: _surface,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _divider),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Row(children: [
           Container(
@@ -1086,7 +1100,7 @@ class _ContinueCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center, children: [
             Text(entry.title,
                 style: const TextStyle(
-                    color: _ink, fontSize: 12, fontWeight: FontWeight.w700),
+                    color: cs.onSurface, fontSize: 12, fontWeight: FontWeight.w700),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 5),
             Row(children: [
@@ -1120,6 +1134,7 @@ class _CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final cats = [
       _CatDef(
         icon: Icons.book_rounded,
@@ -1180,9 +1195,9 @@ class _CategoryGrid extends StatelessWidget {
             padding: const EdgeInsets.symmetric(
                 horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: _surface,
+              color: cs.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _divider),
+              border: Border.all(color: cs.outlineVariant),
             ),
             child: Row(children: [
               Container(
@@ -1199,13 +1214,13 @@ class _CategoryGrid extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(cat.label,
                     style: const TextStyle(
-                        color: _ink,
+                        color: cs.onSurface,
                         fontSize: 11.5, fontWeight: FontWeight.w700),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 1),
                 Text(cat.count,
                     style: const TextStyle(
-                        color: _muted, fontSize: 10),
+                        color: cs.onSurfaceVariant, fontSize: 10),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
             ]),
@@ -1254,10 +1269,11 @@ class _BooksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final books = _filtered;
     return Column(children: [
       Container(
-        color: _surface,
+        color: cs.surface,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(children: [
           _FilterDropdown(
@@ -1269,10 +1285,10 @@ class _BooksTab extends StatelessWidget {
               value: classe, onChanged: onClasseChanged),
           const Spacer(),
           Text('${books.length} livre${books.length > 1 ? 's' : ''}',
-              style: const TextStyle(color: _muted, fontSize: 12)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
       ),
-      const Divider(height: 1, thickness: 1, color: _divider),
+      Divider(height: 1, thickness: 1, color: cs.outlineVariant),
       Expanded(
         child: Skeletonizer(
           enabled: loading,
@@ -1281,7 +1297,7 @@ class _BooksTab extends StatelessWidget {
               highlightColor: Color(0xFFF5F0EA)),
           child: books.isEmpty
               ? const Center(child: Text('Aucun livre ne correspond.',
-                  style: TextStyle(color: _muted)))
+                  style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding:
                       const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -1329,10 +1345,11 @@ class _ExamsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final exams = _filtered;
     return Column(children: [
       Container(
-        color: _surface,
+        color: cs.surface,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(children: [
           ..._levels.map((l) => Padding(
@@ -1351,7 +1368,7 @@ class _ExamsTab extends StatelessWidget {
                 ),
                 child: Text(l,
                     style: TextStyle(
-                        color: l == level ? Colors.white : _muted,
+                        color: l == level ? Colors.white : cs.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: l == level
                             ? FontWeight.w700
@@ -1361,10 +1378,10 @@ class _ExamsTab extends StatelessWidget {
           )),
           const Spacer(),
           Text('${exams.length} sujet${exams.length > 1 ? 's' : ''}',
-              style: const TextStyle(color: _muted, fontSize: 12)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
       ),
-      const Divider(height: 1, thickness: 1, color: _divider),
+      Divider(height: 1, thickness: 1, color: cs.outlineVariant),
       Expanded(
         child: Skeletonizer(
           enabled: loading,
@@ -1373,7 +1390,7 @@ class _ExamsTab extends StatelessWidget {
               highlightColor: Color(0xFFF5F0EA)),
           child: exams.isEmpty
               ? const Center(child: Text('Aucun examen.',
-                  style: TextStyle(color: _muted)))
+                  style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                   itemCount: exams.length,
@@ -1417,10 +1434,11 @@ class _MaterialsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final mats = _filtered;
     return Column(children: [
       Container(
-        color: _surface,
+        color: cs.surface,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(children: [
           _FilterDropdown(
@@ -1428,10 +1446,10 @@ class _MaterialsTab extends StatelessWidget {
               value: subject, onChanged: onSubjectChanged),
           const Spacer(),
           Text('${mats.length} support${mats.length > 1 ? 's' : ''}',
-              style: const TextStyle(color: _muted, fontSize: 12)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),
       ),
-      const Divider(height: 1, thickness: 1, color: _divider),
+      Divider(height: 1, thickness: 1, color: cs.outlineVariant),
       Expanded(
         child: Skeletonizer(
           enabled: loading,
@@ -1440,7 +1458,7 @@ class _MaterialsTab extends StatelessWidget {
               highlightColor: Color(0xFFF5F0EA)),
           child: mats.isEmpty
               ? const Center(child: Text('Aucun support.',
-                  style: TextStyle(color: _muted)))
+                  style: TextStyle(color: cs.onSurfaceVariant)))
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                   itemCount: mats.length,
@@ -1471,6 +1489,7 @@ class _FavoritesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final favBooks = MockLibraryData.favoriteBooks;
     final favExams = MockLibraryData.favoriteExams;
     final favMats  = MockLibraryData.favoriteMaterials;
@@ -1483,7 +1502,7 @@ class _FavoritesTab extends StatelessWidget {
           highlightColor: Color(0xFFF5F0EA)),
       child: total == 0
           ? const Center(child: Text('Aucun favori enregistré.',
-              style: TextStyle(color: _muted, fontSize: 14)))
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)))
           : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               child: Column(

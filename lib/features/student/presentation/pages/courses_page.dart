@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import 'annales_quiz_page.dart';
 
 const _terra = ScolarisPalette.terracotta;
 const _gold  = ScolarisPalette.gold;
@@ -118,6 +119,14 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
           subtitle: courses.isEmpty
               ? 'Aucun cours'
               : '${courses.length} cours${className.isNotEmpty ? ' · $className' : ''}',
+          actions: [
+            ActionButton(
+              label: 'Annales & Quiz',
+              icon: Icons.quiz_rounded,
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AnnalesQuizPage())),
+            ),
+          ],
           child: courses.isEmpty
               ? const _EmptyState()
               : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
