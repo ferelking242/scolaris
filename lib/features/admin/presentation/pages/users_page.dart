@@ -852,6 +852,25 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   bool _custom = false;
   bool _roleResolved = false;
 
+  final _staffInfo = _StaffInfo();
+  bool _profileLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _staffInfo.phone.text = widget.user.phone ?? '';
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final p = await SupabaseDbSource.getStaffProfile(widget.user.id);
+    if (!mounted) return;
+    setState(() {
+      if (p != null) _staffInfo.loadFrom(p);
+      _profileLoaded = true;
+    });
+  }
+
   // Personnel dont on peut ajuster les accès (pas le fondateur 'admin', ni
   // teacher/student/parent dont l'accès est défini par le rôle).
   static const _restrictable = {'staff_custom', 'finance', 'surveillance'};
@@ -931,6 +950,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
     _name.dispose();
     _email.dispose();
     _title.dispose();
+    _staffInfo.dispose();
     super.dispose();
   }
 
@@ -948,8 +968,23 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         fullName: _name.text.trim(),
         email: _email.text.trim(),
       );
+
+      final schoolId = ref.read(currentSchoolIdProvider);
+      if (schoolId != null && _profileLoaded) {
+        await SupabaseDbSource.updateUserPhone(
+            id: widget.user.id, phone: _staffInfo.phone.text);
+        await SupabaseDbSource.upsertStaffProfile(
+          userId: widget.user.id,
+          schoolId: schoolId,
+          employeeId: _staffInfo.matricule.text,
+          gender: _staffInfo.gender,
+          dateOfBirth: _staffInfo.dateOfBirth,
+          joinDate: _staffInfo.joinDate,
+          contractType: _staffInfo.contractType,
+        );
+      }
+
       if (_isStaff) {
-        final schoolId = ref.read(currentSchoolIdProvider);
         if (schoolId == null) throw Exception('École introuvable.');
 
         SbStaffRole role;
@@ -1030,6 +1065,18 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                   return null;
                 },
               ),
+              // Fiche : téléphone, matricule, sexe, naissance, embauche, contrat.
+              if (_profileLoaded)
+                _StaffInfoFields(info: _staffInfo)
+              else
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+
               if (_isStaff) ...[
                 const SizedBox(height: 12),
                 TextFormField(
@@ -1123,6 +1170,169 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
       ],
     );
   }
+}
+
+// ── Fiche du personnel : champs partagés invitation / modification ───────────
+//
+// Un seul formulaire pour les deux fenêtres. Deux copies auraient divergé à la
+// première évolution.
+
+class _StaffInfo {
+  final phone = TextEditingController();
+  final matricule = TextEditingController();
+  String? gender; // 'M' | 'F'
+  DateTime? dateOfBirth;
+  DateTime? joinDate;
+  String contractType = 'permanent';
+
+  void dispose() {
+    phone.dispose();
+    matricule.dispose();
+  }
+
+  void loadFrom(SbStaffProfile p) {
+    matricule.text = p.employeeId ?? '';
+    gender = p.gender;
+    dateOfBirth = p.dateOfBirth;
+    joinDate = p.joinDate;
+    contractType = p.contractType;
+  }
+}
+
+class _StaffInfoFields extends StatefulWidget {
+  final _StaffInfo info;
+  const _StaffInfoFields({required this.info});
+  @override
+  State<_StaffInfoFields> createState() => _StaffInfoFieldsState();
+}
+
+class _StaffInfoFieldsState extends State<_StaffInfoFields> {
+  static const _contracts = {
+    'permanent': 'Permanent',
+    'vacataire': 'Vacataire',
+    'prestataire': 'Prestataire',
+  };
+
+  Future<void> _pickDate({
+    required DateTime? current,
+    required DateTime first,
+    required DateTime last,
+    required ValueChanged<DateTime> onPicked,
+  }) async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: current ?? (last.isBefore(DateTime.now()) ? last : DateTime.now()),
+      firstDate: first,
+      lastDate: last,
+      locale: const Locale('fr'),
+    );
+    if (d != null) setState(() => onPicked(d));
+  }
+
+  String _fmt(DateTime? d) =>
+      d == null ? '—' : '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final i = widget.info;
+    final now = DateTime.now();
+
+    return Column(children: [
+      const SizedBox(height: 12),
+      TextFormField(
+        controller: i.phone,
+        keyboardType: TextInputType.phone,
+        decoration: const InputDecoration(
+            labelText: 'Téléphone', prefixIcon: Icon(Icons.phone_outlined)),
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(
+          child: TextFormField(
+            controller: i.matricule,
+            decoration: const InputDecoration(
+                labelText: 'Matricule',
+                prefixIcon: Icon(Icons.badge_outlined)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: i.gender,
+            decoration: const InputDecoration(
+                labelText: 'Sexe', prefixIcon: Icon(Icons.wc_outlined)),
+            items: const [
+              DropdownMenuItem(value: 'M', child: Text('Masculin')),
+              DropdownMenuItem(value: 'F', child: Text('Féminin')),
+            ],
+            onChanged: (v) => setState(() => i.gender = v),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(
+          child: _DateField(
+            label: 'Date de naissance',
+            value: _fmt(i.dateOfBirth),
+            onTap: () => _pickDate(
+              current: i.dateOfBirth,
+              first: DateTime(1940),
+              last: DateTime(now.year - 16, now.month, now.day),
+              onPicked: (d) => i.dateOfBirth = d,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _DateField(
+            label: "Date d'embauche",
+            value: _fmt(i.joinDate),
+            onTap: () => _pickDate(
+              current: i.joinDate,
+              first: DateTime(1990),
+              last: DateTime(now.year + 1),
+              onPicked: (d) => i.joinDate = d,
+            ),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        value: i.contractType,
+        decoration: const InputDecoration(
+            labelText: 'Type de contrat',
+            prefixIcon: Icon(Icons.description_outlined)),
+        items: [
+          for (final e in _contracts.entries)
+            DropdownMenuItem(value: e.key, child: Text(e.value)),
+        ],
+        onChanged: (v) => setState(() => i.contractType = v ?? 'permanent'),
+      ),
+    ]);
+  }
+}
+
+class _DateField extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  const _DateField(
+      {required this.label, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: InputDecorator(
+          decoration: InputDecoration(
+              labelText: label,
+              prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18)),
+          child: Text(value,
+              style: TextStyle(fontSize: 13, color: context.cInk)),
+        ),
+      );
 }
 
 /// Choix du rôle à l'invitation.
@@ -1237,6 +1447,8 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   SbStaffRole? _existingRole; // rôle déjà créé dans l'école
   bool _custom = false;
 
+  final _staffInfo = _StaffInfo();
+
   static String _generatePassword() {
     final n = DateTime.now().microsecondsSinceEpoch % 10000;
     return 'Scolaris-${n.toString().padLeft(4, '0')}';
@@ -1248,6 +1460,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     _email.dispose();
     _title.dispose();
     _pass.dispose();
+    _staffInfo.dispose();
     super.dispose();
   }
 
@@ -1358,7 +1571,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
             isAdminRole: role.isAdminRole);
       }
 
-      await SupabaseDbSource.createMemberAccount(
+      final userId = await SupabaseDbSource.createMemberAccount(
         email: _email.text.trim(),
         password: _pass.text,
         fullName: _name.text.trim(),
@@ -1366,7 +1579,23 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         permissions: permissions,
         title: _isStaff ? _title.text.trim() : null,
         staffRoleId: staffRoleId,
+        phone: _staffInfo.phone.text,
       );
+
+      // Fiche du personnel (matricule, sexe, naissance, embauche, contrat).
+      final schoolId = ref.read(currentSchoolIdProvider);
+      if (userId != null && schoolId != null) {
+        await SupabaseDbSource.upsertStaffProfile(
+          userId: userId,
+          schoolId: schoolId,
+          employeeId: _staffInfo.matricule.text,
+          gender: _staffInfo.gender,
+          dateOfBirth: _staffInfo.dateOfBirth,
+          joinDate: _staffInfo.joinDate,
+          contractType: _staffInfo.contractType,
+        );
+      }
+
       ref.invalidate(staffRolesProvider);
       widget.onCreated();
       if (!mounted) return;
@@ -1464,6 +1693,11 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                   ],
                 ),
               ],
+
+              // ── Fiche : téléphone, matricule, sexe, naissance, embauche,
+              //    contrat. Vaut aussi pour un enseignant : lui non plus n'avait
+              //    ni téléphone ni date d'embauche.
+              _StaffInfoFields(info: _staffInfo),
 
               // ── Personnel : rôle + titre + aperçu des accès ────────────
               if (_isStaff && familiesEnabled) ...[

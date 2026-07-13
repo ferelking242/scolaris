@@ -671,6 +671,10 @@ class SbUser {
   /// élèves, parents, et les comptes staff créés avant la bascule RBAC.
   final String? staffRoleId;
 
+  /// La colonne existait en base et servait déjà aux élèves/parents ; elle
+  /// n'était simplement jamais lue ni demandée pour le personnel.
+  final String? phone;
+
   const SbUser({
     required this.id,
     this.schoolId,
@@ -684,6 +688,7 @@ class SbUser {
     this.permissions = const [],
     this.roleTitle,
     this.staffRoleId,
+    this.phone,
   });
 
   bool get isActive => status == 'active';
@@ -703,6 +708,48 @@ class SbUser {
             : const [],
         roleTitle: j['role_title'] as String?,
         staffRoleId: j['staff_role_id'] as String?,
+        phone: j['phone'] as String?,
+      );
+}
+
+/// Fiche du personnel (table `staff_profiles`).
+///
+/// Pendant de `teacher_profiles` pour le personnel non enseignant, qui n'avait
+/// aucune fiche jusqu'ici. Le téléphone vit sur `users.phone` (colonne commune à
+/// tous les rôles), pas ici.
+class SbStaffProfile {
+  final String userId;
+  final String schoolId;
+  final String? employeeId;
+  final String? gender;
+  final DateTime? dateOfBirth;
+  final DateTime? joinDate;
+
+  /// 'permanent' | 'vacataire' | 'prestataire'
+  final String contractType;
+
+  const SbStaffProfile({
+    required this.userId,
+    required this.schoolId,
+    this.employeeId,
+    this.gender,
+    this.dateOfBirth,
+    this.joinDate,
+    this.contractType = 'permanent',
+  });
+
+  factory SbStaffProfile.fromJson(Map<String, dynamic> j) => SbStaffProfile(
+        userId: j['user_id'] as String,
+        schoolId: j['school_id'] as String,
+        employeeId: j['employee_id'] as String?,
+        gender: j['gender'] as String?,
+        dateOfBirth: j['date_of_birth'] != null
+            ? DateTime.tryParse(j['date_of_birth'] as String)
+            : null,
+        joinDate: j['join_date'] != null
+            ? DateTime.tryParse(j['join_date'] as String)
+            : null,
+        contractType: j['contract_type'] as String? ?? 'permanent',
       );
 }
 
@@ -2053,7 +2100,9 @@ class SupabaseDbSource {
   /// [permissions] en est la projection plate, dérivée via `RbacMapping` par
   /// l'appelant. Les deux sont écrites ensemble pour que le menu et les gardes
   /// existants continuent de fonctionner sans modification.
-  static Future<void> createMemberAccount({
+  /// Renvoie l'id de la ligne `users` créée (≠ auth_uid), pour pouvoir y
+  /// rattacher une fiche du personnel dans la foulée.
+  static Future<String?> createMemberAccount({
     required String email,
     required String password,
     required String fullName,
@@ -2061,6 +2110,7 @@ class SupabaseDbSource {
     List<String> permissions = const [],
     String? title,
     String? staffRoleId,
+    String? phone,
   }) async {
     final res = await _db.functions.invoke('create-account', body: {
       'mode': 'create',
@@ -2075,17 +2125,68 @@ class SupabaseDbSource {
     // On pose ensuite le rôle + les permissions + le titre (RLS admin).
     final data = res.data;
     final authUid = (data is Map) ? data['userId'] as String? : null;
-    final hasWork = permissions.isNotEmpty ||
-        (title != null && title.isNotEmpty) ||
-        staffRoleId != null;
-    if (authUid != null && hasWork) {
-      await _db.from('users').update({
-        if (permissions.isNotEmpty) 'permissions': permissions,
-        if (title != null && title.isNotEmpty) 'role_title': title.trim(),
-        if (staffRoleId != null) 'staff_role_id': staffRoleId,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('auth_uid', authUid);
-    }
+    if (authUid == null) return null;
+
+    await _db.from('users').update({
+      if (permissions.isNotEmpty) 'permissions': permissions,
+      if (title != null && title.isNotEmpty) 'role_title': title.trim(),
+      if (staffRoleId != null) 'staff_role_id': staffRoleId,
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('auth_uid', authUid);
+
+    final row = await _db
+        .from('users')
+        .select('id')
+        .eq('auth_uid', authUid)
+        .maybeSingle();
+    return row?['id'] as String?;
+  }
+
+  // ── Fiche du personnel (staff_profiles) ────────────────────────────────────
+
+  static Future<void> updateUserPhone({
+    required String id,
+    required String phone,
+  }) async {
+    final v = phone.trim();
+    await _db.from('users').update({
+      'phone': v.isEmpty ? null : v,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
+  static Future<SbStaffProfile?> getStaffProfile(String userId) async {
+    final row = await _db
+        .from('staff_profiles')
+        .select()
+        .eq('user_id', userId)
+        .maybeSingle();
+    return row == null ? null : SbStaffProfile.fromJson(row);
+  }
+
+  static Future<void> upsertStaffProfile({
+    required String userId,
+    required String schoolId,
+    String? employeeId,
+    String? gender,
+    DateTime? dateOfBirth,
+    DateTime? joinDate,
+    String contractType = 'permanent',
+  }) async {
+    String? d(DateTime? v) =>
+        v == null ? null : v.toIso8601String().split('T').first;
+
+    await _db.from('staff_profiles').upsert({
+      'user_id': userId,
+      'school_id': schoolId,
+      'employee_id': (employeeId?.trim().isEmpty ?? true) ? null : employeeId!.trim(),
+      'gender': gender,
+      'date_of_birth': d(dateOfBirth),
+      'join_date': d(joinDate),
+      'contract_type': contractType,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'user_id');
   }
 
   /// Met à jour le rôle, les permissions et le titre d'un membre existant.
