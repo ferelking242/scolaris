@@ -43,7 +43,10 @@ Color _mentionColor(double moy) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 class BulletinPage extends ConsumerStatefulWidget {
-  const BulletinPage({super.key});
+  /// Élève ciblé. `null` = l'élève connecté (vue élève).
+  /// Renseigné = vue parent sur un de ses enfants.
+  final String? studentId;
+  const BulletinPage({super.key, this.studentId});
   @override
   ConsumerState<BulletinPage> createState() => _BulletinPageState();
 }
@@ -74,11 +77,17 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
 
   @override
   Widget build(BuildContext context) {
-    final session      = ref.watch(authSessionProvider);
-    final studentAsync = ref.watch(myStudentProfileProvider);
+    final session = ref.watch(authSessionProvider);
+    final sid     = widget.studentId;
+
+    final studentAsync = sid != null
+        ? ref.watch(studentByIdProvider(sid))
+        : ref.watch(myStudentProfileProvider);
     final schoolAsync  = ref.watch(schoolProvider);
     // Source = bulletins PUBLIÉS par l'administration (pas un calcul live).
-    final cardsAsync   = ref.watch(myReportCardsProvider);
+    final cardsAsync = sid != null
+        ? ref.watch(reportCardsForStudentProvider(sid))
+        : ref.watch(myReportCardsProvider);
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -94,6 +103,11 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
             error: (e, _) => Center(child: Text('Erreur : $e')),
             data: (cards) {
               final student = studentAsync.valueOrNull;
+              // En vue parent, la session est celle du PARENT : ne jamais s'en
+              // servir comme repli du nom de l'élève.
+              final studentName = student?.fullName ??
+                  (sid == null ? session?.fullName : null) ??
+                  'Élève';
               final card =
                   cards.where((c) => c.period == _period).firstOrNull;
               final rows = card?.lines
@@ -110,7 +124,7 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
                   _StudentInfoCard(
-                    name: card?.studentName ?? session?.fullName ?? 'Élève',
+                    name: card?.studentName ?? studentName,
                     classe: student?.classe,
                     matricule: student?.matricule,
                     periodLabel: _periodLabel,
@@ -133,8 +147,7 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
                     _CouncilCard(moyenne: card.generalAverage),
                     const SizedBox(height: 14),
                     _PrintBtn(
-                      studentName:
-                          card.studentName ?? session?.fullName ?? '',
+                      studentName: card.studentName ?? studentName,
                       schoolName: schoolAsync.valueOrNull?.name ?? 'École',
                       rows: rows,
                       avg: card.generalAverage,

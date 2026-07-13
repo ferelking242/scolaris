@@ -11,7 +11,9 @@ class ParentPaymentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final invoicesAsync = ref.watch(myInvoicesProvider);
+    // Les factures de TOUS ses enfants. (Avant : `myInvoicesProvider`, qui
+    // cherchait les factures d'un élève ayant l'id du parent → toujours vide.)
+    final invoicesAsync = ref.watch(myChildrenInvoicesProvider);
     return invoicesAsync.when(
       loading: () => const PageScaffold(
         title: 'Paiements',
@@ -45,6 +47,7 @@ class ParentPaymentsPage extends ConsumerWidget {
                   headerActions: const [SearchInput()],
                   child: DataTablePanel(
                     columns: const [
+                      'Élève',
                       'Facture',
                       'Description',
                       'Échéance',
@@ -52,10 +55,17 @@ class ParentPaymentsPage extends ConsumerWidget {
                       'Statut',
                       ''
                     ],
-                    flex: const [2, 3, 2, 2, 2, 2],
+                    flex: const [2, 2, 3, 2, 2, 2, 2],
                     rows: [
                       for (final inv in invoices)
                         [
+                          // Un parent peut avoir plusieurs enfants : sans cette
+                          // colonne, il ne sait pas qui la facture concerne.
+                          Text(inv.studentName ?? '—',
+                              style: const TextStyle(
+                                  color: ink,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700)),
                           Text(
                               inv.invoiceNumber ??
                                   inv.id.substring(0, 8).toUpperCase(),

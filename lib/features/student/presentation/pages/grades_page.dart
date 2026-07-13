@@ -42,22 +42,29 @@ class _NoteType {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 class GradesPage extends ConsumerWidget {
-  const GradesPage({super.key});
+  /// Élève ciblé. `null` = l'élève connecté (vue élève).
+  /// Renseigné = vue parent sur un de ses enfants.
+  final String? studentId;
+  final String? title;
+  const GradesPage({super.key, this.studentId, this.title});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authSessionProvider);
-    final gradesAsync = session != null
-        ? ref.watch(gradesForStudentProvider(session.id))
+    final sid = studentId ?? session?.id;
+    final heading = title ?? 'Mes notes';
+
+    final gradesAsync = sid != null
+        ? ref.watch(gradesForStudentProvider(sid))
         : const AsyncValue<List<SbGrade>>.data([]);
 
     return gradesAsync.when(
-      loading: () => const PageScaffold(
-        title: 'Mes notes',
-        child: Center(child: CircularProgressIndicator()),
+      loading: () => PageScaffold(
+        title: heading,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
-        title: 'Mes notes',
+        title: heading,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (grades) {
@@ -69,7 +76,7 @@ class GradesPage extends ConsumerWidget {
             : grades.reduce((a, b) => a.outOf20 >= b.outOf20 ? a : b);
 
         return PageScaffold(
-          title: 'Mes notes',
+          title: heading,
           subtitle: '${grades.isEmpty ? "Aucun" : grades.length} résultat(s)',
           actions: [
             ActionButton(

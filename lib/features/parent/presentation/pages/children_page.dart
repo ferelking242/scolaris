@@ -1,53 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
-import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import 'child_detail_page.dart';
 
+const _terra = ScolarisPalette.terracotta;
+const _gold  = ScolarisPalette.gold;
+
+/// Liste des enfants du parent connecté — porte d'entrée de tout l'espace.
+///
+/// Lit `myChildrenProvider` (table `parent_student`). Avant, cette page lisait
+/// `studentsProvider` = TOUS les élèves de l'école, avec un repli
+/// « les 3 premiers, en démo » : un parent voyait les enfants des autres.
 class ChildrenPage extends ConsumerWidget {
   const ChildrenPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Parents see students linked to them; fallback: all students
-    final studentsAsync = ref.watch(studentsProvider);
-    return studentsAsync.when(
+    final childrenAsync = ref.watch(myChildrenProvider);
+
+    return childrenAsync.when(
       loading: () => const PageScaffold(
         title: 'Mes enfants',
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Mes enfants',
-        child: Center(child: Text('Erreur : $e')),
+        child: Center(child: Text('Erreur : $e',
+            style: TextStyle(color: context.cMuted))),
       ),
-      data: (students) {
-        final session = ref.read(authSessionProvider);
-        // Filter by parent_id if available; otherwise show first 3 as demo
-        final kids = students
-            .where((s) =>
-                session != null && s.id.contains(session.id)
-                    ? true
-                    : false)
-            .toList();
-        final displayed = kids.isEmpty ? students.take(3).toList() : kids;
+      data: (children) {
+        if (children.isEmpty) {
+          return const PageScaffold(
+            title: 'Mes enfants',
+            child: _NoChildren(),
+          );
+        }
         return PageScaffold(
           title: 'Mes enfants',
-          subtitle: '${displayed.length} enfant(s) inscrit(s)',
+          subtitle: children.length > 1
+              ? '${children.length} enfants inscrits'
+              : '1 enfant inscrit',
           child: LayoutBuilder(builder: (ctx, c) {
             final cols = c.maxWidth > 720 ? 2 : 1;
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: displayed.length,
+              itemCount: children.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: cols,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                mainAxisExtent: 180,
+                mainAxisExtent: 132,
               ),
-              itemBuilder: (_, i) => _ChildCard(student: displayed[i]),
+              itemBuilder: (_, i) => _ChildCard(student: children[i]),
             );
           }),
         );
@@ -56,110 +65,120 @@ class ChildrenPage extends ConsumerWidget {
   }
 }
 
-class _ChildCard extends StatelessWidget {
+class _ChildCard extends ConsumerWidget {
   final SbStudent student;
   const _ChildCard({required this.student});
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .06),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Avatar(name: student.fullName, size: 40),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Aperçu : la moyenne, calculée sur les vraies notes de CET enfant.
+    final grades = ref.watch(gradesForStudentProvider(student.id));
+    final list   = grades.valueOrNull ?? const <SbGrade>[];
+    final moyenne = list.isEmpty
+        ? null
+        : list.fold<double>(0, (s, g) => s + g.outOf20) / list.length;
+
+    return Material(
+      color: context.cCard,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => ChildDetailPage(child: student),
+        )),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: context.cBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Avatar(name: student.fullName, size: 44),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(student.fullName,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              color: ink,
-                              fontWeight: FontWeight.w700)),
-                      Text(student.classe ?? '—',
-                          style: const TextStyle(fontSize: 12, color: muted)),
-                    ]),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              _InfoChip(
-                  label: student.niveau ?? '—',
-                  icon: Icons.school_outlined),
-              const SizedBox(width: 8),
-              _InfoChip(
-                  label: student.matricule ?? '—',
-                  icon: Icons.badge_outlined),
-            ]),
-            const Spacer(),
-            Row(children: [
-              Expanded(
-                child: _ActionBtn(
-                    label: 'Notes',
-                    icon: Icons.grading_rounded,
-                    onTap: () {}),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ActionBtn(
-                    label: 'Présences',
-                    icon: Icons.event_available_rounded,
-                    onTap: () {}),
-              ),
-            ]),
-          ],
+                          style: TextStyle(fontSize: 14.5, color: context.cInk,
+                              fontWeight: FontWeight.w800),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 3),
+                      Text(student.classe ?? 'Classe non renseignée',
+                          style: TextStyle(fontSize: 12, color: context.cMuted)),
+                    ])),
+                if (moyenne != null)
+                  Column(children: [
+                    Text(moyenne.toStringAsFixed(1),
+                        style: const TextStyle(color: _gold, fontSize: 18,
+                            fontWeight: FontWeight.w900)),
+                    Text('/20', style: TextStyle(
+                        color: context.cMuted, fontSize: 10)),
+                  ]),
+              ]),
+              const Spacer(),
+              Row(children: [
+                _Chip(icon: Icons.badge_outlined,
+                    label: student.matricule ?? '—'),
+                const SizedBox(width: 12),
+                _Chip(icon: Icons.school_outlined,
+                    label: student.niveau ?? '—'),
+                const Spacer(),
+                const Text('Voir sa fiche',
+                    style: TextStyle(color: _terra, fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+                const Icon(Icons.chevron_right_rounded,
+                    color: _terra, size: 18),
+              ]),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
-class _InfoChip extends StatelessWidget {
-  final String label;
+class _Chip extends StatelessWidget {
   final IconData icon;
-  const _InfoChip({required this.label, required this.icon});
+  final String label;
+  const _Chip({required this.icon, required this.label});
   @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: muted),
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: context.cMuted),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: muted)),
+        Text(label, style: TextStyle(fontSize: 11, color: context.cMuted)),
       ]);
 }
 
-class _ActionBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _ActionBtn(
-      {required this.label, required this.icon, required this.onTap});
+/// Aucun enfant rattaché : ce n'est pas une erreur, c'est un lien manquant que
+/// seule l'école peut créer (table `parent_student`).
+class _NoChildren extends StatelessWidget {
+  const _NoChildren();
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5EEE6),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: border),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 60),
+        child: Column(children: [
+          Icon(Icons.family_restroom_rounded,
+              size: 48, color: context.cMuted.withOpacity(.4)),
+          const SizedBox(height: 14),
+          Text('Aucun enfant rattaché',
+              style: TextStyle(color: context.cInk, fontSize: 15,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Votre compte n\'est relié à aucun élève. '
+              'Contactez l\'établissement pour qu\'il rattache votre enfant '
+              'à votre compte.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.cMuted, fontSize: 12.5,
+                  height: 1.5),
+            ),
           ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 14, color: muted),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, color: ink)),
-          ]),
-        ),
+        ]),
       );
 }

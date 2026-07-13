@@ -119,6 +119,22 @@ final myStudentProfileProvider = FutureProvider<SbStudent?>((ref) async {
   return SupabaseDbSource.getStudentByProfileId(session.id);
 });
 
+// ── Enfants du parent connecté ───────────────────────────────────────────────
+/// Clé de voûte de l'espace parent : sans elle, aucun écran ne sait de quel
+/// enfant il parle. Lit `parent_student` — le lien que l'admin écrit déjà à la
+/// création d'un élève (`createOrLinkGuardian`) mais que personne ne lisait.
+final myChildrenProvider = FutureProvider<List<SbStudent>>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return const [];
+  return SupabaseDbSource.getChildrenForParent(session.id);
+});
+
+/// Fiche d'un élève donné (vue parent — clé : studentId).
+final studentByIdProvider =
+    FutureProvider.family<SbStudent?, String>((ref, studentId) async {
+  return SupabaseDbSource.getStudentById(studentId);
+});
+
 // ── Classes ───────────────────────────────────────────────────────────────────
 final classesProvider = FutureProvider<List<SbClass>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
@@ -357,6 +373,12 @@ final myAbsencesProvider = FutureProvider<List<SbAbsence>>((ref) async {
   return SupabaseDbSource.getAbsencesForStudent(session.id);
 });
 
+/// Absences d'un élève donné (vue parent — clé : studentId).
+final absencesForStudentProvider =
+    FutureProvider.family<List<SbAbsence>, String>((ref, studentId) async {
+  return SupabaseDbSource.getAbsencesForStudent(studentId);
+});
+
 // ── Frais de scolarité (grille) ──────────────────────────────────────────────
 /// Grilles de frais de l'école courante pour l'année académique en cours.
 final feeStructuresProvider = FutureProvider<List<SbFeeStructure>>((ref) async {
@@ -393,6 +415,27 @@ final myInvoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
   final session = ref.watch(authSessionProvider);
   if (session == null) return [];
   return SupabaseDbSource.getInvoicesForStudent(session.id);
+});
+
+/// Factures d'un élève donné (vue parent — clé : studentId).
+final invoicesForStudentProvider =
+    FutureProvider.family<List<SbInvoice>, String>((ref, studentId) async {
+  return SupabaseDbSource.getInvoicesForStudent(studentId);
+});
+
+/// Toutes les factures de TOUS les enfants du parent connecté, fusionnées.
+/// (`myInvoicesProvider` cherchait les factures d'un élève portant l'id du
+/// parent — il ne remontait donc jamais rien pour un parent.)
+final myChildrenInvoicesProvider =
+    FutureProvider<List<SbInvoice>>((ref) async {
+  final children = await ref.watch(myChildrenProvider.future);
+  final out = <SbInvoice>[];
+  for (final c in children) {
+    out.addAll(await ref.watch(invoicesForStudentProvider(c.id).future));
+  }
+  out.sort((a, b) => (b.dueDate ?? DateTime(2000))
+      .compareTo(a.dueDate ?? DateTime(2000)));
+  return out;
 });
 
 // ── Messages ──────────────────────────────────────────────────────────────────

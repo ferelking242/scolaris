@@ -1207,6 +1207,35 @@ class SupabaseDbSource {
   static Future<SbStudent?> getStudentByProfileId(String profileId) =>
       getStudentById(profileId);
 
+  /// Les enfants d'un parent, via la table de liaison `parent_student`.
+  ///
+  /// En deux requêtes plutôt qu'une jointure imbriquée : l'embed PostgREST
+  /// dépendrait du nom exact de la contrainte FK, qui n'est pas garanti par le
+  /// dépôt (cf. CLAUDE.md — le schéma réel n'y est pas versionné). Un parent a
+  /// une poignée d'enfants, le second aller-retour est sans conséquence.
+  static Future<List<SbStudent>> getChildrenForParent(String parentId) async {
+    final links = await _db
+        .from('parent_student')
+        .select('student_id')
+        .eq('parent_id', parentId);
+
+    final ids = (links as List)
+        .map((j) => (j as Map<String, dynamic>)['student_id'] as String?)
+        .whereType<String>()
+        .toList();
+    if (ids.isEmpty) return const [];
+
+    final data = await _db
+        .from('users')
+        .select(_studentSelect)
+        .inFilter('id', ids)
+        .order('full_name');
+
+    return (data as List)
+        .map((j) => SbStudent.fromUserRow(j as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Dernières fiches élèves créées (pour le feed d'activité du tableau de bord).
   /// Renvoie nom + classe + date de création, triées du plus récent au plus ancien.
   static Future<List<SbRecentStudent>> getRecentStudents({
@@ -2494,6 +2523,33 @@ class SupabaseDbSource {
       },
       onConflict: 'student_id,subject_id,period,type',
     );
+  }
+
+  /// Met à jour les types d'établissement et le système éducatif.
+  ///
+  /// `metadata` porte aussi d'autres clés (motto, year_founded…) : on FUSIONNE,
+  /// on n'écrase pas. Une écriture brutale du jsonb perdrait le reste.
+  static Future<void> updateSchoolTaxonomy({
+    required String id,
+    required List<String> types,
+    required String educationalSystem,
+  }) async {
+    final row = await _db
+        .from('schools')
+        .select('metadata')
+        .eq('id', id)
+        .maybeSingle();
+
+    final meta = <String, dynamic>{
+      ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
+      'types': types,
+      'educational_system': educationalSystem,
+    };
+
+    await _db.from('schools').update({
+      'metadata': meta,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
   }
 
   static Future<void> updateSchool({

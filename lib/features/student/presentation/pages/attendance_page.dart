@@ -14,19 +14,26 @@ const _green  = ScolarisPalette.forestGreen;
 // affiche donc uniquement du réel : compteurs (absences, retards, justifiées /
 // non justifiées) + la liste détaillée — pas de « taux de présence » fabriqué.
 class AttendancePage extends ConsumerWidget {
-  const AttendancePage({super.key});
+  /// Élève ciblé. `null` = l'élève connecté (vue élève).
+  /// Renseigné = vue parent sur un de ses enfants.
+  final String? studentId;
+  final String? title;
+  const AttendancePage({super.key, this.studentId, this.title});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final absencesAsync = ref.watch(myAbsencesProvider);
+    final heading = title ?? 'Mes présences';
+    final absencesAsync = studentId != null
+        ? ref.watch(absencesForStudentProvider(studentId!))
+        : ref.watch(myAbsencesProvider);
 
     return absencesAsync.when(
-      loading: () => const PageScaffold(
-        title: 'Mes présences',
-        child: Center(child: CircularProgressIndicator()),
+      loading: () => PageScaffold(
+        title: heading,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
-        title: 'Mes présences',
+        title: heading,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
@@ -37,7 +44,7 @@ class AttendancePage extends ConsumerWidget {
         final nonJust     = absences.length - justifiees;
 
         return PageScaffold(
-          title: 'Mes présences',
+          title: heading,
           subtitle: absences.isEmpty
               ? 'Aucune absence enregistrée'
               : '${absences.length} événement(s) · $nonJust non justifiée(s)',
@@ -56,7 +63,7 @@ class AttendancePage extends ConsumerWidget {
                 icon: Icons.list_alt_rounded,
                 title: 'Détail des absences & retards'),
             const SizedBox(height: 10),
-            const _AttendanceDetail(),
+            _AttendanceDetail(studentId: studentId),
           ]),
         );
       },
@@ -169,11 +176,14 @@ class _SummaryCard extends StatelessWidget {
 // Détail absences et retards (réel)
 // ══════════════════════════════════════════════════════════════════════════
 class _AttendanceDetail extends ConsumerWidget {
-  const _AttendanceDetail();
+  final String? studentId;
+  const _AttendanceDetail({this.studentId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final absencesAsync = ref.watch(myAbsencesProvider);
+    final absencesAsync = studentId != null
+        ? ref.watch(absencesForStudentProvider(studentId!))
+        : ref.watch(myAbsencesProvider);
     final absences = absencesAsync.value ?? [];
     if (absences.isEmpty) {
       return Container(

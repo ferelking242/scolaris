@@ -22,7 +22,10 @@ class _Slot {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 class SchedulePage extends ConsumerStatefulWidget {
-  const SchedulePage({super.key});
+  /// Élève ciblé. `null` = l'élève connecté (vue élève).
+  /// Renseigné = vue parent sur un de ses enfants.
+  final String? studentId;
+  const SchedulePage({super.key, this.studentId});
 
   @override
   ConsumerState<SchedulePage> createState() => _SchedulePageState();
@@ -43,7 +46,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(myStudentProfileProvider);
+    final sid = widget.studentId;
+    final profileAsync = sid != null
+        ? ref.watch(studentByIdProvider(sid))
+        : ref.watch(myStudentProfileProvider);
     final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Container(

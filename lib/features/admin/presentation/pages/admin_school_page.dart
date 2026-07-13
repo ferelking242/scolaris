@@ -21,6 +21,30 @@ const _swatches = <({String label, String hex})>[
   (label: 'Ardoise',    hex: '#3B4A5C'),
 ];
 
+/// Types d'établissement (`schools.metadata.types`). Les clés sont celles que
+/// [SchoolTaxonomy] traduit en cycles du catalogue des niveaux — ne pas les
+/// renommer sans mettre la taxonomie à jour.
+const _kTypes = <String, String>{
+  'garderie': 'Garderie / Maternelle',
+  'primaire': 'Primaire',
+  'college': 'Collège',
+  'lycee': 'Lycée',
+  'technique': 'Lycée technique',
+  'universite': 'Université',
+  'superieur': 'Enseignement supérieur',
+  'special': 'Établissement spécialisé',
+};
+
+/// Systèmes éducatifs (`schools.metadata.educational_system`). Combinés au pays,
+/// ils déterminent le catalogue de niveaux (cf. [SchoolTaxonomy.systemTypeOf]).
+const _kEduSystems = <String, String>{
+  'francophone': 'Francophone',
+  'anglophone': 'Anglophone',
+  'arabophone': 'Arabophone',
+  'lmd': 'LMD (supérieur)',
+  'grande_ecole': 'Grande école',
+};
+
 class AdminSchoolPage extends ConsumerStatefulWidget {
   const AdminSchoolPage({super.key});
   @override
@@ -41,6 +65,11 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   bool _saved    = false;
   String? _error;
 
+  /// Cycles de l'établissement (`schools.metadata.types`) et système éducatif.
+  /// Pilotent les niveaux de classe proposés — cf. [SchoolTaxonomy].
+  final Set<String> _types = {};
+  String _eduSystem = 'francophone';
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +88,10 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _academicYear.text = school.academicYear ?? '';
           _logoUrl.text      = school.logoUrl      ?? '';
           _accentColor       = school.accentColor;
+          _types
+            ..clear()
+            ..addAll(school.types);
+          _eduSystem = school.educationalSystem ?? 'francophone';
         });
       }
     } catch (e) {
@@ -89,7 +122,15 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         accentColor:  _accentColor,
         logoUrl:      _logoUrl.text,
       );
+      await SupabaseDbSource.updateSchoolTaxonomy(
+        id:                schoolId,
+        types:             _types.toList(),
+        educationalSystem: _eduSystem,
+      );
       ref.invalidate(schoolProvider);
+      // Les niveaux de classe proposés en dépendent directement.
+      ref.invalidate(classLevelsProvider);
+      ref.invalidate(subjectCatalogProvider);
       if (!mounted) return;
       setState(() => _saved = true);
       messenger.showSnackBar(SnackBar(
@@ -189,6 +230,80 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       ),
                     ]),
                   ]),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Cycles & système ────────────────────────────────────────
+                // Figés à l'inscription jusqu'ici. Or une école qui ouvre une
+                // section collège ne va pas recréer son compte — et ces deux
+                // réglages pilotent les niveaux de classe proposés.
+                DataPanel(
+                  title: 'Cycles & système éducatif',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'Détermine les niveaux de classe proposés '
+                          '(CP1→CM2, 6e→3e, 2nde→Terminale…).',
+                          style: TextStyle(fontSize: 12, color: context.cMuted)),
+                      const SizedBox(height: 12),
+                      Text('Cycles de l\'établissement',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: context.cMuted)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        for (final t in _kTypes.entries)
+                          FilterChip(
+                            label: Text(t.value,
+                                style: const TextStyle(fontSize: 12)),
+                            selected: _types.contains(t.key),
+                            onSelected: (v) => setState(() {
+                              if (v) {
+                                _types.add(t.key);
+                              } else {
+                                _types.remove(t.key);
+                              }
+                            }),
+                            selectedColor:
+                                _terra.withValues(alpha: .12),
+                            checkmarkColor: _terra,
+                            backgroundColor: context.cCard,
+                            side: BorderSide(color: context.cBorder),
+                          ),
+                      ]),
+                      const SizedBox(height: 16),
+                      Text('Système éducatif',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: context.cMuted)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        for (final s in _kEduSystems.entries)
+                          ChoiceChip(
+                            label: Text(s.value,
+                                style: const TextStyle(fontSize: 12)),
+                            selected: _eduSystem == s.key,
+                            onSelected: (_) =>
+                                setState(() => _eduSystem = s.key),
+                            selectedColor:
+                                _terra.withValues(alpha: .12),
+                            backgroundColor: context.cCard,
+                            side: BorderSide(color: context.cBorder),
+                          ),
+                      ]),
+                      if (_types.isEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                            'Aucun cycle sélectionné : les niveaux proposés '
+                            'retomberont sur primaire, collège et lycée.',
+                            style: TextStyle(
+                                fontSize: 11, color: context.cMuted)),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
