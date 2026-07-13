@@ -590,25 +590,20 @@ class _RolesListPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: context.cBorder),
         ),
-        // Hauteur FIXE obligatoire : cet InteractiveViewer est dans un ListView,
-        // qui donne à ses enfants une hauteur illimitée. Un InteractiveViewer
-        // est une fenêtre par laquelle on regarde un contenu plus grand — sans
-        // bords, il ne peut pas se disposer, et l'échec emportait le rendu de
-        // toute la colonne (organigramme ET liste des rôles en dessous).
-        child: SizedBox(
-          height: 260,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: InteractiveViewer(
-              panEnabled: true,
-              scaleEnabled: true,
-              minScale: .6,
-              maxScale: 2.5,
-              constrained: false,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: InteractiveViewer(
+            panEnabled: true,
+            scaleEnabled: true,
+            minScale: .6,
+            maxScale: 2.5,
+            constrained: false,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 260),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: roles.isEmpty
-                    ? const SizedBox(height: 60, width: 260)
+                    ? const SizedBox(height: 60)
                     : RoleOrgChart(
                         roles: roles,
                         selectedDraftId: selectedId,
