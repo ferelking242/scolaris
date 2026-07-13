@@ -39,10 +39,34 @@ class SchoolFormat {
   final String currency;
   final String gradingScale;
 
+  /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
+  /// Un lycée congolais est en trimestres, une université en semestres.
+  final String periodSystem;
+
   const SchoolFormat({
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
+    this.periodSystem = 'trimester',
   });
+
+  /// Codes des périodes de l'année, dans l'ordre. C'est la SEULE source :
+  /// la saisie des notes et le bulletin doivent lire la même liste, sinon on
+  /// écrit les notes dans une période que le bulletin ne relit jamais.
+  List<String> get periods =>
+      periodSystem == 'semester' ? const ['S1', 'S2'] : const ['T1', 'T2', 'T3'];
+
+  /// « 1er trimestre », « Semestre 2 ».
+  String periodLabel(String code) => switch (code) {
+        'T1' => '1er trimestre',
+        'T2' => '2e trimestre',
+        'T3' => '3e trimestre',
+        'S1' => 'Semestre 1',
+        'S2' => 'Semestre 2',
+        _ => code,
+      };
+
+  /// Libellé court, pour les puces et les en-têtes serrés : « T1 », « S2 ».
+  String periodShort(String code) => code;
 
   String get currencySymbol => _kCurrencySymbols[currency] ?? currency;
 

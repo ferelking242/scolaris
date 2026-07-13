@@ -781,6 +781,9 @@ class SbSchool {
   final String currency;
   final String gradingScale;
 
+  /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
+  final String periodSystem;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -794,10 +797,14 @@ class SbSchool {
     this.educationalSystem,
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
+    this.periodSystem = 'trimester',
   });
 
-  SchoolFormat get format =>
-      SchoolFormat(currency: currency, gradingScale: gradingScale);
+  SchoolFormat get format => SchoolFormat(
+        currency: currency,
+        gradingScale: gradingScale,
+        periodSystem: periodSystem,
+      );
 
   /// Cycles du catalogue des niveaux correspondant aux types de l'école.
   /// Un complexe scolaire en a plusieurs. Vide = types non renseignés.
@@ -821,6 +828,7 @@ class SbSchool {
           meta is Map ? meta['educational_system'] as String? : null,
       currency: j['currency'] as String? ?? 'XAF',
       gradingScale: j['grading_scale'] as String? ?? 'numeric_20',
+      periodSystem: j['period_system'] as String? ?? 'trimester',
       city: j['city'] as String?,
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,

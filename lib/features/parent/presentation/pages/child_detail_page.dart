@@ -6,7 +6,6 @@ import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../student/presentation/pages/attendance_page.dart';
-import '../../../student/presentation/pages/bulletin_page.dart';
 import '../../../student/presentation/pages/grades_page.dart';
 import '../../../student/presentation/pages/schedule_page.dart';
 
@@ -118,13 +117,8 @@ class ChildDetailPage extends ConsumerWidget {
           onTap: () => _push(context, AttendancePage(
               studentId: child.id, title: 'Présences de ${child.prenom}')),
         ),
-        const SizedBox(height: 8),
-        _NavTile(
-          icon: Icons.receipt_long_rounded, color: _gold,
-          title: 'Bulletin',
-          subtitle: 'Bulletins publiés par l\'école',
-          onTap: () => _push(context, BulletinPage(studentId: child.id)),
-        ),
+        // Pas de bulletin : retiré des espaces élève ET parent (décision
+        // utilisateur). Le bulletin reste produit et publié côté admin.
         const SizedBox(height: 22),
 
         // ── Dernières notes ───────────────────────────────────────────────

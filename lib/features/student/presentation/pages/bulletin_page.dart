@@ -54,18 +54,19 @@ class BulletinPage extends ConsumerStatefulWidget {
 class _BulletinPageState extends ConsumerState<BulletinPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
-  // Système congolais : 3 trimestres (les notes portent period 'T1'|'T2'|'T3').
-  String get _period => 'T${_tab.index + 1}';
-  String get _periodLabel => switch (_tab.index) {
-        0 => '1er trimestre',
-        1 => '2e trimestre',
-        _ => '3e trimestre',
-      };
+  late final List<String> _periods;
+
+  // Les périodes viennent de l'école (trimestres au lycée, semestres à
+  // l'université) : c'est la même liste que celle où le prof saisit ses notes.
+  String get _period => _periods[_tab.index];
+  String get _periodLabel =>
+      ref.read(schoolFormatProvider).periodLabel(_period);
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this)
+    _periods = ref.read(schoolFormatProvider).periods;
+    _tab = TabController(length: _periods.length, vsync: this)
       ..addListener(() => setState(() {}));
   }
 
@@ -94,6 +95,7 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
       child: Column(children: [
         _BulletinHeader(
           tab: _tab,
+          tabLabels: _periods,
           schoolName: schoolAsync.valueOrNull?.name,
           studentClass: studentAsync.valueOrNull?.classe,
         ),
@@ -168,10 +170,14 @@ class _BulletinPageState extends ConsumerState<BulletinPage>
 // ── Header + tabs ─────────────────────────────────────────────────────────────
 class _BulletinHeader extends StatelessWidget {
   final TabController tab;
+  final List<String> tabLabels;
   final String? schoolName;
   final String? studentClass;
   const _BulletinHeader(
-      {required this.tab, this.schoolName, this.studentClass});
+      {required this.tab,
+      required this.tabLabels,
+      this.schoolName,
+      this.studentClass});
 
   @override
   Widget build(BuildContext context) {
@@ -220,11 +226,7 @@ class _BulletinHeader extends StatelessWidget {
               fontWeight: FontWeight.w700, fontSize: 13),
           unselectedLabelStyle: const TextStyle(
               fontWeight: FontWeight.w500, fontSize: 13),
-          tabs: const [
-            Tab(text: 'Trim. 1'),
-            Tab(text: 'Trim. 2'),
-            Tab(text: 'Trim. 3'),
-          ],
+          tabs: [for (final l in tabLabels) Tab(text: l)],
         ),
       ]),
     );
@@ -685,7 +687,7 @@ class _NotPublished extends StatelessWidget {
 }
 
 // ── Bouton impression ─────────────────────────────────────────────────────────
-class _PrintBtn extends StatelessWidget {
+class _PrintBtn extends ConsumerWidget {
   final String studentName;
   final String schoolName;
   final List<_BulletinRow> rows;
@@ -701,18 +703,14 @@ class _PrintBtn extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () => PrintService.printBulletin(
           studentName: studentName,
           schoolName: schoolName,
-          period: switch (period) {
-            'T1' => '1er trimestre',
-            'T2' => '2e trimestre',
-            _ => '3e trimestre',
-          },
+          period: ref.read(schoolFormatProvider).periodLabel(period),
           rows: rows
               .map((r) => {
                     'subject': r.matiere,

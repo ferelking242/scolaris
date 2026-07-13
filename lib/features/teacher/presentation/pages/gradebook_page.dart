@@ -21,10 +21,14 @@ class GradebookPage extends ConsumerStatefulWidget {
 class _GradebookPageState extends ConsumerState<GradebookPage> {
   String? _selectedClassId;
   String? _selectedSubjectId;
-  String _selectedPeriod = 'S1';
+  // Null tant que l'école n'est pas chargée : les périodes viennent d'elle
+  // (trimestres ou semestres), pas d'une constante du code.
+  String? _selectedPeriod;
 
   @override
   Widget build(BuildContext context) {
+    final fmt = ref.watch(schoolFormatProvider);
+    final period = _selectedPeriod ?? fmt.periods.first;
     final schoolId  = ref.watch(currentSchoolIdProvider);
     final teacherId = ref.watch(authSessionProvider)?.id;
     final classesAsync  = ref.watch(classesProvider);
@@ -143,7 +147,9 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
                     Expanded(
                       flex: 2,
                       child: _PeriodPicker(
-                        value: _selectedPeriod,
+                        value: period,
+                        periods: fmt.periods,
+                        labelOf: fmt.periodLabel,
                         onChanged: (p) => setState(() => _selectedPeriod = p),
                       ),
                     ),
@@ -156,10 +162,10 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
               if (_selectedSubjectId != null && schoolId != null)
                 _GradesPanel(
                   key: ValueKey(
-                      '${selectedClass.id}|$_selectedSubjectId|$_selectedPeriod'),
+                      '${selectedClass.id}|$_selectedSubjectId|$period'),
                   classObj: selectedClass,
                   subjectId: _selectedSubjectId!,
-                  period: _selectedPeriod,
+                  period: period,
                   schoolId: schoolId,
                   teacherId: teacherId,
                 )
@@ -227,16 +233,23 @@ class _ClassPicker extends StatelessWidget {
       );
 }
 
-// ── Sélecteur de période (S1 / S2 / S3) ──────────────────────────────────────
+// ── Sélecteur de période ─────────────────────────────────────────────────────
+//  Les périodes viennent de l'école : trimestres (T1/T2/T3) au lycée, semestres
+//  (S1/S2) à l'université. Cf. SchoolFormat.
 class _PeriodPicker extends StatelessWidget {
   final String value;
+  final List<String> periods;
+  final String Function(String) labelOf;
   final ValueChanged<String> onChanged;
-  const _PeriodPicker({required this.value, required this.onChanged});
+  const _PeriodPicker({
+    required this.value,
+    required this.periods,
+    required this.labelOf,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const periods = ['S1', 'S2', 'S3'];
-    const labels  = ['Semestre 1', 'Semestre 2', 'Semestre 3'];
     return DropdownButtonFormField<String>(
       value: value,
       decoration: const InputDecoration(
@@ -246,9 +259,8 @@ class _PeriodPicker extends StatelessWidget {
         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
       items: [
-        for (var i = 0; i < periods.length; i++)
-          DropdownMenuItem(
-              value: periods[i], child: Text(labels[i])),
+        for (final p in periods)
+          DropdownMenuItem(value: p, child: Text(labelOf(p))),
       ],
       onChanged: (v) { if (v != null) onChanged(v); },
     );

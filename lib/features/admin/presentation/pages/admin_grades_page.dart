@@ -98,11 +98,15 @@ class AdminGradesPage extends ConsumerStatefulWidget {
 
 class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
   String? _classId;
-  String _period = 'S1';
+  // Null tant que l'école n'est pas chargée : trimestres ou semestres, c'est
+  // elle qui décide (cf. SchoolFormat).
+  String? _selectedPeriod;
   SbStudent? _bulletinStudent; // fiche bulletin inline (null = liste)
 
   @override
   Widget build(BuildContext context) {
+    final fmt = ref.watch(schoolFormatProvider);
+    final period = _selectedPeriod ?? fmt.periods.first;
     final classesAsync = ref.watch(classesProvider);
 
     return classesAsync.when(
@@ -124,7 +128,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
           return _StudentBulletinPage(
             student: _bulletinStudent!,
             className: selected?.name ?? '',
-            period: _period,
+            period: period,
             onBack: () => setState(() => _bulletinStudent = null),
           );
         }
@@ -144,15 +148,17 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
                   ),
                   const SizedBox(height: 12),
                   _PeriodChips(
-                    value: _period,
-                    onChanged: (p) => setState(() => _period = p),
+                    value: period,
+                    periods: fmt.periods,
+                    labelOf: fmt.periodLabel,
+                    onChanged: (p) => setState(() => _selectedPeriod = p),
                   ),
                   const SizedBox(height: 14),
                   if (selected != null)
                     _ClassGradesPanel(
-                      key: ValueKey('${selected.id}|$_period'),
+                      key: ValueKey('${selected.id}|$period'),
                       classObj: selected,
-                      period: _period,
+                      period: period,
                       onOpen: (s) => setState(() => _bulletinStudent = s),
                     ),
                 ]),
@@ -288,21 +294,16 @@ class _StudentBulletinPage extends ConsumerWidget {
     required this.onBack,
   });
 
-  String get _periodLabel => switch (period) {
-        'S1' => 'Semestre 1',
-        'S2' => 'Semestre 2',
-        _ => 'Semestre 3',
-      };
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final periodLabel = ref.watch(schoolFormatProvider).periodLabel(period);
     final gradesAsync = ref.watch(gradesForStudentProvider(student.id));
     final subjectsAsync = ref.watch(subjectsProvider);
     final school = ref.watch(schoolProvider).valueOrNull;
 
     return PageScaffold(
       title: 'Bulletin',
-      subtitle: '${student.fullName} · $className · $_periodLabel',
+      subtitle: '${student.fullName} · $className · $periodLabel',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour aux notes', onTap: onBack),
         const SizedBox(height: 14),
@@ -325,7 +326,7 @@ class _StudentBulletinPage extends ConsumerWidget {
                 name: student.fullName,
                 classe: className,
                 matricule: student.matricule,
-                periodLabel: _periodLabel,
+                periodLabel: periodLabel,
               ),
               const SizedBox(height: 14),
               if (rows.isEmpty)
@@ -343,7 +344,7 @@ class _StudentBulletinPage extends ConsumerWidget {
                     onPressed: () => PrintService.printBulletin(
                       studentName: student.fullName,
                       schoolName: school?.name ?? 'École',
-                      period: _periodLabel,
+                      period: periodLabel,
                       rows: rows
                           .map((r) => {
                                 'subject': r.matiere,
@@ -409,29 +410,35 @@ class _ClassChips extends StatelessWidget {
       );
 }
 
+// Les périodes viennent de l'école : trimestres au lycée, semestres à
+// l'université. Cf. SchoolFormat.
 class _PeriodChips extends StatelessWidget {
   final String value;
+  final List<String> periods;
+  final String Function(String) labelOf;
   final ValueChanged<String> onChanged;
-  const _PeriodChips({required this.value, required this.onChanged});
+  const _PeriodChips({
+    required this.value,
+    required this.periods,
+    required this.labelOf,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const periods = ['S1', 'S2', 'S3'];
-    const labels = ['Semestre 1', 'Semestre 2', 'Semestre 3'];
     return Row(children: [
-      for (var i = 0; i < periods.length; i++)
+      for (final p in periods)
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: ChoiceChip(
-            label: Text(labels[i]),
-            selected: value == periods[i],
-            onSelected: (_) => onChanged(periods[i]),
+            label: Text(labelOf(p)),
+            selected: value == p,
+            onSelected: (_) => onChanged(p),
             selectedColor: _green.withValues(alpha: .12),
             labelStyle: TextStyle(
               fontSize: 12,
-              color: value == periods[i] ? _green : muted,
-              fontWeight:
-                  value == periods[i] ? FontWeight.w700 : FontWeight.w500,
+              color: value == p ? _green : muted,
+              fontWeight: value == p ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),

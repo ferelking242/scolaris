@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/config/school_format.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
@@ -10,9 +11,6 @@ import '../../../../shared/widgets/page_scaffold.dart';
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF16A34A);
 const _gold  = Color(0xFFC17F24);
-
-const _periods = ['T1', 'T2', 'T3'];
-const _periodLabels = {'T1': '1er trimestre', 'T2': '2e trimestre', 'T3': '3e trimestre'};
 
 /// Écran admin : génération + publication des bulletins officiels d'une classe
 /// pour un trimestre. L'admin GÉNÈRE (brouillon, calcul figé) puis PUBLIE aux
@@ -25,9 +23,13 @@ class ReportCardsPage extends ConsumerStatefulWidget {
 
 class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   String? _classId;
-  String _period = 'T1';
+  // Trimestres ou semestres : c'est l'école qui décide (cf. SchoolFormat), et
+  // c'est la MÊME liste que celle où les profs saisissent les notes.
+  String? _selectedPeriod;
   bool _busy = false;
 
+  SchoolFormat get _fmt => ref.read(schoolFormatProvider);
+  String get _period => _selectedPeriod ?? _fmt.periods.first;
   String get _year => ref.read(schoolProvider).valueOrNull?.academicYear ?? '';
   String get _key => '${_classId ?? ''}|$_year|$_period';
 
@@ -37,7 +39,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     final messenger = ScaffoldMessenger.of(context);
     final ok = await _confirm(
       title: 'Générer les bulletins',
-      body: 'Calculer les bulletins du ${_periodLabels[_period]} pour tous les '
+      body: 'Calculer les bulletins du ${_fmt.periodLabel(_period)} pour tous les '
           'élèves de la classe.\n\nLes bulletins déjà publiés repasseront en '
           'brouillon : il faudra les republier.',
       action: 'Générer',
@@ -187,10 +189,10 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
               onChanged: (v) => setState(() => _classId = v),
             ),
             const SizedBox(height: 14),
-            _label('TRIMESTRE'),
+            _label(_fmt.periodSystem == 'semester' ? 'SEMESTRE' : 'TRIMESTRE'),
             const SizedBox(height: 6),
             Row(children: [
-              for (final p in _periods) ...[
+              for (final p in _fmt.periods) ...[
                 _periodChip(p),
                 const SizedBox(width: 8),
               ],
@@ -313,7 +315,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   Widget _periodChip(String p) {
     final active = _period == p;
     return GestureDetector(
-      onTap: () => setState(() => _period = p),
+      onTap: () => setState(() => _selectedPeriod = p),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
