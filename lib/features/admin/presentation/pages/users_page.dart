@@ -793,15 +793,15 @@ class _IconBtn extends StatelessWidget {
 }
 
 // ── Formulaire « Modifier un utilisateur » ───────────────────────────────────
-class _EditUserDialog extends StatefulWidget {
+class _EditUserDialog extends ConsumerStatefulWidget {
   final SbUser user;
   final VoidCallback onSaved;
   const _EditUserDialog({required this.user, required this.onSaved});
   @override
-  State<_EditUserDialog> createState() => _EditUserDialogState();
+  ConsumerState<_EditUserDialog> createState() => _EditUserDialogState();
 }
 
-class _EditUserDialogState extends State<_EditUserDialog> {
+class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name =
       TextEditingController(text: widget.user.fullName);
@@ -812,6 +812,12 @@ class _EditUserDialogState extends State<_EditUserDialog> {
   late final Set<String> _perms = _initPerms();
   bool _loading = false;
   String? _error;
+
+  // Même mécanique que l'invitation : le droit est porté par le RÔLE.
+  SbRoleTemplate? _template;
+  SbStaffRole? _existingRole;
+  bool _custom = false;
+  bool _roleResolved = false;
 
   // Personnel dont on peut ajuster les accès (pas le fondateur 'admin', ni
   // teacher/student/parent dont l'accès est défini par le rôle).
@@ -826,6 +832,67 @@ class _EditUserDialogState extends State<_EditUserDialog> {
     return p.toSet();
   }
 
+  /// Présélectionne le rôle que l'employé porte déjà. Les comptes créés avant la
+  /// bascule RBAC n'en ont aucun (staffRoleId null) : ils restent en « accès
+  /// personnalisé » jusqu'à ce qu'on leur en attribue un.
+  void _resolveCurrentRole(List<SbStaffRole> roles) {
+    if (_roleResolved) return;
+    _roleResolved = true;
+    final id = widget.user.staffRoleId;
+    if (id == null) {
+      _custom = true;
+      return;
+    }
+    _existingRole = roles.where((r) => r.id == id).firstOrNull;
+    if (_existingRole == null) _custom = true;
+  }
+
+  void _pickRole(SbStaffRole role) {
+    setState(() {
+      _existingRole = role;
+      _template = null;
+      _custom = false;
+      _perms
+        ..clear()
+        ..addAll(RbacMapping.toLegacyPermissions(role.grants,
+            isAdminRole: role.isAdminRole));
+      if (_title.text.trim().isEmpty) _title.text = role.name;
+    });
+  }
+
+  void _pickTemplate(SbRoleTemplate t) {
+    setState(() {
+      _template = t;
+      _existingRole = null;
+      _custom = false;
+      _perms
+        ..clear()
+        ..addAll(RbacMapping.toLegacyPermissions(t.grants,
+            isAdminRole: t.level == 'Direction'));
+      if (_title.text.trim().isEmpty) _title.text = t.name;
+    });
+  }
+
+  void _pickCustom() => setState(() {
+        _custom = true;
+        _template = null;
+        _existingRole = null;
+      });
+
+  Set<String> _grantsFromModules(List<SbPermissionModule> catalog) {
+    final grants = <String>{};
+    for (final key in _perms) {
+      final module = RbacMapping.permissionToModule[key];
+      if (module == null) continue; // 'discipline' : dérivé
+      final mod = catalog.where((m) => m.key == module).firstOrNull;
+      if (mod == null) continue;
+      for (final sub in mod.subPermissions) {
+        grants.add('$module.${sub.key}');
+      }
+    }
+    return grants;
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -837,7 +904,7 @@ class _EditUserDialogState extends State<_EditUserDialog> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_isStaff && _perms.isEmpty) {
-      setState(() => _error = 'Cochez au moins un accès.');
+      setState(() => _error = 'Choisissez un rôle pour ce membre.');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -849,12 +916,41 @@ class _EditUserDialogState extends State<_EditUserDialog> {
         email: _email.text.trim(),
       );
       if (_isStaff) {
-        final allChecked = _perms.length == StaffPermissions.all.length;
+        final schoolId = ref.read(currentSchoolIdProvider);
+        if (schoolId == null) throw Exception('École introuvable.');
+
+        SbStaffRole role;
+        if (_existingRole != null) {
+          role = _existingRole!;
+        } else if (_template != null) {
+          role = await StaffRolesSource.ensureRoleFromTemplate(
+            schoolId: schoolId, template: _template!);
+        } else {
+          final catalog = await ref.read(permissionCatalogProvider.future);
+          final grants = _grantsFromModules(catalog);
+          final name = _title.text.trim().isEmpty
+              ? _name.text.trim()
+              : _title.text.trim();
+          final roleId = await StaffRolesSource.createStaffRole(
+            schoolId: schoolId,
+            name: name,
+            description: 'Rôle personnalisé',
+            grants: grants,
+          );
+          role = SbStaffRole(
+            id: roleId, schoolId: schoolId, name: name,
+            isAdminRole: false, grants: grants,
+          );
+        }
+
         await SupabaseDbSource.updateStaffAccess(
           id: widget.user.id,
-          permissions: allChecked ? [kAllPermission] : _perms.toList(),
+          permissions: RbacMapping.toLegacyPermissions(role.grants,
+              isAdminRole: role.isAdminRole),
           title: _title.text.trim(),
+          staffRoleId: role.id,
         );
+        ref.invalidate(staffRolesProvider);
       }
       widget.onSaved();
       if (mounted) navigator.pop();
@@ -867,6 +963,10 @@ class _EditUserDialogState extends State<_EditUserDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Présélectionne le rôle déjà porté, dès que la liste des rôles est arrivée.
+    final roles = ref.watch(staffRolesProvider).asData?.value;
+    if (_isStaff && roles != null) _resolveCurrentRole(roles);
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       title: const Text('Modifier l\'utilisateur',
@@ -908,7 +1008,23 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Accès accordés',
+                  child: Text('Rôle',
+                      style: TextStyle(
+                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 6),
+                _RolePicker(
+                  selectedRoleId: _existingRole?.id,
+                  selectedTemplateId: _template?.id,
+                  custom: _custom,
+                  onRole: _pickRole,
+                  onTemplate: _pickTemplate,
+                  onCustom: _pickCustom,
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(_custom ? 'Accès accordés' : 'Accès de ce rôle',
                       style: TextStyle(
                           fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
@@ -921,19 +1037,32 @@ class _EditUserDialogState extends State<_EditUserDialog> {
                           size: 15,
                           color: _perms.contains(p.key) ? _terra : context.cMuted),
                       selected: _perms.contains(p.key),
-                      onSelected: (v) => setState(() {
-                        if (v) {
-                          _perms.add(p.key);
-                        } else {
-                          _perms.remove(p.key);
-                        }
-                      }),
+                      // Hors « accès personnalisé », les accès sont ceux du rôle :
+                      // les modifier pour une seule personne romprait le modèle.
+                      onSelected: _custom
+                          ? (v) => setState(() {
+                                if (v) {
+                                  _perms.add(p.key);
+                                } else {
+                                  _perms.remove(p.key);
+                                }
+                              })
+                          : null,
                       selectedColor: _terra.withValues(alpha: .12),
                       checkmarkColor: _terra,
                       backgroundColor: context.cCard,
                       side: BorderSide(color: context.cBorder),
                     ),
                 ]),
+                if (!_custom && _existingRole != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Ces accès viennent du rôle « ${_existingRole!.name} ». Les '
+                    'modifier dans « Rôles & permissions » les changera pour tous '
+                    'les membres qui le portent.',
+                    style: TextStyle(fontSize: 11, color: context.cMuted),
+                  ),
+                ],
               ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
