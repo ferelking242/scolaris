@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../shared/data/features_catalog.dart';
 import 'auth_providers.dart';
@@ -34,6 +35,17 @@ final schoolProvider = FutureProvider<SbSchool?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return null;
   return SupabaseDbSource.getSchool(schoolId);
+});
+
+// ── Rôles du personnel (RBAC granulaire) ────────────────────────────────────
+/// Vrai si l'école a déjà configuré au moins un rôle de personnel.
+/// Sert à déclencher l'étape "configuration des rôles" à la première
+/// connexion du fondateur/admin (voir [RoleSetupScreen]).
+final staffRolesConfiguredProvider = FutureProvider<bool>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return true;
+  final roles = await StaffRolesSource.fetchStaffRoles(schoolId);
+  return roles.isNotEmpty;
 });
 
 // ── Students ──────────────────────────────────────────────────────────────────

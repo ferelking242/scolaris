@@ -7,11 +7,6 @@ import '../../../../shared/widgets/page_scaffold.dart';
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _orange = ScolarisPalette.orange;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
 
 // ── Matière avec coefficient ───────────────────────────────────────────────────
 class _Matiere {
@@ -46,8 +41,6 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
   ];
 
   final _matieresLibre = <_Matiere>[];
-  String _newNom = '';
-  int _newCoeff = 1;
 
   @override
   void initState() {
@@ -90,21 +83,21 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
         Container(
           height: 42,
           decoration: BoxDecoration(
-            color: _border.withOpacity(.3),
+            color: context.cBorder.withOpacity(.3),
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.all(4),
           child: TabBar(
             controller: _tab,
             indicator: BoxDecoration(
-              color: _white,
+              color: context.cCard,
               borderRadius: BorderRadius.circular(9),
               boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4)],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
             labelColor: _terra,
-            unselectedLabelColor: _muted,
+            unselectedLabelColor: context.cMuted,
             labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
             tabs: const [Tab(text: 'Terminale EMI'), Tab(text: 'Personnalisé')],
@@ -128,36 +121,36 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
             Container(
               width: 56, height: 56,
               decoration: BoxDecoration(
-                color: _white.withOpacity(.15),
+                color: Colors.white.withOpacity(.15),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.calculate_rounded, color: _white, size: 28),
+              child: const Icon(Icons.calculate_rounded, color: Colors.white, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Moyenne calculée', style: TextStyle(color: Colors.white60, fontSize: 12)),
               const SizedBox(height: 4),
               moyenne == null
-                  ? const Text('—', style: TextStyle(color: _white, fontSize: 32, fontWeight: FontWeight.w900))
+                  ? const Text('—', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900))
                   : Text('${moyenne.toStringAsFixed(2)} / 20',
-                      style: const TextStyle(color: _white, fontSize: 28, fontWeight: FontWeight.w900)),
+                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
               if (moyenne != null) ...[
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _white.withOpacity(.2),
+                    color: Colors.white.withOpacity(.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(_mention(moyenne),
-                      style: const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
               ],
             ])),
             if (moyenne != null) ...[
               Column(children: [
                 Text('${mats.where((m) => m.note != null).length}',
-                    style: const TextStyle(color: _white, fontSize: 20, fontWeight: FontWeight.w900)),
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
                 const Text('matières', style: TextStyle(color: Colors.white60, fontSize: 10)),
               ]),
             ],
@@ -173,13 +166,13 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                border: Border.all(color: _border),
+                border: Border.all(color: context.cBorder),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.refresh_rounded, size: 13, color: _muted),
-                SizedBox(width: 5),
-                Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: _muted, fontWeight: FontWeight.w600)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.refresh_rounded, size: 13, color: context.cMuted),
+                const SizedBox(width: 5),
+                Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
               ]),
             ),
           ),
@@ -244,7 +237,7 @@ class _MatiereRowState extends State<_MatiereRow> {
 
   Color get _noteColor {
     final n = widget.mat.note;
-    if (n == null) return _muted;
+    if (n == null) return context.cMuted;
     if (n >= 14) return const Color(0xFF1B5E20);
     if (n >= 10) return const Color(0xFFC17F24);
     return const Color(0xFF8B1A00);
@@ -255,9 +248,9 @@ class _MatiereRowState extends State<_MatiereRow> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         // Coefficient badge
@@ -272,7 +265,7 @@ class _MatiereRowState extends State<_MatiereRow> {
         ),
         const SizedBox(width: 12),
         Expanded(child: Text(widget.mat.nom,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ink))),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cInk))),
         // Input note
         SizedBox(
           width: 60,
@@ -284,15 +277,15 @@ class _MatiereRowState extends State<_MatiereRow> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _noteColor),
             decoration: InputDecoration(
               hintText: '—',
-              hintStyle: const TextStyle(color: _muted),
+              hintStyle: TextStyle(color: context.cMuted),
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _border),
+                borderSide: BorderSide(color: context.cBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _terra, width: 1.5),
+                borderSide: const BorderSide(color: _terra, width: 1.5),
               ),
             ),
             onChanged: (v) {
@@ -305,7 +298,7 @@ class _MatiereRowState extends State<_MatiereRow> {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: widget.onDelete,
-            child: const Icon(Icons.close_rounded, size: 18, color: _muted),
+            child: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
           ),
         ],
       ]),
@@ -345,18 +338,18 @@ class _AddMatiereFormState extends State<_AddMatiereForm> {
           Expanded(
             child: TextField(
               controller: _nomCtrl,
-              style: const TextStyle(fontSize: 13, color: _ink),
+              style: TextStyle(fontSize: 13, color: context.cInk),
               decoration: InputDecoration(
                 hintText: 'Nom de la matière',
-                hintStyle: const TextStyle(color: _muted, fontSize: 13),
+                hintStyle: TextStyle(color: context.cMuted, fontSize: 13),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: _border),
+                  borderSide: BorderSide(color: context.cBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: _terra, width: 1.5),
+                  borderSide: const BorderSide(color: _terra, width: 1.5),
                 ),
               ),
             ),
@@ -365,15 +358,15 @@ class _AddMatiereFormState extends State<_AddMatiereForm> {
           // Coefficient stepper
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: _border),
+              border: Border.all(color: context.cBorder),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(children: [
               _StepBtn(icon: Icons.remove, onTap: () { if (_coeff > 1) setState(() => _coeff--); }),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('×$_coeff', style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
+                child: Text('×$_coeff', style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w800, color: context.cInk)),
               ),
               _StepBtn(icon: Icons.add, onTap: () { if (_coeff < 20) setState(() => _coeff++); }),
             ]),
@@ -394,7 +387,7 @@ class _AddMatiereFormState extends State<_AddMatiereForm> {
                 color: _terra,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.add_rounded, color: _white, size: 22),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
             ),
           ),
         ]),
@@ -410,9 +403,9 @@ class _StepBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
-    child: Container(
+    child: SizedBox(
       width: 32, height: 42,
-      child: Icon(icon, size: 16, color: _muted),
+      child: Icon(icon, size: 16, color: context.cMuted),
     ),
   );
 }

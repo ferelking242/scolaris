@@ -12,10 +12,6 @@ const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _white  = Colors.white;
-const _bg     = Color(0xFFEDD8BE);
 
 enum PayStatut { paye, enAttente, enRetard }
 
@@ -40,7 +36,7 @@ class StudentPaymentsPage extends ConsumerWidget {
     final year = school?.academicYear ?? '';
 
     return Container(
-      color: _bg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: invoicesAsync.when(
         loading: () => const Center(
             child: Padding(padding: EdgeInsets.only(top: 80),
@@ -206,6 +202,7 @@ class _ReminderBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final due = invoice.dueDate;
     final now = DateTime.now();
     final overdue = due != null && due.isBefore(DateTime(now.year, now.month, now.day));
@@ -226,9 +223,9 @@ class _ReminderBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .08),
+        color: color.withOpacity(.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: .3)),
+        border: Border.all(color: color.withOpacity(.3)),
       ),
       child: Row(children: [
         Icon(overdue ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
@@ -237,7 +234,7 @@ class _ReminderBanner extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(invoice.description ?? 'Échéance à venir',
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: _ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+              style: TextStyle(color: cs.onSurface, fontSize: 13.5, fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
           Text('$msg · ${_fmtMoney(invoice.amount)} $currency',
               style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
@@ -283,7 +280,7 @@ class _SummaryCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: _terra.withValues(alpha: 0.4), blurRadius: 28, offset: const Offset(0, 12)),
+          BoxShadow(color: _terra.withOpacity(0.4), blurRadius: 28, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -291,16 +288,16 @@ class _SummaryCard extends StatelessWidget {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
-              color: _white.withValues(alpha: .15), shape: BoxShape.circle,
+              color: Colors.white.withOpacity(.15), shape: BoxShape.circle,
             ),
-            child: const Center(child: Icon(Icons.account_balance_wallet_rounded, color: _white, size: 22)),
+            child: const Center(child: Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 22)),
           ),
           const SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(year.isEmpty ? headerTitle : '$headerTitle $year',
-                style: TextStyle(color: _white.withValues(alpha: .7), fontSize: 11)),
+                style: TextStyle(color: Colors.white.withOpacity(.7), fontSize: 11)),
             Text(name, style: const TextStyle(
-                color: _white, fontSize: 16, fontWeight: FontWeight.w800)),
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
           ]),
         ]),
         const SizedBox(height: 20),
@@ -308,7 +305,7 @@ class _SummaryCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: _white.withValues(alpha: .15),
+            backgroundColor: Colors.white.withOpacity(.15),
             valueColor: const AlwaysStoppedAnimation<Color>(_gold),
             minHeight: 8,
           ),
@@ -319,11 +316,11 @@ class _SummaryCard extends StatelessWidget {
               style: const TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w700)),
           const Spacer(),
           Text('${_fmtMoney(restant)} $currency restant',
-              style: TextStyle(color: _white.withValues(alpha: .7), fontSize: 11)),
+              style: TextStyle(color: Colors.white.withOpacity(.7), fontSize: 11)),
         ]),
         const SizedBox(height: 16),
         Row(children: [
-          _StatPill(label: 'Total', value: '${_fmtMoney(totalAnnuel)} $currency', color: _white.withValues(alpha: .85)),
+          _StatPill(label: 'Total', value: '${_fmtMoney(totalAnnuel)} $currency', color: Colors.white.withOpacity(.85)),
           const SizedBox(width: 10),
           _StatPill(label: 'Payé', value: '${_fmtMoney(totalPaye)} $currency', color: _gold),
           const SizedBox(width: 10),
@@ -342,12 +339,12 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     decoration: BoxDecoration(
-      color: _white.withValues(alpha: .08),
+      color: Colors.white.withOpacity(.08),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: _white.withValues(alpha: .12)),
+      border: Border.all(color: Colors.white.withOpacity(.12)),
     ),
     child: Column(children: [
-      Text(label, style: TextStyle(color: _white.withValues(alpha: .55), fontSize: 9,
+      Text(label, style: TextStyle(color: Colors.white.withOpacity(.55), fontSize: 9,
           fontWeight: FontWeight.w600)),
       const SizedBox(height: 3),
       Text(value, style: TextStyle(color: color, fontSize: 10,
@@ -391,6 +388,7 @@ class _TrancheCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final label = invoice.description ?? invoice.invoiceNumber ?? 'Frais';
     final dateLabel = _statut == PayStatut.paye
         ? 'Réglé'
@@ -398,42 +396,42 @@ class _TrancheCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _statusColor.withValues(alpha: .2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8, offset: const Offset(0, 3))],
+        border: Border.all(color: _statusColor.withOpacity(.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Row(children: [
         Container(
           width: 44, height: 44,
           decoration: BoxDecoration(
-            color: _statusColor.withValues(alpha: .12),
+            color: _statusColor.withOpacity(.12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(child: Icon(_statusIcon, color: _statusColor, size: 22)),
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(
-              color: _ink, fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(label, style: TextStyle(
+              color: cs.onSurface, fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 3),
-          Text(dateLabel, style: const TextStyle(color: _muted, fontSize: 12)),
+          Text(dateLabel, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
           if (invoice.invoiceNumber != null) ...[
             const SizedBox(height: 2),
             Text('Réf: ${invoice.invoiceNumber}', style: TextStyle(
-                color: _muted.withValues(alpha: .7), fontSize: 10, fontStyle: FontStyle.italic)),
+                color: cs.onSurfaceVariant.withOpacity(.7), fontSize: 10, fontStyle: FontStyle.italic)),
           ],
         ])),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('${_fmtMoney(invoice.amount)} $currency', style: const TextStyle(
-              color: _ink, fontSize: 14, fontWeight: FontWeight.w800)),
+          Text('${_fmtMoney(invoice.amount)} $currency', style: TextStyle(
+              color: cs.onSurface, fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: _statusColor.withValues(alpha: .1),
+              color: _statusColor.withOpacity(.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _statusColor.withValues(alpha: .3)),
+              border: Border.all(color: _statusColor.withOpacity(.3)),
             ),
             child: Text(_statusLabel, style: TextStyle(
                 color: _statusColor, fontSize: 10, fontWeight: FontWeight.w700)),
@@ -449,7 +447,7 @@ class _TrancheCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text('Payer', style: TextStyle(
-                    color: _white, fontSize: 11, fontWeight: FontWeight.w700)),
+                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -468,6 +466,7 @@ class _PayCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (online) {
       return SizedBox(
         width: double.infinity,
@@ -490,16 +489,16 @@ class _PayCta extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _gold.withValues(alpha: .08),
+        color: _gold.withOpacity(.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _gold.withValues(alpha: .25)),
+        border: Border.all(color: _gold.withOpacity(.25)),
       ),
       child: Row(children: [
         const Icon(Icons.storefront_rounded, color: _gold, size: 20),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Text('Règlement à la caisse de l\'établissement (espèces, virement).',
-              style: TextStyle(color: _ink, fontSize: 12.5, height: 1.35)),
+              style: TextStyle(color: cs.onSurface, fontSize: 12.5, height: 1.35)),
         ),
       ]),
     );
@@ -510,30 +509,32 @@ class _PayCta extends StatelessWidget {
 class _EmptyInvoices extends StatelessWidget {
   const _EmptyInvoices();
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
         decoration: BoxDecoration(
-          color: _white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEE5D8)),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Column(children: [
           Container(
             width: 64, height: 64,
             decoration: BoxDecoration(
-              color: _green.withValues(alpha: .08), shape: BoxShape.circle),
+              color: _green.withOpacity(.08), shape: BoxShape.circle),
             child: const Icon(Icons.check_circle_outline_rounded, color: _green, size: 30),
           ),
           const SizedBox(height: 12),
-          const Text('Aucun frais en attente',
-              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700)),
+          Text('Aucun frais en attente',
+              style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('Tes frais de scolarité apparaîtront ici.',
+          Text('Tes frais de scolarité apparaîtront ici.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12.5)),
-        ]),
-      );
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
+        ]));
+  }
 }
 
 // ── Historique Card ───────────────────────────────────────────────────────
@@ -544,23 +545,24 @@ class _HistoriqueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (paid.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEE5D8)),
+          border: Border.all(color: cs.outlineVariant),
         ),
-        child: const Text('Aucun paiement enregistré pour le moment.',
-            style: TextStyle(color: _muted, fontSize: 12.5)),
+        child: Text('Aucun paiement enregistré pour le moment.',
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
       );
     }
     return Container(
       decoration: BoxDecoration(
-        color: _white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
       ),
       child: Column(
         children: List.generate(paid.length, (i) {
@@ -569,27 +571,27 @@ class _HistoriqueCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               border: i < paid.length - 1
-                  ? const Border(bottom: BorderSide(color: Color(0xFFEEE5D8)))
+                  ? Border(bottom: BorderSide(color: cs.outlineVariant))
                   : null,
             ),
             child: Row(children: [
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(
-                  color: _green.withValues(alpha: .1),
+                  color: _green.withOpacity(.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.check_circle_outline_rounded, color: _green, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${_fmtMoney(h.amount)} $currency', style: const TextStyle(
-                    color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+                Text('${_fmtMoney(h.amount)} $currency', style: TextStyle(
+                    color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
                 Text(h.description ?? h.invoiceNumber ?? 'Paiement',
-                    style: const TextStyle(color: _muted, fontSize: 11),
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
-              Text(_fmtDate(h.dueDate), style: const TextStyle(color: _muted, fontSize: 11)),
+              Text(_fmtDate(h.dueDate), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
             ]),
           );
         }),
@@ -604,6 +606,7 @@ class _InfoCard extends StatelessWidget {
   const _InfoCard({required this.online});
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final modes = [
       if (online) 'Mobile Money (M-PESA, Airtel, Orange)',
       'Espèces à la caisse',
@@ -612,29 +615,29 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _green.withValues(alpha: .06),
+        color: _green.withOpacity(.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _green.withValues(alpha: .2)),
+        border: Border.all(color: _green.withOpacity(.2)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: const [
-          Icon(Icons.info_outline_rounded, color: _green, size: 18),
-          SizedBox(width: 8),
+        Row(children: [
+          const Icon(Icons.info_outline_rounded, color: _green, size: 18),
+          const SizedBox(width: 8),
           Text('Modes de paiement acceptés',
-              style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 10),
         for (final mode in modes) ...[
           Row(children: [
             const Icon(Icons.circle, size: 5, color: _green),
             const SizedBox(width: 8),
-            Text(mode, style: const TextStyle(color: _muted, fontSize: 12)),
+            Text(mode, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
           ]),
           const SizedBox(height: 4),
         ],
         const SizedBox(height: 8),
         Text('Pour tout litige, contactez le bureau de la comptabilité.',
-            style: TextStyle(color: _muted.withValues(alpha: .7), fontSize: 11,
+            style: TextStyle(color: cs.onSurfaceVariant.withOpacity(.7), fontSize: 11,
                 fontStyle: FontStyle.italic)),
       ]),
     );
@@ -649,17 +652,20 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.icon, required this.label, required this.gradient});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-    Container(
-      width: 32, height: 32,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: gradient),
-        borderRadius: BorderRadius.circular(9),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(children: [
+      Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradient),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Center(child: Icon(icon, color: Colors.white, size: 16)),
       ),
-      child: Center(child: Icon(icon, color: _white, size: 16)),
-    ),
-    const SizedBox(width: 10),
-    Text(label, style: const TextStyle(
-        color: _ink, fontSize: 15, fontWeight: FontWeight.w800)),
-  ]);
+      const SizedBox(width: 10),
+      Text(label, style: TextStyle(
+          color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w800)),
+    ]);
+  }
 }

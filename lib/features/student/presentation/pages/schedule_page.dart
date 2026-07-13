@@ -9,10 +9,6 @@ import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/timetable_data.dart' show SubjectMeta, getSubjectMeta;
 
 // Schedule page uses scaffoldBackgroundColor for bg so it follows dark/light theme
-const _white  = Colors.white;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 
@@ -218,7 +214,7 @@ class _Header extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: const LinearGradient(colors: [Color(0xFF8B1A00), Color(0xFFD4540A)]),
             borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.calendar_today_rounded, color: _white, size: 18),
+          child: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -275,12 +271,12 @@ class _WeekTableView extends StatelessWidget {
                 onPressed: onExitLandscape,
                 icon: const Icon(Icons.screen_lock_portrait_rounded, size: 14),
                 label: const Text('Portrait', style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(foregroundColor: _muted),
+                style: TextButton.styleFrom(foregroundColor: cs.onSurfaceVariant),
               ),
             ]),
           ),
 
-        const Divider(height: 1, color: _border),
+        Divider(height: 1, color: cs.outlineVariant),
         // ── Day header row ──
         Container(
           color: cs.surface,
@@ -289,7 +285,7 @@ class _WeekTableView extends StatelessWidget {
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Center(child: Text('Heure',
                         style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
-                            color: _muted.withValues(alpha: .6)))))),
+                            color: cs.onSurfaceVariant.withOpacity(.6)))))),
             ...List.generate(jours.length, (idx) {
               final day = idx + 1;
               final isTod = day == today;
@@ -304,7 +300,7 @@ class _WeekTableView extends StatelessWidget {
                     color: isHoliday
                         ? cs.surfaceContainerHighest.withValues(alpha: .35)
                         : (isTod ? _terra.withValues(alpha: .06) : null),
-                    border: const Border(left: BorderSide(color: _border)),
+                    border: Border(left: BorderSide(color: cs.outlineVariant)),
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     if (isTod)
@@ -329,7 +325,7 @@ class _WeekTableView extends StatelessWidget {
             }),
           ]),
         ),
-        const Divider(height: 1, color: _border),
+        Divider(height: 1, color: cs.outlineVariant),
 
         // ── Slot rows ──
         ...slots.map((slot) => Column(children: [
@@ -343,7 +339,7 @@ class _WeekTableView extends StatelessWidget {
                   Text(slot.start, style: TextStyle(
                       fontSize: 11.5, fontWeight: FontWeight.w800, color: cs.onSurface)),
                   Text(slot.end, style: TextStyle(
-                      fontSize: 10, color: _muted.withValues(alpha: .65))),
+                      fontSize: 10, color: cs.onSurfaceVariant.withOpacity(.65))),
                 ]),
               ),
               ...List.generate(jours.length, (idx) {
@@ -360,7 +356,7 @@ class _WeekTableView extends StatelessWidget {
               }),
             ]),
           ),
-          const Divider(height: 1, color: _border),
+          Divider(height: 1, color: cs.outlineVariant),
         ])),
 
         _Legend(schedules: schedules),
@@ -392,7 +388,7 @@ class _TableCell extends StatelessWidget {
           color: isHoliday
               ? cs.surfaceContainerHighest.withValues(alpha: .45)
               : (isToday ? _terra.withValues(alpha: .025) : cs.surface),
-          border: const Border(left: BorderSide(color: _border)),
+          border: Border(left: BorderSide(color: cs.outlineVariant)),
         ),
         child: isHoliday
             ? ClipRect(
@@ -416,7 +412,7 @@ class _TableCell extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isToday ? _terra.withValues(alpha: .025) : cs.surface,
-        border: const Border(left: BorderSide(color: _border)),
+        border: Border(left: BorderSide(color: cs.outlineVariant)),
       ),
       padding: const EdgeInsets.all(4),
       child: ClipRRect(
@@ -455,7 +451,7 @@ class _TableCell extends StatelessWidget {
                   Text(name,
                       style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w900,
-                          color: _white, height: 1.2),
+                          color: Colors.white, height: 1.2),
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
                   if (s.teacherName != null)
@@ -681,16 +677,16 @@ class _MobileDayView extends StatelessWidget {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(jours[i].substring(0, 3).toUpperCase(),
                     style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800,
-                        color: sel ? _white : (isTod ? _terra : _muted), letterSpacing: 0.3)),
+                        color: sel ? Colors.white : (isTod ? _terra : cs.onSurfaceVariant), letterSpacing: 0.3)),
                 const SizedBox(height: 2),
                 Text('$count', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900,
-                    color: sel ? _white : (isTod ? _terra : cs.onSurface))),
+                    color: sel ? Colors.white : (isTod ? _terra : cs.onSurface))),
               ]),
             ),
           ));
         })),
       ),
-      const Divider(height: 1, color: _border),
+      Divider(height: 1, color: cs.outlineVariant),
 
       // Day sessions
       Expanded(
@@ -732,7 +728,7 @@ class _MobileCard extends StatelessWidget {
           Text(s.startTime, style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w800, color: cs.onSurface)),
           Text(s.endTime, style: TextStyle(
-              fontSize: 10, color: _muted.withValues(alpha: .65))),
+              fontSize: 10, color: cs.onSurfaceVariant.withOpacity(.65))),
         ]),
       ),
       const SizedBox(width: 10),
@@ -766,7 +762,7 @@ class _MobileCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(name, style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w900, color: _white)),
+                      fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
                   const SizedBox(height: 3),
                   if (s.teacherName != null)
                     Row(children: [
@@ -793,7 +789,7 @@ class _MobileCard extends StatelessWidget {
                 ),
                 child: Column(children: [
                   Text(s.startTime, style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w900, color: _white)),
+                      fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
                   Container(width: 14, height: 1, color: Colors.white.withValues(alpha: .5)),
                   Text(s.endTime, style: const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF))),

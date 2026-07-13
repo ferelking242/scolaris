@@ -139,34 +139,15 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
-      // ── Outils pédagogiques (collège + lycée) ─────────────────────────────
-      if (isCollegeOrLycee)
-        RoleNavGroup(labelKey: 'sections.learning', entries: [
-          const RoleNavEntry(
-            icon: Icons.book_outlined,
-            activeIcon: Icons.book_rounded,
-            labelKey: 'nav.cahier_textes',
-            page: CahierTextesPage(),
+      // ── Outils Lycée ──────────────────────────────────────────────────────
+      if (isLycee)
+        const RoleNavGroup(labelKey: 'sections.learning', entries: [
+          RoleNavEntry(
+            icon: Icons.school_outlined,
+            activeIcon: Icons.school_rounded,
+            labelKey: 'nav.prepa_bac',
+            page: PrepaBacPage(),
           ),
-          const RoleNavEntry(
-            icon: Icons.calculate_outlined,
-            activeIcon: Icons.calculate_rounded,
-            labelKey: 'nav.simulateur',
-            page: SimulateurMoyennePage(),
-          ),
-          const RoleNavEntry(
-            icon: Icons.quiz_outlined,
-            activeIcon: Icons.quiz_rounded,
-            labelKey: 'nav.annales',
-            page: AnnalesQuizPage(),
-          ),
-          if (isLycee)
-            const RoleNavEntry(
-              icon: Icons.school_outlined,
-              activeIcon: Icons.school_rounded,
-              labelKey: 'nav.prepa_bac',
-              page: PrepaBacPage(),
-            ),
         ]),
 
       // ── Outils primaire ───────────────────────────────────────────────────
@@ -249,12 +230,6 @@ class StudentHome extends ConsumerWidget {
             description: 'Chat interne sécurisé avec l\'école.',
             child: MessagingPage(),
           ),
-        ),
-        RoleNavEntry(
-          icon: Icons.apps_outlined,
-          activeIcon: Icons.apps_rounded,
-          labelKey: 'nav.features',
-          page: FeaturesHubPage(),
         ),
         RoleNavEntry(
           icon: Icons.settings_outlined,
@@ -405,7 +380,8 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                       child: LibraryPage(),
                     )),
                 'notifications': () => _push(const NotificationsPage()),
-                'features':      () => _push(const FeaturesHubPage()),
+                'simulateur':    () => _push(const SimulateurMoyennePage()),
+                'annales':       () => _push(const AnnalesQuizPage()),
               },
             ),
             const SizedBox(height: 24),
@@ -853,7 +829,8 @@ class _PremiumShortcutsGrid extends StatelessWidget {
     (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
     (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),
     (key: 'messages',     icon: Icons.chat_rounded,             label: 'Messages',   c: _cyan),
-    (key: 'features',     icon: Icons.apps_rounded,             label: 'Tout',       c: _terra),
+    (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur', c: _gold),
+    (key: 'annales',      icon: Icons.quiz_rounded,             label: 'Quiz',       c: _terra),
   ];
 
   @override
