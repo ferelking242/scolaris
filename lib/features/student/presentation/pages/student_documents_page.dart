@@ -5,9 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
-import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/plan_gate.dart';
-import 'bulletin_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
@@ -38,10 +36,7 @@ class StudentDocumentsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user        = ref.watch(authSessionProvider);
-    final level       = ref.watch(studentSchoolLevelProvider).valueOrNull
-        ?? SchoolLevel.lycee;
     final invoicesAsync = ref.watch(myInvoicesProvider);
-    final hasBulletin = level == SchoolLevel.college || level == SchoolLevel.lycee;
 
     return Container(
       color: _bg,
@@ -54,14 +49,11 @@ class StudentDocumentsPage extends ConsumerWidget {
           icon: Icons.folder_rounded,
           child: _Body(
             name: user?.fullName ?? 'Étudiant',
-            hasBulletin: hasBulletin,
             paidInvoices: invoicesAsync.valueOrNull
                     ?.where((i) => i.status.toLowerCase() == 'paid')
                     .toList() ??
                 const [],
             loadingReceipts: invoicesAsync.isLoading,
-            onOpenBulletin: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BulletinPage())),
           ),
         ),
       ),
@@ -71,16 +63,12 @@ class StudentDocumentsPage extends ConsumerWidget {
 
 class _Body extends StatelessWidget {
   final String name;
-  final bool hasBulletin;
   final List<SbInvoice> paidInvoices;
   final bool loadingReceipts;
-  final VoidCallback onOpenBulletin;
   const _Body({
     required this.name,
-    required this.hasBulletin,
     required this.paidInvoices,
     required this.loadingReceipts,
-    required this.onOpenBulletin,
   });
 
   @override
@@ -122,18 +110,8 @@ class _Body extends StatelessWidget {
         _CategorySection(label: 'Certificats & Attestations', docs: official),
         const SizedBox(height: 20),
 
-        if (hasBulletin) ...[
-          _CategorySection(label: 'Bulletins scolaires', docs: [
-            _Document(
-              titre: 'Mes bulletins',
-              description: 'Consulter et télécharger',
-              type: DocType.bulletin,
-              status: DocStatus.available,
-              onTap: onOpenBulletin,
-            ),
-          ]),
-          const SizedBox(height: 20),
-        ],
+        // Pas de section « Bulletins » : le bulletin est remis à la famille,
+        // il est consultable depuis l'espace parent (fiche de l'enfant).
 
         Row(children: [
           Container(width: 8, height: 8,

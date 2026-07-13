@@ -541,7 +541,10 @@ class FeaturesCatalog {
       color: Color(0xFF8B1A00),
       category: FeatureCategory.communication,
       roles: _allRoles,
-      status: FeatureStatus.available,
+      // L'écran existant était une maquette (conversations codées en dur, aucun
+      // accès à la base) : il a été retiré. La messagerie reste à construire —
+      // schéma conversations/participants + RLS + temps réel.
+      status: FeatureStatus.planned,
     ),
 
     AppFeature(

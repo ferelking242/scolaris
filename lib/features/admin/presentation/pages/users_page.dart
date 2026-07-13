@@ -1530,6 +1530,24 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
       String? staffRoleId;
       var permissions = const <String>[];
 
+      if (!_isStaff) {
+        // Un ENSEIGNANT porte lui aussi un rôle, comme le reste du personnel.
+        // Sans rôle, il n'a aucune permission — et depuis que les notes sont
+        // verrouillées en base (20260722), il ne pourrait plus en saisir une
+        // seule. Cf. 20260721_teachers_get_a_role.sql.
+        final schoolId = ref.read(currentSchoolIdProvider);
+        final templates = await ref.read(roleTemplatesProvider.future);
+        final t = templates.where((t) => t.name == 'Enseignant').firstOrNull;
+        if (schoolId != null && t != null) {
+          final role = await StaffRolesSource.ensureRoleFromTemplate(
+            schoolId: schoolId,
+            template: t,
+          );
+          staffRoleId = role.id;
+          permissions = RbacMapping.toLegacyPermissions(role.grants);
+        }
+      }
+
       if (_isStaff) {
         final schoolId = ref.read(currentSchoolIdProvider);
         if (schoolId == null) throw Exception('École introuvable.');

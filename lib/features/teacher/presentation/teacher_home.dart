@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
-import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/qr_panel.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
@@ -56,12 +55,10 @@ class TeacherHome extends StatelessWidget {
               labelKey: 'nav.class_stats',
               page: ClassStatsPage()),
         ]),
+        // Messagerie retirée : l'écran était 100 % fictif (conversations codées
+        // en dur, aucun accès à la base). À réintroduire quand une vraie
+        // messagerie existera (schéma conversations/participants + RLS).
         RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(
-              icon: Icons.chat_outlined,
-              activeIcon: Icons.chat_rounded,
-              labelKey: 'nav.messages',
-              page: MessagingPage()),
           RoleNavEntry(
               icon: Icons.apps_outlined,
               activeIcon: Icons.apps_rounded,

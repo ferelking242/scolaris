@@ -7,7 +7,6 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
-import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/widgets/page_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -38,11 +37,12 @@ class ParentHome extends StatelessWidget {
               activeIcon: Icons.family_restroom_rounded,
               labelKey: 'nav.children', page: ChildrenPage()),
         ]),
+        // Messagerie retirée : l'écran était 100 % fictif (conversations codées
+        // en dur, aucun accès à la base). À réintroduire quand une vraie
+        // messagerie existera (schéma conversations/participants + RLS).
         RoleNavGroup(labelKey: 'sections.activity', entries: [
           RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
               labelKey: 'nav.payments', page: ParentPaymentsPage()),
-          RoleNavEntry(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded,
-              labelKey: 'nav.messages', page: MessagingPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,

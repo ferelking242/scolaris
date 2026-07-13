@@ -11,7 +11,6 @@ import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/data/features_catalog.dart';
 import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
 import '../../../shared/pages/features_hub_page.dart';
-import '../../../shared/pages/messaging_page.dart';
 import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
@@ -19,7 +18,6 @@ import '../../../shared/widgets/surface.dart';
 import 'primary_student_home.dart' show PrimaryDashboard;
 import 'pages/annales_quiz_page.dart';
 import 'pages/attendance_page.dart';
-import 'pages/bulletin_page.dart';
 import 'pages/cahier_liaison_page.dart';
 import 'pages/cahier_textes_page.dart';
 import 'pages/carnet_recompenses_page.dart';
@@ -68,12 +66,13 @@ class StudentHome extends ConsumerWidget {
     required SchoolLevel level,
     required String? planCode,
   }) {
-    // En primaire, l'élève consulte sa scolarité mais ne gère rien
-    // d'administratif : finance, documents, messagerie et bulletin sont des
-    // actes de parent (voir espace parent).
+    // Le BULLETIN n'est plus dans l'espace élève, quel que soit le niveau :
+    // c'est un document remis à la famille → il vit dans l'espace parent
+    // (fiche de l'enfant). `BulletinPage` reste, seul le parent y accède.
+    //
+    // En primaire, l'élève ne gère en plus rien d'administratif : finance,
+    // documents et messagerie sont eux aussi des actes de parent.
     final isPrimaire = level == SchoolLevel.primaire;
-    final hasBulletin =
-        level == SchoolLevel.college || level == SchoolLevel.lycee;
     final isCollege = level == SchoolLevel.college;
     final isLycee   = level == SchoolLevel.lycee;
     final isUniv    = level == SchoolLevel.universite ||
@@ -122,13 +121,6 @@ class StudentHome extends ConsumerWidget {
           labelKey: 'nav.attendance',
           page: AttendancePage(),
         ),
-        if (hasBulletin)
-          const RoleNavEntry(
-            icon: Icons.receipt_long_outlined,
-            activeIcon: Icons.receipt_long_rounded,
-            labelKey: 'nav.bulletin',
-            page: BulletinPage(),
-          ),
         const RoleNavEntry(
           icon: Icons.local_library_outlined,
           activeIcon: Icons.local_library_rounded,
@@ -224,18 +216,9 @@ class StudentHome extends ConsumerWidget {
           labelKey: 'nav.notifications',
           page: NotificationsPage(),
         ),
-        if (!isPrimaire)
-          const RoleNavEntry(
-            icon: Icons.chat_outlined,
-            activeIcon: Icons.chat_rounded,
-            labelKey: 'nav.messages',
-            page: PlanGate(
-              minPlan: 'pro',
-              featureLabel: 'Messagerie',
-              description: 'Chat interne sécurisé avec l\'école.',
-              child: MessagingPage(),
-            ),
-          ),
+        // Messagerie retirée : l'écran était 100 % fictif (conversations codées
+        // en dur, aucun accès à la base). À réintroduire quand une vraie
+        // messagerie existera (schéma conversations/participants + RLS).
         const RoleNavEntry(
           icon: Icons.settings_outlined,
           activeIcon: Icons.settings_rounded,
@@ -277,8 +260,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     final level   = ref.watch(studentSchoolLevelProvider).valueOrNull
         ?? SchoolLevel.lycee;
     final profile = ref.watch(myStudentProfileProvider).valueOrNull;
-    final hasBulletin =
-        level == SchoolLevel.college || level == SchoolLevel.lycee;
 
     final gradesAsync = ref.watch(myGradesProvider);
     final grades      = gradesAsync.valueOrNull ?? const <SbGrade>[];
@@ -369,15 +350,11 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ),
             const SizedBox(height: 10),
             _PremiumShortcutsGrid(
-              showBulletin: hasBulletin,
               onTap: {
                 'notes':         () => _push(const GradesPage()),
                 'edt':           () => _push(const SchedulePage()),
                 'presences':     () => _push(const AttendancePage()),
                 'cours':         () => _push(const CoursesPage()),
-                'messages':      () => _push(const MessagingPage()),
-                if (hasBulletin)
-                  'bulletin':    () => _push(const BulletinPage()),
                 'bibliotheque':  () => _push(const PlanGate(
                       minPlan: 'pro',
                       featureLabel: 'Bibliothèque',
@@ -822,27 +799,24 @@ class _MiniEmpty extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 class _PremiumShortcutsGrid extends StatelessWidget {
   final Map<String, VoidCallback> onTap;
-  final bool showBulletin;
-  const _PremiumShortcutsGrid({required this.onTap, this.showBulletin = true});
+  const _PremiumShortcutsGrid({required this.onTap});
 
+  // Pas de « Bulletin » : c'est un document de la famille, il vit désormais
+  // dans l'espace parent (fiche de l'enfant).
   static const _items = [
     (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',      c: _gold),
     (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',     c: _terra),
     (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',  c: _green),
     (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',      c: _terra),
-    (key: 'bulletin',     icon: Icons.receipt_long_rounded,     label: 'Bulletin',   c: _gold),
     (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
     (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),
-    (key: 'messages',     icon: Icons.chat_rounded,             label: 'Messages',   c: _cyan),
     (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur', c: _gold),
     (key: 'annales',      icon: Icons.quiz_rounded,             label: 'Quiz',       c: _terra),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final items = _items
-        .where((i) => i.key != 'bulletin' || showBulletin)
-        .toList();
+    final items = _items.toList();
     return LayoutBuilder(builder: (_, c) {
       final isWide = c.maxWidth > 600;
       final cols  = isWide ? 5 : 3;
