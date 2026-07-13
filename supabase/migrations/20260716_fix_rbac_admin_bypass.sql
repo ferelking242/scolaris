@@ -15,9 +15,17 @@
 --  Serpent qui se mord la queue : pour creer le premier role, il fallait deja
 --  en avoir un. Aucun role n'etait creable, par personne.
 --
---  Correctif : has_permission() reconnait le detenteur de "*" (fondateur /
---  Direction). Le fix est dans la fonction plutot que dans les policies : toutes
---  les policies a venir en beneficient sans avoir a y penser.
+--  Verifie en base le 13/07/2026 : TOUS les comptes ont permissions = '[]' et
+--  staff_role_id = NULL — y compris les 5 comptes role='admin' (fondateurs des
+--  ecoles de demo). L'app accorde l'acces total sur la foi de users.role =
+--  'admin' (cf. supabase_auth_source), mais la base n'en savait rien : cote SQL
+--  ces comptes n'avaient AUCUN droit. Les deux ne racontaient pas la meme
+--  histoire, et c'est cet ecart qui bloquait tout.
+--
+--  Correctif : has_permission() reconnait le fondateur — soit par users.role =
+--  'admin' (le cas reel), soit par users.permissions contenant "*" (le cas
+--  suppose, conserve par prudence). Le fix est dans la fonction plutot que dans
+--  les policies : toutes les policies a venir en beneficient sans y penser.
 -- ============================================================================
 
 create or replace function public.has_permission(uid uuid, p_key text, p_sub text)
@@ -31,8 +39,15 @@ as $fn$
     from public.users u
     where u.auth_uid = uid
       and (
-        -- Acces total historique (fondateur) : users.permissions contient "*".
-        u.permissions @> '["*"]'::jsonb
+        -- Fondateur / chef d'etablissement : c'est ainsi qu'il est reellement
+        -- marque en base (users.role = 'admin', permissions restee vide).
+        -- Meme liste que supabase_auth_source, qui accorde {'*'} a ces roles :
+        -- la base et l'app doivent dire la meme chose, sinon on recree l'ecart
+        -- qui est precisement la cause de ce bug.
+        u.role::text in ('admin', 'direction', 'directeur', 'dg')
+
+        -- Acces total via la liste plate, si un jour elle est renseignee.
+        or u.permissions @> '["*"]'::jsonb
 
         -- Sinon, le droit passe par le role du personnel.
         or exists (
