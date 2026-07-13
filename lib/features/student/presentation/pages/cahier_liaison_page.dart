@@ -7,11 +7,11 @@ const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _orange = ScolarisPalette.orange;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
+// Neutres (texte/fond/bordure) : jamais figés → `context.c*` (page_scaffold).
+// Ces deux-là sont du texte posé sur un fond de marque coloré : ils restent
+// constants, valables en clair comme en sombre.
+const _white    = Colors.white;   // sur terracotta / couleur de type
+const _onGold   = Color(0xFF1A0A00); // sur la pastille or
 
 // ── Types de message ──────────────────────────────────────────────────────────
 enum _MsgType { info, sortie, medicament, permission, felicitation, avertissement }
@@ -159,7 +159,7 @@ class _CahierLiaisonPageState extends State<CahierLiaisonPage> {
                 width: 28, height: 28,
                 decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle),
                 child: Center(child: Text('$_nonLus',
-                    style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w900))),
+                    style: const TextStyle(color: _onGold, fontSize: 12, fontWeight: FontWeight.w900))),
               ),
           ]),
         ),
@@ -221,12 +221,12 @@ class _FilterChip extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: selected ? color : _white,
+        color: selected ? color : context.cCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: selected ? color : _border),
+        border: Border.all(color: selected ? color : context.cBorder),
       ),
       child: Text(label, style: TextStyle(
-          color: selected ? _white : _muted,
+          color: selected ? _white : context.cMuted,
           fontSize: 11.5, fontWeight: FontWeight.w600)),
     ),
   );
@@ -249,10 +249,10 @@ class _MessageCardState extends State<_MessageCard> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: m.lu ? _white : m.type.color.withOpacity(.04),
+        color: m.lu ? context.cCard : m.type.color.withOpacity(.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: m.lu ? _border : m.type.color.withOpacity(.35),
+            color: m.lu ? context.cBorder : m.type.color.withOpacity(.35),
             width: m.lu ? 1 : 1.5),
       ),
       child: Column(children: [
@@ -283,7 +283,7 @@ class _MessageCardState extends State<_MessageCard> {
                         fontSize: 9.5, fontWeight: FontWeight.w700, color: m.type.color)),
                   ),
                   const Spacer(),
-                  Text(m.date, style: const TextStyle(fontSize: 10, color: _muted)),
+                  Text(m.date, style: TextStyle(fontSize: 10, color: context.cMuted)),
                 ]),
                 const SizedBox(height: 5),
                 Row(children: [
@@ -294,14 +294,14 @@ class _MessageCardState extends State<_MessageCard> {
                   ),
                   Expanded(child: Text(m.titre, style: TextStyle(
                       fontSize: 13, fontWeight: m.lu ? FontWeight.w600 : FontWeight.w800,
-                      color: _ink))),
+                      color: context.cInk))),
                 ]),
                 const SizedBox(height: 3),
-                Text(m.auteur, style: const TextStyle(fontSize: 10.5, color: _muted)),
+                Text(m.auteur, style: TextStyle(fontSize: 10.5, color: context.cMuted)),
               ])),
               const SizedBox(width: 6),
               Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                  size: 18, color: _muted),
+                  size: 18, color: context.cMuted),
             ]),
           ),
         ),
@@ -309,9 +309,10 @@ class _MessageCardState extends State<_MessageCard> {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(height: 1, color: _border, margin: const EdgeInsets.only(bottom: 10)),
+              Container(height: 1, color: context.cBorder,
+                  margin: const EdgeInsets.only(bottom: 10)),
               Text(m.contenu,
-                  style: const TextStyle(fontSize: 13, color: _ink, height: 1.6)),
+                  style: TextStyle(fontSize: 13, color: context.cInk, height: 1.6)),
             ]),
           ),
       ]),

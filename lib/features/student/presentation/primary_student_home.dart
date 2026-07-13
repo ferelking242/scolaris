@@ -7,6 +7,7 @@ import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
+import '../../../shared/widgets/page_scaffold.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/surface.dart';
 import 'pages/grades_page.dart';
@@ -22,10 +23,9 @@ const _cyan   = Color(0xFF0891B2);
 const _violet = Color(0xFF6D28D9);
 const _pink   = Color(0xFFDB2777);
 const _teal   = Color(0xFF059669);
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
+// Neutres : jamais figés — voir `context.c*` (page_scaffold.dart).
+// `_white` reste légitime : uniquement du texte posé sur un fond coloré.
 const _white  = Colors.white;
-const _bg     = Color(0xFFEDD8BE);
 
 // ── Matières CP→CM2 (icônes ; couleur réelle via getSubjectMeta) ────────────
 class _S {
@@ -119,7 +119,7 @@ class PrimaryDashboard extends ConsumerWidget {
         .toList();
 
     return Container(
-      color: _bg,
+      color: context.cPage,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -329,14 +329,14 @@ class _MoyenneDonut extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 170,
-      decoration: ScolarisSurface.card(radius: 18),
+      decoration: ScolarisSurface.themedCard(context, radius: 18),
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Moyenne', style: TextStyle(
-            color: _muted, fontSize: 11, fontWeight: FontWeight.w700)),
+            color: context.cMuted, fontSize: 11, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
-        const Text('Générale', style: TextStyle(
-            color: _ink, fontSize: 13, fontWeight: FontWeight.w800)),
+        Text('Générale', style: TextStyle(
+            color: context.cInk, fontSize: 13, fontWeight: FontWeight.w800)),
         const Spacer(),
         if (loading)
           const Center(child: SkeletonBox(width: 90, height: 90, radius: 45))
@@ -366,7 +366,8 @@ class _MoyenneDonut extends StatelessWidget {
                       style: const TextStyle(color: _gold, fontSize: 18,
                           fontWeight: FontWeight.w900)),
                   Text('/10', style: TextStyle(
-                      color: _muted, fontSize: 10, fontWeight: FontWeight.w600)),
+                      color: context.cMuted, fontSize: 10,
+                      fontWeight: FontWeight.w600)),
                 ]),
               ]),
             ),
@@ -391,7 +392,8 @@ class _MiniStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 46,
-      decoration: ScolarisSurface.accent(color: color, radius: 12),
+      decoration:
+          ScolarisSurface.themedAccent(context, color: color, radius: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(children: [
         Container(
@@ -410,7 +412,8 @@ class _MiniStatCard extends StatelessWidget {
                   color: color.withOpacity(0.70), fontSize: 9,
                   fontWeight: FontWeight.w700)),
               Text(sub, style: TextStyle(
-                  color: _muted, fontSize: 9, fontWeight: FontWeight.w500)),
+                  color: context.cMuted, fontSize: 9,
+                  fontWeight: FontWeight.w500)),
             ])),
         if (loading)
           const SkeletonBox(width: 32, height: 18, radius: 4)
@@ -431,12 +434,12 @@ class _NotesBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 160,
-      decoration: ScolarisSurface.card(radius: 16),
+      decoration: ScolarisSurface.themedCard(context, radius: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('Notes /10', style: TextStyle(
-              color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+          Text('Notes /10', style: TextStyle(
+              color: context.cInk, fontSize: 12, fontWeight: FontWeight.w700)),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -457,7 +460,7 @@ class _NotesBarChart extends StatelessWidget {
             horizontalInterval: 5.0,
             drawVerticalLine: false,
             getDrawingHorizontalLine: (_) => FlLine(
-                color: _ink.withOpacity(0.06), strokeWidth: 1.0),
+                color: context.cBorder, strokeWidth: 1.0),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
@@ -472,8 +475,9 @@ class _NotesBarChart extends StatelessWidget {
                 if (i < 0 || i >= notes.length) return const SizedBox();
                 final name = notes[i].m;
                 final short = name.length > 4 ? name.substring(0, 3) : name;
-                return Text(short, style: const TextStyle(
-                    color: _muted, fontSize: 9, fontWeight: FontWeight.w600));
+                return Text(short, style: TextStyle(
+                    color: context.cMuted, fontSize: 9,
+                    fontWeight: FontWeight.w600));
               },
             )),
           ),
@@ -541,7 +545,7 @@ class _TodayTimeline extends StatelessWidget {
                     boxShadow: [BoxShadow(color: s.c.withOpacity(0.40),
                         blurRadius: 14, offset: const Offset(0, 6))],
                   )
-                : ScolarisSurface.accent(color: s.c, radius: 16),
+                : ScolarisSurface.themedAccent(context, color: s.c, radius: 16),
             padding: const EdgeInsets.all(12),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,7 +579,7 @@ class _TodayTimeline extends StatelessWidget {
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.m,
                         style: TextStyle(
-                            color: first ? _white : _ink,
+                            color: first ? _white : context.cInk,
                             fontSize: 11, fontWeight: FontWeight.w800),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     Text(s.t,
@@ -605,7 +609,7 @@ class _NoteRow extends StatelessWidget {
     final good = pct >= 0.70;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: ScolarisSurface.card(radius: 14),
+      decoration: ScolarisSurface.themedCard(context, radius: 14),
       child: Row(children: [
         SizedBox(
           width: 46, height: 46,
@@ -626,8 +630,8 @@ class _NoteRow extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(matiere, style: const TextStyle(
-              color: _ink, fontSize: 13, fontWeight: FontWeight.w700),
+          Text(matiere, style: TextStyle(
+              color: context.cInk, fontSize: 13, fontWeight: FontWeight.w700),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 5),
           ClipRRect(
@@ -653,7 +657,7 @@ class _NoteRow extends StatelessWidget {
                     fontSize: 9, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(height: 4),
-          Text(date, style: const TextStyle(color: _muted, fontSize: 10)),
+          Text(date, style: TextStyle(color: context.cMuted, fontSize: 10)),
         ]),
       ]),
     );
@@ -670,12 +674,12 @@ class _MiniEmpty extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
-      decoration: ScolarisSurface.card(radius: 14),
+      decoration: ScolarisSurface.themedCard(context, radius: 14),
       child: Column(children: [
-        Icon(icon, color: _muted.withOpacity(0.5), size: 28),
+        Icon(icon, color: context.cMuted.withOpacity(0.5), size: 28),
         const SizedBox(height: 8),
         Text(label, textAlign: TextAlign.center,
-            style: TextStyle(color: _muted, fontSize: 12.5,
+            style: TextStyle(color: context.cMuted, fontSize: 12.5,
                 fontWeight: FontWeight.w600)),
       ]),
     );
@@ -728,7 +732,7 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Text(title, style: const TextStyle(color: _ink, fontSize: 15,
+      Text(title, style: TextStyle(color: context.cInk, fontSize: 15,
           fontWeight: FontWeight.w800)),
       const Spacer(),
       GestureDetector(

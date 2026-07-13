@@ -7,11 +7,9 @@ const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _orange = ScolarisPalette.orange;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
+// Neutres (texte/fond/bordure) : jamais figés → `context.c*` (page_scaffold).
+// `_white` = texte sur fond de marque coloré → constant, OK dans les 2 thèmes.
 const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 class _Plat {
@@ -91,12 +89,13 @@ class _MenuCantinePageState extends State<MenuCantinePage> {
           child: Row(children: [
             const Icon(Icons.restaurant_rounded, color: _green, size: 28),
             const SizedBox(width: 12),
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Cantine de l\'École Primaire',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
-              SizedBox(height: 2),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
+                      color: context.cInk)),
+              const SizedBox(height: 2),
               Text('Service de 12h à 13h30 · Tarif : 500 FCFA/repas',
-                  style: TextStyle(fontSize: 11, color: _muted)),
+                  style: TextStyle(fontSize: 11, color: context.cMuted)),
             ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -127,20 +126,20 @@ class _MenuCantinePageState extends State<MenuCantinePage> {
                   duration: const Duration(milliseconds: 200),
                   width: 64,
                   decoration: BoxDecoration(
-                    color: sel ? _terra : _white,
+                    color: sel ? _terra : context.cCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: sel ? _terra : _border),
+                    border: Border.all(color: sel ? _terra : context.cBorder),
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(m.jour.substring(0, 3),
                         style: TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w700,
-                            color: sel ? _white.withOpacity(.75) : _muted)),
+                            color: sel ? _white.withOpacity(.75) : context.cMuted)),
                     const SizedBox(height: 2),
                     Text(m.date.split(' ').first,
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w900,
-                            color: sel ? _white : _ink)),
+                            color: sel ? _white : context.cInk)),
                   ]),
                 ),
               );
@@ -161,7 +160,7 @@ class _MenuCantinePageState extends State<MenuCantinePage> {
                 style: const TextStyle(color: _white, fontSize: 12, fontWeight: FontWeight.w800)),
           ),
           const Spacer(),
-          const Text('3 plats', style: TextStyle(fontSize: 12, color: _muted)),
+          Text('3 plats', style: TextStyle(fontSize: 12, color: context.cMuted)),
         ]),
         const SizedBox(height: 12),
 
@@ -181,12 +180,12 @@ class _MenuCantinePageState extends State<MenuCantinePage> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _gold.withOpacity(.25)),
           ),
-          child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.info_outline_rounded, color: _gold, size: 15),
-            SizedBox(width: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.info_outline_rounded, color: _gold, size: 15),
+            const SizedBox(width: 8),
             Expanded(child: Text(
               'Les allergènes sont indiqués sur chaque plat. Signalez toute allergie alimentaire à l\'infirmerie.',
-              style: TextStyle(fontSize: 11, color: _ink, height: 1.5),
+              style: TextStyle(fontSize: 11, color: context.cInk, height: 1.5),
             )),
           ]),
         ),
@@ -221,9 +220,9 @@ class _PlatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         // Emoji plat
@@ -253,11 +252,11 @@ class _PlatCard extends StatelessWidget {
             ],
           ]),
           const SizedBox(height: 5),
-          Text(plat.nom, style: const TextStyle(
-              fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
+          Text(plat.nom, style: TextStyle(
+              fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
           const SizedBox(height: 3),
-          Text(plat.description, style: const TextStyle(
-              fontSize: 11.5, color: _muted, height: 1.4)),
+          Text(plat.description, style: TextStyle(
+              fontSize: 11.5, color: context.cMuted, height: 1.4)),
           if (plat.allergenes.isNotEmpty) ...[
             const SizedBox(height: 4),
             Wrap(spacing: 4, children: plat.allergenes.map((a) => Container(

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/permissions/rbac_mapping.dart';
 import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../shared/data/features_catalog.dart';
@@ -50,18 +49,21 @@ final staffRolesConfiguredProvider = FutureProvider<bool>((ref) async {
   return roles.isNotEmpty;
 });
 
-/// Cycle de l'école (`primaire` | `college` | `lycee` | `universite`), déduit de
-/// `schools.metadata.types`. Filtre les modèles de rôles proposés.
-final schoolCycleProvider = Provider<String>((ref) {
-  final school = ref.watch(schoolProvider).asData?.value;
-  return RbacMapping.cycleFromTypes(school?.types ?? const []);
-});
-
-/// Modèles de rôles du catalogue global, filtrés sur le cycle de l'école.
-/// (Proviseur/Censeur pour un lycée, Recteur/Doyen pour une université…)
+/// Modèles de rôles proposés à l'école.
+///
+/// Le catalogue ne dépend PLUS du cycle. Un secrétaire est un secrétaire, au
+/// primaire comme au lycée — mêmes permissions, ligne pour ligne. Seul le nom du
+/// chef changeait (Directeur / Principal / Proviseur / Recteur), et ce n'est que
+/// du vocabulaire : son accès vient du drapeau administrateur, pas de son titre.
+///
+/// Filtrer par cycle avait un coût réel : un complexe scolaire (primaire +
+/// collège + lycée, le cas courant) était traité comme un simple lycée, et on
+/// lui cachait le Directeur du primaire et le Principal du collège.
+///
+/// Six rôles, valables partout, tous renommables.
+/// Cf. supabase/migrations/20260719_common_role_templates.sql
 final roleTemplatesProvider = FutureProvider<List<SbRoleTemplate>>((ref) async {
-  final cycle = ref.watch(schoolCycleProvider);
-  return StaffRolesSource.fetchRoleTemplates(cycle);
+  return StaffRolesSource.fetchRoleTemplates('commun');
 });
 
 /// Rôles réellement créés dans l'école (se remplit au fil des invitations).

@@ -68,8 +68,11 @@ class StudentHome extends ConsumerWidget {
     required SchoolLevel level,
     required String? planCode,
   }) {
+    // En primaire, l'élève consulte sa scolarité mais ne gère rien
+    // d'administratif : finance, documents, messagerie et bulletin sont des
+    // actes de parent (voir espace parent).
     final isPrimaire = level == SchoolLevel.primaire;
-    final hasBulletin = level == SchoolLevel.primaire ||
+    final hasBulletin =
         level == SchoolLevel.college || level == SchoolLevel.lycee;
     final isCollege = level == SchoolLevel.college;
     final isLycee   = level == SchoolLevel.lycee;
@@ -197,41 +200,43 @@ class StudentHome extends ConsumerWidget {
         ]),
 
       // ── Finance & Documents ───────────────────────────────────────────────
-      const RoleNavGroup(labelKey: 'sections.finance', entries: [
-        RoleNavEntry(
-          icon: Icons.account_balance_wallet_outlined,
-          activeIcon: Icons.account_balance_wallet_rounded,
-          labelKey: 'nav.my_payments',
-          page: StudentPaymentsPage(),
-        ),
-        RoleNavEntry(
-          icon: Icons.folder_outlined,
-          activeIcon: Icons.folder_rounded,
-          labelKey: 'nav.documents',
-          page: StudentDocumentsPage(),
-        ),
-      ]),
+      if (!isPrimaire)
+        const RoleNavGroup(labelKey: 'sections.finance', entries: [
+          RoleNavEntry(
+            icon: Icons.account_balance_wallet_outlined,
+            activeIcon: Icons.account_balance_wallet_rounded,
+            labelKey: 'nav.my_payments',
+            page: StudentPaymentsPage(),
+          ),
+          RoleNavEntry(
+            icon: Icons.folder_outlined,
+            activeIcon: Icons.folder_rounded,
+            labelKey: 'nav.documents',
+            page: StudentDocumentsPage(),
+          ),
+        ]),
 
       // ── Compte ────────────────────────────────────────────────────────────
-      const RoleNavGroup(labelKey: 'sections.account', entries: [
-        RoleNavEntry(
+      RoleNavGroup(labelKey: 'sections.account', entries: [
+        const RoleNavEntry(
           icon: Icons.notifications_outlined,
           activeIcon: Icons.notifications_rounded,
           labelKey: 'nav.notifications',
           page: NotificationsPage(),
         ),
-        RoleNavEntry(
-          icon: Icons.chat_outlined,
-          activeIcon: Icons.chat_rounded,
-          labelKey: 'nav.messages',
-          page: PlanGate(
-            minPlan: 'pro',
-            featureLabel: 'Messagerie',
-            description: 'Chat interne sécurisé avec l\'école.',
-            child: MessagingPage(),
+        if (!isPrimaire)
+          const RoleNavEntry(
+            icon: Icons.chat_outlined,
+            activeIcon: Icons.chat_rounded,
+            labelKey: 'nav.messages',
+            page: PlanGate(
+              minPlan: 'pro',
+              featureLabel: 'Messagerie',
+              description: 'Chat interne sécurisé avec l\'école.',
+              child: MessagingPage(),
+            ),
           ),
-        ),
-        RoleNavEntry(
+        const RoleNavEntry(
           icon: Icons.settings_outlined,
           activeIcon: Icons.settings_rounded,
           labelKey: 'nav.settings',

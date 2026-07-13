@@ -9,11 +9,11 @@ const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _orange = ScolarisPalette.orange;
-const _ink    = Color(0xFF1A0A00);
-const _muted  = Color(0xFF7A5C44);
-const _border = Color(0xFFDDCCBB);
-const _white  = Colors.white;
-const _bg     = Color(0xFFF5EEE6);
+// Neutres (texte/fond/bordure) : jamais figés → `context.c*` (page_scaffold).
+// Ces deux-là sont du texte posé sur un fond de marque coloré : ils restent
+// constants, valables en clair comme en sombre.
+const _white  = Colors.white;        // sur terracotta / couleur de badge
+const _onGold = Color(0xFF1A0A00);   // sur la pastille or
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 class _Badge {
@@ -119,7 +119,7 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text('$_badgesObtenus badges', style: const TextStyle(
-                      color: _ink, fontSize: 11, fontWeight: FontWeight.w800)),
+                      color: _onGold, fontSize: 11, fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(width: 8),
                 Container(
@@ -141,21 +141,21 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
         Container(
           height: 42,
           decoration: BoxDecoration(
-            color: _border.withOpacity(.3),
+            color: context.cSubtle,
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.all(4),
           child: TabBar(
             controller: _tab,
             indicator: BoxDecoration(
-              color: _white,
+              color: context.cCard,
               borderRadius: BorderRadius.circular(9),
               boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4)],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
             labelColor: _terra,
-            unselectedLabelColor: _muted,
+            unselectedLabelColor: context.cMuted,
             labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
             tabs: const [Tab(text: '🏅 Mes badges'), Tab(text: '⭐ Bons points')],
@@ -226,10 +226,10 @@ class _BadgeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: badge.obtenu ? badge.color.withOpacity(.08) : _white,
+          color: badge.obtenu ? badge.color.withOpacity(.10) : context.cCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: badge.obtenu ? badge.color.withOpacity(.3) : _border,
+              color: badge.obtenu ? badge.color.withOpacity(.3) : context.cBorder,
               width: badge.obtenu ? 1.5 : 1),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -237,11 +237,11 @@ class _BadgeCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(badge.titre, style: TextStyle(
               fontSize: 12.5, fontWeight: FontWeight.w800,
-              color: badge.obtenu ? _ink : _muted),
+              color: badge.obtenu ? context.cInk : context.cMuted),
               textAlign: TextAlign.center),
           const SizedBox(height: 4),
-          Text(badge.description, style: const TextStyle(
-              fontSize: 10, color: _muted, height: 1.3),
+          Text(badge.description, style: TextStyle(
+              fontSize: 10, color: context.cMuted, height: 1.3),
               textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
           if (badge.obtenu && badge.dateObtention != null) ...[
             const SizedBox(height: 6),
@@ -256,7 +256,7 @@ class _BadgeCard extends StatelessWidget {
             ),
           ] else if (!badge.obtenu) ...[
             const SizedBox(height: 6),
-            const Icon(Icons.lock_rounded, size: 14, color: _muted),
+            Icon(Icons.lock_rounded, size: 14, color: context.cMuted),
           ],
         ]),
       ),
@@ -274,9 +274,9 @@ class _BonPointCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _white,
+        color: context.cCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: context.cBorder),
       ),
       child: Row(children: [
         Container(
@@ -292,8 +292,8 @@ class _BonPointCard extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(bp.motif, style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w700, color: _ink)),
+          Text(bp.motif, style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
           const SizedBox(height: 3),
           Row(children: [
             Container(
@@ -306,12 +306,12 @@ class _BonPointCard extends StatelessWidget {
                   fontSize: 10, color: bp.color, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(width: 8),
-            Text(bp.date, style: const TextStyle(fontSize: 10.5, color: _muted)),
+            Text(bp.date, style: TextStyle(fontSize: 10.5, color: context.cMuted)),
           ]),
         ])),
         Row(children: List.generate(3, (i) => Icon(
           i < bp.etoiles ? Icons.star_rounded : Icons.star_outline_rounded,
-          color: i < bp.etoiles ? _gold : _border,
+          color: i < bp.etoiles ? _gold : context.cBorder,
           size: 18,
         ))),
       ]),

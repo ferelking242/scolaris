@@ -77,6 +77,34 @@ class ScolarisSurface {
     );
   }
 
+  // ── CARTE ACCENT ADAPTATIVE AU THÈME ─────────────────────────────────────
+  /// Même rôle que [accent] (carte teintée d'une couleur de marque) mais le
+  /// fond est dérivé de la surface du thème, pas du blanc → lisible en sombre.
+  static BoxDecoration themedAccent(BuildContext context,
+      {required Color color, double radius = 14}) {
+    final cs = Theme.of(context).colorScheme;
+    return BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Color.lerp(cs.surfaceContainer, color, 0.10)!,
+          Color.lerp(cs.surfaceContainer, color, 0.20)!,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: color.withOpacity(0.45), width: 1.5),
+      boxShadow: [
+        BoxShadow(
+          color: color.withOpacity(0.18),
+          blurRadius: 14,
+          offset: const Offset(0, 5),
+          spreadRadius: -2,
+        ),
+      ],
+    );
+  }
+
   // ── SUBTLE ────────────────────────────────────────────────────────────────
   static BoxDecoration subtle({double radius = 12}) {
     return BoxDecoration(

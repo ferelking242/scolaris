@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import 'attendance_page.dart';
 import 'grades_page.dart';
@@ -71,6 +72,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   Widget build(BuildContext context) {
     final session = ref.watch(authSessionProvider);
 
+    // En primaire, la finance est du ressort du parent : pas d'alerte facture.
+    final isPrimaire = ref.watch(studentSchoolLevelProvider).valueOrNull ==
+        SchoolLevel.primaire;
+
     // Sources réelles — null tant que non chargé (on tolère les chargements
     // partiels : le flux s'enrichit au fur et à mesure).
     final gradesAsync = session != null
@@ -78,7 +83,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         : const AsyncValue<List<SbGrade>>.data([]);
     final absencesAsync = ref.watch(myAbsencesProvider);
     final annAsync      = ref.watch(announcementsProvider);
-    final invoicesAsync = ref.watch(myInvoicesProvider);
+    final invoicesAsync = isPrimaire
+        ? const AsyncValue<List<SbInvoice>>.data([])
+        : ref.watch(myInvoicesProvider);
 
     final stillLoading = gradesAsync.isLoading &&
         absencesAsync.isLoading &&
@@ -114,6 +121,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 _FilterBar(
                   current: _filter,
                   counts: _countByKind(feed),
+                  kinds: _NotifKind.values
+                      .where((k) => !isPrimaire || k != _NotifKind.payment)
+                      .toList(),
                   onTap: (k) => setState(() => _filter = _filter == k ? null : k),
                 ),
                 const SizedBox(height: 14),
@@ -222,15 +232,17 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 class _FilterBar extends StatelessWidget {
   final _NotifKind? current;
   final Map<_NotifKind, int> counts;
+  final List<_NotifKind> kinds;
   final ValueChanged<_NotifKind> onTap;
-  const _FilterBar({required this.current, required this.counts, required this.onTap});
+  const _FilterBar({required this.current, required this.counts,
+      required this.kinds, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
-        for (final k in _NotifKind.values) ...[
+        for (final k in kinds) ...[
           _Chip(
             label: _label(k),
             count: counts[k] ?? 0,

@@ -16,12 +16,10 @@ const _green  = ScolarisPalette.forestGreen;
 const _red    = Color(0xFFDC2626);
 const _redBg  = Color(0xFFFEF2F2);
 
-String _cycleFromTypes(List<String> types) {
-  if (types.contains('universite') || types.contains('superieur')) return 'universite';
-  if (types.contains('lycee')) return 'lycee';
-  if (types.contains('college')) return 'college';
-  return 'primaire';
-}
+/// Le catalogue de rôles ne dépend plus du cycle : six rôles communs, valables
+/// du primaire à l'université, tous renommables.
+/// Cf. supabase/migrations/20260719_common_role_templates.sql
+const _kRoleCatalogCycle = 'commun';
 
 int _draftCounter = 0;
 String _newDraftId() => 'draft_${DateTime.now().microsecondsSinceEpoch}_${_draftCounter++}';
@@ -88,8 +86,6 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
       // dès que l'école est connue.
       if (schoolId == null) return;
 
-      final school   = await ref.read(schoolProvider.future);
-      final cycle    = _cycleFromTypes(school?.types ?? const []);
       final catalog  = await StaffRolesSource.fetchPermissionCatalog();
       final existing = await StaffRolesSource.fetchStaffRoles(schoolId);
 
@@ -100,10 +96,15 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
         final allKeys = <String>{
           for (final m in catalog) for (final s in m.subPermissions) '${m.key}.${s.key}',
         };
+        // Le chef d'établissement, c'est le fondateur : un seul rôle, pas deux.
+        // Son nom vient du titre qu'il s'est donné, sinon du modèle du catalogue
+        // — et il reste renommable (Directeur, Principal, Proviseur, Recteur…).
         drafts.add(RoleDraft(
           draftId: _newDraftId(),
-          name: session?.roleTitle?.isNotEmpty == true ? session!.roleTitle! : 'Fondateur / Admin',
-          description: "Rôle du créateur de l'école — accès total. "
+          name: session?.roleTitle?.isNotEmpty == true
+              ? session!.roleTitle!
+              : "Chef d'établissement",
+          description: "Direction de l'école — accès total. "
               "Ses permissions ne peuvent pas lui être retirées.",
           isAdminRole: true,
           // isNew/isDirty OBLIGATOIRES : sans eux, _save range ce brouillon parmi
@@ -118,8 +119,13 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
           iconKey: 'star',
           grants: allKeys,
         ));
-        final templates = await StaffRolesSource.fetchRoleTemplates(cycle);
+
+        final templates =
+            await StaffRolesSource.fetchRoleTemplates(_kRoleCatalogCycle);
         for (final t in templates) {
+          // On saute le modèle de Direction : le brouillon ci-dessus le couvre
+          // déjà, et deux chefs d'établissement n'auraient aucun sens.
+          if (t.level == 'Direction') continue;
           drafts.add(RoleDraft.fromTemplate(t, draftId: _newDraftId()));
         }
       }
