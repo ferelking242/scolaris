@@ -218,6 +218,7 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
         rhythm: _rhythm,
         periodsCount: _periods,
         amountPerPeriod: amount,
+        currency: ref.read(schoolFormatProvider).currency,
         startMonth: _startMonth,
         dueDay: _dueDay,
       );

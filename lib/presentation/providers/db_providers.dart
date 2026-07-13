@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/school_format.dart';
 import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../shared/data/features_catalog.dart';
@@ -35,6 +36,19 @@ final schoolProvider = FutureProvider<SbSchool?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return null;
   return SupabaseDbSource.getSchool(schoolId);
+});
+
+/// Devise et barème de l'école courante.
+///
+/// À utiliser PARTOUT où l'on affiche un montant ou une note. Ne jamais écrire
+/// « FCFA » ni « /20 » en dur : une école nigériane facture en nairas et note
+/// sur 100.
+///
+/// Synchrone à dessein (valeurs par défaut tant que l'école n'est pas chargée) :
+/// un montant ne doit pas faire clignoter l'écran en attendant la base.
+final schoolFormatProvider = Provider<SchoolFormat>((ref) {
+  final school = ref.watch(schoolProvider).asData?.value;
+  return school?.format ?? const SchoolFormat();
 });
 
 // ── Rôles du personnel (RBAC granulaire) ────────────────────────────────────

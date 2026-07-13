@@ -103,7 +103,8 @@ class GradesPage extends ConsumerWidget {
                         Expanded(child: _MetricCard(
                           label: 'Moyenne générale',
                           value: avg.toStringAsFixed(1),
-                          unit: '/ 20',
+                          // Barème de l'école : /20, /100 ou lettres.
+                          unit: '/ ${ref.watch(schoolFormatProvider).maxScore.toStringAsFixed(0)}',
                           color: avg >= 14 ? _green : avg >= 10 ? _gold : _terra,
                           icon: Icons.grading_rounded,
                         )),

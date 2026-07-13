@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/config/school_format.dart';
 import '../../../core/config/school_taxonomy.dart';
 
 // ── Entity models ─────────────────────────────────────────────────────────────
@@ -775,6 +776,11 @@ class SbSchool {
   /// aussi du pays, et se fait dans [SchoolTaxonomy].
   final String? educationalSystem;
 
+  /// Devise (ISO 4217) et barème de notation de l'école. Ne jamais coder « FCFA »
+  /// ou « /20 » en dur : cf. [SchoolFormat].
+  final String currency;
+  final String gradingScale;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -786,7 +792,12 @@ class SbSchool {
     this.academicYear,
     this.types = const [],
     this.educationalSystem,
+    this.currency = 'XAF',
+    this.gradingScale = 'numeric_20',
   });
+
+  SchoolFormat get format =>
+      SchoolFormat(currency: currency, gradingScale: gradingScale);
 
   /// Cycles du catalogue des niveaux correspondant aux types de l'école.
   /// Un complexe scolaire en a plusieurs. Vide = types non renseignés.
@@ -808,6 +819,8 @@ class SbSchool {
       country: j['country'] as String?,
       educationalSystem:
           meta is Map ? meta['educational_system'] as String? : null,
+      currency: j['currency'] as String? ?? 'XAF',
+      gradingScale: j['grading_scale'] as String? ?? 'numeric_20',
       city: j['city'] as String?,
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,
@@ -1457,7 +1470,9 @@ class SupabaseDbSource {
     required double amount,
     String? category,
     String? dueDate, // ISO yyyy-MM-dd
-    String currency = 'XAF',
+    // La devise vient de l'ECOLE (schools.currency), jamais d'un defaut code
+    // en dur : une ecole nigeriane facture en nairas. Cf. SchoolFormat.
+    required String currency,
   }) async {
     final now = DateTime.now();
     final number =
@@ -1539,7 +1554,9 @@ class SupabaseDbSource {
     required double amountPerPeriod,
     required int startMonth,
     required int dueDay,
-    String currency = 'XAF',
+    // La devise vient de l'ECOLE (schools.currency), jamais d'un defaut code
+    // en dur : une ecole nigeriane facture en nairas. Cf. SchoolFormat.
+    required String currency,
   }) async {
     await _db.from('fee_structures').upsert({
       'school_id': schoolId,
@@ -1969,7 +1986,9 @@ class SupabaseDbSource {
     required String planCode,
     required String period, // 'monthly' | 'annual'
     required double price,
-    String currency = 'XAF',
+    // La devise vient de l'ECOLE (schools.currency), jamais d'un defaut code
+    // en dur : une ecole nigeriane facture en nairas. Cf. SchoolFormat.
+    required String currency,
     double creditBalance = 0, // crédit prorata à reporter sur les prochains cycles
   }) async {
     final now = DateTime.now();

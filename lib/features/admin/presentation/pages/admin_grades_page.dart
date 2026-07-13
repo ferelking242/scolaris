@@ -480,12 +480,15 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-class _GradesTable extends StatelessWidget {
+class _GradesTable extends ConsumerWidget {
   final List<_BulletinRow> rows;
   const _GradesTable({required this.rows});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Barème de l'école : /20, /100 ou lettres. Jamais figé — un bulletin
+    // nigérian noté « 14/20 » ne veut rien dire là-bas.
+    final fmt = ref.watch(schoolFormatProvider);
     final totalCoef = rows.fold(0, (s, r) => s + r.coef);
     final generalAvg = _generalAvg(rows);
     return Container(
@@ -501,8 +504,8 @@ class _GradesTable extends StatelessWidget {
             color: _terra,
             borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
           ),
-          child: const Row(children: [
-            Expanded(
+          child: Row(children: [
+            const Expanded(
                 flex: 5,
                 child: Text('Matière',
                     style: TextStyle(
@@ -519,7 +522,7 @@ class _GradesTable extends StatelessWidget {
                         fontWeight: FontWeight.w700))),
             Expanded(
                 flex: 2,
-                child: Text('Note/20',
+                child: Text(fmt.gradeHeader,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.white,
@@ -602,12 +605,13 @@ class _GradesTable extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
+class _SummaryCard extends ConsumerWidget {
   final double avg;
   const _SummaryCard({required this.avg});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fmt = ref.watch(schoolFormatProvider);
     final c = _mentionColor(avg);
     return Container(
       padding: const EdgeInsets.all(16),
@@ -640,7 +644,7 @@ class _SummaryCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: avg / 20,
+                value: fmt.ratio(avg),
                 backgroundColor: c.withValues(alpha: .1),
                 valueColor: AlwaysStoppedAnimation<Color>(c),
                 minHeight: 5,

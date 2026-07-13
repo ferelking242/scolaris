@@ -358,6 +358,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
         description: _desc.text.trim(),
         amount: amount,
         category: _category,
+        currency: ref.read(schoolFormatProvider).currency,
       );
       widget.onSaved();
       if (mounted) navigator.pop();
@@ -427,9 +428,10 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
             TextFormField(
               controller: _amount,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                  labelText: 'Montant (FCFA)',
-                  prefixIcon: Icon(Icons.payments_outlined)),
+              decoration: InputDecoration(
+                  labelText:
+                      'Montant (${ref.watch(schoolFormatProvider).currencySymbol})',
+                  prefixIcon: const Icon(Icons.payments_outlined)),
               validator: (v) {
                 final n = double.tryParse(
                     (v ?? '').trim().replaceAll(',', '.'));
