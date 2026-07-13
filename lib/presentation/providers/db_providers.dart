@@ -278,10 +278,23 @@ final studentSchoolLevelProvider = FutureProvider<SchoolLevel>((ref) async {
 /// l'école (ex. une école primaire ne voit que CP→CM2). Si l'école n'a pas de
 /// types renseignés, on propose tous les cycles v1 (primaire/collège/lycée).
 /// Lus dynamiquement depuis `class_levels` — jamais codés en dur.
+/// Filtré sur les cycles de l'école ET sur son système éducatif (déduit du
+/// système choisi à l'inscription + du pays — cf. [SchoolTaxonomy]).
+///
+/// Le système était jusqu'ici codé en dur sur `francophone_africa` : une école
+/// anglophone ou arabophone recevait donc les niveaux francophones, alors que
+/// son propre catalogue existe (Form 1, Primary 1…). Il est maintenant lu.
 final classLevelsProvider = FutureProvider<List<SbClassLevel>>((ref) async {
-  final cycles = await ref.watch(schoolCyclesProvider.future);
-  if (cycles.isEmpty) return SupabaseDbSource.getClassLevels();
-  return SupabaseDbSource.getClassLevels(cycles: cycles);
+  final school = await ref.watch(schoolProvider.future);
+  if (school == null) return const [];
+
+  final cycles = school.cycles;
+  // Types non renseignés : on ne sait pas. On retombe sur les cycles scolaires
+  // par défaut plutôt que de ne rien proposer — mais on ne devine PAS.
+  return SupabaseDbSource.getClassLevels(
+    system: school.levelSystemType,
+    cycles: cycles.isEmpty ? const ['primaire', 'college', 'lycee'] : cycles,
+  );
 });
 
 // ── Grades ────────────────────────────────────────────────────────────────────

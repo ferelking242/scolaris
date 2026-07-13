@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/config/school_taxonomy.dart';
+
 // ── Entity models ─────────────────────────────────────────────────────────────
 
 class SbStudent {
@@ -767,6 +769,12 @@ class SbSchool {
   /// garderie, primaire, college, lycee, universite, technique, superieur, special.
   final List<String> types;
 
+  /// Système éducatif choisi à l'inscription (metadata.educational_system) :
+  /// francophone, anglophone, arabophone, lmd, grande_ecole.
+  /// Attention : ce n'est PAS `class_levels.system_type` — la traduction dépend
+  /// aussi du pays, et se fait dans [SchoolTaxonomy].
+  final String? educationalSystem;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -777,18 +785,18 @@ class SbSchool {
     this.accentColor,
     this.academicYear,
     this.types = const [],
+    this.educationalSystem,
   });
 
-  /// Cycles pédagogiques déduits des types (pour filtrer class_levels/matières).
-  /// Mapping type → cycle ; les types sans cycle v1 (université…) sont ignorés ici.
-  static const _typeToCycle = {
-    'garderie': 'prescolaire',
-    'primaire': 'primaire',
-    'college': 'college',
-    'lycee': 'lycee',
-  };
-  List<String> get cycles =>
-      types.map((t) => _typeToCycle[t]).whereType<String>().toList();
+  /// Cycles du catalogue des niveaux correspondant aux types de l'école.
+  /// Un complexe scolaire en a plusieurs. Vide = types non renseignés.
+  List<String> get cycles => SchoolTaxonomy.cyclesOf(types);
+
+  /// `class_levels.system_type` de cette école (système + pays).
+  String get levelSystemType => SchoolTaxonomy.systemTypeOf(
+        system: educationalSystem,
+        country: country,
+      );
 
   factory SbSchool.fromJson(Map<String, dynamic> j) {
     final meta = j['metadata'];
@@ -798,6 +806,8 @@ class SbSchool {
       name: j['name'] as String? ?? '',
       code: j['code'] as String?,
       country: j['country'] as String?,
+      educationalSystem:
+          meta is Map ? meta['educational_system'] as String? : null,
       city: j['city'] as String?,
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,
