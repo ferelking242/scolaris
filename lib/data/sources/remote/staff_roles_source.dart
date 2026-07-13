@@ -133,6 +133,12 @@ class StaffRolesSource {
   }
 
   /// Crée un rôle pour l'école, avec ses permissions. [grants] = "permission.sous_permission".
+  ///
+  /// Idempotent : `staff_roles` porte une contrainte d'unicité (school_id, name).
+  /// Un rôle du même nom existe déjà ? On le met à jour au lieu d'échouer sur
+  /// « duplicate key ». Sans ça, le moindre décalage entre ce que l'écran croit
+  /// être en base et ce qui y est réellement rendait la sauvegarde impossible —
+  /// et sans recours, puisque l'écran ne proposait que de recréer.
   static Future<String> createStaffRole({
     required String schoolId,
     required String name,
@@ -145,27 +151,25 @@ class StaffRolesSource {
     String? parentRoleId,
     required Set<String> grants,
   }) async {
-    final row = await _sb.from('staff_roles').insert({
-      'school_id': schoolId,
-      'name': name,
-      'description': description,
-      'is_admin_role': isAdminRole,
-      'based_on_template_id': basedOnTemplateId,
-      'level': level,
-      'color': color,
-      'icon_key': iconKey,
-      'parent_role_id': parentRoleId,
-    }).select('id').single();
+    final row = await _sb
+        .from('staff_roles')
+        .upsert({
+          'school_id': schoolId,
+          'name': name,
+          'description': description,
+          'is_admin_role': isAdminRole,
+          'based_on_template_id': basedOnTemplateId,
+          'level': level,
+          'color': color,
+          'icon_key': iconKey,
+          'parent_role_id': parentRoleId,
+        }, onConflict: 'school_id,name')
+        .select('id')
+        .single();
     final roleId = row['id'] as String;
-    if (!isAdminRole && grants.isNotEmpty) {
-      await _sb.from('staff_role_permissions').insert([
-        for (final g in grants)
-          {
-            'staff_role_id': roleId,
-            'permission_key': g.split('.').first,
-            'sub_permission_key': g.split('.').skip(1).join('.'),
-          }
-      ]);
+    if (!isAdminRole) {
+      // Réécriture complète : le rôle a pu exister avec d'autres permissions.
+      await updateRoleGrants(roleId, grants);
     }
     return roleId;
   }

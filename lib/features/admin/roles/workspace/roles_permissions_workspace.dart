@@ -221,7 +221,9 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
         }
       }
 
-      if (mounted) setState(() {});
+      // Les autres écrans (invitation du personnel) lisent la liste des rôles.
+      ref.invalidate(staffRolesProvider);
+
       if (widget.onboarding) {
         widget.onDone?.call();
       } else if (mounted) {
@@ -231,6 +233,12 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
+        // On repart de ce qui est RÉELLEMENT en base, et non de nos brouillons :
+        // c'est la seule façon de garantir que l'écran et le serveur disent la
+        // même chose. Un écran qui se croit à jour alors qu'il ne l'est pas est
+        // précisément ce qui menait au « duplicate key » à la sauvegarde
+        // suivante.
+        await _load();
       }
     } catch (e) {
       setState(() => _error = 'Erreur lors de la sauvegarde : $e');
