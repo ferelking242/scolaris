@@ -295,6 +295,14 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   bool _gradesLoaded = false;
   bool _saving = false;
 
+  /// Barème de CETTE série d'évaluations. Chaque note porte son propre maximum
+  /// (`grades.max_score`) : une interro sur 10 et un examen sur 20 coexistent
+  /// sans fausser la moyenne, qui ramène tout à la même échelle avant de
+  /// comparer. Défaut = barème de l'école, que le prof peut abaisser (10 au
+  /// primaire, par exemple).
+  double? _maxScore;
+  double get _max => _maxScore ?? ref.read(schoolFormatProvider).maxScore;
+
   String get _key =>
       '${widget.classObj.id}|${widget.subjectId}|${widget.period}';
 
@@ -334,12 +342,17 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
       _existing(studentId, type) != null;
 
   /// Moyenne = notes verrouillées (base) + notes saisies non encore validées.
+  ///
+  /// Les notes déjà en base peuvent avoir un autre barème que celui affiché
+  /// (une interro sur 10 dans une série sur 20) : on les ramène sur le barème
+  /// courant avant de les mélanger.
   double? _avg(String studentId) {
     final vals = <double>[];
     for (final type in _types) {
       final existing = _existing(studentId, type);
       if (existing != null) {
-        vals.add(existing.score);
+        final m = existing.maxScore > 0 ? existing.maxScore : _max;
+        vals.add(existing.score / m * _max);
         continue;
       }
       final c = _ctrls[studentId]?[type];
@@ -354,7 +367,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   Widget _cell(String studentId, String type) {
     final existing = _existing(studentId, type);
     if (existing != null) {
-      return _LockedGrade(value: existing.score);
+      return _LockedGrade(value: existing.score, max: existing.maxScore);
     }
     return _GradeInput(
       controller: _ctrl(studentId, type),
@@ -403,7 +416,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
             classId: widget.classObj.id,
             schoolId: widget.schoolId,
             subjectId: widget.subjectId,
-            score: score.clamp(0.0, 20.0),
+            score: score.clamp(0.0, _max),
+            maxScore: _max,
             period: widget.period,
             type: type,
             teacherId: widget.teacherId,
@@ -475,26 +489,46 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: LinearProgressIndicator(),
                       ),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Row(children: [
-                        Icon(Icons.lock_rounded, size: 13, color: muted),
-                        SizedBox(width: 5),
-                        Expanded(
+                        const Icon(Icons.lock_rounded, size: 13, color: muted),
+                        const SizedBox(width: 5),
+                        const Expanded(
                           child: Text(
                             'Les notes validées sont verrouillées. Pour corriger une note, contactez l’administration.',
                             style: TextStyle(fontSize: 11, color: muted),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        const Text('Noté sur',
+                            style: TextStyle(fontSize: 11, color: muted)),
+                        const SizedBox(width: 6),
+                        DropdownButton<double>(
+                          value: _max,
+                          isDense: true,
+                          underline: const SizedBox(),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: ink,
+                              fontWeight: FontWeight.w700),
+                          items: const [
+                            DropdownMenuItem(value: 10.0, child: Text('10')),
+                            DropdownMenuItem(value: 20.0, child: Text('20')),
+                            DropdownMenuItem(value: 100.0, child: Text('100')),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _maxScore = v ?? _max),
+                        ),
                       ]),
                     ),
                     DataTablePanel(
-                      columns: const [
+                      columns: [
                         'Élève',
                         'Matricule',
-                        'Interro 1',
-                        'Interro 2',
-                        'Examen',
+                        'Interro 1 /${_max.toStringAsFixed(0)}',
+                        'Interro 2 /${_max.toStringAsFixed(0)}',
+                        'Examen /${_max.toStringAsFixed(0)}',
                         'Moy.',
                       ],
                       flex: const [3, 2, 1, 1, 1, 1],
@@ -609,7 +643,10 @@ class _GradeInput extends StatelessWidget {
 // ── Note verrouillée (déjà validée, lecture seule) ────────────────────────────
 class _LockedGrade extends StatelessWidget {
   final double value;
-  const _LockedGrade({required this.value});
+  // Le barème de la note telle qu'elle a été saisie : une note sur 10 reste sur
+  // 10, même si la série affichée est sur 20.
+  final double max;
+  const _LockedGrade({required this.value, required this.max});
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -624,9 +661,9 @@ class _LockedGrade extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(value.toStringAsFixed(1),
+              Text('${value.toStringAsFixed(1)}/${max.toStringAsFixed(0)}',
                   style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: ink,
                       fontWeight: FontWeight.w700)),
               const SizedBox(width: 2),
