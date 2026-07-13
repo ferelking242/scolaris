@@ -94,8 +94,16 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
         drafts.add(RoleDraft(
           draftId: _newDraftId(),
           name: session?.roleTitle?.isNotEmpty == true ? session!.roleTitle! : 'Fondateur / Admin',
-          description: "Rôle du créateur de l'école — accès total, non modifiable.",
+          description: "Rôle du créateur de l'école — accès total. "
+              "Ses permissions ne peuvent pas lui être retirées.",
           isAdminRole: true,
+          // isNew/isDirty OBLIGATOIRES : sans eux, _save range ce brouillon parmi
+          // les rôles « déjà en base » et déréférence son persistedId, qui est
+          // null → plantage avant la moindre écriture. Aucun rôle n'était alors
+          // jamais créé, l'école restait vide, et le cycle recommençait à chaque
+          // rechargement.
+          isNew: true,
+          isDirty: true,
           level: 'Direction',
           color: '#C17F24',
           iconKey: 'star',
@@ -171,8 +179,15 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
       _pendingDeletes.clear();
 
       final idMap = <String, String>{};
-      for (final r in _roles.where((r) => !r.isNew)) {
-        idMap[r.draftId] = r.persistedId!;
+      for (final r in _roles) {
+        // Un brouillon sans persistedId n'est PAS en base, quoi que dise son
+        // drapeau isNew : le traiter comme existant faisait planter la
+        // sauvegarde entière sur un null. On le remet d'office en création.
+        if (r.persistedId == null) {
+          r.isNew = true;
+        } else {
+          idMap[r.draftId] = r.persistedId!;
+        }
       }
       for (final r in _roles) {
         if (!r.isDirty) continue;
@@ -1104,6 +1119,12 @@ class _SummaryPanel extends StatelessWidget {
     final parentOptions = allRoles.where((r) => r.draftId != role.draftId).toList();
     final parent = allRoles.where((r) => r.draftId == role.parentDraftId).firstOrNull;
 
+    // Le rôle admin a ses PERMISSIONS verrouillées (il garde les clés de l'école :
+    // on ne doit pas pouvoir les lui retirer — cf. le garde-fou en base,
+    // 20260715_last_admin_guard.sql) et ne peut pas être supprimé. En revanche son
+    // IDENTITÉ reste modifiable : selon l'établissement, il s'appelle Directeur,
+    // Proviseur, Principal ou Recteur, et mérite son icône et sa couleur.
+
     return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), children: [
       _SectionLabel(label: 'RÉSUMÉ DU RÔLE'),
       const SizedBox(height: 12),
@@ -1112,7 +1133,6 @@ class _SummaryPanel extends StatelessWidget {
       TextFormField(
         key: ValueKey('name-${role.draftId}'),
         initialValue: role.name,
-        enabled: !role.locked,
         onChanged: (v) => onMutate((r) => r.name = v),
         style: TextStyle(fontSize: 13, color: context.cInk),
         decoration: _inputDeco(context),
@@ -1123,7 +1143,6 @@ class _SummaryPanel extends StatelessWidget {
       TextFormField(
         key: ValueKey('desc-${role.draftId}'),
         initialValue: role.description,
-        enabled: !role.locked,
         maxLines: 3,
         onChanged: (v) => onMutate((r) => r.description = v),
         style: TextStyle(fontSize: 12.5, color: context.cInk),
@@ -1150,7 +1169,7 @@ class _SummaryPanel extends StatelessWidget {
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final entry in kRoleIcons.entries)
           GestureDetector(
-            onTap: role.locked ? null : () => onMutate((r) => r.iconKey = entry.key),
+            onTap: () => onMutate((r) => r.iconKey = entry.key),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 36, height: 36,
@@ -1173,7 +1192,7 @@ class _SummaryPanel extends StatelessWidget {
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (var i = 0; i < ScolarisAccents.all.length; i++)
           GestureDetector(
-            onTap: role.locked ? null : () => onMutate((r) => r.color = colorToHex(ScolarisAccents.all[i])),
+            onTap: () => onMutate((r) => r.color = colorToHex(ScolarisAccents.all[i])),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 26, height: 26,
@@ -1198,7 +1217,7 @@ class _SummaryPanel extends StatelessWidget {
       Wrap(spacing: 6, runSpacing: 6, children: [
         for (final l in kRoleLevels)
           GestureDetector(
-            onTap: role.locked ? null : () => onMutate((r) => r.level = l),
+            onTap: () => onMutate((r) => r.level = l),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
