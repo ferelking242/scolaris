@@ -15,7 +15,11 @@ class RoleOrgChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final byLevel = <String, List<RoleDraft>>{for (final l in kRoleLevels) l: []};
     for (final r in roles) {
-      (byLevel[r.level] ??= []).add(r);
+      // Un niveau inconnu (typo, accent manquant, valeur venue d'une autre
+      // version) ne doit pas faire DISPARAÎTRE le rôle : le filtre ci-dessous
+      // ne retient que les niveaux de kRoleLevels. On rabat sur le dernier.
+      final level = byLevel.containsKey(r.level) ? r.level : kRoleLevels.last;
+      byLevel[level]!.add(r);
     }
     final levels = kRoleLevels.where((l) => byLevel[l]!.isNotEmpty).toList();
     if (levels.isEmpty) return const SizedBox(height: 40);
@@ -23,8 +27,22 @@ class RoleOrgChart extends StatelessWidget {
     const rowH = 74.0;
     final height = levels.length * rowH + 24;
 
+    // Largeur intrinsèque : l'organigramme vit dans un InteractiveViewer
+    // (constrained: false) qui lui offre une largeur INFINIE. Les positions
+    // étant calculées en fraction de la largeur (x = width * i / n), une
+    // largeur infinie envoie tous les nœuds à l'infini — le cadre paraît vide
+    // alors que les rôles sont bien là. On se calcule donc une largeur finie
+    // à partir du niveau le plus peuplé.
+    const nodeW = 150.0;
+    final widest = levels
+        .map((l) => byLevel[l]!.length)
+        .fold<int>(1, (a, b) => a > b ? a : b);
+
     return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
+      final available = constraints.maxWidth;
+      final width = available.isFinite
+          ? (available < widest * nodeW ? widest * nodeW : available)
+          : widest * nodeW;
       final positions = <String, Offset>{};
       for (var li = 0; li < levels.length; li++) {
         final items = byLevel[levels[li]]!;
@@ -36,7 +54,7 @@ class RoleOrgChart extends StatelessWidget {
       }
       return SizedBox(
         height: height,
-        width: double.infinity,
+        width: width,
         child: Stack(children: [
           CustomPaint(
             size: Size(width, height),
