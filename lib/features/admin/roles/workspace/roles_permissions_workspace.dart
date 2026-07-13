@@ -590,20 +590,27 @@ class _RolesListPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: context.cBorder),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: InteractiveViewer(
-            panEnabled: true,
-            scaleEnabled: true,
-            minScale: .6,
-            maxScale: 2.5,
-            constrained: false,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 260),
+        // Hauteur FIXE obligatoire : cet InteractiveViewer est dans un ListView,
+        // qui donne à ses enfants une hauteur ILLIMITÉE. Un InteractiveViewer est
+        // une fenêtre par laquelle on regarde un contenu plus grand — sans bords,
+        // il ne peut pas se disposer. L'échec ("was given an infinite size during
+        // layout") emportait le rendu de TOUTE la colonne : l'organigramme, mais
+        // aussi la liste des rôles en dessous. D'où un panneau vide, où il n'y
+        // avait littéralement rien à cliquer.
+        child: SizedBox(
+          height: 260,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: InteractiveViewer(
+              panEnabled: true,
+              scaleEnabled: true,
+              minScale: .6,
+              maxScale: 2.5,
+              constrained: false,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: roles.isEmpty
-                    ? const SizedBox(height: 60)
+                    ? const SizedBox(height: 60, width: 260)
                     : RoleOrgChart(
                         roles: roles,
                         selectedDraftId: selectedId,
