@@ -79,10 +79,19 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
     try {
       final session  = ref.read(authSessionProvider);
       final schoolId = ref.read(currentSchoolIdProvider);
+
+      // L'école n'est pas encore connue (session en cours d'hydratation).
+      // NE PAS conclure que l'école n'a aucun rôle : sans école, la requête ne
+      // peut RIEN renvoyer, et on fabriquerait des brouillons neufs pour des
+      // rôles qui existent déjà — d'où le « duplicate key » à la sauvegarde.
+      // On reste en chargement ; le ref.listen de build() rappellera _load()
+      // dès que l'école est connue.
+      if (schoolId == null) return;
+
       final school   = await ref.read(schoolProvider.future);
       final cycle    = _cycleFromTypes(school?.types ?? const []);
       final catalog  = await StaffRolesSource.fetchPermissionCatalog();
-      final existing = schoolId == null ? <SbStaffRole>[] : await StaffRolesSource.fetchStaffRoles(schoolId);
+      final existing = await StaffRolesSource.fetchStaffRoles(schoolId);
 
       final drafts = <RoleDraft>[];
       if (existing.isNotEmpty) {
@@ -249,6 +258,14 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
 
   @override
   Widget build(BuildContext context) {
+    // L'école arrive de façon asynchrone (session hydratée après le 1er build),
+    // et peut changer en cours de route via le sélecteur d'établissement.
+    // Sans cette écoute, la page resterait sur ce qu'elle a cru voir au premier
+    // instant — c'est-à-dire une école sans aucun rôle.
+    ref.listen<String?>(currentSchoolIdProvider, (prev, next) {
+      if (next != null && next != prev) _load();
+    });
+
     final cs   = Theme.of(context).colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= 960;
 
