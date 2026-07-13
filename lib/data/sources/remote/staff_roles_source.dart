@@ -211,4 +211,63 @@ class StaffRolesSource {
   static Future<void> renameRole(String roleId, String name, String? description) async {
     await _sb.from('staff_roles').update({'name': name, 'description': description}).eq('id', roleId);
   }
+
+  // ── Rattachement employé ↔ rôle ────────────────────────────────────────────
+
+  /// Assigne un rôle à un employé (`users.staff_role_id`).
+  ///
+  /// [userId] est l'id de la ligne `users`, pas l'`auth_uid`.
+  static Future<void> assignRoleToUser({
+    required String userId,
+    required String? staffRoleId,
+  }) async {
+    await _sb
+        .from('users')
+        .update({'staff_role_id': staffRoleId}).eq('id', userId);
+  }
+
+  /// Renvoie le rôle [name] de l'école, en le créant depuis [template] s'il
+  /// n'existe pas encore.
+  ///
+  /// C'est le cœur du modèle : les rôles d'une école ne sont pas configurés
+  /// d'avance, ils se créent à la première embauche qui en a besoin. La seconde
+  /// embauche du même poste réutilise le rôle existant — donc modifier ce rôle
+  /// plus tard s'applique d'un coup à tous ceux qui le portent.
+  static Future<SbStaffRole> ensureRoleFromTemplate({
+    required String schoolId,
+    required SbRoleTemplate template,
+  }) async {
+    final existing = await fetchStaffRoles(schoolId);
+    for (final r in existing) {
+      if (r.name == template.name) return r;
+    }
+
+    // Un modèle de Direction (Proviseur, Principal, Recteur, Directeur) porte
+    // l'accès total via le drapeau admin, pas via des grants énumérés.
+    final isAdmin = template.level == 'Direction';
+
+    final roleId = await createStaffRole(
+      schoolId: schoolId,
+      name: template.name,
+      description: template.description,
+      isAdminRole: isAdmin,
+      basedOnTemplateId: template.id,
+      level: template.level,
+      color: template.color,
+      iconKey: template.iconKey,
+      grants: template.grants,
+    );
+
+    return SbStaffRole(
+      id: roleId,
+      schoolId: schoolId,
+      name: template.name,
+      description: template.description,
+      isAdminRole: isAdmin,
+      level: template.level,
+      color: template.color,
+      iconKey: template.iconKey,
+      grants: template.grants,
+    );
+  }
 }

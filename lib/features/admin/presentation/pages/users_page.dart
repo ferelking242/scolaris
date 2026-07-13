@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/rbac_mapping.dart';
 import '../../../../core/permissions/staff_permissions.dart';
+import '../../../../data/sources/remote/staff_roles_source.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
@@ -961,6 +963,88 @@ class _EditUserDialogState extends State<_EditUserDialog> {
   }
 }
 
+/// Choix du rôle à l'invitation.
+///
+/// Affiche d'abord les rôles **déjà créés** dans l'école (les réutiliser est le
+/// cas normal : deux comptables partagent un rôle), puis les **modèles** du
+/// catalogue adaptés au cycle de l'établissement (Proviseur/Censeur pour un
+/// lycée, Recteur/Doyen pour une université…), qui seront créés à la volée.
+/// En dernier, une échappatoire « Accès personnalisé » pour les cas hors moule.
+class _RolePicker extends ConsumerWidget {
+  final String? selectedRoleId;
+  final String? selectedTemplateId;
+  final bool custom;
+  final ValueChanged<SbStaffRole> onRole;
+  final ValueChanged<SbRoleTemplate> onTemplate;
+  final VoidCallback onCustom;
+
+  const _RolePicker({
+    required this.selectedRoleId,
+    required this.selectedTemplateId,
+    required this.custom,
+    required this.onRole,
+    required this.onTemplate,
+    required this.onCustom,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final roles = ref.watch(staffRolesProvider);
+    final templates = ref.watch(roleTemplatesProvider);
+
+    if (roles.isLoading || templates.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(
+            height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    final existing = roles.asData?.value ?? const <SbStaffRole>[];
+    final existingNames = existing.map((r) => r.name).toSet();
+    // Un modèle déjà instancié dans l'école est proposé comme rôle, pas en double.
+    final proposals = (templates.asData?.value ?? const <SbRoleTemplate>[])
+        .where((t) => !existingNames.contains(t.name))
+        .toList();
+
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      for (final r in existing)
+        ChoiceChip(
+          label: Text(r.name, style: const TextStyle(fontSize: 12)),
+          avatar: Icon(Icons.badge_outlined,
+              size: 15, color: selectedRoleId == r.id ? _terra : context.cMuted),
+          selected: selectedRoleId == r.id,
+          onSelected: (_) => onRole(r),
+          selectedColor: _terra.withValues(alpha: .12),
+          backgroundColor: context.cCard,
+          side: BorderSide(color: context.cBorder),
+        ),
+      for (final t in proposals)
+        ChoiceChip(
+          label: Text(t.name, style: const TextStyle(fontSize: 12)),
+          avatar: Icon(Icons.add_circle_outline,
+              size: 15,
+              color: selectedTemplateId == t.id ? _terra : context.cMuted),
+          selected: selectedTemplateId == t.id,
+          onSelected: (_) => onTemplate(t),
+          selectedColor: _terra.withValues(alpha: .12),
+          backgroundColor: context.cCard,
+          side: BorderSide(color: context.cBorder),
+        ),
+      ChoiceChip(
+        label: const Text('Accès personnalisé', style: TextStyle(fontSize: 12)),
+        avatar: Icon(Icons.tune,
+            size: 15, color: custom ? _terra : context.cMuted),
+        selected: custom,
+        onSelected: (_) => onCustom(),
+        selectedColor: _terra.withValues(alpha: .12),
+        backgroundColor: context.cCard,
+        side: BorderSide(color: context.cBorder),
+      ),
+    ]);
+  }
+}
+
 // ── Formulaire « Inviter un membre » ──────────────────────────────────────────
 class _InviteMemberDialog extends ConsumerStatefulWidget {
   final String schoolId;
@@ -984,6 +1068,13 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   bool _loading = false;
   String? _error;
 
+  /// Rôle choisi. Le droit est porté par le RÔLE, pas par la personne : deux
+  /// comptables partagent le même rôle, et le modifier plus tard les met à jour
+  /// tous les deux. Null = « Accès personnalisé » (rôle dédié à cette personne).
+  SbRoleTemplate? _template; // modèle du catalogue (rôle pas encore créé)
+  SbStaffRole? _existingRole; // rôle déjà créé dans l'école
+  bool _custom = false;
+
   static String _generatePassword() {
     final n = DateTime.now().microsecondsSinceEpoch % 10000;
     return 'Scolaris-${n.toString().padLeft(4, '0')}';
@@ -998,36 +1089,112 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     super.dispose();
   }
 
-  void _applyPreset(String name) {
-    final keys = StaffPermissions.presets[name] ?? const [];
+  /// Sélection d'un rôle existant de l'école.
+  void _pickRole(SbStaffRole role) {
     setState(() {
-      _perms.clear();
-      if (keys.contains(kAllPermission)) {
-        _perms.addAll(StaffPermissions.all.map((p) => p.key)); // tout coché
-      } else {
-        _perms.addAll(keys);
-      }
-      if (_title.text.trim().isEmpty && name != 'Personnalisé') {
-        _title.text = name;
-      }
+      _existingRole = role;
+      _template = null;
+      _custom = false;
+      _perms
+        ..clear()
+        ..addAll(RbacMapping.toLegacyPermissions(role.grants,
+            isAdminRole: role.isAdminRole));
+      if (_title.text.trim().isEmpty) _title.text = role.name;
     });
+  }
+
+  /// Sélection d'un modèle du catalogue : le rôle sera créé à la volée.
+  void _pickTemplate(SbRoleTemplate t) {
+    setState(() {
+      _template = t;
+      _existingRole = null;
+      _custom = false;
+      _perms
+        ..clear()
+        ..addAll(RbacMapping.toLegacyPermissions(t.grants,
+            isAdminRole: t.level == 'Direction'));
+      if (_title.text.trim().isEmpty) _title.text = t.name;
+    });
+  }
+
+  void _pickCustom() {
+    setState(() {
+      _custom = true;
+      _template = null;
+      _existingRole = null;
+      _perms.clear();
+    });
+  }
+
+  /// Traduit les modules cochés en grants `module.action` (toutes les actions du
+  /// module). La finesse action par action n'est pas exposée tant que les
+  /// policies RLS ne l'appliquent pas — cf. RbacMapping.
+  Set<String> _grantsFromModules(List<SbPermissionModule> catalog) {
+    final grants = <String>{};
+    for (final key in _perms) {
+      final module = RbacMapping.permissionToModule[key];
+      if (module == null) continue; // 'discipline' : dérivé, pas de module
+      final mod = catalog.where((m) => m.key == module).firstOrNull;
+      if (mod == null) continue;
+      for (final sub in mod.subPermissions) {
+        grants.add('$module.${sub.key}');
+      }
+    }
+    return grants;
   }
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_isStaff && _perms.isEmpty) {
-      setState(() => _error = 'Cochez au moins un accès pour ce membre.');
+      setState(() => _error = 'Choisissez un rôle pour ce membre.');
       return;
     }
     setState(() { _loading = true; _error = null; });
     final messenger = ScaffoldMessenger.of(context);
     try {
-      // Enseignant = rôle dédié. Personnel = staff_custom + permissions.
-      // Tout coché → accès total ('*') pour englober les futurs modules.
-      final allChecked = _perms.length == StaffPermissions.all.length;
-      final permissions = !_isStaff
-          ? const <String>[]
-          : (allChecked ? [kAllPermission] : _perms.toList());
+      String? staffRoleId;
+      var permissions = const <String>[];
+
+      if (_isStaff) {
+        final schoolId = ref.read(currentSchoolIdProvider);
+        if (schoolId == null) throw Exception('École introuvable.');
+
+        SbStaffRole role;
+        if (_existingRole != null) {
+          role = _existingRole!;
+        } else if (_template != null) {
+          // Création paresseuse : le rôle n'existe dans l'école qu'à la première
+          // embauche qui en a besoin. La suivante le réutilise.
+          role = await StaffRolesSource.ensureRoleFromTemplate(
+            schoolId: schoolId,
+            template: _template!,
+          );
+        } else {
+          // Accès personnalisé → rôle dédié, nommé d'après le titre saisi.
+          final catalog = await ref.read(permissionCatalogProvider.future);
+          final grants = _grantsFromModules(catalog);
+          final name = _title.text.trim().isEmpty
+              ? _name.text.trim()
+              : _title.text.trim();
+          final roleId = await StaffRolesSource.createStaffRole(
+            schoolId: schoolId,
+            name: name,
+            description: 'Rôle personnalisé',
+            grants: grants,
+          );
+          role = SbStaffRole(
+            id: roleId,
+            schoolId: schoolId,
+            name: name,
+            isAdminRole: false,
+            grants: grants,
+          );
+        }
+
+        staffRoleId = role.id;
+        permissions = RbacMapping.toLegacyPermissions(role.grants,
+            isAdminRole: role.isAdminRole);
+      }
 
       await SupabaseDbSource.createMemberAccount(
         email: _email.text.trim(),
@@ -1036,7 +1203,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         role: _isStaff ? 'staff_custom' : 'teacher',
         permissions: permissions,
         title: _isStaff ? _title.text.trim() : null,
+        staffRoleId: staffRoleId,
       );
+      ref.invalidate(staffRolesProvider);
       widget.onCreated();
       if (!mounted) return;
       Navigator.pop(context);
@@ -1134,7 +1303,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 ),
               ],
 
-              // ── Personnel : titre + presets + permissions ──────────────
+              // ── Personnel : rôle + titre + aperçu des accès ────────────
               if (_isStaff && familiesEnabled) ...[
                 const SizedBox(height: 12),
                 TextFormField(
@@ -1146,28 +1315,33 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Modèle de départ',
+                  child: Text('Rôle',
                       style: TextStyle(
                           fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final preset in StaffPermissions.presets.keys)
-                    ActionChip(
-                      label: Text(preset, style: const TextStyle(fontSize: 12)),
-                      onPressed: () => _applyPreset(preset),
-                      backgroundColor: context.cCard,
-                      side: BorderSide(color: context.cBorder),
-                    ),
-                ]),
+                _RolePicker(
+                  selectedRoleId: _existingRole?.id,
+                  selectedTemplateId: _template?.id,
+                  custom: _custom,
+                  onRole: _pickRole,
+                  onTemplate: _pickTemplate,
+                  onCustom: _pickCustom,
+                ),
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Accès accordés',
+                  child: Text(
+                      _custom ? 'Accès accordés' : 'Accès de ce rôle',
                       style: TextStyle(
                           fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
+                // Hors mode personnalisé, les accès sont ceux du rôle : on les
+                // affiche sans les rendre modifiables ici. Les changer pour une
+                // seule personne casserait le modèle (le droit suit le rôle) ;
+                // ça se fait dans « Rôles & permissions », et ça s'applique à
+                // tous ceux qui portent ce rôle.
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final p in StaffPermissions.all)
                     FilterChip(
@@ -1176,19 +1350,30 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                           size: 15,
                           color: _perms.contains(p.key) ? _terra : context.cMuted),
                       selected: _perms.contains(p.key),
-                      onSelected: (v) => setState(() {
-                        if (v) {
-                          _perms.add(p.key);
-                        } else {
-                          _perms.remove(p.key);
-                        }
-                      }),
+                      onSelected: _custom
+                          ? (v) => setState(() {
+                                if (v) {
+                                  _perms.add(p.key);
+                                } else {
+                                  _perms.remove(p.key);
+                                }
+                              })
+                          : null,
                       selectedColor: _terra.withValues(alpha: .12),
                       checkmarkColor: _terra,
                       backgroundColor: context.cCard,
                       side: BorderSide(color: context.cBorder),
                     ),
                 ]),
+                if (!_custom && _perms.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Pour changer ces accès, modifiez le rôle dans '
+                    '« Rôles & permissions » — la modification s\'appliquera à '
+                    'tous les membres qui le portent.',
+                    style: TextStyle(fontSize: 11, color: context.cMuted),
+                  ),
+                ],
               ],
 
               const SizedBox(height: 14),

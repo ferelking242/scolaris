@@ -662,8 +662,14 @@ class SbUser {
   final String role;
   final String status;
   final DateTime? lastSeenAt;
+  /// Projection plate des droits du rôle (cf. RbacMapping). Dérivée, pas saisie :
+  /// la source de vérité est [staffRoleId] → `staff_role_permissions`.
   final List<String> permissions;
   final String? roleTitle;
+
+  /// Rôle du personnel porté par cet employé (`staff_roles.id`). Null pour les
+  /// élèves, parents, et les comptes staff créés avant la bascule RBAC.
+  final String? staffRoleId;
 
   const SbUser({
     required this.id,
@@ -677,6 +683,7 @@ class SbUser {
     this.lastSeenAt,
     this.permissions = const [],
     this.roleTitle,
+    this.staffRoleId,
   });
 
   bool get isActive => status == 'active';
@@ -695,6 +702,7 @@ class SbUser {
             ? (j['permissions'] as List).map((e) => e.toString()).toList()
             : const [],
         roleTitle: j['role_title'] as String?,
+        staffRoleId: j['staff_role_id'] as String?,
       );
 }
 
@@ -2041,6 +2049,10 @@ class SupabaseDbSource {
   // ── Création de comptes (via Edge Function `create-account`) ────────────────
   /// Crée un nouveau compte (prof / staff) côté serveur, déjà confirmé.
   /// L'école est déduite du compte appelant (jamais transmise par le client).
+  /// [staffRoleId] rattache l'employé à un rôle de l'école (source de vérité) ;
+  /// [permissions] en est la projection plate, dérivée via `RbacMapping` par
+  /// l'appelant. Les deux sont écrites ensemble pour que le menu et les gardes
+  /// existants continuent de fonctionner sans modification.
   static Future<void> createMemberAccount({
     required String email,
     required String password,
@@ -2048,6 +2060,7 @@ class SupabaseDbSource {
     required String role,
     List<String> permissions = const [],
     String? title,
+    String? staffRoleId,
   }) async {
     final res = await _db.functions.invoke('create-account', body: {
       'mode': 'create',
@@ -2059,27 +2072,39 @@ class SupabaseDbSource {
     _throwIfFnError(res);
 
     // Le compte est créé par l'Edge Function (auth + ligne users via trigger).
-    // On pose ensuite les permissions + le titre sur la ligne (RLS admin).
+    // On pose ensuite le rôle + les permissions + le titre (RLS admin).
     final data = res.data;
     final authUid = (data is Map) ? data['userId'] as String? : null;
-    if (authUid != null && (permissions.isNotEmpty || (title != null && title.isNotEmpty))) {
+    final hasWork = permissions.isNotEmpty ||
+        (title != null && title.isNotEmpty) ||
+        staffRoleId != null;
+    if (authUid != null && hasWork) {
       await _db.from('users').update({
         if (permissions.isNotEmpty) 'permissions': permissions,
         if (title != null && title.isNotEmpty) 'role_title': title.trim(),
+        if (staffRoleId != null) 'staff_role_id': staffRoleId,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('auth_uid', authUid);
     }
   }
 
-  /// Met à jour les permissions et le titre d'un membre du personnel existant.
+  /// Met à jour le rôle, les permissions et le titre d'un membre existant.
+  ///
+  /// [staffRoleId] : passer une valeur pour (re)rattacher à un rôle. Omettre le
+  /// paramètre laisse le rattachement inchangé — pour le détacher explicitement,
+  /// passer [clearStaffRole] à true.
   static Future<void> updateStaffAccess({
     required String id,
     required List<String> permissions,
     String? title,
+    String? staffRoleId,
+    bool clearStaffRole = false,
   }) async {
     await _db.from('users').update({
       'permissions': permissions,
       if (title != null) 'role_title': title.trim().isEmpty ? null : title.trim(),
+      if (clearStaffRole) 'staff_role_id': null
+      else if (staffRoleId != null) 'staff_role_id': staffRoleId,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
   }

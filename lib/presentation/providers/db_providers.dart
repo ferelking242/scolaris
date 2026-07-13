@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/permissions/rbac_mapping.dart';
 import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../shared/data/features_catalog.dart';
@@ -38,14 +39,43 @@ final schoolProvider = FutureProvider<SbSchool?>((ref) async {
 });
 
 // ── Rôles du personnel (RBAC granulaire) ────────────────────────────────────
-/// Vrai si l'école a déjà configuré au moins un rôle de personnel.
-/// Sert à déclencher l'étape "configuration des rôles" à la première
-/// connexion du fondateur/admin (voir [RoleSetupScreen]).
+/// Vrai si l'école a déjà au moins un rôle de personnel.
+///
+/// N'est plus utilisé pour bloquer l'accès au tableau de bord (cf. admin_home) :
+/// les rôles se créent au fil des invitations. Conservé pour l'affichage.
 final staffRolesConfiguredProvider = FutureProvider<bool>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return true;
   final roles = await StaffRolesSource.fetchStaffRoles(schoolId);
   return roles.isNotEmpty;
+});
+
+/// Cycle de l'école (`primaire` | `college` | `lycee` | `universite`), déduit de
+/// `schools.metadata.types`. Filtre les modèles de rôles proposés.
+final schoolCycleProvider = Provider<String>((ref) {
+  final school = ref.watch(schoolProvider).asData?.value;
+  return RbacMapping.cycleFromTypes(school?.types ?? const []);
+});
+
+/// Modèles de rôles du catalogue global, filtrés sur le cycle de l'école.
+/// (Proviseur/Censeur pour un lycée, Recteur/Doyen pour une université…)
+final roleTemplatesProvider = FutureProvider<List<SbRoleTemplate>>((ref) async {
+  final cycle = ref.watch(schoolCycleProvider);
+  return StaffRolesSource.fetchRoleTemplates(cycle);
+});
+
+/// Rôles réellement créés dans l'école (se remplit au fil des invitations).
+final staffRolesProvider = FutureProvider<List<SbStaffRole>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return StaffRolesSource.fetchStaffRoles(schoolId);
+});
+
+/// Catalogue global des modules et de leurs actions (référence, pas par école).
+/// Sert à traduire un module coché en grants `module.action`.
+final permissionCatalogProvider =
+    FutureProvider<List<SbPermissionModule>>((ref) async {
+  return StaffRolesSource.fetchPermissionCatalog();
 });
 
 // ── Students ──────────────────────────────────────────────────────────────────
