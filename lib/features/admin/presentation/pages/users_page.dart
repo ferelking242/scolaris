@@ -12,6 +12,7 @@ import '../../../../shared/data/enrollment_config.dart';
 import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
+import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
@@ -514,7 +515,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                 overflow: TextOverflow.ellipsis,
                                 style:
                                     TextStyle(fontSize: 12, color: context.cMuted)),
-                            _RoleBadge(role: u.role),
+                            _RoleBadge(user: u),
                             _StatusDot(active: u.isActive),
                             Text(
                               u.lastSeenAt != null
@@ -718,24 +719,56 @@ class _FilterRow extends StatelessWidget {
       );
 }
 
-class _RoleBadge extends StatelessWidget {
-  final String role;
-  const _RoleBadge({required this.role});
+/// Pastille de rôle.
+///
+/// Affiche le rôle RÉEL de la personne (« Secrétaire », « Comptable »), et non
+/// la clé technique (`staff_custom`), qui ne dit rien à personne. Pour le
+/// personnel sans rôle attribué — les comptes d'avant la bascule RBAC —, elle
+/// le dit franchement : sans rôle, ces gens n'ont AUCUN accès, et c'est
+/// exactement ce qu'un admin doit pouvoir repérer d'un coup d'œil.
+class _RoleBadge extends ConsumerWidget {
+  final SbUser user;
+  const _RoleBadge({required this.user});
+
+  static const _staffRoles = {'staff_custom', 'finance', 'surveillance'};
+
   @override
-  Widget build(BuildContext context) {
-    final color = _color(role) ?? context.cMuted;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: .3)),
-      ),
-      child: Text(role,
-          style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w700)),
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isStaff = _staffRoles.contains(user.role.toLowerCase());
+
+    if (isStaff && user.staffRoleId == null) {
+      return _pill(context, 'Sans rôle', const Color(0xFFDC2626));
+    }
+
+    var label = user.role;
+    var color = _color(user.role) ?? context.cMuted;
+
+    if (isStaff) {
+      final roles = ref.watch(staffRolesProvider).asData?.value;
+      final r = roles?.where((r) => r.id == user.staffRoleId).firstOrNull;
+      if (r != null) {
+        label = r.name;
+        color = colorFromHex(r.color); // la couleur choisie pour le rôle
+      } else {
+        label = user.roleTitle ?? user.role;
+      }
+    }
+
+    return _pill(context, label, color);
   }
+
+  Widget _pill(BuildContext context, String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: .3)),
+        ),
+        child: Text(label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+      );
 
   static Color? _color(String r) {
     switch (r) {
