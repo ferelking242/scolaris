@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/countries.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -55,8 +56,11 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   final _name         = TextEditingController();
   final _code         = TextEditingController();
   final _city         = TextEditingController();
-  final _country      = TextEditingController();
-  final _academicYear = TextEditingController();
+  // Le PAYS est un code ISO, pas une phrase. Un champ libre a produit « Congo »
+  // et « congo » en base, et la contrainte `schools_country_iso` refuse
+  // desormais ces valeurs : l'enregistrement echouerait. Cf. countries.dart.
+  String? _country;
+  String? _academicYear;
   final _logoUrl      = TextEditingController();
   String? _accentColor;
 
@@ -84,8 +88,10 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _name.text         = school.name;
           _code.text         = school.code         ?? '';
           _city.text         = school.city         ?? '';
-          _country.text      = school.country      ?? '';
-          _academicYear.text = school.academicYear ?? '';
+          _country           = kCountries.containsKey(school.country)
+                                 ? school.country
+                                 : null;   // valeur héritée non normalisée
+          _academicYear      = school.academicYear;
           _logoUrl.text      = school.logoUrl      ?? '';
           _accentColor       = school.accentColor;
           _types
@@ -117,8 +123,8 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         name:         _name.text,
         code:         _code.text,
         city:         _city.text,
-        country:      _country.text,
-        academicYear: _academicYear.text,
+        country:      _country ?? '',
+        academicYear: _academicYear ?? '',
         accentColor:  _accentColor,
         logoUrl:      _logoUrl.text,
       );
@@ -165,8 +171,6 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
     _name.dispose();
     _code.dispose();
     _city.dispose();
-    _country.dispose();
-    _academicYear.dispose();
     _logoUrl.dispose();
     super.dispose();
   }
@@ -203,11 +207,17 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _Field(
-                          controller: _academicYear,
+                        child: _Picker<String>(
+                          value: _academicYear,
                           label: 'Année scolaire',
                           icon: Icons.calendar_today_outlined,
-                          hint: 'ex: 2025-2026',
+                          items: {
+                            // L'année déjà enregistrée reste proposée même si
+                            // elle sort de la fenêtre courante.
+                            for (final y in academicYears()) y: y,
+                            if (_academicYear != null) _academicYear!: _academicYear!,
+                          },
+                          onChanged: (v) => setState(() => _academicYear = v),
                         ),
                       ),
                     ]),
@@ -222,10 +232,12 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _Field(
-                          controller: _country,
+                        child: _Picker<String>(
+                          value: _country,
                           label: 'Pays',
                           icon: Icons.public_outlined,
+                          items: kCountries,
+                          onChanged: (v) => setState(() => _country = v),
                         ),
                       ),
                     ]),
@@ -437,6 +449,43 @@ class _SaveButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Un choix dans une liste fermée — pour les champs dont la base impose le
+/// format (le pays est un code ISO) ou dont la valeur libre n'a aucun sens
+/// (« l'année scolaire », qu'on tapait à la main, faute de frappe comprise).
+class _Picker<T> extends StatelessWidget {
+  final T? value;
+  final String label;
+  final IconData icon;
+  final Map<T, String> items;
+  final ValueChanged<T?> onChanged;
+
+  const _Picker({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => DropdownButtonFormField<T>(
+        value: items.containsKey(value) ? value : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: const OutlineInputBorder(),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        ),
+        items: [
+          for (final e in items.entries)
+            DropdownMenuItem(value: e.key, child: Text(e.value)),
+        ],
+        onChanged: onChanged,
+      );
 }
 
 class _Field extends StatelessWidget {

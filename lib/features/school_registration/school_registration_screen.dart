@@ -7,6 +7,8 @@ import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/config/countries.dart';
+
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
 const _orange = Color(0xFFD4540A);
@@ -348,6 +350,15 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   bool _validateStep() {
     if (_step == 0) {
       if (_types.isEmpty) { setState(() => _globalError = 'Sélectionnez au moins un type d\'établissement.'); return false; }
+      // Le pays doit être RECONNU : la devise, le système éducatif et le
+      // catalogue des niveaux se calculent tous à partir de son code ISO. Un
+      // nom non reconnu ferait échouer l'enregistrement en base
+      // (contrainte schools_country_iso), avec un message incompréhensible.
+      if (countryCodeOf(_s1Country.text) == null) {
+        setState(() => _globalError =
+            'Pays non reconnu : choisissez-le dans la liste proposée.');
+        return false;
+      }
       return _s1Form.currentState?.validate() ?? false;
     }
     if (_step == 1) return _s2Form.currentState?.validate() ?? false;
@@ -374,7 +385,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'id'          : schoolId,
         'name'        : _s1Name.text.trim(),
         'code'        : slug,
-        'country'     : _s1Country.text.trim(),
+        // La base impose un code ISO (schools_country_iso). Le champ propose
+        // les NOMS — bonne ergonomie —, on convertit à l'enregistrement.
+        'country'     : countryCodeOf(_s1Country.text),
         'city'        : _s1City.text.trim(),
         'address'     : _s1Address.text.trim(),
         'website_url' : _s1Website.text.trim().isEmpty ? null : _s1Website.text.trim(),
