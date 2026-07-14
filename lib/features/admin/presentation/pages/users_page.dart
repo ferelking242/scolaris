@@ -18,14 +18,41 @@ import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 
+/// Deux populations, deux métiers, deux écrans.
+///
+/// Le PERSONNEL se recrute, porte un rôle, reçoit des droits. Les ÉLÈVES et
+/// leurs FAMILLES s'inscrivent, appartiennent à une classe, n'ont aucun droit
+/// d'administration. Les mélanger dans une liste « Utilisateurs » obligeait à
+/// filtrer pour retrouver la personne cherchée, et affichait à l'admin des
+/// colonnes qui n'ont de sens que pour la moitié des lignes.
+enum UsersScope {
+  /// Direction, secrétariat, comptabilité, surveillance, enseignants.
+  staff,
+
+  /// Élèves et parents.
+  families,
+}
+
 class UsersPage extends ConsumerStatefulWidget {
-  const UsersPage({super.key});
+  final UsersScope scope;
+  const UsersPage({super.key, this.scope = UsersScope.staff});
   @override
   ConsumerState<UsersPage> createState() => _UsersPageState();
 }
 
 class _UsersPageState extends ConsumerState<UsersPage> {
   String _filter = 'All';
+
+  bool get _isFamilies => widget.scope == UsersScope.families;
+
+  /// Les rôles de cet écran. Tout ce qui n'est ni élève ni parent est du
+  /// personnel — y compris les rôles historiques (`finance`, `surveillance`),
+  /// qu'on ne veut pas voir disparaître de la liste parce qu'on aurait oublié de
+  /// les énumérer.
+  bool _inScope(String role) {
+    final isFamily = role == 'student' || role == 'parent';
+    return _isFamilies ? isFamily : !isFamily;
+  }
 
   // Inscription inline (au lieu d'une route plein écran).
   bool _enrolling = false;
@@ -411,17 +438,20 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       );
     }
 
+    final pageTitle = _isFamilies ? 'Élèves & familles' : 'Personnel';
+
     final usersAsync = ref.watch(usersProvider);
     return usersAsync.when(
-      loading: () => const PageScaffold(
-        title: 'Utilisateurs',
-        child: Center(child: CircularProgressIndicator()),
+      loading: () => PageScaffold(
+        title: pageTitle,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
-        title: 'Utilisateurs',
+        title: pageTitle,
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (allUsers) {
+      data: (everyone) {
+        final allUsers = everyone.where((u) => _inScope(u.role)).toList();
         // Fiche élève inline : remplace la liste par le profil.
         if (_viewId != null) {
           final match = allUsers.where((u) => u.id == _viewId).toList();
@@ -440,30 +470,32 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
         return PageScaffold(
-          title: 'Utilisateurs',
-          subtitle: '${allUsers.length} comptes tous rôles',
+          title: pageTitle,
+          subtitle: _isFamilies
+              ? '${allUsers.length} élèves et parents'
+              : '${allUsers.length} membres du personnel',
           actions: [
-            ActionButton(
-                label: 'Inviter', icon: Icons.send_outlined, onTap: _openInvite),
-            const SizedBox(width: 8),
-            ActionButton(
-                label: 'Inscrire un élève',
-                icon: Icons.person_add_alt_1_rounded,
-                primary: true,
-                onTap: _openEnrollment),
+            // Chaque écran n'offre que le geste qui lui correspond : on
+            // n'INVITE pas un élève, on l'INSCRIT.
+            if (_isFamilies)
+              ActionButton(
+                  label: 'Inscrire un élève',
+                  icon: Icons.person_add_alt_1_rounded,
+                  primary: true,
+                  onTap: _openEnrollment)
+            else if (ref.watch(canProvider('utilisateurs.creer')))
+              ActionButton(
+                  label: 'Inviter',
+                  icon: Icons.send_outlined,
+                  primary: true,
+                  onTap: _openInvite),
           ],
           child: Column(children: [
             _FilterRow(
               current: _filter,
-              options: const [
-                'All',
-                'admin',
-                'teacher',
-                'finance',
-                'surveillance',
-                'parent',
-                'student',
-              ],
+              options: _isFamilies
+                  ? const ['All', 'student', 'parent']
+                  : const ['All', 'admin', 'teacher', 'finance', 'surveillance'],
               onChange: (v) => setState(() => _filter = v),
             ),
             const SizedBox(height: 12),

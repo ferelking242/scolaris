@@ -65,9 +65,20 @@ class AdminHome extends ConsumerWidget {
     RoleNavGroup(labelKey: 'sections.setup', entries: [
       RoleNavEntry(icon: Icons.home_rounded, activeIcon: Icons.home_rounded,
           labelKey: 'nav.dashboard', page: _AdminDashboard()),
+      // Deux populations, deux écrans. Le PERSONNEL se recrute et porte un rôle ;
+      // les ÉLÈVES s'inscrivent et appartiennent à une classe. Les mélanger dans
+      // « Utilisateurs » obligeait à filtrer pour retrouver quelqu'un.
+      RoleNavEntry(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded,
+          labelKey: 'Personnel',
+          page: PermissionGuard(
+              permission: StaffPermissions.staffManage,
+              child: UsersPage(scope: UsersScope.staff)),
+          permission: StaffPermissions.staffManage),
       RoleNavEntry(icon: Icons.group_outlined, activeIcon: Icons.group_rounded,
-          labelKey: 'nav.users',
-          page: PermissionGuard(permission: StaffPermissions.students, child: UsersPage()),
+          labelKey: 'Élèves & familles',
+          page: PermissionGuard(
+              permission: StaffPermissions.students,
+              child: UsersPage(scope: UsersScope.families)),
           permission: StaffPermissions.students),
       RoleNavEntry(icon: Icons.class_outlined, activeIcon: Icons.class_rounded,
           labelKey: 'nav.classes',

@@ -1837,10 +1837,20 @@ class SupabaseDbSource {
 
     final row = await _db
         .from('users')
-        .select('staff_role_id, permissions')
+        .select('role, staff_role_id, permissions')
         .eq('auth_uid', auth.id)
         .maybeSingle();
     if (row == null) return const {};
+
+    // Le FONDATEUR n'a ni rôle du personnel ni permissions : il est reconnu à
+    // son `users.role`. C'est ainsi que la base le voit (cf. has_permission,
+    // 20260716) et c'est ce qui débloque la première configuration — sans quoi
+    // il faudrait déjà un rôle pour créer le premier rôle.
+    // Même liste que supabase_auth_source.dart : garder les trois alignées.
+    const founders = {'admin', 'direction', 'directeur', 'dg'};
+    if (founders.contains((row['role'] as String?)?.toLowerCase())) {
+      return const {'*'};
+    }
 
     final legacy = (row['permissions'] as List?)?.cast<String>() ?? const [];
     if (legacy.contains('*')) return const {'*'};
