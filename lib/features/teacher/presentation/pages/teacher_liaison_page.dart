@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
@@ -83,12 +84,15 @@ class _TeacherLiaisonPageState extends ConsumerState<TeacherLiaisonPage> {
               ? 'Aucun mot écrit'
               : '${entries.length} mot(s) · ${selected.name}',
           actions: [
-            ActionButton(
-              label: 'Écrire un mot',
-              icon: Icons.edit_rounded,
-              primary: true,
-              onTap: () => _compose(selected),
-            ),
+            // Écrire dans le cahier est une permission à part (`liaison.ecrire`) :
+            // un directeur peut n'ouvrir l'écriture qu'aux instituteurs.
+            if (ref.watch(canProvider('liaison.ecrire')))
+              ActionButton(
+                label: 'Écrire un mot',
+                icon: Icons.edit_rounded,
+                primary: true,
+                onTap: () => _compose(selected),
+              ),
           ],
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 

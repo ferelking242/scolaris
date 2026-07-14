@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -106,15 +107,23 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
         final absent =
             _statusMap.values.where((s) => s == _Status.absent).length;
 
+        // Le rôle « Enseignant » se configure comme les autres : un directeur
+        // peut décider que l'appel revient au surveillant. Le prof garde alors
+        // la consultation — mais plus le bouton, ni les boutons de statut.
+        final canSaisir = ref.watch(canProvider('presences.saisir'));
+
         return PageScaffold(
           title: 'Présences — aujourd\'hui',
-          subtitle: 'Marquez présent, retard ou absent',
+          subtitle: canSaisir
+              ? 'Marquez présent, retard ou absent'
+              : 'Consultation seule — l’appel ne vous est pas confié',
           actions: [
-            ActionButton(
-                label: 'Enregistrer',
-                icon: Icons.check_rounded,
-                primary: true,
-                onTap: () => _save(students, selectedClass.id)),
+            if (canSaisir)
+              ActionButton(
+                  label: 'Enregistrer',
+                  icon: Icons.check_rounded,
+                  primary: true,
+                  onTap: () => _save(students, selectedClass.id)),
           ],
           child: Column(children: [
             _ClassPicker(
@@ -184,8 +193,10 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
                             _StatusToggle(
                               current:
                                   _statusMap[s.id] ?? _Status.present,
-                              onChanged: (v) =>
-                                  setState(() => _statusMap[s.id] = v),
+                              onChanged: canSaisir
+                                  ? (v) =>
+                                      setState(() => _statusMap[s.id] = v)
+                                  : null,
                             ),
                           ],
                       ],
@@ -303,7 +314,10 @@ class _SummaryCard extends StatelessWidget {
 
 class _StatusToggle extends StatelessWidget {
   final _Status current;
-  final ValueChanged<_Status> onChanged;
+
+  /// `null` = le professeur n'a pas le droit de faire l'appel : il voit le
+  /// statut, il ne le change pas.
+  final ValueChanged<_Status>? onChanged;
   const _StatusToggle({required this.current, required this.onChanged});
 
   @override
@@ -314,21 +328,21 @@ class _StatusToggle extends StatelessWidget {
             label: 'Présent',
             color: const Color(0xFF16A34A),
             active: current == _Status.present,
-            onTap: () => onChanged(_Status.present),
+            onTap: onChanged == null ? null : () => onChanged!(_Status.present),
           ),
           const SizedBox(width: 4),
           _Btn(
             label: 'Retard',
             color: const Color(0xFFEA580C),
             active: current == _Status.late,
-            onTap: () => onChanged(_Status.late),
+            onTap: onChanged == null ? null : () => onChanged!(_Status.late),
           ),
           const SizedBox(width: 4),
           _Btn(
             label: 'Absent',
             color: const Color(0xFFDC2626),
             active: current == _Status.absent,
-            onTap: () => onChanged(_Status.absent),
+            onTap: onChanged == null ? null : () => onChanged!(_Status.absent),
           ),
         ],
       );
@@ -338,7 +352,9 @@ class _Btn extends StatelessWidget {
   final String label;
   final Color color;
   final bool active;
-  final VoidCallback onTap;
+
+  /// `null` = bouton inerte : le professeur consulte l'appel sans le modifier.
+  final VoidCallback? onTap;
   const _Btn(
       {required this.label,
       required this.color,

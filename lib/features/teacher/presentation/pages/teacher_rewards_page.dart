@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
@@ -122,7 +123,9 @@ class _TeacherRewardsPageState extends ConsumerState<TeacherRewardsPage> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _StudentRow(
                         student: s,
-                        onAward: () => _award(s),
+                        onAward: ref.watch(canProvider('recompenses.attribuer'))
+                            ? () => _award(s)
+                            : null,
                       ),
                     ),
                 ]);
@@ -160,7 +163,9 @@ class _TeacherRewardsPageState extends ConsumerState<TeacherRewardsPage> {
 // ── Ligne élève ───────────────────────────────────────────────────────────────
 class _StudentRow extends ConsumerWidget {
   final SbStudent student;
-  final VoidCallback onAward;
+  /// `null` = ce professeur n'a pas le droit d'attribuer une récompense
+  /// (`recompenses.attribuer`). Il voit les étoiles, il n'en donne pas.
+  final VoidCallback? onAward;
   const _StudentRow({required this.student, required this.onAward});
 
   @override
@@ -191,12 +196,13 @@ class _StudentRow extends ConsumerWidget {
                   : '$etoiles étoile(s) · ${points.length} bon(s) point(s)',
               style: TextStyle(fontSize: 11, color: context.cMuted)),
         ])),
-        ActionButton(
-          label: 'Récompenser',
-          icon: Icons.star_rounded,
-          primary: true,
-          onTap: onAward,
-        ),
+        if (onAward != null)
+          ActionButton(
+            label: 'Récompenser',
+            icon: Icons.star_rounded,
+            primary: true,
+            onTap: onAward!,
+          ),
       ]),
     );
   }

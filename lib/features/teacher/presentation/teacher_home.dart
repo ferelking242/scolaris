@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/permissions/my_grants.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
@@ -15,66 +16,88 @@ import 'pages/gradebook_page.dart';
 import 'pages/teacher_liaison_page.dart';
 import 'pages/teacher_rewards_page.dart';
 
-class TeacherHome extends StatelessWidget {
+/// Le menu du professeur, **filtré par ses permissions**.
+///
+/// Le rôle « Enseignant » portait des permissions depuis 20260721, mais aucun
+/// écran du prof ne les lisait : l'admin pouvait décocher « Notes » et le carnet
+/// restait là — la base refusait la note, l'app affichait une erreur. La
+/// permission était décorative.
+///
+/// Un directeur peut désormais décider « chez moi les profs ne font pas l'appel,
+/// c'est le surveillant » : l'onglet disparaît. Le menu et la base disent enfin
+/// la même chose.
+class TeacherHome extends ConsumerWidget {
   const TeacherHome({super.key});
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    bool can(String g) => ref.watch(canProvider(g));
+
     return ResponsiveRoleShell(
       role: UserRole.teacher,
       title: 'Scolaris',
-      groups: const [
+      groups: [
         RoleNavGroup(labelKey: 'sections.setup', entries: [
-          RoleNavEntry(
+          const RoleNavEntry(
               icon: Icons.dashboard_outlined,
               activeIcon: Icons.dashboard_rounded,
               labelKey: 'nav.dashboard',
               page: _TeacherDashboard()),
-          RoleNavEntry(
-              icon: Icons.class_outlined,
-              activeIcon: Icons.class_rounded,
-              labelKey: 'nav.classes',
-              page: TeacherClassesPage()),
+          if (can('eleves.voir'))
+            const RoleNavEntry(
+                icon: Icons.class_outlined,
+                activeIcon: Icons.class_rounded,
+                labelKey: 'nav.classes',
+                page: TeacherClassesPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.activity', entries: [
-          RoleNavEntry(
-              icon: Icons.grading_outlined,
-              activeIcon: Icons.grading_rounded,
-              labelKey: 'nav.grades',
-              page: GradebookPage()),
-          RoleNavEntry(
-              icon: Icons.fact_check_outlined,
-              activeIcon: Icons.fact_check_rounded,
-              labelKey: 'nav.attendance',
-              page: AttendanceTodayPage()),
-          RoleNavEntry(
-              icon: Icons.qr_code_2_outlined,
-              activeIcon: Icons.qr_code_2_rounded,
-              labelKey: 'nav.qr',
-              page: QrPanel()),
-          RoleNavEntry(
-              icon: Icons.bar_chart_outlined,
-              activeIcon: Icons.bar_chart_rounded,
-              labelKey: 'nav.class_stats',
-              page: ClassStatsPage()),
+          if (can('notes.voir'))
+            const RoleNavEntry(
+                icon: Icons.grading_outlined,
+                activeIcon: Icons.grading_rounded,
+                labelKey: 'nav.grades',
+                page: GradebookPage()),
+          if (can('presences.voir'))
+            const RoleNavEntry(
+                icon: Icons.fact_check_outlined,
+                activeIcon: Icons.fact_check_rounded,
+                labelKey: 'nav.attendance',
+                page: AttendanceTodayPage()),
+          // Le QR sert à pointer les présences : sans le droit de faire l'appel,
+          // il ne mène nulle part.
+          if (can('presences.saisir'))
+            const RoleNavEntry(
+                icon: Icons.qr_code_2_outlined,
+                activeIcon: Icons.qr_code_2_rounded,
+                labelKey: 'nav.qr',
+                page: QrPanel()),
+          if (can('notes.voir'))
+            const RoleNavEntry(
+                icon: Icons.bar_chart_outlined,
+                activeIcon: Icons.bar_chart_rounded,
+                labelKey: 'nav.class_stats',
+                page: ClassStatsPage()),
           // L'écriture du cahier de liaison. Sans elle, le cahier que voient
           // les familles reste une boîte vide.
-          RoleNavEntry(
-              icon: Icons.import_contacts_outlined,
-              activeIcon: Icons.import_contacts_rounded,
-              labelKey: 'nav.cahier_liaison',
-              page: TeacherLiaisonPage()),
+          if (can('liaison.voir'))
+            const RoleNavEntry(
+                icon: Icons.import_contacts_outlined,
+                activeIcon: Icons.import_contacts_rounded,
+                labelKey: 'nav.cahier_liaison',
+                page: TeacherLiaisonPage()),
           // L'attribution des bons points et badges. Même logique : sans
           // écriture, le carnet des familles reste vide.
-          RoleNavEntry(
-              icon: Icons.emoji_events_outlined,
-              activeIcon: Icons.emoji_events_rounded,
-              labelKey: 'nav.recompenses',
-              page: TeacherRewardsPage()),
+          if (can('recompenses.voir'))
+            const RoleNavEntry(
+                icon: Icons.emoji_events_outlined,
+                activeIcon: Icons.emoji_events_rounded,
+                labelKey: 'nav.recompenses',
+                page: TeacherRewardsPage()),
         ]),
         // Messagerie retirée : l'écran était 100 % fictif (conversations codées
         // en dur, aucun accès à la base). À réintroduire quand une vraie
         // messagerie existera (schéma conversations/participants + RLS).
-        RoleNavGroup(labelKey: 'sections.account', entries: [
+        const RoleNavGroup(labelKey: 'sections.account', entries: [
           RoleNavEntry(
               icon: Icons.apps_outlined,
               activeIcon: Icons.apps_rounded,

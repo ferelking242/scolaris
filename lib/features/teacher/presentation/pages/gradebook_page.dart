@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
@@ -401,11 +402,18 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     return vals.fold(0.0, (s, v) => s + v) / vals.length;
   }
 
-  /// Cellule : lecture seule verrouillée si déjà validée, sinon saisissable.
-  Widget _cell(String studentId, String type) {
+  /// Cellule : verrouillée si la note est déjà validée, ou si ce professeur n'a
+  /// pas le droit de saisir (`notes.saisir`). Un directeur peut décider que
+  /// chez lui les profs consultent sans noter — la base le refuserait de toute
+  /// façon, autant ne pas afficher un champ qui mènera à une erreur.
+  Widget _cell(String studentId, String type, {required bool canSaisir}) {
     final existing = _existing(studentId, type);
     if (existing != null) {
       return _LockedGrade(value: existing.score, max: existing.maxScore);
+    }
+    if (!canSaisir) {
+      return Text('—',
+          style: TextStyle(fontSize: 12.5, color: context.cMuted));
     }
     return _GradeInput(
       controller: _ctrl(studentId, type),
@@ -499,6 +507,10 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
         ref.watch(studentsByClassProvider(widget.classObj.name));
     final gradesAsync =
         ref.watch(gradesForClassSubjectPeriodProvider(_key));
+    // Le rôle « Enseignant » est configurable comme les autres : un directeur
+    // peut retirer `notes.saisir` à ses profs. La base le refuserait ; le
+    // carnet, lui, affichait encore les champs et le bouton.
+    final canSaisir = ref.watch(canProvider('notes.saisir'));
 
     return studentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -589,7 +601,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                             Text(s.matricule ?? '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: muted)),
-                            for (final t in _types) _cell(s.id, t),
+                            for (final t in _types)
+                              _cell(s.id, t, canSaisir: canSaisir),
                             Builder(builder: (_) {
                               final avg = _avg(s.id);
                               if (avg == null) {
@@ -614,6 +627,30 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                       ],
                     ),
                     const SizedBox(height: 16),
+                    if (!canSaisir)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: context.cSubtle,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: context.cBorder),
+                        ),
+                        child: Row(children: [
+                          Icon(Icons.visibility_outlined,
+                              size: 16, color: context.cMuted),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Consultation seule : votre rôle ne vous autorise pas '
+                              'à saisir de notes.',
+                              style: TextStyle(
+                                  fontSize: 12, color: context.cMuted),
+                            ),
+                          ),
+                        ]),
+                      )
+                    else
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
