@@ -186,7 +186,12 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     final drafts = cards.length - published;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+      // En onglet, la page parente fait déjà défiler : ce ListView doit alors
+      // se contenter de sa hauteur naturelle, sinon deux zones de défilement
+      // s'emboîtent (ou le rendu plante faute de hauteur bornée).
+      shrinkWrap: widget.embedded,
+      physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
+      padding: EdgeInsets.fromLTRB(16, widget.embedded ? 0 : 18, 16, 32),
       children: [
         // ── Sélecteurs classe + trimestre ──────────────────────────────
         Container(

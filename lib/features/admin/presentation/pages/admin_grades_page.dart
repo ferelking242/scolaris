@@ -101,13 +101,16 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
             _Tab.bulletins => 'Le bulletin de chaque élève',
             _Tab.generer => 'Figer et publier les bulletins aux familles',
           },
+          // PageScaffold fait DÉJÀ défiler verticalement : ici, pas d'Expanded
+          // ni de second SingleChildScrollView — ils recevraient une hauteur
+          // infinie et feraient planter le rendu (« unbounded height »).
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _TabBar(value: _tab, onChanged: (t) => setState(() => _tab = t)),
             const SizedBox(height: 14),
             // La génération a son propre sélecteur de classe/période : on ne lui
             // impose pas ceux du haut.
             if (_tab == _Tab.generer)
-              const Expanded(child: ReportCardsPage(embedded: true))
+              const ReportCardsPage(embedded: true)
             else ...[
               _ClassChips(
                 classes: classes,
@@ -123,23 +126,18 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
               ),
               const SizedBox(height: 14),
               if (selected != null)
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: _tab == _Tab.notes
-                        ? _AdminNotesPanel(
-                            key: ValueKey('notes|${selected.id}|$period'),
-                            classObj: selected,
-                            period: period,
-                          )
-                        : _ClassGradesPanel(
-                            key: ValueKey('bul|${selected.id}|$period'),
-                            classObj: selected,
-                            period: period,
-                            onOpen: (s) =>
-                                setState(() => _bulletinStudent = s),
-                          ),
-                  ),
-                ),
+                _tab == _Tab.notes
+                    ? _AdminNotesPanel(
+                        key: ValueKey('notes|${selected.id}|$period'),
+                        classObj: selected,
+                        period: period,
+                      )
+                    : _ClassGradesPanel(
+                        key: ValueKey('bul|${selected.id}|$period'),
+                        classObj: selected,
+                        period: period,
+                        onOpen: (s) => setState(() => _bulletinStudent = s),
+                      ),
             ],
           ]),
         );
