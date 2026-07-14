@@ -27,8 +27,28 @@
 --  On cree donc le compte auth SANS metadonnees d'ecole (le trigger ne fait
 --  rien), puis on insere la ligne `users` a la main.
 --
---  Idempotent (`on conflict do nothing` partout). Rejouable.
+--  Idempotent. Rejouable.
 -- ============================================================================
+
+-- ── Prealable : un lien parent-enfant est UNIQUE ────────────────────────────
+--  `parent_student` n'avait aucune contrainte d'unicite sur (parent, enfant) :
+--  sa seule cle est `id`, alimentee par gen_random_uuid(). Un `on conflict do
+--  nothing` ne s'y declenche donc JAMAIS — rejouer ce script aurait rattache
+--  Pauline a Alice une seconde fois, et l'espace parent aurait affiche Alice en
+--  double.
+--
+--  Le defaut depasse le seed : `createOrLinkGuardian` (cote app) fait le meme
+--  insert. Deux clics sur « Ajouter un parent » suffisaient a dupliquer le lien.
+--  On pose la contrainte qui manquait — apres avoir nettoye les doublons deja
+--  crees, s'il y en a.
+delete from public.parent_student a
+ using public.parent_student b
+ where a.parent_id = b.parent_id
+   and a.student_id = b.student_id
+   and a.ctid > b.ctid;          -- on garde la plus ancienne ligne
+
+create unique index if not exists parent_student_unique_link
+  on public.parent_student (parent_id, student_id);
 
 do $$
 declare
@@ -97,7 +117,7 @@ begin
     (id, school_id, parent_id, student_id, relationship, is_primary, created_at)
   values
     (gen_random_uuid(), v_school_id, v_parent_uid, v_alice_id, 'mere', true, now())
-  on conflict do nothing;
+  on conflict (parent_id, student_id) do nothing;   -- cf. l'index pose plus haut
 
   raise notice 'OK — Pauline Moukoko (parent.elc@elc.cg) rattachee a Alice Moukoko.';
 end $$;
@@ -110,7 +130,8 @@ end $$;
 --      from public.parent_student ps
 --      join public.users p on p.id = ps.parent_id
 --      join public.users e on e.id = ps.student_id;
---    -- attendu : Pauline Moukoko → Alice Moukoko (mere)
+--    -- attendu : Pauline Moukoko → Alice Moukoko (mere) — UNE seule ligne,
+--    --           meme apres plusieurs rejeux du script.
 --
 --    -- L'adhesion existe (sinon la RLS bloque tout) :
 --    select status from public.school_members
@@ -128,4 +149,7 @@ end $$;
 --    delete from public.users           where id        = 'd0000000-0000-4000-8000-00000000e1c1';
 --    delete from auth.identities        where user_id   = 'd0000000-0000-4000-8000-00000000e1c1';
 --    delete from auth.users             where id        = 'd0000000-0000-4000-8000-00000000e1c1';
+--
+--  (L'index `parent_student_unique_link` est CONSERVE : il corrige un defaut
+--   reel de l'application, il ne fait pas partie du jeu de demonstration.)
 -- ============================================================================
