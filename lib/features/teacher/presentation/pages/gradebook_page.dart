@@ -10,7 +10,16 @@ const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 
-const _types = ['interro1', 'interro2', 'examen'];
+/// Types d'évaluation — le vocabulaire de la BASE (contrainte grades_type_check :
+/// devoir | examen | controle | tp | oral | projet). Le carnet parlait
+/// « interro1/interro2 », que la base refusait : aucune note ne pouvait être
+/// enregistrée. C'est le même vocabulaire que l'espace élève.
+const _types = ['devoir', 'controle', 'examen'];
+const _typeLabels = {
+  'devoir': 'Devoir',
+  'controle': 'Contrôle',
+  'examen': 'Examen',
+};
 
 class GradebookPage extends ConsumerStatefulWidget {
   const GradebookPage({super.key});
@@ -526,9 +535,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                       columns: [
                         'Élève',
                         'Matricule',
-                        'Interro 1 /${_max.toStringAsFixed(0)}',
-                        'Interro 2 /${_max.toStringAsFixed(0)}',
-                        'Examen /${_max.toStringAsFixed(0)}',
+                        for (final t in _types)
+                          '${_typeLabels[t]} /${_max.toStringAsFixed(0)}',
                         'Moy.',
                       ],
                       flex: const [3, 2, 1, 1, 1, 1],
@@ -552,9 +560,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                             Text(s.matricule ?? '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: muted)),
-                            _cell(s.id, 'interro1'),
-                            _cell(s.id, 'interro2'),
-                            _cell(s.id, 'examen'),
+                            for (final t in _types) _cell(s.id, t),
                             Builder(builder: (_) {
                               final avg = _avg(s.id);
                               if (avg == null) {
