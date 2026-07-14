@@ -1471,6 +1471,22 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbAttendance.fromJson(j as Map<String, dynamic>)).toList();
   }
 
+  /// Absences et retards de toute une classe — pour le bulletin, qui les
+  /// compte par élève. On ne lit **que** ce qui fait défaut (`status <> present`) :
+  /// une classe de 40 élèves sur un trimestre, c'est des milliers de lignes de
+  /// présence dont le bulletin n'a rien à faire.
+  static Future<List<SbAbsence>> getAbsencesForClass(String classId) async {
+    final data = await _db
+        .from('absences')
+        .select()
+        .eq('class_id', classId)
+        .neq('status', 'present')
+        .order('absence_date', ascending: false);
+    return (data as List)
+        .map((j) => SbAbsence.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
   static Future<List<SbAbsence>> getAbsencesForStudent(String studentId) async {
     final data = await _db
         .from('absences')

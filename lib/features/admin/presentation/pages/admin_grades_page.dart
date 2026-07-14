@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/bulletin/bulletin_math.dart';
+import 'bulletin_pdf.dart';
+
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
-import '../../../../shared/services/print_service.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra = Color(0xFF8B1A00);
@@ -11,85 +13,20 @@ const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 const _orange = Color(0xFFD4540A);
 
-// ── Calcul partagé (mêmes règles que le bulletin élève) ──────────────────────
-class _BulletinRow {
-  final String matiere;
-  final int coef;
-  final double moyenne;
-  final String appreciation;
-  const _BulletinRow({
-    required this.matiere,
-    required this.coef,
-    required this.moyenne,
-    required this.appreciation,
-  });
-}
+// ── Le calcul du bulletin vit dans core/bulletin/bulletin_math.dart ─────────
+//  Il y était autrefois ici, en double, et en FAUX : une moyenne arithmétique
+//  de toutes les notes, quand le bulletin congolais pondère la composition.
+//  Deux calculs pour une même moyenne, c'est la liste qui affiche 12,00 et le
+//  bulletin 12,17. Il n'en reste qu'un, et il est testé.
 
-String _mention(double moy) {
-  if (moy >= 16) return 'Très Bien';
-  if (moy >= 14) return 'Bien';
-  if (moy >= 12) return 'Assez Bien';
-  if (moy >= 10) return 'Passable';
-  return 'Insuffisant';
-}
-
+/// La couleur d'une mention. Le libellé, lui, vient de [mentionOf] — une seule
+/// source, partagée avec le bulletin et le PDF.
 Color _mentionColor(double moy) {
   if (moy >= 16) return _green;
   if (moy >= 14) return const Color(0xFF0EA5E9);
   if (moy >= 12) return _gold;
   if (moy >= 10) return _orange;
   return _terra;
-}
-
-String _autoAppreciation(double avg) {
-  if (avg >= 16) return 'Excellent travail, continuez sur cette lancée';
-  if (avg >= 14) return 'Très bon résultat ce semestre';
-  if (avg >= 12) return 'Bon niveau, peut encore progresser';
-  if (avg >= 10) return 'Résultat passable, des efforts sont nécessaires';
-  return 'Résultat insuffisant, un travail important est requis';
-}
-
-/// Lignes du bulletin d'un élève pour une période, à partir des notes de la
-/// classe et du **programme de sa classe** (ses cours).
-///
-/// Le programme, et non le catalogue de l'école : le lycée enseigne la
-/// philosophie, le CM2 non — son bulletin ne doit pas en porter la trace. Et le
-/// coefficient est celui de la matière **dans cette classe** : les maths pèsent
-/// 5 en série C, 2 en série A (cf. 20260739).
-List<_BulletinRow> _rowsFor(
-    String studentId, List<SbGrade> classGrades, List<SbCourse> programme, String period) {
-  final g = classGrades
-      .where((x) => x.studentId == studentId && x.period == period)
-      .toList();
-  final bySubject = <String, List<SbGrade>>{};
-  for (final x in g) {
-    if (x.subjectId == null) continue;
-    (bySubject[x.subjectId!] ??= []).add(x);
-  }
-  final rows = <_BulletinRow>[];
-  for (final cours in programme) {
-    final grades = bySubject[cours.subjectId];
-    if (grades == null || grades.isEmpty) continue;
-    final avg = grades.fold(0.0, (s, x) => s + x.outOf20) / grades.length;
-    final comment = grades
-        .where((x) => x.comment != null && x.comment!.isNotEmpty)
-        .lastOrNull
-        ?.comment;
-    rows.add(_BulletinRow(
-      matiere: cours.name,
-      coef: cours.coefficient,
-      moyenne: avg,
-      appreciation: comment ?? _autoAppreciation(avg),
-    ));
-  }
-  return rows;
-}
-
-double _generalAvg(List<_BulletinRow> rows) {
-  if (rows.isEmpty) return 0;
-  final totalPts = rows.fold(0.0, (s, r) => s + r.moyenne * r.coef);
-  final totalCoef = rows.fold(0, (s, r) => s + r.coef);
-  return totalCoef > 0 ? totalPts / totalCoef : 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -188,10 +125,12 @@ class _ClassGradesPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsByClassProvider(classObj.name));
-    final gradesAsync = ref.watch(gradesForClassProvider(classObj.id));
-    final subjectsAsync = ref.watch(coursesForClassProvider(classObj.id));
+    // Le MÊME calcul que le bulletin. Deux moyennes qui ne se parlent pas, c'est
+    // la liste qui dit 12,00 et le bulletin 12,17 — et un parent qui appelle.
+    final bulletinsAsync =
+        ref.watch(classBulletinsProvider('${classObj.id}|$period'));
 
-    if (studentsAsync.isLoading || gradesAsync.isLoading || subjectsAsync.isLoading) {
+    if (studentsAsync.isLoading || bulletinsAsync.isLoading) {
       return const DataPanel(
         child: Padding(
           padding: EdgeInsets.all(28),
@@ -200,9 +139,8 @@ class _ClassGradesPanel extends ConsumerWidget {
       );
     }
 
-    final students = studentsAsync.valueOrNull ?? const [];
-    final grades = gradesAsync.valueOrNull ?? const [];
-    final subjects = subjectsAsync.valueOrNull ?? const [];
+    final students = studentsAsync.valueOrNull ?? const <SbStudent>[];
+    final bulletins = bulletinsAsync.valueOrNull ?? const <String, Bulletin>{};
 
     if (students.isEmpty) {
       return const _Empty(
@@ -210,42 +148,38 @@ class _ClassGradesPanel extends ConsumerWidget {
           text: 'Aucun élève dans cette classe.');
     }
 
-    // Pré-calcul des moyennes pour trier (meilleur → moins bon).
-    final computed = [
-      for (final s in students)
-        (
-          student: s,
-          rows: _rowsFor(s.id, grades, subjects, period),
-        )
-    ]..sort((a, b) {
-        final avgA = a.rows.isEmpty ? -1.0 : _generalAvg(a.rows);
-        final avgB = b.rows.isEmpty ? -1.0 : _generalAvg(b.rows);
+    // Le rang vient du calcul, pas de la position dans la liste : deux élèves
+    // ex æquo portent le même rang.
+    final sorted = [...students]..sort((a, b) {
+        final ba = bulletins[a.id], bb = bulletins[b.id];
+        final avgA = (ba == null || ba.isEmpty) ? -1.0 : ba.average;
+        final avgB = (bb == null || bb.isEmpty) ? -1.0 : bb.average;
         return avgB.compareTo(avgA);
       });
 
-    final withGrades = computed.where((c) => c.rows.isNotEmpty).length;
+    final noted =
+        students.where((s) => !(bulletins[s.id]?.isEmpty ?? true)).length;
 
     return DataPanel(
-      title: '${classObj.name} — $withGrades/${students.length} élève(s) noté(s)',
+      title: '${classObj.name} — $noted/${students.length} élève(s) noté(s)',
       child: DataTablePanel(
-        columns: const ['#', 'Élève', 'Moy. générale', 'Mention', ''],
+        columns: const ['Rang', 'Élève', 'Moy. générale', 'Mention', ''],
         flex: const [1, 4, 2, 3, 1],
         rows: [
-          for (var i = 0; i < computed.length; i++)
-            _row(context, i + 1, computed[i].student, computed[i].rows),
+          for (final s in sorted) _row(context, s, bulletins[s.id]),
         ],
       ),
     );
   }
 
-  List<Widget> _row(
-      BuildContext context, int rank, SbStudent s, List<_BulletinRow> rows) {
-    final hasGrades = rows.isNotEmpty;
-    final avg = hasGrades ? _generalAvg(rows) : 0.0;
+  List<Widget> _row(BuildContext context, SbStudent s, Bulletin? b) {
+    final hasGrades = b != null && !b.isEmpty;
+    final avg = hasGrades ? b.average : 0.0;
     final c = _mentionColor(avg);
     return [
-      Text('$rank',
-          style: TextStyle(fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
+      Text(hasGrades ? '${b.rank}' : '—',
+          style: TextStyle(
+              fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
       Row(children: [
         Avatar(name: s.fullName, size: 24),
         const SizedBox(width: 8),
@@ -257,7 +191,7 @@ class _ClassGradesPanel extends ConsumerWidget {
         ),
       ]),
       hasGrades
-          ? Text(avg.toStringAsFixed(2),
+          ? Text(avg.toStringAsFixed(2).replaceAll('.', ','),
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: c))
           : Text('—', style: TextStyle(fontSize: 13, color: context.cMuted)),
       hasGrades
@@ -269,7 +203,7 @@ class _ClassGradesPanel extends ConsumerWidget {
                   color: c.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(_mention(avg),
+                child: Text(b.mention,
                     style: TextStyle(
                         fontSize: 11, color: c, fontWeight: FontWeight.w700)),
               ),
@@ -305,9 +239,12 @@ class _StudentBulletinPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final periodLabel = ref.watch(schoolFormatProvider).periodLabel(period);
-    final gradesAsync = ref.watch(gradesForStudentProvider(student.id));
-    final subjectsAsync = ref.watch(coursesForClassProvider(classId));
     final school = ref.watch(schoolProvider).valueOrNull;
+    final rules = BulletinRules.fromSchool(school);
+    // Les bulletins de TOUTE la classe : sans les autres, cet élève n'a ni rang,
+    // ni moyenne de classe, ni premier, ni dernier.
+    final bulletinsAsync =
+        ref.watch(classBulletinsProvider('$classId|$period'));
 
     return PageScaffold(
       title: 'Bulletin',
@@ -315,7 +252,7 @@ class _StudentBulletinPage extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour aux notes', onTap: onBack),
         const SizedBox(height: 14),
-        gradesAsync.when(
+        bulletinsAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(child: CircularProgressIndicator()),
@@ -324,10 +261,23 @@ class _StudentBulletinPage extends ConsumerWidget {
             padding: const EdgeInsets.all(24),
             child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
           ),
-          data: (allGrades) {
-            final subjects = subjectsAsync.valueOrNull ?? const [];
-            final rows = _rowsFor(student.id, allGrades, subjects, period);
-            final avg = _generalAvg(rows);
+          data: (all) {
+            final b = all[student.id];
+
+            if (b == null || b.isEmpty) {
+              return Column(children: [
+                _InfoCard(
+                  name: student.fullName,
+                  classe: className,
+                  matricule: student.matricule,
+                  periodLabel: periodLabel,
+                ),
+                const SizedBox(height: 14),
+                const _Empty(
+                    icon: Icons.receipt_long_outlined,
+                    text: 'Aucune note saisie pour cette période.'),
+              ]);
+            }
 
             return Column(children: [
               _InfoCard(
@@ -337,51 +287,187 @@ class _StudentBulletinPage extends ConsumerWidget {
                 periodLabel: periodLabel,
               ),
               const SizedBox(height: 14),
-              if (rows.isEmpty)
-                const _Empty(
-                    icon: Icons.receipt_long_outlined,
-                    text: 'Aucune note saisie pour cette période.')
-              else ...[
-                _GradesTable(rows: rows),
-                const SizedBox(height: 14),
-                _SummaryCard(avg: avg),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => PrintService.printBulletin(
-                      studentName: student.fullName,
-                      schoolName: school?.name ?? 'École',
-                      period: periodLabel,
-                      rows: rows
-                          .map((r) => {
-                                'subject': r.matiere,
-                                'coef': r.coef,
-                                'grade': r.moyenne,
-                                'appreciation': r.appreciation,
-                              })
-                          .toList(),
-                      average: avg,
-                      mention: _mention(avg),
-                    ),
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Télécharger le bulletin (PDF)',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _terra,
-                      side: const BorderSide(color: _terra),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
+              _BulletinTable(bulletin: b, rules: rules),
+              const SizedBox(height: 14),
+              _CouncilCard(bulletin: b),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  // Impression DIRECTE : `printing` ouvre la boîte de dialogue
+                  // du système. Pas d'export-puis-ouvrir — le bulletin part à
+                  // l'imprimante, ou se sauvegarde en PDF, au choix.
+                  onPressed: () => printBulletin(
+                    school: school,
+                    student: student,
+                    className: className,
+                    periodLabel: periodLabel,
+                    bulletin: b,
+                    rules: rules,
+                  ),
+                  icon: const Icon(Icons.print_rounded, size: 18),
+                  label: const Text('Imprimer le bulletin',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _terra,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
-                const SizedBox(height: 8),
-              ],
+              ),
+              const SizedBox(height: 8),
             ]);
           },
         ),
       ]),
+    );
+  }
+}
+
+/// Le tableau du bulletin — celui du papier : le détail des devoirs, la M.C, la
+/// composition, le coefficient, le total, la moyenne, le rang, l'observation.
+///
+/// L'ancien n'affichait qu'une moyenne par matière. Le parent ne pouvait pas
+/// voir d'où elle venait — et le prof ne pouvait pas la vérifier.
+class _BulletinTable extends StatelessWidget {
+  final Bulletin bulletin;
+  final BulletinRules rules;
+  const _BulletinTable({required this.bulletin, required this.rules});
+
+  static String _n(double? v) =>
+      v == null ? '—' : v.toStringAsFixed(2).replaceAll('.', ',');
+  static String _rg(int? r) => r == null ? '—' : (r == 1 ? '1er' : '${r}e');
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = rules.devoirLabels;
+    return DataPanel(
+      title: 'Notes de la période',
+      padding: EdgeInsets.zero,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowHeight: 40,
+          dataRowMinHeight: 36,
+          dataRowMaxHeight: 42,
+          columnSpacing: 18,
+          headingTextStyle: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: context.cMuted),
+          dataTextStyle: TextStyle(fontSize: 12.5, color: context.cInk),
+          columns: [
+            const DataColumn(label: Text('Matière')),
+            for (final l in labels) DataColumn(label: Text(l), numeric: true),
+            const DataColumn(label: Text('M.C'), numeric: true),
+            const DataColumn(label: Text('Compo'), numeric: true),
+            const DataColumn(label: Text('Coef.'), numeric: true),
+            const DataColumn(label: Text('Total'), numeric: true),
+            const DataColumn(label: Text('Moy.'), numeric: true),
+            const DataColumn(label: Text('RG'), numeric: true),
+            const DataColumn(label: Text('Observations')),
+          ],
+          rows: [
+            for (final l in bulletin.lines)
+              DataRow(cells: [
+                DataCell(Text(l.subject,
+                    style: const TextStyle(fontWeight: FontWeight.w600))),
+                for (final d in l.devoirs) DataCell(Text(_n(d))),
+                DataCell(Text(_n(l.mc))),
+                DataCell(Text(_n(l.compo))),
+                DataCell(Text('${l.coef}')),
+                DataCell(Text(_n(l.total))),
+                DataCell(Text(_n(l.average),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: (l.average ?? 0) >= 10 ? _green : _terra))),
+                DataCell(Text(_rg(l.rank))),
+                DataCell(Text(l.appreciation,
+                    style: TextStyle(fontSize: 12, color: context.cMuted))),
+              ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Le pavé du conseil de classe : ce qui décide du passage en classe supérieure.
+class _CouncilCard extends StatelessWidget {
+  final Bulletin bulletin;
+  const _CouncilCard({required this.bulletin});
+
+  static String _n(double? v) =>
+      v == null ? '—' : v.toStringAsFixed(2).replaceAll('.', ',');
+
+  @override
+  Widget build(BuildContext context) {
+    final b = bulletin;
+    final ok = b.average >= 10;
+
+    Widget stat(String k, String v) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(k, style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+            Text(v,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: context.cInk)),
+          ]),
+        );
+
+    return DataPanel(
+      title: 'Conseil de classe',
+      child: Wrap(
+        spacing: 24,
+        runSpacing: 16,
+        children: [
+          SizedBox(
+            width: 240,
+            child: Column(children: [
+              stat('Moyenne générale', '${_n(b.average)} / 20'),
+              stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
+              stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
+            ]),
+          ),
+          SizedBox(
+            width: 240,
+            child: Column(children: [
+              stat('Moyenne de la classe', _n(b.classAverage)),
+              stat('Premier', _n(b.bestAverage)),
+              stat('Dernier', _n(b.worstAverage)),
+            ]),
+          ),
+          SizedBox(
+            width: 240,
+            child: Column(children: [
+              stat('Absences', '${b.absences}'),
+              stat('Retards', '${b.lates}'),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: (ok ? _green : _terra).withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: (ok ? _green : _terra).withValues(alpha: .3)),
+            ),
+            child: Column(children: [
+              Text(b.decision,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: ok ? _green : _terra)),
+              const SizedBox(height: 2),
+              Text('Mention : ${b.mention}',
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+            ]),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -488,183 +574,6 @@ class _InfoCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text('Matricule : ${matricule ?? '—'}',
                 style: TextStyle(color: context.cMuted, fontSize: 11.5)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class _GradesTable extends ConsumerWidget {
-  final List<_BulletinRow> rows;
-  const _GradesTable({required this.rows});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Barème de l'école : /20, /100 ou lettres. Jamais figé — un bulletin
-    // nigérian noté « 14/20 » ne veut rien dire là-bas.
-    final fmt = ref.watch(schoolFormatProvider);
-    final totalCoef = rows.fold(0, (s, r) => s + r.coef);
-    final generalAvg = _generalAvg(rows);
-    return Container(
-      decoration: BoxDecoration(
-        color: context.cCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.cBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
-            color: _terra,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
-          ),
-          child: Row(children: [
-            const Expanded(
-                flex: 5,
-                child: Text('Matière',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700))),
-            Expanded(
-                flex: 1,
-                child: Text('Coef',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700))),
-            Expanded(
-                flex: 2,
-                child: Text(fmt.gradeHeader,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700))),
-          ]),
-        ),
-        ...rows.asMap().entries.map((e) {
-          final r = e.value;
-          final isEven = e.key % 2 == 0;
-          final c = r.moyenne >= 14 ? _green : r.moyenne >= 10 ? _orange : _terra;
-          return Container(
-            color: isEven ? context.cSubtle : context.cCard,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(
-                    flex: 5,
-                    child: Text(r.matiere,
-                        style: TextStyle(
-                            color: context.cInk, fontSize: 13, fontWeight: FontWeight.w600))),
-                Expanded(
-                    flex: 1,
-                    child: Center(
-                        child: Text('${r.coef}',
-                            style: const TextStyle(
-                                color: _terra,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800)))),
-                Expanded(
-                    flex: 2,
-                    child: Center(
-                        child: Text(r.moyenne.toStringAsFixed(1),
-                            style: TextStyle(
-                                color: c,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800)))),
-              ]),
-              const SizedBox(height: 3),
-              Text(r.appreciation,
-                  style: TextStyle(
-                      fontSize: 10.5,
-                      color: context.cMuted,
-                      fontStyle: FontStyle.italic)),
-            ]),
-          );
-        }),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: context.cSubtle,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
-          ),
-          child: Row(children: [
-            Expanded(
-                flex: 5,
-                child: Text('Moyenne Générale',
-                    style: TextStyle(
-                        color: context.cInk, fontSize: 13, fontWeight: FontWeight.w800))),
-            Expanded(
-                flex: 1,
-                child: Center(
-                    child: Text('$totalCoef',
-                        style: TextStyle(
-                            color: context.cMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)))),
-            Expanded(
-                flex: 2,
-                child: Center(
-                    child: Text(generalAvg.toStringAsFixed(2),
-                        style: const TextStyle(
-                            color: _terra,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900)))),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class _SummaryCard extends ConsumerWidget {
-  final double avg;
-  const _SummaryCard({required this.avg});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fmt = ref.watch(schoolFormatProvider);
-    final c = _mentionColor(avg);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [c.withValues(alpha: .08), c.withValues(alpha: .02)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.withValues(alpha: .2)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(color: c.withValues(alpha: .15), shape: BoxShape.circle),
-          child: Center(
-              child: Text(avg.toStringAsFixed(2),
-                  style: TextStyle(
-                      color: c, fontSize: 16, fontWeight: FontWeight.w900))),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Mention : ${_mention(avg)}',
-                style: TextStyle(
-                    color: c, fontSize: 16, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: fmt.ratio(avg),
-                backgroundColor: c.withValues(alpha: .1),
-                valueColor: AlwaysStoppedAnimation<Color>(c),
-                minHeight: 5,
-              ),
-            ),
           ]),
         ),
       ]),

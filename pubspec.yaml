@@ -26,6 +26,12 @@ dependencies:
   # Theme
   flex_color_scheme: 8.2.0
 
+  # Bulletins : PDF A4 + impression directe (Windows, Android, iOS, web).
+  # `printing` ouvre la boîte de dialogue d'impression du système — pas
+  # d'export-puis-ouvrir : le bulletin part à l'imprimante depuis l'app.
+  pdf: ^3.11.1
+  printing: ^5.13.4
+
   # Responsive
   flutter_screenutil: ^5.9.3
   responsive_framework: ^1.5.1

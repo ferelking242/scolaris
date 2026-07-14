@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/bulletin/bulletin_math.dart';
 import '../../core/config/school_format.dart';
 import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
@@ -353,6 +354,52 @@ final gradesForStudentProvider = FutureProvider.family<List<SbGrade>, String>(
 final gradesForClassProvider = FutureProvider.family<List<SbGrade>, String>(
   (ref, classId) async => SupabaseDbSource.getGradesForClass(classId),
 );
+
+/// Absences et retards d'une classe (tout ce qui n'est pas « présent »).
+final absencesForClassProvider = FutureProvider.family<List<SbAbsence>, String>(
+  (ref, classId) async => SupabaseDbSource.getAbsencesForClass(classId),
+);
+
+/// Les bulletins de **toute une classe**, pour une période. Clé : `classId|période`.
+///
+/// Toute la classe d'un coup, et pas élève par élève : le rang par matière, le
+/// rang général, la moyenne de la classe, le premier et le dernier n'existent
+/// pas sans les autres. Un bulletin isolé ne peut pas connaître son rang.
+///
+/// Le calcul lui-même est dans [buildBulletins] — sans widget ni requête, donc
+/// vérifiable : il l'est, contre un vrai bulletin (test/bulletin_math_test.dart).
+final classBulletinsProvider =
+    FutureProvider.family<Map<String, Bulletin>, String>((ref, key) async {
+  final parts = key.split('|');
+  final classId = parts.first;
+  final period = parts.length > 1 ? parts[1] : 'T1';
+
+  final classes = await ref.watch(classesProvider.future);
+  final classObj = classes.where((c) => c.id == classId).firstOrNull;
+  if (classObj == null) return const {};
+
+  final students = await ref.watch(studentsByClassProvider(classObj.name).future);
+  final programme = await ref.watch(coursesForClassProvider(classId).future);
+  final grades = await ref.watch(gradesForClassProvider(classId).future);
+  final absences = await ref.watch(absencesForClassProvider(classId).future);
+  final school = await ref.watch(schoolProvider.future);
+
+  final attendance = <String, ({int absences, int lates})>{};
+  for (final a in absences) {
+    final cur = attendance[a.studentId] ?? (absences: 0, lates: 0);
+    attendance[a.studentId] = a.status == 'late'
+        ? (absences: cur.absences, lates: cur.lates + 1)
+        : (absences: cur.absences + 1, lates: cur.lates);
+  }
+
+  return buildBulletins(
+    studentIds: students.map((s) => s.id).toList(),
+    programme: programme,
+    grades: grades.where((g) => g.period == period).toList(),
+    rules: BulletinRules.fromSchool(school),
+    attendance: attendance,
+  );
+});
 
 /// Notes pour (classId, subjectId, period) — utilisé par le carnet de notes prof.
 /// Clé encodée : "classId|subjectId|period" pour compatibilité family<String>.
