@@ -41,7 +41,7 @@ class UsersPage extends ConsumerStatefulWidget {
 }
 
 class _UsersPageState extends ConsumerState<UsersPage> {
-  String _filter = 'All';
+  String _filter = 'all';
 
   bool get _isFamilies => widget.scope == UsersScope.families;
 
@@ -463,10 +463,31 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             if (mounted) setState(() => _viewId = null);
           });
         }
-        final users = allUsers
-            .where((u) =>
-                _filter == 'All' || u.role == _filter.toLowerCase())
-            .toList();
+        // ── Filtres ────────────────────────────────────────────────────────
+        //  Côté PERSONNEL, on filtre par RÔLE réel de l'école (Secrétaire,
+        //  Comptable, et tous ceux que l'admin a créés) — pas par le rôle
+        //  technique du compte. C'est le rôle qui porte les droits, c'est donc
+        //  lui que le directeur cherche.
+        final schoolRoles =
+            ref.watch(staffRolesProvider).valueOrNull ?? const <SbStaffRole>[];
+
+        final options = <_FilterOption>[
+          (key: 'all', label: 'Tous'),
+          if (_isFamilies) ...[
+            (key: 'student', label: 'Élèves'),
+            (key: 'parent', label: 'Parents'),
+          ] else ...[
+            for (final r in schoolRoles) (key: r.id, label: r.name),
+            (key: 'none', label: 'Sans rôle'),
+          ],
+        ];
+
+        final users = allUsers.where((u) {
+          if (_filter == 'all') return true;
+          if (_isFamilies) return u.role == _filter;
+          if (_filter == 'none') return u.staffRoleId == null;
+          return u.staffRoleId == _filter;
+        }).toList();
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
         return PageScaffold(
@@ -493,9 +514,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           child: Column(children: [
             _FilterRow(
               current: _filter,
-              options: _isFamilies
-                  ? const ['All', 'student', 'parent']
-                  : const ['All', 'admin', 'teacher', 'finance', 'surveillance'],
+              options: options,
               onChange: (v) => setState(() => _filter = v),
             ),
             const SizedBox(height: 12),
@@ -735,9 +754,17 @@ class _ProfileKV extends StatelessWidget {
   }
 }
 
+/// Une option de filtre : une clé technique, un libellé lisible.
+///
+/// Les filtres affichaient les rôles TECHNIQUES bruts (`teacher`, `finance`,
+/// `surveillance`) — de l'anglais de base de données, montré tel quel à un
+/// directeur congolais. Et ils ignoraient les rôles réels de l'école : pas de
+/// Secrétaire, pas de Comptable, et aucun des rôles que l'admin crée lui-même.
+typedef _FilterOption = ({String key, String label});
+
 class _FilterRow extends StatelessWidget {
   final String current;
-  final List<String> options;
+  final List<_FilterOption> options;
   final ValueChanged<String> onChange;
   const _FilterRow(
       {required this.current, required this.options, required this.onChange});
@@ -750,14 +777,17 @@ class _FilterRow extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(o),
-                  selected: current == o,
-                  onSelected: (_) => onChange(o),
+                  label: Text(o.label),
+                  selected: current == o.key,
+                  onSelected: (_) => onChange(o.key),
                   selectedColor: const Color(0xFF8B1A00).withValues(alpha: .12),
                   labelStyle: TextStyle(
                     fontSize: 12,
-                    color: current == o ? const Color(0xFF8B1A00) : context.cMuted,
-                    fontWeight: current == o ? FontWeight.w700 : FontWeight.w500,
+                    color: current == o.key
+                        ? const Color(0xFF8B1A00)
+                        : context.cMuted,
+                    fontWeight:
+                        current == o.key ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
