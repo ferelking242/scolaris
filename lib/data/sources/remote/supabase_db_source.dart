@@ -999,9 +999,22 @@ class SbCourse {
 
   final String name;
   final String? code;
-  final String? teacherId;
-  final String? teacherName;
+
+  /// Les enseignants de ce cours — **plusieurs** possibles.
+  ///
+  /// Le co-enseignement est la règle au primaire (le maître fait français et
+  /// maths, la maîtresse éveil et anglais) et arrive ailleurs. Tous ont les
+  /// mêmes droits : noter, faire l'appel. Cf. 20260739.
+  ///
+  /// C'est la source **unique** des droits d'un prof sur une classe, avec le
+  /// titulariat. L'emploi du temps n'en est plus une : il ne fait que placer
+  /// ces cours dans la semaine.
+  final List<SbCourseTeacher> teachers;
+
+  /// Poids de la matière **dans cette classe** : au lycée, les maths pèsent 5
+  /// en série C et 2 en série A. Hérite du coefficient de la matière.
   final int coefficient;
+
   final int? hoursWeek;
   final String? description;
   final String? color;
@@ -1018,8 +1031,7 @@ class SbCourse {
     this.subjectId,
     required this.name,
     this.code,
-    this.teacherId,
-    this.teacherName,
+    this.teachers = const [],
     this.coefficient = 1,
     this.hoursWeek,
     this.description,
@@ -1031,10 +1043,21 @@ class SbCourse {
     this.room,
   });
 
+  /// Les noms des enseignants, prêts à afficher. Vide = personne n'enseigne
+  /// cette matière dans cette classe — l'admin doit s'en apercevoir.
+  String get teacherNames => teachers.map((t) => t.fullName).join(', ');
+
+  /// Idem, mais `null` quand il n'y a personne : pour les écrans qui masquent
+  /// la ligne « Enseignant » plutôt que d'afficher un vide.
+  String? get teacherName => teachers.isEmpty ? null : teacherNames;
+
+  bool isTaughtBy(String teacherId) =>
+      teachers.any((t) => t.teacherId == teacherId);
+
   factory SbCourse.fromJson(Map<String, dynamic> j) {
     final rawDays = j['days_of_week'];
     final days = rawDays is List ? rawDays.cast<String>() : <String>[];
-    final teacher = j['users'] as Map<String, dynamic>?;
+    final rawTeachers = j['course_teachers'];
     return SbCourse(
       id: j['id'] as String,
       schoolId: j['school_id'] as String? ?? '',
@@ -1042,8 +1065,11 @@ class SbCourse {
       subjectId: j['subject_id'] as String?,
       name: j['name'] as String? ?? '',
       code: j['code'] as String?,
-      teacherId: j['teacher_id'] as String?,
-      teacherName: teacher?['full_name'] as String?,
+      teachers: rawTeachers is List
+          ? rawTeachers
+              .map((t) => SbCourseTeacher.fromJson(t as Map<String, dynamic>))
+              .toList()
+          : const [],
       coefficient: (j['coef'] as num?)?.toInt() ?? 1,
       hoursWeek: (j['hours_week'] as num?)?.toInt(),
       description: j['description'] as String?,
@@ -1053,6 +1079,36 @@ class SbCourse {
       chapterCount: (j['chapter_count'] as num?)?.toInt(),
       daysOfWeek: days,
       room: j['room'] as String?,
+    );
+  }
+}
+
+/// Un enseignant rattaché à un cours.
+///
+/// `role` n'est qu'un **affichage** : « principal » et « co » ont exactement
+/// les mêmes droits. Ne jamais s'en servir pour décider d'une autorisation.
+class SbCourseTeacher {
+  final String id;
+  final String teacherId;
+  final String fullName;
+  final String role; // 'principal' | 'co'
+
+  const SbCourseTeacher({
+    required this.id,
+    required this.teacherId,
+    required this.fullName,
+    this.role = 'principal',
+  });
+
+  bool get isLead => role == 'principal';
+
+  factory SbCourseTeacher.fromJson(Map<String, dynamic> j) {
+    final user = j['users'] as Map<String, dynamic>?;
+    return SbCourseTeacher(
+      id: j['id'] as String? ?? '',
+      teacherId: j['teacher_id'] as String? ?? '',
+      fullName: user?['full_name'] as String? ?? '—',
+      role: j['role'] as String? ?? 'principal',
     );
   }
 }
@@ -2561,11 +2617,21 @@ class SupabaseDbSource {
     }).eq('id', id);
   }
 
-  // ── Courses ───────────────────────────────────────────────────────────────
+  // ── Cours = le PROGRAMME d'une classe ─────────────────────────────────────
+  //  « Cette classe étudie cette matière, avec ce coefficient, enseignée par
+  //  ces professeurs. » C'est le pilier : les droits d'un prof en découlent
+  //  (avec le titulariat), et l'emploi du temps ne fait que placer ces cours
+  //  dans la semaine. Cf. 20260739.
+
+  /// Les colonnes du cours + ses enseignants. On lit **toujours** avec les
+  /// enseignants : un cours sans prof est une anomalie qu'il faut voir.
+  static const _courseSelect =
+      '*, course_teachers(id, teacher_id, role, users(full_name))';
+
   static Future<List<SbCourse>> getCoursesForClass(String classId) async {
     final data = await _db
         .from('courses')
-        .select('*, users!teacher_id(full_name)')
+        .select(_courseSelect)
         .eq('class_id', classId)
         .order('name');
     return (data as List)
@@ -2576,7 +2642,7 @@ class SupabaseDbSource {
   static Future<List<SbCourse>> getCoursesForSchool(String schoolId) async {
     final data = await _db
         .from('courses')
-        .select('*, users!teacher_id(full_name)')
+        .select(_courseSelect)
         .eq('school_id', schoolId)
         .order('name');
     return (data as List)
@@ -2584,13 +2650,30 @@ class SupabaseDbSource {
         .toList();
   }
 
-  static Future<void> createCourse({
+  /// Les cours d'un enseignant — **la** source de ses affectations.
+  ///
+  /// Remplace `getSchedulesForTeacher` dans ce rôle : un prof enseigne même
+  /// sans emploi du temps saisi (beaucoup d'écoles ne le remplissent jamais).
+  static Future<List<SbCourse>> getCoursesForTeacher(String teacherId) async {
+    final data = await _db
+        .from('course_teachers')
+        .select('courses($_courseSelect)')
+        .eq('teacher_id', teacherId);
+    return (data as List)
+        .map((j) => (j as Map<String, dynamic>)['courses'])
+        .whereType<Map<String, dynamic>>()
+        .map(SbCourse.fromJson)
+        .toList();
+  }
+
+  /// Crée le cours **et** rattache ses enseignants. Renvoie son id.
+  static Future<String> createCourse({
     required String schoolId,
     required String classId,
     String? subjectId,
     required String name,
     String? code,
-    String? teacherId,
+    List<String> teacherIds = const [],
     int coefficient = 1,
     int? hoursWeek,
     String? description,
@@ -2600,30 +2683,28 @@ class SupabaseDbSource {
     List<String> daysOfWeek = const [],
     String? room,
   }) async {
+    final id = const Uuid().v4();
     await _db.from('courses').insert({
-      'id': const Uuid().v4(),
+      'id': id,
       'school_id': schoolId,
       'class_id': classId,
       'subject_id': subjectId,
       'name': name.trim(),
       if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
-      if (teacherId != null) 'teacher_id': teacherId,
       'coef': coefficient,
       if (hoursWeek != null) 'hours_week': hoursWeek,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (color != null && color.isNotEmpty) 'color': color,
+      if (programSummary != null && programSummary.trim().isNotEmpty)
+        'program_summary': programSummary.trim(),
+      if (chapterCount != null) 'chapter_count': chapterCount,
+      if (daysOfWeek.isNotEmpty) 'days_of_week': daysOfWeek,
+      if (room != null && room.trim().isNotEmpty) 'room': room.trim(),
     });
-    // Extra columns — safe update (columns already migrated)
-    try {
-      final extra = <String, dynamic>{};
-      if (description != null && description.trim().isNotEmpty) extra['description'] = description.trim();
-      if (color != null && color.isNotEmpty) extra['color'] = color;
-      if (programSummary != null && programSummary.trim().isNotEmpty) extra['program_summary'] = programSummary.trim();
-      if (chapterCount != null) extra['chapter_count'] = chapterCount;
-      if (daysOfWeek.isNotEmpty) extra['days_of_week'] = daysOfWeek;
-      if (room != null && room.trim().isNotEmpty) extra['room'] = room.trim();
-      if (extra.isNotEmpty) {
-        await _db.from('courses').update(extra).eq('name', name.trim()).eq('school_id', schoolId);
-      }
-    } catch (_) { /* safe to ignore on schema mismatch */ }
+    await setCourseTeachers(
+        courseId: id, schoolId: schoolId, teacherIds: teacherIds);
+    return id;
   }
 
   static Future<void> updateCourse({
@@ -2631,7 +2712,6 @@ class SupabaseDbSource {
     String? subjectId,
     String? name,
     String? code,
-    String? teacherId,
     int? coefficient,
     int? hoursWeek,
     String? description,
@@ -2645,23 +2725,46 @@ class SupabaseDbSource {
     if (subjectId != null) patch['subject_id'] = subjectId;
     if (name != null) patch['name'] = name.trim();
     if (code != null) patch['code'] = code.trim().isEmpty ? null : code.trim();
-    if (teacherId != null) patch['teacher_id'] = teacherId;
     if (coefficient != null) patch['coef'] = coefficient;
     if (hoursWeek != null) patch['hours_week'] = hoursWeek;
+    if (description != null) {
+      patch['description'] = description.trim().isEmpty ? null : description.trim();
+    }
+    if (color != null) patch['color'] = color;
+    if (programSummary != null) {
+      patch['program_summary'] =
+          programSummary.trim().isEmpty ? null : programSummary.trim();
+    }
+    if (chapterCount != null) patch['chapter_count'] = chapterCount;
+    if (daysOfWeek != null) patch['days_of_week'] = daysOfWeek;
+    if (room != null) patch['room'] = room.trim().isEmpty ? null : room.trim();
     if (patch.isNotEmpty) {
       await _db.from('courses').update(patch).eq('id', id);
     }
-    // Extra columns
-    try {
-      final extra = <String, dynamic>{};
-      if (description != null) extra['description'] = description.trim().isEmpty ? null : description.trim();
-      if (color != null) extra['color'] = color;
-      if (programSummary != null) extra['program_summary'] = programSummary.trim().isEmpty ? null : programSummary.trim();
-      if (chapterCount != null) extra['chapter_count'] = chapterCount;
-      if (daysOfWeek != null) extra['days_of_week'] = daysOfWeek;
-      if (room != null) extra['room'] = room.trim().isEmpty ? null : room.trim();
-      if (extra.isNotEmpty) await _db.from('courses').update(extra).eq('id', id);
-    } catch (_) { /* safe to ignore on schema mismatch */ }
+  }
+
+  /// Fixe la liste des enseignants d'un cours. Le **premier** est le principal,
+  /// les suivants co-enseignants — mais les deux ont les mêmes droits : le rôle
+  /// n'est qu'un affichage.
+  ///
+  /// On efface puis on réécrit : la liste que voit l'admin est celle qui vaut.
+  static Future<void> setCourseTeachers({
+    required String courseId,
+    required String schoolId,
+    required List<String> teacherIds,
+  }) async {
+    await _db.from('course_teachers').delete().eq('course_id', courseId);
+    if (teacherIds.isEmpty) return;
+    await _db.from('course_teachers').insert([
+      for (var i = 0; i < teacherIds.length; i++)
+        {
+          'id': const Uuid().v4(),
+          'school_id': schoolId,
+          'course_id': courseId,
+          'teacher_id': teacherIds[i],
+          'role': i == 0 ? 'principal' : 'co',
+        }
+    ]);
   }
 
   static Future<void> deleteCourse(String id) async {

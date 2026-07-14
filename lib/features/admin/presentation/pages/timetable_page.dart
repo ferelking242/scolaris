@@ -355,8 +355,11 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final subjectsAsync = ref.watch(subjectsProvider);
-    final teachersAsync = ref.watch(teachersProvider);
+    // On ne choisit plus « une matière » et « un prof » librement : on choisit
+    // un COURS du programme de la classe. Sinon l'emploi du temps pourrait
+    // désigner Mme Ibara là où le programme dit M. Loko — deux vérités pour un
+    // seul fait. La base refuse d'ailleurs le créneau (cf. 20260739).
+    final coursesAsync = ref.watch(classCoursesProvider(widget.classId));
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -380,42 +383,82 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
                   fontSize: 17, fontWeight: FontWeight.w800, color: context.cInk)),
         ),
         const SizedBox(height: 16),
-        // Matière
-        subjectsAsync.when(
+        // Matière — parmi celles que la classe étudie, pas tout le catalogue.
+        coursesAsync.when(
           loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('Matières indisponibles : $e',
+          error: (e, _) => Text('Programme indisponible : $e',
               style: const TextStyle(color: _terra, fontSize: 12)),
-          data: (subjects) => DropdownButtonFormField<String>(
-            value: _subjectId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-                labelText: 'Matière',
-                prefixIcon: Icon(Icons.menu_book_outlined)),
-            items: [
-              for (final s in subjects)
-                DropdownMenuItem(value: s.id, child: Text(s.name)),
-            ],
-            onChanged: (v) => setState(() => _subjectId = v),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Enseignant (optionnel)
-        teachersAsync.when(
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (teachers) => DropdownButtonFormField<String>(
-            value: _teacherId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-                labelText: 'Enseignant (optionnel)',
-                prefixIcon: Icon(Icons.co_present_outlined)),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('—')),
-              for (final t in teachers)
-                DropdownMenuItem(value: t.id, child: Text(t.fullName)),
-            ],
-            onChanged: (v) => setState(() => _teacherId = v),
-          ),
+          data: (courses) {
+            final withSubject =
+                courses.where((c) => c.subjectId != null).toList();
+            if (withSubject.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _terra.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Cette classe n’a encore aucune matière à son programme. '
+                  'Ajoutez-les dans « Cours » avant de bâtir l’emploi du temps.',
+                  style: TextStyle(fontSize: 12.5, color: context.cInk),
+                ),
+              );
+            }
+            final selected =
+                withSubject.where((c) => c.subjectId == _subjectId).firstOrNull;
+            return Column(children: [
+              DropdownButtonFormField<String>(
+                value: selected?.subjectId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                    labelText: 'Matière',
+                    prefixIcon: Icon(Icons.menu_book_outlined)),
+                items: [
+                  for (final c in withSubject)
+                    DropdownMenuItem(value: c.subjectId!, child: Text(c.name)),
+                ],
+                onChanged: (v) => setState(() {
+                  _subjectId = v;
+                  // Le prof doit être l'un de ceux du cours : on repart de zéro.
+                  final c =
+                      withSubject.where((x) => x.subjectId == v).firstOrNull;
+                  _teacherId = c != null && c.teachers.length == 1
+                      ? c.teachers.first.teacherId
+                      : null;
+                }),
+              ),
+              const SizedBox(height: 12),
+              // Enseignant — seulement ceux qui enseignent CE cours. Deux profs
+              // peuvent se partager la matière : on dit qui tient ce créneau.
+              if (selected != null)
+                if (selected.teachers.isEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Aucun enseignant sur cette matière — ajoutez-le dans « Cours ».',
+                      style: TextStyle(fontSize: 12, color: context.cMuted),
+                    ),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    value: selected.isTaughtBy(_teacherId ?? '')
+                        ? _teacherId
+                        : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Enseignant',
+                        prefixIcon: Icon(Icons.co_present_outlined)),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('—')),
+                      for (final t in selected.teachers)
+                        DropdownMenuItem(
+                            value: t.teacherId, child: Text(t.fullName)),
+                    ],
+                    onChanged: (v) => setState(() => _teacherId = v),
+                  ),
+            ]);
+          },
         ),
         const SizedBox(height: 12),
         Row(children: [

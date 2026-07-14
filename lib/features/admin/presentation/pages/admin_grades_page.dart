@@ -50,9 +50,14 @@ String _autoAppreciation(double avg) {
 }
 
 /// Lignes du bulletin d'un élève pour une période, à partir des notes de la
-/// classe et du catalogue de matières (avec coefficients).
+/// classe et du **programme de sa classe** (ses cours).
+///
+/// Le programme, et non le catalogue de l'école : le lycée enseigne la
+/// philosophie, le CM2 non — son bulletin ne doit pas en porter la trace. Et le
+/// coefficient est celui de la matière **dans cette classe** : les maths pèsent
+/// 5 en série C, 2 en série A (cf. 20260739).
 List<_BulletinRow> _rowsFor(
-    String studentId, List<SbGrade> classGrades, List<SbSubject> subjects, String period) {
+    String studentId, List<SbGrade> classGrades, List<SbCourse> programme, String period) {
   final g = classGrades
       .where((x) => x.studentId == studentId && x.period == period)
       .toList();
@@ -62,8 +67,8 @@ List<_BulletinRow> _rowsFor(
     (bySubject[x.subjectId!] ??= []).add(x);
   }
   final rows = <_BulletinRow>[];
-  for (final subj in subjects) {
-    final grades = bySubject[subj.id];
+  for (final cours in programme) {
+    final grades = bySubject[cours.subjectId];
     if (grades == null || grades.isEmpty) continue;
     final avg = grades.fold(0.0, (s, x) => s + x.outOf20) / grades.length;
     final comment = grades
@@ -71,8 +76,8 @@ List<_BulletinRow> _rowsFor(
         .lastOrNull
         ?.comment;
     rows.add(_BulletinRow(
-      matiere: subj.name,
-      coef: subj.coefficient,
+      matiere: cours.name,
+      coef: cours.coefficient,
       moyenne: avg,
       appreciation: comment ?? _autoAppreciation(avg),
     ));
@@ -128,6 +133,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
           return _StudentBulletinPage(
             student: _bulletinStudent!,
             className: selected?.name ?? '',
+            classId: selected?.id ?? '',
             period: period,
             onBack: () => setState(() => _bulletinStudent = null),
           );
@@ -183,7 +189,7 @@ class _ClassGradesPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsByClassProvider(classObj.name));
     final gradesAsync = ref.watch(gradesForClassProvider(classObj.id));
-    final subjectsAsync = ref.watch(subjectsProvider);
+    final subjectsAsync = ref.watch(classCoursesProvider(classObj.id));
 
     if (studentsAsync.isLoading || gradesAsync.isLoading || subjectsAsync.isLoading) {
       return const DataPanel(
@@ -285,11 +291,13 @@ class _ClassGradesPanel extends ConsumerWidget {
 class _StudentBulletinPage extends ConsumerWidget {
   final SbStudent student;
   final String className;
+  final String classId;
   final String period;
   final VoidCallback onBack;
   const _StudentBulletinPage({
     required this.student,
     required this.className,
+    required this.classId,
     required this.period,
     required this.onBack,
   });
@@ -298,7 +306,7 @@ class _StudentBulletinPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final periodLabel = ref.watch(schoolFormatProvider).periodLabel(period);
     final gradesAsync = ref.watch(gradesForStudentProvider(student.id));
-    final subjectsAsync = ref.watch(subjectsProvider);
+    final subjectsAsync = ref.watch(classCoursesProvider(classId));
     final school = ref.watch(schoolProvider).valueOrNull;
 
     return PageScaffold(

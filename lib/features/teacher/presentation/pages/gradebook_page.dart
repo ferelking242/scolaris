@@ -41,7 +41,6 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
     final schoolId  = ref.watch(currentSchoolIdProvider);
     final teacherId = ref.watch(authSessionProvider)?.id;
     final classesAsync  = ref.watch(classesProvider);
-    final subjectsAsync = ref.watch(subjectsProvider);
     final assignAsync   = ref.watch(teacherAssignmentsProvider);
 
     return classesAsync.when(
@@ -116,26 +115,31 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
               const SizedBox(height: 12),
 
               // ── Sélecteur matière + période ─────────────────────────────
-              subjectsAsync.when(
+              //  Les matières viennent du PROGRAMME de la classe, pas du
+              //  catalogue de l'école : le lycée enseigne la philosophie, le
+              //  CM2 non. Le titulaire (primaire) les a toutes ; les autres
+              //  seulement celles dont ils ont le cours.
+              ref.watch(classCoursesProvider(selectedClass.id)).when(
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => const SizedBox.shrink(),
-                data: (subjects) {
-                  // Matières autorisées : toutes si titulaire (primaire),
-                  // sinon seulement celles enseignées dans cette classe
-                  // (emploi du temps). Repli sur tout si l'EDT ne précise rien.
-                  final taught = assign.isTitulaire(selectedClass.id)
-                      ? subjects
-                      : subjects
-                          .where((s) => assign
-                              .subjectsFor(selectedClass.id)
-                              .contains(s.id))
+                data: (courses) {
+                  final programme =
+                      courses.where((c) => c.subjectId != null).toList();
+                  final allowed = assign.isTitulaire(selectedClass.id)
+                      ? programme
+                      : programme
+                          .where((c) => c.isTaughtBy(teacherId ?? ''))
                           .toList();
-                  final allowed = taught.isEmpty ? subjects : taught;
+                  if (allowed.isEmpty) {
+                    return const _NoSubjects();
+                  }
                   return Row(children: [
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField<String>(
-                        value: _selectedSubjectId,
+                        value: allowed.any((c) => c.subjectId == _selectedSubjectId)
+                            ? _selectedSubjectId
+                            : null,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Matière',
@@ -145,8 +149,9 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
                               EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         ),
                         items: [
-                          for (final s in allowed)
-                            DropdownMenuItem(value: s.id, child: Text(s.name)),
+                          for (final c in allowed)
+                            DropdownMenuItem(
+                                value: c.subjectId!, child: Text(c.name)),
                         ],
                         onChanged: (v) =>
                             setState(() => _selectedSubjectId = v),
@@ -203,6 +208,30 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
       },
     );
   }
+}
+
+/// Le prof a la classe (titulaire ou cours) mais aucune matière à y enseigner.
+/// Cas réel : on l'a rattaché à la classe sans lui donner de cours. Autant le
+/// dire, plutôt que d'afficher un menu vide.
+class _NoSubjects extends StatelessWidget {
+  const _NoSubjects();
+
+  @override
+  Widget build(BuildContext context) => DataPanel(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.menu_book_outlined,
+                  size: 36, color: Color(0xFFDDCCBB)),
+              const SizedBox(height: 10),
+              Text('Aucune matière ne vous est confiée dans cette classe.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.cMuted, fontSize: 13)),
+            ]),
+          ),
+        ),
+      );
 }
 
 // ── Sélecteur de classe (chips) ───────────────────────────────────────────────

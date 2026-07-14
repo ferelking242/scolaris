@@ -361,10 +361,18 @@ class _CourseAdminCard extends StatelessWidget {
                   _Chip('${course.hoursWeek}h/sem', _green),
                 ],
               ]),
-              if (course.teacherName != null) ...[
-                const SizedBox(height: 4),
-                Text(course.teacherName!, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
-              ],
+              // Un cours sans enseignant, personne ne peut le noter : on le dit.
+              const SizedBox(height: 4),
+              if (course.teachers.isEmpty)
+                const Row(children: [
+                  Icon(Icons.warning_amber_rounded, size: 13, color: _terra),
+                  SizedBox(width: 4),
+                  Text('Aucun enseignant',
+                      style: TextStyle(fontSize: 11.5, color: _terra, fontWeight: FontWeight.w700)),
+                ])
+              else
+                Text(course.teacherNames,
+                    style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
               if (course.description != null) ...[
                 const SizedBox(height: 3),
                 Text(course.description!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
@@ -482,10 +490,16 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
   late int _chapters;
   late String _color;
   late Set<String> _days;
-  String? _teacherId;
+
+  /// Les enseignants du cours — **plusieurs** possibles (co-enseignement).
+  /// C'est ici, et nulle part ailleurs, qu'un prof gagne l'accès à la classe :
+  /// carnet de notes et appel en découlent. L'ordre compte pour l'affichage
+  /// seulement (le premier est « principal »).
+  late List<String> _teacherIds;
+
   // Le cours est le PROGRAMME d'une matière dans une classe. Il ne redéclare
-  // donc pas son nom : il choisit la matière. Le coefficient reste celui de la
-  // matière — une seule source (cf. 20260738).
+  // donc pas son nom : il choisit la matière. Le coefficient, lui, est celui de
+  // la matière DANS CETTE CLASSE : maths coef 5 en série C, 2 en série A.
   String? _subjectId;
   bool _saving = false;
 
@@ -503,7 +517,9 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
     _chapters = e?.chapterCount ?? 6;
     _color    = e?.color ?? _courseColors.first;
     _days     = Set<String>.from(e?.daysOfWeek ?? []);
-    _teacherId = e?.teacherId;
+    _teacherIds = [
+      for (final t in (e?.teachers ?? const <SbCourseTeacher>[])) t.teacherId,
+    ];
     _subjectId = e?.subjectId;
   }
 
@@ -525,7 +541,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           subjectId: _subjectId,
           name: _name.text,
           code: _code.text.isEmpty ? null : _code.text,
-          teacherId: _teacherId,
+          teacherIds: _teacherIds,
           coefficient: _coef,
           hoursWeek: _hours,
           description: _desc.text.isEmpty ? null : _desc.text,
@@ -541,7 +557,6 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           subjectId: _subjectId,
           name: _name.text,
           code: _code.text,
-          teacherId: _teacherId,
           coefficient: _coef,
           hoursWeek: _hours,
           description: _desc.text,
@@ -550,6 +565,11 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           chapterCount: _chapters,
           daysOfWeek: _days.toList(),
           room: _room.text.isEmpty ? null : _room.text,
+        );
+        await SupabaseDbSource.setCourseTeachers(
+          courseId: widget.existing!.id,
+          schoolId: widget.schoolId,
+          teacherIds: _teacherIds,
         );
       }
       widget.onSaved();
@@ -718,26 +738,65 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           ),
           const SizedBox(height: 16),
 
-          // ── Enseignant ────────────────────────────────────────────
-          Text('Enseignant responsable', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-          const SizedBox(height: 6),
+          // ── Enseignants ───────────────────────────────────────────
+          //  PLUSIEURS possibles : au primaire le maître fait français/maths et
+          //  la maîtresse éveil/anglais ; ailleurs deux profs se partagent une
+          //  matière. Tous ont les mêmes droits — le « principal » n'est qu'un
+          //  affichage.
+          //
+          //  C'est ICI qu'un prof gagne l'accès à la classe. Un cours sans
+          //  enseignant, c'est une matière que personne ne peut noter.
+          Text('Enseignants', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 2),
+          Text(
+            'Ils pourront noter et faire l’appel dans cette classe, pour cette matière.',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
           teachersAsync.when(
             loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-            error: (_, __) => const SizedBox(),
-            data: (teachers) => DropdownButtonFormField<String>(
-              value: _teacherId,
-              decoration: InputDecoration(
-                hintText: 'Sélectionner un enseignant',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: cs.outlineVariant)),
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('— Aucun —')),
-                ...teachers.map((t) => DropdownMenuItem(value: t.id, child: Text(t.fullName))),
-              ],
-              onChanged: (v) => setState(() => _teacherId = v),
-            ),
+            error: (e, _) => Text('Enseignants indisponibles : $e',
+                style: const TextStyle(color: _terra, fontSize: 12)),
+            data: (teachers) {
+              if (teachers.isEmpty) {
+                return Text('Aucun enseignant dans cette école.',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant));
+              }
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: teachers.map((t) {
+                  final i = _teacherIds.indexOf(t.id);
+                  final sel = i >= 0;
+                  return FilterChip(
+                    selected: sel,
+                    showCheckmark: false,
+                    avatar: sel
+                        ? Icon(i == 0 ? Icons.star_rounded : Icons.person_rounded,
+                            size: 16, color: Colors.white)
+                        : null,
+                    label: Text(t.fullName),
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      color: sel ? Colors.white : cs.onSurfaceVariant,
+                    ),
+                    selectedColor: _terra,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    side: BorderSide(color: sel ? _terra : cs.outlineVariant),
+                    onSelected: (_) => setState(() {
+                      sel ? _teacherIds.remove(t.id) : _teacherIds.add(t.id);
+                    }),
+                  );
+                }).toList(),
+              );
+            },
           ),
+          if (_teacherIds.length > 1) ...[
+            const SizedBox(height: 6),
+            Text('★ = enseignant principal. Les co-enseignants ont les mêmes droits.',
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          ],
           const SizedBox(height: 16),
 
           // ── Couleur ───────────────────────────────────────────────

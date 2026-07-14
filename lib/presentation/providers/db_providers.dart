@@ -164,16 +164,23 @@ final schedulesForClassProvider =
 });
 
 // ── Affectations du prof connecté (scope des classes/matières) ───────────────
-/// Ce qu'un enseignant a le droit d'enseigner, dérivé de **deux** sources
-/// combinées (aucune n'est fiable seule) :
-///  1. l'emploi du temps (`schedules.teacher_id`) → matière exacte par classe
-///     (cas du spécialiste collège/lycée) ;
-///  2. le statut de titulaire (`classes.main_teacher_id`) → toute la classe
-///     (cas de l'instituteur du primaire, sans matière spécifique).
+/// Ce qu'un enseignant a le droit d'enseigner. **Deux sources, et deux seules** —
+/// les mêmes que `teaches_class()` en base, sans quoi l'écran et le verrou
+/// diraient des choses différentes :
+///
+///  1. le **cours** (`course_teachers`) → la matière exacte dans cette classe
+///     (cas du spécialiste collège/lycée, et du co-enseignant) ;
+///  2. le **titulariat** (`classes.main_teacher_id`) → toute la classe, toutes
+///     matières (cas de l'instituteur du primaire).
+///
+/// L'emploi du temps **n'en est plus une** (cf. 20260739) : il place dans la
+/// semaine des cours qui existent déjà. Un prof enseigne donc même dans une
+/// école qui n'a jamais saisi sa grille horaire — et c'est le cas le plus
+/// courant la première année.
 class TeacherAssignments {
-  /// Toutes les classes que le prof enseigne (emploi du temps ∪ titulaire).
+  /// Toutes les classes que le prof enseigne (cours ∪ titulariat).
   final Set<String> classIds;
-  /// classId → matières (subject_id) enseignées dans cette classe (emploi du temps).
+  /// classId → matières (subject_id) qu'il y enseigne, d'après ses cours.
   final Map<String, Set<String>> subjectsByClass;
   /// Classes dont il est titulaire (il y enseigne *toutes* les matières).
   final Set<String> titulaireClassIds;
@@ -229,13 +236,13 @@ final teacherAssignmentsProvider = FutureProvider<TeacherAssignments>((ref) asyn
   if (session == null) return TeacherAssignments.empty;
   final teacherId = session.id;
 
-  final schedules = await SupabaseDbSource.getSchedulesForTeacher(teacherId);
+  final courses = await SupabaseDbSource.getCoursesForTeacher(teacherId);
   final allClasses = await ref.watch(classesProvider.future);
 
   final subjectsByClass = <String, Set<String>>{};
-  for (final s in schedules) {
-    final set = subjectsByClass.putIfAbsent(s.classId, () => <String>{});
-    if (s.subjectId != null && s.subjectId!.isNotEmpty) set.add(s.subjectId!);
+  for (final c in courses) {
+    final set = subjectsByClass.putIfAbsent(c.classId, () => <String>{});
+    if (c.subjectId != null && c.subjectId!.isNotEmpty) set.add(c.subjectId!);
   }
   final titulaire =
       allClasses.where((c) => c.mainTeacherId == teacherId).map((c) => c.id).toSet();
@@ -256,7 +263,19 @@ final teachersProvider = FutureProvider<List<SbUser>>((ref) async {
   return users.where((u) => u.role == 'teacher').toList();
 });
 
+// ── Programme d'une classe (ses cours) ───────────────────────────────────────
+/// Les matières que **cette classe** étudie, avec leur coefficient et leurs
+/// enseignants. À préférer à [subjectsProvider] partout où l'on parle d'une
+/// classe précise : le catalogue de l'école contient la philosophie, le CM2 ne
+/// l'étudie pas.
+final classCoursesProvider =
+    FutureProvider.family<List<SbCourse>, String>((ref, classId) async {
+  return SupabaseDbSource.getCoursesForClass(classId);
+});
+
 // ── Subjects ──────────────────────────────────────────────────────────────────
+/// Le **catalogue de l'école** — pas le programme d'une classe. Pour savoir ce
+/// qu'une classe étudie, voir [classCoursesProvider].
 final subjectsProvider = FutureProvider<List<SbSubject>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return [];
