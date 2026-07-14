@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
@@ -165,8 +166,11 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
               icon: Icons.grid_on_rounded,
               onTap: () => setState(() => _view = 'tracking'),
             ),
-            ActionButton(
-              label: 'Nouvelle facture',
+            // Créer une facture exige `comptabilite.creer_facture` : la base
+            // refuse sinon.
+            if (ref.watch(canProvider('comptabilite.creer_facture')))
+              ActionButton(
+                label: 'Nouvelle facture',
               icon: Icons.add_rounded,
               primary: true,
               onTap: () => _newInvoice(context, ref),

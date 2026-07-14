@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/config/school_format.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -261,17 +262,20 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           ),
         ],
         const SizedBox(height: 12),
+        // Générer et publier un bulletin exigent `notes.publier` : la base
+        // refuse toute écriture sur report_cards sans ce droit.
         Row(children: [
-          Expanded(
-            child: _actionBtn(
-              label: total == 0 ? 'Générer' : 'Régénérer',
-              icon: Icons.calculate_rounded,
-              color: _terra,
-              filled: total == 0,
-              onTap: _busy ? null : _generate,
+          if (ref.watch(canProvider('notes.publier')))
+            Expanded(
+              child: _actionBtn(
+                label: total == 0 ? 'Générer' : 'Régénérer',
+                icon: Icons.calculate_rounded,
+                color: _terra,
+                filled: total == 0,
+                onTap: _busy ? null : _generate,
+              ),
             ),
-          ),
-          if (drafts > 0) ...[
+          if (drafts > 0 && ref.watch(canProvider('notes.publier'))) ...[
             const SizedBox(width: 10),
             Expanded(
               child: _actionBtn(

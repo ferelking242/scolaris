@@ -1820,6 +1820,44 @@ class SupabaseDbSource {
         .toList();
   }
 
+  // ── Droits réels de la personne connectée ─────────────────────────────────
+
+  /// Les droits FINS du membre connecté : `module.action` (« notes.modifier »).
+  ///
+  /// `users.permissions` ne porte que 11 clés plates (« grades ») : elle dit si
+  /// on touche aux notes, pas si on a le droit de les MODIFIER. L'interface s'en
+  /// contentait — d'où des boutons « Supprimer » offerts à quelqu'un que la base
+  /// refuse ensuite. On lit donc les grants du rôle, les mêmes que ceux que
+  /// `has_permission()` consulte en base.
+  ///
+  /// `{'*'}` = accès total (fondateur / rôle administrateur).
+  static Future<Set<String>> getMyGrants() async {
+    final auth = _db.auth.currentUser;
+    if (auth == null) return const {};
+
+    final row = await _db
+        .from('users')
+        .select('staff_role_id, permissions')
+        .eq('auth_uid', auth.id)
+        .maybeSingle();
+    if (row == null) return const {};
+
+    final legacy = (row['permissions'] as List?)?.cast<String>() ?? const [];
+    if (legacy.contains('*')) return const {'*'};
+
+    final roleId = row['staff_role_id'] as String?;
+    if (roleId == null) return const {};
+
+    final perms = await _db
+        .from('staff_role_permissions')
+        .select('permission_key, sub_permission_key')
+        .eq('staff_role_id', roleId);
+
+    return (perms as List)
+        .map((p) => '${p['permission_key']}.${p['sub_permission_key']}')
+        .toSet();
+  }
+
   // ── Users ─────────────────────────────────────────────────────────────────
   static Future<List<SbUser>> getUsers({String? schoolId}) async {
     var q = _db.from('users').select();

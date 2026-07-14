@@ -6,6 +6,7 @@ import '../../../../core/permissions/staff_permissions.dart';
 import '../../../../data/sources/remote/staff_roles_source.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../presentation/providers/nav_providers.dart';
 import '../../../../shared/data/enrollment_config.dart';
@@ -233,20 +234,24 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
         // Actions.
         Wrap(spacing: 8, runSpacing: 8, children: [
-          ActionButton(
-              label: 'Modifier', icon: Icons.edit_outlined,
-              onTap: () => _editUser(u)),
-          if (canEnable)
+          if (ref.watch(canProvider('utilisateurs.modifier')))
+            ActionButton(
+                label: 'Modifier', icon: Icons.edit_outlined,
+                onTap: () => _editUser(u)),
+          if (canEnable && ref.watch(canProvider('utilisateurs.modifier')))
             ActionButton(
                 label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
                 onTap: () => _enableAccess(u)),
-          ActionButton(
-            label: u.isActive ? 'Bloquer' : 'Réactiver',
-            icon: u.isActive
-                ? Icons.block_rounded
-                : Icons.check_circle_outline_rounded,
-            onTap: () => _toggleActive(u),
-          ),
+          // Suspendre un compte touche `users.status` : la base exige
+          // `utilisateurs.gerer_roles` (cf. guard_user_privileges).
+          if (ref.watch(canProvider('utilisateurs.gerer_roles')))
+            ActionButton(
+              label: u.isActive ? 'Bloquer' : 'Réactiver',
+              icon: u.isActive
+                  ? Icons.block_rounded
+                  : Icons.check_circle_outline_rounded,
+              onTap: () => _toggleActive(u),
+            ),
         ]),
         const SizedBox(height: 16),
 
@@ -541,21 +546,31 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                 _IconBtn(
                                     icon: Icons.vpn_key_outlined,
                                     onTap: () => _enableAccess(u)),
-                              const SizedBox(width: 6),
-                              _IconBtn(
-                                  icon: Icons.edit_outlined,
-                                  onTap: () => _editUser(u)),
-                              const SizedBox(width: 6),
-                              _IconBtn(
-                                  icon: u.isActive
-                                      ? Icons.block_rounded
-                                      : Icons.check_circle_outline_rounded,
-                                  onTap: () => _toggleActive(u)),
-                              const SizedBox(width: 6),
-                              _IconBtn(
-                                  icon: Icons.delete_outline_rounded,
-                                  color: _terra,
-                                  onTap: () => _deleteUser(u)),
+                              // Les boutons suivent les droits FINS du rôle :
+                              // suspendre un compte ou changer son rôle exige
+                              // `utilisateurs.gerer_roles` — la base le refuse
+                              // sinon (cf. guard_user_privileges).
+                              if (ref.watch(canProvider('utilisateurs.modifier'))) ...[
+                                const SizedBox(width: 6),
+                                _IconBtn(
+                                    icon: Icons.edit_outlined,
+                                    onTap: () => _editUser(u)),
+                              ],
+                              if (ref.watch(canProvider('utilisateurs.gerer_roles'))) ...[
+                                const SizedBox(width: 6),
+                                _IconBtn(
+                                    icon: u.isActive
+                                        ? Icons.block_rounded
+                                        : Icons.check_circle_outline_rounded,
+                                    onTap: () => _toggleActive(u)),
+                              ],
+                              if (ref.watch(canProvider('utilisateurs.supprimer'))) ...[
+                                const SizedBox(width: 6),
+                                _IconBtn(
+                                    icon: Icons.delete_outline_rounded,
+                                    color: _terra,
+                                    onTap: () => _deleteUser(u)),
+                              ],
                             ]),
                           ],
                       ],

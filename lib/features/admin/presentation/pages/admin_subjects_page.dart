@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -102,12 +103,14 @@ class AdminSubjectsPage extends ConsumerWidget {
             icon: Icons.auto_awesome_outlined,
             onTap: () => _openLoadCatalog(context, ref),
           ),
-          ActionButton(
-            label: 'Nouvelle matière',
-            icon: Icons.add_rounded,
-            primary: true,
-            onTap: () => _openSubjectDialog(context, ref, null),
-          ),
+          // Les boutons suivent les droits FINS du rôle, comme la base.
+          if (ref.watch(canProvider('classes.creer')))
+            ActionButton(
+              label: 'Nouvelle matière',
+              icon: Icons.add_rounded,
+              primary: true,
+              onTap: () => _openSubjectDialog(context, ref, null),
+            ),
         ],
         child: DataPanel(
           title: 'Toutes les matières',
@@ -134,14 +137,17 @@ class AdminSubjectsPage extends ConsumerWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            _IconBtn(
-                                icon: Icons.edit_outlined,
-                                onTap: () =>
-                                    _openSubjectDialog(context, ref, s)),
-                            const SizedBox(width: 6),
-                            _IconBtn(
-                                icon: Icons.delete_outline_rounded,
-                                onTap: () => _confirmDelete(context, ref, s)),
+                            if (ref.watch(canProvider('classes.modifier'))) ...[
+                              _IconBtn(
+                                  icon: Icons.edit_outlined,
+                                  onTap: () =>
+                                      _openSubjectDialog(context, ref, s)),
+                              const SizedBox(width: 6),
+                            ],
+                            if (ref.watch(canProvider('classes.supprimer')))
+                              _IconBtn(
+                                  icon: Icons.delete_outline_rounded,
+                                  onTap: () => _confirmDelete(context, ref, s)),
                           ]),
                         ),
                       ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -93,11 +94,15 @@ class AdminClassesPage extends ConsumerWidget {
         title: 'Classes & sections',
         subtitle: '${classes.length} classes dans l\'établissement',
         actions: [
-          ActionButton(
-              label: 'Nouvelle classe',
-              icon: Icons.add_rounded,
-              primary: true,
-              onTap: () => _openClassDialog(context, ref, null)),
+          // Les boutons suivent les droits FINS du rôle, comme la base : sans
+          // `classes.creer`, l'écriture serait refusée — autant ne pas la
+          // proposer.
+          if (ref.watch(canProvider('classes.creer')))
+            ActionButton(
+                label: 'Nouvelle classe',
+                icon: Icons.add_rounded,
+                primary: true,
+                onTap: () => _openClassDialog(context, ref, null)),
         ],
         child: DataPanel(
           title: 'Toutes les classes',
@@ -123,10 +128,12 @@ class AdminClassesPage extends ConsumerWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            _IconBtn(
-                                icon: Icons.edit_outlined,
-                                onTap: () => _openClassDialog(context, ref, cl)),
-                            const SizedBox(width: 6),
+                            if (ref.watch(canProvider('classes.modifier'))) ...[
+                              _IconBtn(
+                                  icon: Icons.edit_outlined,
+                                  onTap: () => _openClassDialog(context, ref, cl)),
+                              const SizedBox(width: 6),
+                            ],
                             _IconBtn(
                                 icon: Icons.people_outline_rounded,
                                 onTap: () => showDialog(
@@ -137,11 +144,13 @@ class AdminClassesPage extends ConsumerWidget {
                                             ref.invalidate(studentsProvider),
                                       ),
                                     )),
-                            const SizedBox(width: 6),
-                            _IconBtn(
-                                icon: Icons.delete_outline_rounded,
-                                color: _terra,
-                                onTap: () => _deleteClass(context, ref, cl)),
+                            if (ref.watch(canProvider('classes.supprimer'))) ...[
+                              const SizedBox(width: 6),
+                              _IconBtn(
+                                  icon: Icons.delete_outline_rounded,
+                                  color: _terra,
+                                  onTap: () => _deleteClass(context, ref, cl)),
+                            ],
                           ]),
                         ),
                       ],
