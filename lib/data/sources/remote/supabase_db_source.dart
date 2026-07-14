@@ -163,6 +163,15 @@ class SbGrade {
   final double maxScore;
   final String? period;
   final String? type;
+
+  /// Rang de la note dans son type : Devoir 1, Devoir 2, D.D → 1, 2, 3.
+  ///
+  /// Sans elle, la 2e note d'un même type écrasait la 1re : la contrainte
+  /// d'unicité portait sur (élève, matière, période, type). Le modèle ne savait
+  /// pas compter jusqu'à deux, et un bulletin congolais en demande trois.
+  /// Cf. 20260740.
+  final int sequence;
+
   final String? title;
   final String? comment;
   final DateTime? gradedAt;
@@ -177,6 +186,7 @@ class SbGrade {
     this.maxScore = 20,
     this.period,
     this.type,
+    this.sequence = 1,
     this.title,
     this.comment,
     this.gradedAt,
@@ -196,6 +206,7 @@ class SbGrade {
       maxScore: (j['max_score'] as num?)?.toDouble() ?? 20,
       period: j['period'] as String?,
       type: j['type'] as String?,
+      sequence: (j['sequence'] as num?)?.toInt() ?? 1,
       title: j['title'] as String?,
       comment: j['comment'] as String?,
       gradedAt: j['graded_at'] != null ? DateTime.tryParse(j['graded_at'] as String) : null,
@@ -714,6 +725,15 @@ class SbSchool {
   /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
   final String periodSystem;
 
+  /// La formule du bulletin — elle appartient à l'école, pas au code.
+  ///
+  /// [bulletinDevoirs] : combien de devoirs par matière (CSBFE : 3, dont le
+  /// « D.D »). Leur moyenne forme la « M.C ».
+  /// [bulletinCompoWeight] : le poids de la composition. 0.5 → elle pèse autant
+  /// que tous les devoirs réunis. Cf. [BulletinRules] et 20260740.
+  final int bulletinDevoirs;
+  final double bulletinCompoWeight;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -728,6 +748,8 @@ class SbSchool {
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
     this.periodSystem = 'trimester',
+    this.bulletinDevoirs = 3,
+    this.bulletinCompoWeight = 0.5,
   });
 
   SchoolFormat get format => SchoolFormat(
@@ -763,6 +785,9 @@ class SbSchool {
       currency: j['currency'] as String? ?? 'XAF',
       gradingScale: j['grading_scale'] as String? ?? 'numeric_20',
       periodSystem: j['period_system'] as String? ?? 'trimester',
+      bulletinDevoirs: (j['bulletin_devoirs'] as num?)?.toInt() ?? 3,
+      bulletinCompoWeight:
+          (j['bulletin_compo_weight'] as num?)?.toDouble() ?? 0.5,
       city: j['city'] as String?,
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,
@@ -2536,7 +2561,11 @@ class SupabaseDbSource {
         .toList();
   }
 
-  /// Crée ou met à jour une note (upsert sur student+subject+period+type).
+  /// Crée ou met à jour une note.
+  ///
+  /// [sequence] distingue le Devoir 1 du Devoir 2 : sans elle, l'unicité portait
+  /// sur (élève, matière, période, type) et le second devoir **écrasait** le
+  /// premier. Un bulletin congolais en demande trois. Cf. 20260740.
   static Future<void> upsertGrade({
     required String studentId,
     required String classId,
@@ -2546,6 +2575,7 @@ class SupabaseDbSource {
     double maxScore = 20,
     required String period,
     required String type,
+    int sequence = 1,
     String? teacherId,
   }) async {
     final now = DateTime.now().toIso8601String();
@@ -2559,12 +2589,13 @@ class SupabaseDbSource {
         'max_score': maxScore,
         'period': period,
         'type': type,
+        'sequence': sequence,
         if (teacherId != null) 'teacher_id': teacherId,
         'graded_at': now,
         'created_at': now,
         'updated_at': now,
       },
-      onConflict: 'student_id,subject_id,period,type',
+      onConflict: 'student_id,subject_id,period,type,sequence',
     );
   }
 
