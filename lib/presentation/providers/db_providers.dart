@@ -536,7 +536,7 @@ final studentCountProvider = FutureProvider<int>((ref) async {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// Outils du PRIMAIRE — cahier de liaison, cantine, récompenses
+// Outils du PRIMAIRE — cahier de liaison, récompenses
 //
 // Tous sont paramétrés par `studentId` : ils servent aussi bien à l'élève
 // (« moi ») qu'au parent (« mon enfant »), sans duplication. La RLS fait le
@@ -568,24 +568,17 @@ final myLiaisonAcksProvider = FutureProvider<Set<String>>((ref) async {
   return SupabaseDbSource.getMyLiaisonAcks(session.id);
 });
 
-/// Menus de la cantine de l'école courante, sur la semaine en cours.
-final canteenMenusProvider = FutureProvider<List<SbCanteenMenu>>((ref) async {
-  final schoolId = ref.watch(currentSchoolIdProvider);
-  if (schoolId == null) return const [];
-  final now = DateTime.now();
-  final monday = DateTime(now.year, now.month, now.day)
-      .subtract(Duration(days: now.weekday - 1));
-  return SupabaseDbSource.getCanteenMenus(
-    schoolId: schoolId,
-    from: monday,
-    to: monday.add(const Duration(days: 6)),
-  );
-});
-
 /// Bons points d'un élève.
 final meritPointsForStudentProvider =
     FutureProvider.family<List<SbMeritPoint>, String>((ref, studentId) async {
   return SupabaseDbSource.getMeritPointsForStudent(studentId);
+});
+
+/// Catalogue de badges de l'école (vue admin — sans les obtentions).
+final badgeCatalogProvider = FutureProvider<List<SbBadge>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return SupabaseDbSource.getBadgeCatalog(schoolId);
 });
 
 /// Badges de l'école, marqués obtenus/non obtenus pour l'élève visé.

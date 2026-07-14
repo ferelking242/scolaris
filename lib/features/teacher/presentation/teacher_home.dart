@@ -13,6 +13,7 @@ import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
 import 'pages/teacher_liaison_page.dart';
+import 'pages/teacher_rewards_page.dart';
 
 class TeacherHome extends StatelessWidget {
   const TeacherHome({super.key});
@@ -62,6 +63,13 @@ class TeacherHome extends StatelessWidget {
               activeIcon: Icons.import_contacts_rounded,
               labelKey: 'nav.cahier_liaison',
               page: TeacherLiaisonPage()),
+          // L'attribution des bons points et badges. Même logique : sans
+          // écriture, le carnet des familles reste vide.
+          RoleNavEntry(
+              icon: Icons.emoji_events_outlined,
+              activeIcon: Icons.emoji_events_rounded,
+              labelKey: 'nav.recompenses',
+              page: TeacherRewardsPage()),
         ]),
         // Messagerie retirée : l'écran était 100 % fictif (conversations codées
         // en dur, aucun accès à la base). À réintroduire quand une vraie

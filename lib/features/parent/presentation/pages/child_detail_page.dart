@@ -10,7 +10,6 @@ import '../../../student/presentation/pages/attendance_page.dart';
 import '../../../student/presentation/pages/cahier_liaison_page.dart';
 import '../../../student/presentation/pages/carnet_recompenses_page.dart';
 import '../../../student/presentation/pages/grades_page.dart';
-import '../../../student/presentation/pages/menu_cantine_page.dart';
 import '../../../student/presentation/pages/schedule_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -154,14 +153,7 @@ class ChildDetailPage extends ConsumerWidget {
                 studentId: child.id,
                 title: 'Récompenses de ${child.prenom}')),
           ),
-          const SizedBox(height: 8),
-          _NavTile(
-            icon: Icons.restaurant_rounded, color: _green,
-            title: 'Menu de la cantine',
-            subtitle: 'Les repas de la semaine',
-            // Le menu appartient à l'école, pas à l'enfant : pas de studentId.
-            onTap: () => _push(context, const MenuCantinePage()),
-          ),
+          // Cantine retirée : pas un besoin actuel.
         ],
         const SizedBox(height: 22),
 

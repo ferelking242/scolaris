@@ -1342,6 +1342,10 @@ class _PreRegisterBtn extends StatelessWidget {
     _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · CM2 A · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
     _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2 A · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
     _SchoolUser(label:'Rose Okemba',subtitle:'Secrétariat · École Lumière',email:'rose.okemba@elc.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF558B2F),school:'Primaire'),
+    // Le seul compte PARENT de la démo (cf. 20260727_seed_parent_demo.sql).
+    // Rattaché à Alice Moukoko via `parent_student` — sans ce lien, l'espace
+    // parent serait vide, quel que soit le reste.
+    _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice · Primaire',email:'parent.elc@elc.cg',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
     // Collège — Saint-François de Sales (CSFS)
     _SchoolUser(label:'Andrée Koumba',subtitle:'Directrice · Collège St-François',email:'andree.koumba@csfs.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF1565C0),school:'Collège'),
     _SchoolUser(label:'Céleste Ibara',subtitle:'Enseignante · 6ème A · Collège',email:'celeste.ibara@csfs.cg',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Collège'),

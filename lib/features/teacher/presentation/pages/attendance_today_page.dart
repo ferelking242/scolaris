@@ -212,7 +212,9 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
       );
     }).toList();
     try {
-      await SupabaseDbSource.saveAttendance(records);
+      final schoolId = ref.read(currentSchoolIdProvider);
+      if (schoolId == null) return;
+      await SupabaseDbSource.saveAttendance(records, schoolId: schoolId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Présences enregistrées !')),

@@ -42,6 +42,11 @@ class PageScaffold extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    // Une page atteinte par `Navigator.push` (la fiche d'un enfant, et tout ce
+    // qu'on ouvre depuis elle) doit pouvoir se refermer. Les destinations du
+    // menu, elles, n'ont rien à dépiler : le bouton ne s'affiche pas.
+    final canPop = Navigator.of(context).canPop();
+
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SingleChildScrollView(
@@ -52,6 +57,18 @@ class PageScaffold extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (canPop) ...[
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    tooltip: 'Retour',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 36, minHeight: 36),
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

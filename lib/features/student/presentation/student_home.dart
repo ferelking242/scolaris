@@ -23,7 +23,6 @@ import 'pages/cahier_textes_page.dart';
 import 'pages/carnet_recompenses_page.dart';
 import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
-import 'pages/menu_cantine_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/inscription_ue_page.dart';
 import 'pages/library/library_page.dart';
@@ -154,12 +153,7 @@ class StudentHome extends ConsumerWidget {
             labelKey: 'nav.cahier_liaison',
             page: CahierLiaisonPage(),
           ),
-          RoleNavEntry(
-            icon: Icons.restaurant_outlined,
-            activeIcon: Icons.restaurant_rounded,
-            labelKey: 'nav.menu_cantine',
-            page: MenuCantinePage(),
-          ),
+          // Cantine retirée : pas un besoin actuel.
           RoleNavEntry(
             icon: Icons.emoji_events_outlined,
             activeIcon: Icons.emoji_events_rounded,

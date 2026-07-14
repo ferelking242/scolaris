@@ -311,7 +311,9 @@ class SbAttendance {
         id: j['id'] as String,
         studentId: j['student_id'] as String? ?? '',
         classId: j['class_id'] as String?,
-        date: j['date'] != null ? DateTime.tryParse(j['date'] as String) : null,
+        date: j['absence_date'] != null
+            ? DateTime.tryParse(j['absence_date'] as String)
+            : null,
         status: j['status'] as String? ?? 'present',
         arrivalTime: j['arrival_time'] as String?,
         justified: j['justified'] as bool? ?? false,
@@ -323,7 +325,11 @@ class SbAbsence {
   final String studentId;
   final String? classId;
   final DateTime? absenceDate;
-  final String? period;
+
+  /// `present` | `late` | `absent` | `excused` — une vraie colonne.
+  /// L'app écrivait auparavant « retard » dans `period`, un champ prévu pour le
+  /// trimestre : le statut se devinait alors par comparaison de texte.
+  final String status;
   final bool justified;
   final String? reason;
 
@@ -332,7 +338,7 @@ class SbAbsence {
     required this.studentId,
     this.classId,
     this.absenceDate,
-    this.period,
+    this.status = 'absent',
     this.justified = false,
     this.reason,
   });
@@ -342,13 +348,12 @@ class SbAbsence {
         studentId: j['student_id'] as String? ?? '',
         classId: j['class_id'] as String?,
         absenceDate: j['absence_date'] != null ? DateTime.tryParse(j['absence_date'] as String) : null,
-        period: j['period'] as String?,
+        status: j['status'] as String? ?? 'absent',
         justified: j['justified'] as bool? ?? false,
         reason: j['reason'] as String?,
       );
 
   bool get isJustified => justified;
-  String get status => period?.toLowerCase() == 'retard' ? 'late' : 'absent';
   String? get date {
     if (absenceDate == null) return null;
     const days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
@@ -1430,14 +1435,19 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbGrade.fromJson(j as Map<String, dynamic>)).toList();
   }
 
-  // ── Attendance ────────────────────────────────────────────────────────────
+  // ── Présences ─────────────────────────────────────────────────────────────
+  //  UNE seule table : `absences`. Il y en avait deux — le prof faisait l'appel
+  //  dans `attendance`, la famille lisait `absences`, et les deux ne se
+  //  parlaient pas : une absence marquée n'apparaissait nulle part.
+  //  Cf. supabase/migrations/20260729_unify_attendance.sql.
+
   static Future<List<SbAttendance>> getAttendanceForClass(String classId) async {
     final today = DateTime.now().toIso8601String().split('T').first;
     final data = await _db
-        .from('attendance')
+        .from('absences')
         .select()
         .eq('class_id', classId)
-        .eq('date', today);
+        .eq('absence_date', today);
     return (data as List).map((j) => SbAttendance.fromJson(j as Map<String, dynamic>)).toList();
   }
 
@@ -1446,20 +1456,29 @@ class SupabaseDbSource {
         .from('absences')
         .select()
         .eq('student_id', studentId)
+        .neq('status', 'present')   // l'élève ne lit que ce qui fait défaut
         .order('absence_date', ascending: false);
     return (data as List).map((j) => SbAbsence.fromJson(j as Map<String, dynamic>)).toList();
   }
 
-  static Future<void> saveAttendance(List<SbAttendance> records) async {
+  /// Enregistre l'appel du jour. Un élève, un jour, une ligne : on se corrige
+  /// (upsert) au lieu d'empiler des présences contradictoires.
+  static Future<void> saveAttendance(
+    List<SbAttendance> records, {
+    required String schoolId,
+  }) async {
     final today = DateTime.now().toIso8601String().split('T').first;
     final rows = records.map((r) => {
+      'school_id': schoolId,
       'student_id': r.studentId,
       'class_id': r.classId,
-      'date': today,
+      'absence_date': today,
       'status': r.status,
       'arrival_time': r.arrivalTime,
     }).toList();
-    await _db.from('attendance').upsert(rows);
+    await _db
+        .from('absences')
+        .upsert(rows, onConflict: 'student_id,absence_date');
   }
 
   // ── Invoices ──────────────────────────────────────────────────────────────
@@ -2709,7 +2728,7 @@ class SupabaseDbSource {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // OUTILS DU PRIMAIRE — cahier de liaison, cantine, récompenses
+  // OUTILS DU PRIMAIRE — cahier de liaison, récompenses
   // Tables créées par `supabase/migrations/20260724_primary_tools.sql`.
   // La RLS fait déjà le tri (élève → lui, parent → ses enfants, prof → ses
   // classes) : ces requêtes n'ont donc PAS à refiltrer côté client.
@@ -2800,30 +2819,6 @@ class SupabaseDbSource {
     });
   }
 
-  // ── Cantine ───────────────────────────────────────────────────────────────
-  /// Menus d'une école sur une période (typiquement la semaine courante).
-  static Future<List<SbCanteenMenu>> getCanteenMenus({
-    required String schoolId,
-    required DateTime from,
-    required DateTime to,
-  }) async {
-    String d(DateTime x) =>
-        '${x.year.toString().padLeft(4, '0')}-'
-        '${x.month.toString().padLeft(2, '0')}-'
-        '${x.day.toString().padLeft(2, '0')}';
-    final data = await _db
-        .from('canteen_menus')
-        .select('id, school_id, menu_date, note, '
-            'canteen_dishes(id, course, name, description, emoji, allergens, order_num)')
-        .eq('school_id', schoolId)
-        .gte('menu_date', d(from))
-        .lte('menu_date', d(to))
-        .order('menu_date');
-    return (data as List)
-        .map((j) => SbCanteenMenu.fromJson(j as Map<String, dynamic>))
-        .toList();
-  }
-
   // ── Récompenses ───────────────────────────────────────────────────────────
   static Future<List<SbMeritPoint>> getMeritPointsForStudent(
       String studentId) async {
@@ -2853,6 +2848,67 @@ class SupabaseDbSource {
       'reason': reason,
       'subject': subject,
       'stars': stars,
+    });
+  }
+
+  static Future<void> deleteMeritPoint(String id) async {
+    await _db.from('merit_points').delete().eq('id', id);
+  }
+
+  /// Le catalogue de badges de l'école (vue admin — sans les obtentions).
+  static Future<List<SbBadge>> getBadgeCatalog(String schoolId) async {
+    final data = await _db
+        .from('badge_catalog')
+        .select('id, key, title, description, emoji, order_num')
+        .eq('school_id', schoolId)
+        .order('order_num');
+    return (data as List).map((j) {
+      final m = j as Map<String, dynamic>;
+      return SbBadge(
+        id: m['id'] as String,
+        key: m['key'] as String? ?? '',
+        title: m['title'] as String? ?? '',
+        description: m['description'] as String?,
+        emoji: m['emoji'] as String?,
+      );
+    }).toList();
+  }
+
+  static Future<void> createBadge({
+    required String schoolId,
+    required String key,
+    required String title,
+    String? description,
+    String? emoji,
+    int orderNum = 0,
+  }) async {
+    await _db.from('badge_catalog').insert({
+      'school_id': schoolId,
+      'key': key,
+      'title': title,
+      'description': description,
+      'emoji': emoji,
+      'order_num': orderNum,
+    });
+  }
+
+  static Future<void> deleteBadge(String id) async {
+    await _db.from('badge_catalog').delete().eq('id', id);
+  }
+
+  /// Décerne un badge à un élève. La contrainte `unique(student_id, badge_id)`
+  /// garantit qu'un badge ne s'obtient qu'une fois — un second appel échoue.
+  static Future<void> awardBadgeToStudent({
+    required String schoolId,
+    required String studentId,
+    required String badgeId,
+    required String awardedBy,
+  }) async {
+    await _db.from('student_badges').insert({
+      'school_id': schoolId,
+      'student_id': studentId,
+      'badge_id': badgeId,
+      'awarded_by': awardedBy,
     });
   }
 
@@ -2945,64 +3001,6 @@ class SbLiaisonEntry {
 
   /// Un mot sans `student_id` s'adresse à la classe entière.
   bool get isForWholeClass => studentId == null;
-}
-
-class SbCanteenDish {
-  final String id;
-  final String course; // 'entree' | 'plat' | 'dessert'
-  final String name;
-  final String? description;
-  final String? emoji;
-  final List<String> allergens;
-
-  const SbCanteenDish({
-    required this.id,
-    required this.course,
-    required this.name,
-    this.description,
-    this.emoji,
-    this.allergens = const [],
-  });
-
-  factory SbCanteenDish.fromJson(Map<String, dynamic> j) => SbCanteenDish(
-        id: j['id'] as String,
-        course: j['course'] as String? ?? 'plat',
-        name: j['name'] as String? ?? '',
-        description: j['description'] as String?,
-        emoji: j['emoji'] as String?,
-        allergens: (j['allergens'] as List?)?.cast<String>() ?? const [],
-      );
-}
-
-class SbCanteenMenu {
-  final String id;
-  final DateTime menuDate;
-  final String? note;
-  final List<SbCanteenDish> dishes;
-
-  const SbCanteenMenu({
-    required this.id,
-    required this.menuDate,
-    this.note,
-    this.dishes = const [],
-  });
-
-  factory SbCanteenMenu.fromJson(Map<String, dynamic> j) {
-    final raw = (j['canteen_dishes'] as List?) ?? const [];
-    final dishes = raw
-        .map((d) => SbCanteenDish.fromJson(d as Map<String, dynamic>))
-        .toList();
-    // Toujours dans l'ordre du repas : entrée, plat, dessert.
-    const rank = {'entree': 0, 'plat': 1, 'dessert': 2};
-    dishes.sort((a, b) =>
-        (rank[a.course] ?? 9).compareTo(rank[b.course] ?? 9));
-    return SbCanteenMenu(
-      id: j['id'] as String,
-      menuDate: DateTime.parse(j['menu_date'] as String),
-      note: j['note'] as String?,
-      dishes: dishes,
-    );
-  }
 }
 
 /// Un bon point : nominatif, daté, avec 1 à 3 étoiles.
