@@ -483,6 +483,10 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
   late String _color;
   late Set<String> _days;
   String? _teacherId;
+  // Le cours est le PROGRAMME d'une matière dans une classe. Il ne redéclare
+  // donc pas son nom : il choisit la matière. Le coefficient reste celui de la
+  // matière — une seule source (cf. 20260738).
+  String? _subjectId;
   bool _saving = false;
 
   @override
@@ -500,6 +504,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
     _color    = e?.color ?? _courseColors.first;
     _days     = Set<String>.from(e?.daysOfWeek ?? []);
     _teacherId = e?.teacherId;
+    _subjectId = e?.subjectId;
   }
 
   @override
@@ -517,6 +522,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
         await SupabaseDbSource.createCourse(
           schoolId: widget.schoolId,
           classId: widget.classId,
+          subjectId: _subjectId,
           name: _name.text,
           code: _code.text.isEmpty ? null : _code.text,
           teacherId: _teacherId,
@@ -532,6 +538,7 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
       } else {
         await SupabaseDbSource.updateCourse(
           id: widget.existing!.id,
+          subjectId: _subjectId,
           name: _name.text,
           code: _code.text,
           teacherId: _teacherId,
@@ -599,22 +606,44 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           ]),
           const SizedBox(height: 20),
 
-          // ── Nom + Code ────────────────────────────────────────────
-          Row(children: [
-            Expanded(
-              flex: 3,
-              child: _Field(
-                controller: _name,
-                label: 'Nom du cours *',
-                hint: 'ex: Mathématiques',
-                validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+          // ── Matière ───────────────────────────────────────────────
+          //  On CHOISIT la matière au lieu d'en retaper le nom. Sans ce lien, un
+          //  cours n'était rattaché à rien : ni aux notes, ni aux bulletins, ni
+          //  à l'emploi du temps. Le nom et le code suivent la matière.
+          ref.watch(subjectsProvider).when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('Matières indisponibles : $e',
+                style: const TextStyle(color: _terra, fontSize: 12)),
+            data: (subjects) => DropdownButtonFormField<String>(
+              value: subjects.any((s) => s.id == _subjectId) ? _subjectId : null,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Matière *',
+                prefixIcon: Icon(Icons.menu_book_outlined),
+                border: OutlineInputBorder(),
               ),
+              items: [
+                for (final s in subjects)
+                  DropdownMenuItem(
+                      value: s.id,
+                      child: Text('${s.name} (coef. ${s.coefficient})')),
+              ],
+              validator: (v) => v == null ? 'Choisissez une matière' : null,
+              onChanged: (v) {
+                final s = subjects.where((x) => x.id == v).firstOrNull;
+                setState(() {
+                  _subjectId = v;
+                  // Le nom et le code du cours suivent la matière : ils n'ont
+                  // pas à diverger.
+                  if (s != null) {
+                    _name.text = s.name;
+                    _code.text = s.code ?? '';
+                    _coef = s.coefficient;
+                  }
+                });
+              },
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _Field(controller: _code, label: 'Code', hint: 'MATH'),
-            ),
-          ]),
+          ),
           const SizedBox(height: 14),
 
           // ── Description ───────────────────────────────────────────

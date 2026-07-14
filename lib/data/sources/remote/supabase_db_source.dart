@@ -989,6 +989,14 @@ class SbCourse {
   final String id;
   final String schoolId;
   final String classId;
+
+  /// La MATIÈRE dont ce cours est le programme.
+  ///
+  /// Un cours n'avait qu'un `name` : il n'était relié à aucune matière, donc à
+  /// rien du tout — ni aux notes, ni aux bulletins, ni à l'emploi du temps. Son
+  /// coefficient n'était même pas lu. Cf. 20260738.
+  final String? subjectId;
+
   final String name;
   final String? code;
   final String? teacherId;
@@ -1007,6 +1015,7 @@ class SbCourse {
     required this.id,
     required this.schoolId,
     required this.classId,
+    this.subjectId,
     required this.name,
     this.code,
     this.teacherId,
@@ -1030,6 +1039,7 @@ class SbCourse {
       id: j['id'] as String,
       schoolId: j['school_id'] as String? ?? '',
       classId: j['class_id'] as String? ?? '',
+      subjectId: j['subject_id'] as String?,
       name: j['name'] as String? ?? '',
       code: j['code'] as String?,
       teacherId: j['teacher_id'] as String?,
@@ -2577,6 +2587,7 @@ class SupabaseDbSource {
   static Future<void> createCourse({
     required String schoolId,
     required String classId,
+    String? subjectId,
     required String name,
     String? code,
     String? teacherId,
@@ -2593,6 +2604,7 @@ class SupabaseDbSource {
       'id': const Uuid().v4(),
       'school_id': schoolId,
       'class_id': classId,
+      'subject_id': subjectId,
       'name': name.trim(),
       if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
       if (teacherId != null) 'teacher_id': teacherId,
@@ -2616,6 +2628,7 @@ class SupabaseDbSource {
 
   static Future<void> updateCourse({
     required String id,
+    String? subjectId,
     String? name,
     String? code,
     String? teacherId,
@@ -2629,6 +2642,7 @@ class SupabaseDbSource {
     String? room,
   }) async {
     final patch = <String, dynamic>{};
+    if (subjectId != null) patch['subject_id'] = subjectId;
     if (name != null) patch['name'] = name.trim();
     if (code != null) patch['code'] = code.trim().isEmpty ? null : code.trim();
     if (teacherId != null) patch['teacher_id'] = teacherId;
