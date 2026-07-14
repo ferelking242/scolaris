@@ -12,6 +12,7 @@ import 'pages/attendance_today_page.dart';
 import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
+import 'pages/teacher_liaison_page.dart';
 
 class TeacherHome extends StatelessWidget {
   const TeacherHome({super.key});
@@ -54,6 +55,13 @@ class TeacherHome extends StatelessWidget {
               activeIcon: Icons.bar_chart_rounded,
               labelKey: 'nav.class_stats',
               page: ClassStatsPage()),
+          // L'écriture du cahier de liaison. Sans elle, le cahier que voient
+          // les familles reste une boîte vide.
+          RoleNavEntry(
+              icon: Icons.import_contacts_outlined,
+              activeIcon: Icons.import_contacts_rounded,
+              labelKey: 'nav.cahier_liaison',
+              page: TeacherLiaisonPage()),
         ]),
         // Messagerie retirée : l'écran était 100 % fictif (conversations codées
         // en dur, aucun accès à la base). À réintroduire quand une vraie

@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../student/presentation/pages/attendance_page.dart';
+import '../../../student/presentation/pages/cahier_liaison_page.dart';
+import '../../../student/presentation/pages/carnet_recompenses_page.dart';
 import '../../../student/presentation/pages/grades_page.dart';
+import '../../../student/presentation/pages/menu_cantine_page.dart';
 import '../../../student/presentation/pages/schedule_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -29,6 +33,12 @@ class ChildDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Le cycle de CET enfant, déduit de sa classe (« CE1 » → primaire).
+    // On ne peut pas se servir de `studentSchoolLevelProvider` : il décrit
+    // l'utilisateur connecté — ici, le parent, qui n'a pas de niveau.
+    final level = SchoolLevel.fromClassName(child.classe ?? child.niveau);
+    final isPrimaire = level == SchoolLevel.primaire;
+
     final grades   = ref.watch(gradesForStudentProvider(child.id));
     final absences = ref.watch(absencesForStudentProvider(child.id));
     final invoices = ref.watch(invoicesForStudentProvider(child.id));
@@ -119,6 +129,40 @@ class ChildDetailPage extends ConsumerWidget {
         ),
         // Pas de bulletin : retiré des espaces élève ET parent (décision
         // utilisateur). Le bulletin reste produit et publié côté admin.
+
+        // ── Outils du primaire ────────────────────────────────────────────
+        // La fiche s'adapte à la classe de CET enfant : un parent peut avoir un
+        // enfant en CE1 et un autre en Terminale, et voir deux fiches
+        // différentes. Le niveau est une propriété de l'ENFANT, pas du parent —
+        // c'est pourquoi il se dérive ici et pas dans le shell.
+        if (isPrimaire) ...[
+          const SizedBox(height: 8),
+          _NavTile(
+            icon: Icons.import_contacts_rounded, color: _terra,
+            title: 'Cahier de liaison',
+            subtitle: 'Les mots de l\'enseignant',
+            onTap: () => _push(context, CahierLiaisonPage(
+                studentId: child.id,
+                title: 'Cahier de ${child.prenom}')),
+          ),
+          const SizedBox(height: 8),
+          _NavTile(
+            icon: Icons.emoji_events_rounded, color: _gold,
+            title: 'Carnet de récompenses',
+            subtitle: 'Bons points et badges',
+            onTap: () => _push(context, CarnetRecompensesPage(
+                studentId: child.id,
+                title: 'Récompenses de ${child.prenom}')),
+          ),
+          const SizedBox(height: 8),
+          _NavTile(
+            icon: Icons.restaurant_rounded, color: _green,
+            title: 'Menu de la cantine',
+            subtitle: 'Les repas de la semaine',
+            // Le menu appartient à l'école, pas à l'enfant : pas de studentId.
+            onTap: () => _push(context, const MenuCantinePage()),
+          ),
+        ],
         const SizedBox(height: 22),
 
         // ── Dernières notes ───────────────────────────────────────────────

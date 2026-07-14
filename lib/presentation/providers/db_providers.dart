@@ -194,6 +194,13 @@ class TeacherAssignments {
       subjectsByClass[classId] ?? const <String>{};
 }
 
+/// Les classes du prof connecté (celles où il enseigne réellement).
+final teacherClassesProvider = FutureProvider<List<SbClass>>((ref) async {
+  final assign = await ref.watch(teacherAssignmentsProvider.future);
+  final all = await ref.watch(classesProvider.future);
+  return all.where((c) => assign.teachesClass(c.id)).toList();
+});
+
 /// Emploi du temps complet du prof connecté (tous ses créneaux).
 final teacherSchedulesProvider = FutureProvider<List<SbSchedule>>((ref) async {
   final session = ref.watch(authSessionProvider);
@@ -526,6 +533,70 @@ final studentCountProvider = FutureProvider<int>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return 0;
   return SupabaseDbSource.getStudentCount(schoolId);
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Outils du PRIMAIRE — cahier de liaison, cantine, récompenses
+//
+// Tous sont paramétrés par `studentId` : ils servent aussi bien à l'élève
+// (« moi ») qu'au parent (« mon enfant »), sans duplication. La RLS fait le
+// tri en base — voir `20260724_primary_tools.sql`.
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Mots du cahier de liaison concernant un élève : ceux qui le visent
+/// nommément ET ceux adressés à sa classe.
+final liaisonEntriesForStudentProvider =
+    FutureProvider.family<List<SbLiaisonEntry>, String>((ref, studentId) async {
+  final student = await ref.watch(studentByIdProvider(studentId).future);
+  return SupabaseDbSource.getLiaisonEntriesForStudent(
+    studentId,
+    classId: student?.classId,
+  );
+});
+
+/// Mots écrits pour une classe (vue enseignant).
+final liaisonEntriesForClassProvider =
+    FutureProvider.family<List<SbLiaisonEntry>, String>((ref, classId) async {
+  return SupabaseDbSource.getLiaisonEntriesForClass(classId);
+});
+
+/// Les accusés de réception déjà signés par le parent connecté.
+/// Vide pour un élève : accuser réception est un acte de parent.
+final myLiaisonAcksProvider = FutureProvider<Set<String>>((ref) async {
+  final session = ref.watch(authSessionProvider);
+  if (session == null) return const {};
+  return SupabaseDbSource.getMyLiaisonAcks(session.id);
+});
+
+/// Menus de la cantine de l'école courante, sur la semaine en cours.
+final canteenMenusProvider = FutureProvider<List<SbCanteenMenu>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  final now = DateTime.now();
+  final monday = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: now.weekday - 1));
+  return SupabaseDbSource.getCanteenMenus(
+    schoolId: schoolId,
+    from: monday,
+    to: monday.add(const Duration(days: 6)),
+  );
+});
+
+/// Bons points d'un élève.
+final meritPointsForStudentProvider =
+    FutureProvider.family<List<SbMeritPoint>, String>((ref, studentId) async {
+  return SupabaseDbSource.getMeritPointsForStudent(studentId);
+});
+
+/// Badges de l'école, marqués obtenus/non obtenus pour l'élève visé.
+final badgesForStudentProvider =
+    FutureProvider.family<List<SbBadge>, String>((ref, studentId) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return SupabaseDbSource.getBadgesForStudent(
+    schoolId: schoolId,
+    studentId: studentId,
+  );
 });
 
 // ── Courses ────────────────────────────────────────────────────────────────

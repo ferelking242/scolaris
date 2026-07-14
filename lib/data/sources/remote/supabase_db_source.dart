@@ -2707,4 +2707,355 @@ class SupabaseDbSource {
   static Future<List<SbCourse>> getMyCoursesForStudent(String classId) async {
     return getCoursesForClass(classId);
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // OUTILS DU PRIMAIRE — cahier de liaison, cantine, récompenses
+  // Tables créées par `supabase/migrations/20260724_primary_tools.sql`.
+  // La RLS fait déjà le tri (élève → lui, parent → ses enfants, prof → ses
+  // classes) : ces requêtes n'ont donc PAS à refiltrer côté client.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Cahier de liaison ─────────────────────────────────────────────────────
+  static const String _liaisonSelect =
+      'id, school_id, class_id, student_id, author_id, category, title, body, '
+      'requires_ack, created_at, users!author_id(full_name)';
+
+  /// Mots du cahier destinés à un élève : ceux qui le visent nommément **et**
+  /// ceux adressés à sa classe. Les deux comptent — un mot à la classe est
+  /// aussi un mot pour lui.
+  static Future<List<SbLiaisonEntry>> getLiaisonEntriesForStudent(
+      String studentId, {String? classId}) async {
+    final filter = (classId != null && classId.isNotEmpty)
+        ? 'student_id.eq.$studentId,class_id.eq.$classId'
+        : 'student_id.eq.$studentId';
+    final data = await _db
+        .from('liaison_entries')
+        .select(_liaisonSelect)
+        .or(filter)
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((j) => SbLiaisonEntry.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Mots écrits pour une classe (vue enseignant).
+  static Future<List<SbLiaisonEntry>> getLiaisonEntriesForClass(
+      String classId) async {
+    final data = await _db
+        .from('liaison_entries')
+        .select(_liaisonSelect)
+        .eq('class_id', classId)
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((j) => SbLiaisonEntry.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Écrit un mot. `studentId` null = le mot s'adresse à toute la classe.
+  static Future<void> createLiaisonEntry({
+    required String schoolId,
+    required String authorId,
+    required String title,
+    required String body,
+    required String category,
+    String? classId,
+    String? studentId,
+    bool requiresAck = false,
+  }) async {
+    await _db.from('liaison_entries').insert({
+      'school_id': schoolId,
+      'author_id': authorId,
+      'class_id': classId,
+      'student_id': studentId,
+      'category': category,
+      'title': title,
+      'body': body,
+      'requires_ack': requiresAck,
+    });
+  }
+
+  static Future<void> deleteLiaisonEntry(String id) async {
+    await _db.from('liaison_entries').delete().eq('id', id);
+  }
+
+  /// Les accusés de réception du parent connecté (pour savoir ce qu'il a signé).
+  static Future<Set<String>> getMyLiaisonAcks(String parentId) async {
+    final data = await _db
+        .from('liaison_acks')
+        .select('entry_id')
+        .eq('parent_id', parentId);
+    return (data as List)
+        .map((j) => (j as Map<String, dynamic>)['entry_id'] as String)
+        .toSet();
+  }
+
+  /// Le parent accuse réception — c'est la signature du cahier papier.
+  static Future<void> ackLiaisonEntry({
+    required String entryId,
+    required String parentId,
+  }) async {
+    await _db.from('liaison_acks').insert({
+      'entry_id': entryId,
+      'parent_id': parentId,
+    });
+  }
+
+  // ── Cantine ───────────────────────────────────────────────────────────────
+  /// Menus d'une école sur une période (typiquement la semaine courante).
+  static Future<List<SbCanteenMenu>> getCanteenMenus({
+    required String schoolId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    String d(DateTime x) =>
+        '${x.year.toString().padLeft(4, '0')}-'
+        '${x.month.toString().padLeft(2, '0')}-'
+        '${x.day.toString().padLeft(2, '0')}';
+    final data = await _db
+        .from('canteen_menus')
+        .select('id, school_id, menu_date, note, '
+            'canteen_dishes(id, course, name, description, emoji, allergens, order_num)')
+        .eq('school_id', schoolId)
+        .gte('menu_date', d(from))
+        .lte('menu_date', d(to))
+        .order('menu_date');
+    return (data as List)
+        .map((j) => SbCanteenMenu.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Récompenses ───────────────────────────────────────────────────────────
+  static Future<List<SbMeritPoint>> getMeritPointsForStudent(
+      String studentId) async {
+    final data = await _db
+        .from('merit_points')
+        .select('id, student_id, subject, reason, stars, awarded_at, '
+            'users!awarded_by(full_name)')
+        .eq('student_id', studentId)
+        .order('awarded_at', ascending: false);
+    return (data as List)
+        .map((j) => SbMeritPoint.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> awardMeritPoint({
+    required String schoolId,
+    required String studentId,
+    required String awardedBy,
+    required String reason,
+    String? subject,
+    int stars = 1,
+  }) async {
+    await _db.from('merit_points').insert({
+      'school_id': schoolId,
+      'student_id': studentId,
+      'awarded_by': awardedBy,
+      'reason': reason,
+      'subject': subject,
+      'stars': stars,
+    });
+  }
+
+  /// Le catalogue de badges de l'école, et — pour l'élève visé — ceux qu'il a
+  /// déjà obtenus. Un badge non obtenu reste visible (c'est un objectif), d'où
+  /// la fusion catalogue + obtentions plutôt qu'une simple liste.
+  static Future<List<SbBadge>> getBadgesForStudent({
+    required String schoolId,
+    required String studentId,
+  }) async {
+    final catalog = await _db
+        .from('badge_catalog')
+        .select('id, key, title, description, emoji, order_num')
+        .eq('school_id', schoolId)
+        .order('order_num');
+
+    final earned = await _db
+        .from('student_badges')
+        .select('badge_id, awarded_at')
+        .eq('student_id', studentId);
+
+    final earnedAt = <String, DateTime?>{};
+    for (final e in (earned as List)) {
+      final m = e as Map<String, dynamic>;
+      earnedAt[m['badge_id'] as String] = m['awarded_at'] != null
+          ? DateTime.tryParse(m['awarded_at'] as String)
+          : null;
+    }
+
+    return (catalog as List).map((j) {
+      final m = j as Map<String, dynamic>;
+      final id = m['id'] as String;
+      return SbBadge(
+        id: id,
+        key: m['key'] as String? ?? '',
+        title: m['title'] as String? ?? '',
+        description: m['description'] as String?,
+        emoji: m['emoji'] as String?,
+        earnedAt: earnedAt[id],
+        earned: earnedAt.containsKey(id),
+      );
+    }).toList();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Modèles — outils du primaire
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Un mot du cahier de liaison. `studentId` null ⇒ adressé à toute la classe.
+class SbLiaisonEntry {
+  final String id;
+  final String schoolId;
+  final String? classId;
+  final String? studentId;
+  final String? authorName;
+  final String category;
+  final String title;
+  final String body;
+  final bool requiresAck;
+  final DateTime? createdAt;
+
+  const SbLiaisonEntry({
+    required this.id,
+    required this.schoolId,
+    required this.category,
+    required this.title,
+    required this.body,
+    this.classId,
+    this.studentId,
+    this.authorName,
+    this.requiresAck = false,
+    this.createdAt,
+  });
+
+  factory SbLiaisonEntry.fromJson(Map<String, dynamic> j) => SbLiaisonEntry(
+        id: j['id'] as String,
+        schoolId: j['school_id'] as String? ?? '',
+        classId: j['class_id'] as String?,
+        studentId: j['student_id'] as String?,
+        authorName: (j['users'] as Map<String, dynamic>?)?['full_name'] as String?,
+        category: j['category'] as String? ?? 'info',
+        title: j['title'] as String? ?? '',
+        body: j['body'] as String? ?? '',
+        requiresAck: j['requires_ack'] as bool? ?? false,
+        createdAt: j['created_at'] != null
+            ? DateTime.tryParse(j['created_at'] as String)
+            : null,
+      );
+
+  /// Un mot sans `student_id` s'adresse à la classe entière.
+  bool get isForWholeClass => studentId == null;
+}
+
+class SbCanteenDish {
+  final String id;
+  final String course; // 'entree' | 'plat' | 'dessert'
+  final String name;
+  final String? description;
+  final String? emoji;
+  final List<String> allergens;
+
+  const SbCanteenDish({
+    required this.id,
+    required this.course,
+    required this.name,
+    this.description,
+    this.emoji,
+    this.allergens = const [],
+  });
+
+  factory SbCanteenDish.fromJson(Map<String, dynamic> j) => SbCanteenDish(
+        id: j['id'] as String,
+        course: j['course'] as String? ?? 'plat',
+        name: j['name'] as String? ?? '',
+        description: j['description'] as String?,
+        emoji: j['emoji'] as String?,
+        allergens: (j['allergens'] as List?)?.cast<String>() ?? const [],
+      );
+}
+
+class SbCanteenMenu {
+  final String id;
+  final DateTime menuDate;
+  final String? note;
+  final List<SbCanteenDish> dishes;
+
+  const SbCanteenMenu({
+    required this.id,
+    required this.menuDate,
+    this.note,
+    this.dishes = const [],
+  });
+
+  factory SbCanteenMenu.fromJson(Map<String, dynamic> j) {
+    final raw = (j['canteen_dishes'] as List?) ?? const [];
+    final dishes = raw
+        .map((d) => SbCanteenDish.fromJson(d as Map<String, dynamic>))
+        .toList();
+    // Toujours dans l'ordre du repas : entrée, plat, dessert.
+    const rank = {'entree': 0, 'plat': 1, 'dessert': 2};
+    dishes.sort((a, b) =>
+        (rank[a.course] ?? 9).compareTo(rank[b.course] ?? 9));
+    return SbCanteenMenu(
+      id: j['id'] as String,
+      menuDate: DateTime.parse(j['menu_date'] as String),
+      note: j['note'] as String?,
+      dishes: dishes,
+    );
+  }
+}
+
+/// Un bon point : nominatif, daté, avec 1 à 3 étoiles.
+class SbMeritPoint {
+  final String id;
+  final String studentId;
+  final String? subject;
+  final String reason;
+  final int stars;
+  final String? awardedByName;
+  final DateTime? awardedAt;
+
+  const SbMeritPoint({
+    required this.id,
+    required this.studentId,
+    required this.reason,
+    this.stars = 1,
+    this.subject,
+    this.awardedByName,
+    this.awardedAt,
+  });
+
+  factory SbMeritPoint.fromJson(Map<String, dynamic> j) => SbMeritPoint(
+        id: j['id'] as String,
+        studentId: j['student_id'] as String? ?? '',
+        subject: j['subject'] as String?,
+        reason: j['reason'] as String? ?? '',
+        stars: (j['stars'] as num?)?.toInt() ?? 1,
+        awardedByName:
+            (j['users'] as Map<String, dynamic>?)?['full_name'] as String?,
+        awardedAt: j['awarded_at'] != null
+            ? DateTime.tryParse(j['awarded_at'] as String)
+            : null,
+      );
+}
+
+/// Un badge du catalogue de l'école, obtenu ou non par l'élève visé.
+class SbBadge {
+  final String id;
+  final String key;
+  final String title;
+  final String? description;
+  final String? emoji;
+  final bool earned;
+  final DateTime? earnedAt;
+
+  const SbBadge({
+    required this.id,
+    required this.key,
+    required this.title,
+    this.description,
+    this.emoji,
+    this.earned = false,
+    this.earnedAt,
+  });
 }

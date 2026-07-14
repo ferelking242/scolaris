@@ -1,97 +1,106 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _orange = ScolarisPalette.orange;
+
 // Neutres (texte/fond/bordure) : jamais figés → `context.c*` (page_scaffold).
 // Ces deux-là sont du texte posé sur un fond de marque coloré : ils restent
 // constants, valables en clair comme en sombre.
 const _white  = Colors.white;        // sur terracotta / couleur de badge
 const _onGold = Color(0xFF1A0A00);   // sur la pastille or
 
-// ── Data ──────────────────────────────────────────────────────────────────────
-class _Badge {
-  final String emoji;
-  final String titre;
-  final String description;
-  final Color color;
-  final bool obtenu;
-  final String? dateObtention;
-  const _Badge({
-    required this.emoji, required this.titre, required this.description,
-    required this.color, required this.obtenu, this.dateObtention,
-  });
+/// Couleur d'un badge — dérivée de sa clé, faute de colonne `color` en base.
+/// (Une couleur n'est pas une donnée d'école : c'est de la présentation.)
+Color _badgeColor(String key) {
+  const palette = [
+    _gold, _terra, Color(0xFF0891B2), Color(0xFF6D28D9),
+    _green, Color(0xFFDB2777), Color(0xFF059669), Color(0xFFD4540A),
+  ];
+  if (key.isEmpty) return _gold;
+  return palette[key.codeUnits.fold(0, (a, b) => a + b) % palette.length];
 }
 
-class _BonPoint {
-  final String motif;
-  final String matiere;
-  final String date;
-  final int etoiles;
-  final Color color;
-  const _BonPoint({
-    required this.motif, required this.matiere, required this.date,
-    required this.etoiles, required this.color,
-  });
-}
+// ══════════════════════════════════════════════════════════════════════════
+// Carnet de récompenses — bons points et badges d'un élève.
+//
+// `studentId` null = l'élève connecté (vue élève).
+// `studentId` renseigné = vue parent sur un de ses enfants.
+// ══════════════════════════════════════════════════════════════════════════
+class CarnetRecompensesPage extends ConsumerStatefulWidget {
+  final String? studentId;
+  final String? title;
+  const CarnetRecompensesPage({super.key, this.studentId, this.title});
 
-const _badges = [
-  _Badge(emoji: '🏆', titre: 'Tableau d\'honneur', description: 'Classé 1er du trimestre', color: _gold, obtenu: true, dateObtention: 'Trim. 2'),
-  _Badge(emoji: '📚', titre: 'Grand lecteur', description: '10 livres lus ce trimestre', color: _terra, obtenu: true, dateObtention: 'Mai 2026'),
-  _Badge(emoji: '🧮', titre: 'As des maths', description: 'Moyenne > 8/10 en calcul', color: Color(0xFF0891B2), obtenu: true, dateObtention: 'Avr. 2026'),
-  _Badge(emoji: '✍️', titre: 'Belle écriture', description: 'Récompensé pour l\'écriture', color: Color(0xFF6D28D9), obtenu: true, dateObtention: 'Mar. 2026'),
-  _Badge(emoji: '🌟', titre: 'Super présence', description: '30 jours sans absence', color: _green, obtenu: false),
-  _Badge(emoji: '🎨', titre: 'Artiste du mois', description: 'Meilleur dessin de la classe', color: Color(0xFFDB2777), obtenu: false),
-  _Badge(emoji: '⚽', titre: 'Champion sport', description: 'Meilleur en EPS', color: Color(0xFF059669), obtenu: false),
-  _Badge(emoji: '🔬', titre: 'Jeune scientifique', description: 'Excellence en sciences', color: Color(0xFF0891B2), obtenu: false),
-];
-
-const _bonsPoints = [
-  _BonPoint(motif: 'Excellent devoir de calcul', matiere: 'Calcul', date: 'Hier', etoiles: 3, color: _gold),
-  _BonPoint(motif: 'Belle lecture à voix haute', matiere: 'Lecture', date: 'Lun 23 Jun', etoiles: 2, color: _terra),
-  _BonPoint(motif: 'Aide aux camarades', matiere: 'Conduite', date: 'Ven 20 Jun', etoiles: 1, color: _green),
-  _BonPoint(motif: 'Dessin réussi', matiere: 'Dessin', date: 'Mer 18 Jun', etoiles: 2, color: Color(0xFFDB2777)),
-  _BonPoint(motif: 'Récitation parfaite', matiere: 'Français', date: 'Lun 16 Jun', etoiles: 3, color: Color(0xFF6D28D9)),
-  _BonPoint(motif: 'Bonne participation', matiere: 'Sciences', date: 'Ven 13 Jun', etoiles: 1, color: Color(0xFF0891B2)),
-];
-
-int get _totalEtoiles => _bonsPoints.fold(0, (s, b) => s + b.etoiles);
-int get _badgesObtenus => _badges.where((b) => b.obtenu).length;
-
-// ── Page principale ───────────────────────────────────────────────────────────
-class CarnetRecompensesPage extends StatefulWidget {
-  const CarnetRecompensesPage({super.key});
   @override
-  State<CarnetRecompensesPage> createState() => _CarnetRecompensesPageState();
+  ConsumerState<CarnetRecompensesPage> createState() =>
+      _CarnetRecompensesPageState();
 }
 
-class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
+class _CarnetRecompensesPageState extends ConsumerState<CarnetRecompensesPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
-    _tab.addListener(() => setState(() {}));
+    _tab = TabController(length: 2, vsync: this)
+      ..addListener(() => setState(() {}));
   }
+
   @override
-  void dispose() { _tab.dispose(); super.dispose(); }
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(authSessionProvider);
+    final sid     = widget.studentId ?? session?.id;
+    final heading = widget.title ?? 'Carnet de récompenses ⭐';
+
+    if (sid == null) {
+      return PageScaffold(title: heading, child: const SizedBox());
+    }
+
+    final pointsAsync = ref.watch(meritPointsForStudentProvider(sid));
+    final badgesAsync = ref.watch(badgesForStudentProvider(sid));
+
+    final points = pointsAsync.valueOrNull ?? const <SbMeritPoint>[];
+    final badges = badgesAsync.valueOrNull ?? const <SbBadge>[];
+    final loading = pointsAsync.isLoading || badgesAsync.isLoading;
+
+    final totalEtoiles = points.fold<int>(0, (s, p) => s + p.stars);
+    final obtenus = badges.where((b) => b.earned).length;
+
+    if (pointsAsync.hasError) {
+      return PageScaffold(
+        title: heading,
+        child: Center(child: Text('Erreur : ${pointsAsync.error}',
+            style: TextStyle(color: context.cMuted))),
+      );
+    }
+
     return PageScaffold(
-      title: 'Carnet de récompenses ⭐',
-      subtitle: 'Tes bons points et médailles',
+      title: heading,
+      subtitle: loading
+          ? 'Chargement…'
+          : totalEtoiles == 0 && obtenus == 0
+              ? 'Aucune récompense pour l\'instant'
+              : '$totalEtoiles étoile(s) · $obtenus badge(s)',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Hero stats ──────────────────────────────────────────────────────
+        // ── Bandeau étoiles ────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -100,36 +109,42 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
               begin: Alignment.topLeft, end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: _terra.withOpacity(.3), blurRadius: 16, offset: const Offset(0, 6))],
+            boxShadow: [BoxShadow(color: _terra.withOpacity(.3),
+                blurRadius: 16, offset: const Offset(0, 6))],
           ),
           child: Row(children: [
-            // Étoiles animées
-            _StarDisplay(count: _totalEtoiles),
+            _StarDisplay(count: totalEtoiles),
             const SizedBox(width: 20),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Mes étoiles', style: TextStyle(color: Colors.white60, fontSize: 11)),
-              Text('$_totalEtoiles ⭐', style: const TextStyle(
+            Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Mes étoiles',
+                  style: TextStyle(color: Colors.white60, fontSize: 11)),
+              Text('$totalEtoiles ⭐', style: const TextStyle(
                   color: _white, fontSize: 28, fontWeight: FontWeight.w900)),
               const SizedBox(height: 6),
               Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: _gold,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('$_badgesObtenus badges', style: const TextStyle(
-                      color: _onGold, fontSize: 11, fontWeight: FontWeight.w800)),
+                  child: Text('$obtenus badge(s)', style: const TextStyle(
+                      color: _onGold, fontSize: 11,
+                      fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: _white.withOpacity(.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('${_bonsPoints.length} bons points', style: const TextStyle(
-                      color: _white, fontSize: 11, fontWeight: FontWeight.w700)),
+                  child: Text('${points.length} bon(s) point(s)',
+                      style: const TextStyle(color: _white, fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                 ),
               ]),
             ])),
@@ -137,7 +152,7 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
         ),
         const SizedBox(height: 16),
 
-        // ── Tabs ─────────────────────────────────────────────────────────────
+        // ── Onglets ────────────────────────────────────────────────────────
         Container(
           height: 42,
           decoration: BoxDecoration(
@@ -150,26 +165,48 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
             indicator: BoxDecoration(
               color: context.cCard,
               borderRadius: BorderRadius.circular(9),
-              boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4)],
+              boxShadow: const [
+                BoxShadow(color: Color(0x14000000), blurRadius: 4)
+              ],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
             labelColor: _terra,
             unselectedLabelColor: context.cMuted,
-            labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-            unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-            tabs: const [Tab(text: '🏅 Mes badges'), Tab(text: '⭐ Bons points')],
+            labelStyle: const TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w500),
+            tabs: const [
+              Tab(text: '🏅 Badges'),
+              Tab(text: '⭐ Bons points'),
+            ],
           ),
         ),
         const SizedBox(height: 14),
 
-        if (_tab.index == 0) _buildBadges()
-        else _buildBonsPoints(),
+        if (loading)
+          const Center(child: Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: CircularProgressIndicator(),
+          ))
+        else if (_tab.index == 0)
+          _buildBadges(badges)
+        else
+          _buildPoints(points),
       ]),
     );
   }
 
-  Widget _buildBadges() {
+  Widget _buildBadges(List<SbBadge> badges) {
+    if (badges.isEmpty) {
+      return const EmptyState(
+        icon: Icons.emoji_events_outlined,
+        title: 'Aucun badge',
+        description:
+            'L\'école n\'a pas encore défini de badges à décrocher.',
+      );
+    }
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -177,16 +214,28 @@ class _CarnetRecompensesPageState extends State<CarnetRecompensesPage>
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
       childAspectRatio: 1.05,
-      children: _badges.map((b) => _BadgeCard(badge: b)).toList(),
+      children: badges.map((b) => _BadgeCard(badge: b)).toList(),
     );
   }
 
-  Widget _buildBonsPoints() => Column(
-    children: _bonsPoints.map((bp) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: _BonPointCard(bp: bp),
-    )).toList(),
-  );
+  Widget _buildPoints(List<SbMeritPoint> points) {
+    if (points.isEmpty) {
+      return const EmptyState(
+        icon: Icons.star_outline_rounded,
+        title: 'Aucun bon point',
+        description:
+            'Les bons points attribués par l\'enseignant apparaîtront ici.',
+      );
+    }
+    return Column(
+      children: points
+          .map((p) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _PointCard(point: p),
+              ))
+          .toList(),
+    );
+  }
 }
 
 // ── Affichage étoiles ─────────────────────────────────────────────────────────
@@ -207,7 +256,12 @@ class _StarDisplay extends StatelessWidget {
             top: 22 + 18 * math.sin(angle),
             child: const Text('⭐', style: TextStyle(fontSize: 14)),
           );
-        })..insert(0, const Positioned.fill(child: Center(child: Text('⭐', style: TextStyle(fontSize: 28))))),
+        })
+          ..insert(
+              0,
+              const Positioned.fill(
+                  child: Center(
+                      child: Text('⭐', style: TextStyle(fontSize: 28))))),
       ),
     );
   }
@@ -215,46 +269,54 @@ class _StarDisplay extends StatelessWidget {
 
 // ── Carte badge ───────────────────────────────────────────────────────────────
 class _BadgeCard extends StatelessWidget {
-  final _Badge badge;
+  final SbBadge badge;
   const _BadgeCard({required this.badge});
 
   @override
   Widget build(BuildContext context) {
+    final color = _badgeColor(badge.key);
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 300),
-      opacity: badge.obtenu ? 1.0 : 0.45,
+      opacity: badge.earned ? 1.0 : 0.45,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: badge.obtenu ? badge.color.withOpacity(.10) : context.cCard,
+          color: badge.earned ? color.withOpacity(.10) : context.cCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: badge.obtenu ? badge.color.withOpacity(.3) : context.cBorder,
-              width: badge.obtenu ? 1.5 : 1),
+              color: badge.earned ? color.withOpacity(.3) : context.cBorder,
+              width: badge.earned ? 1.5 : 1),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(badge.emoji, style: const TextStyle(fontSize: 32)),
+          Text(badge.emoji ?? '🏅', style: const TextStyle(fontSize: 32)),
           const SizedBox(height: 8),
-          Text(badge.titre, style: TextStyle(
-              fontSize: 12.5, fontWeight: FontWeight.w800,
-              color: badge.obtenu ? context.cInk : context.cMuted),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 4),
-          Text(badge.description, style: TextStyle(
-              fontSize: 10, color: context.cMuted, height: 1.3),
-              textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-          if (badge.obtenu && badge.dateObtention != null) ...[
+          Text(badge.title,
+              style: TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w800,
+                  color: badge.earned ? context.cInk : context.cMuted),
+              textAlign: TextAlign.center,
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          if (badge.description != null) ...[
+            const SizedBox(height: 4),
+            Text(badge.description!,
+                style: TextStyle(
+                    fontSize: 10, color: context.cMuted, height: 1.3),
+                textAlign: TextAlign.center,
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+          if (badge.earned) ...[
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: badge.color,
+                color: color,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(badge.dateObtention!, style: const TextStyle(
-                  color: _white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+              child: Text(_fmt(badge.earnedAt),
+                  style: const TextStyle(color: _white, fontSize: 9.5,
+                      fontWeight: FontWeight.w700)),
             ),
-          ] else if (!badge.obtenu) ...[
+          ] else ...[
             const SizedBox(height: 6),
             Icon(Icons.lock_rounded, size: 14, color: context.cMuted),
           ],
@@ -262,15 +324,23 @@ class _BadgeCard extends StatelessWidget {
       ),
     );
   }
+
+  static String _fmt(DateTime? d) {
+    if (d == null) return 'Obtenu';
+    const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août',
+                  'sept.','oct.','nov.','déc.'];
+    return '${mois[d.month - 1]} ${d.year}';
+  }
 }
 
 // ── Carte bon point ───────────────────────────────────────────────────────────
-class _BonPointCard extends StatelessWidget {
-  final _BonPoint bp;
-  const _BonPointCard({required this.bp});
+class _PointCard extends StatelessWidget {
+  final SbMeritPoint point;
+  const _PointCard({required this.point});
 
   @override
   Widget build(BuildContext context) {
+    final color = _badgeColor(point.subject ?? '');
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -282,39 +352,60 @@ class _BonPointCard extends StatelessWidget {
         Container(
           width: 44, height: 44,
           decoration: BoxDecoration(
-            color: bp.color.withOpacity(.1),
+            color: color.withOpacity(.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(child: Text(
-            List.generate(bp.etoiles, (_) => '⭐').join(),
-            style: TextStyle(fontSize: bp.etoiles == 1 ? 18 : bp.etoiles == 2 ? 14 : 11),
+            List.generate(point.stars, (_) => '⭐').join(),
+            style: TextStyle(
+                fontSize: point.stars == 1 ? 18 : point.stars == 2 ? 14 : 11),
           )),
         ),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(bp.motif, style: TextStyle(
+        Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(point.reason, style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
           const SizedBox(height: 3),
           Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: bp.color.withOpacity(.1),
-                borderRadius: BorderRadius.circular(5),
+            if (point.subject != null && point.subject!.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(point.subject!, style: TextStyle(
+                    fontSize: 10, color: color,
+                    fontWeight: FontWeight.w700)),
               ),
-              child: Text(bp.matiere, style: TextStyle(
-                  fontSize: 10, color: bp.color, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(width: 8),
-            Text(bp.date, style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: Text(
+                [
+                  _fmt(point.awardedAt),
+                  if (point.awardedByName != null) point.awardedByName!,
+                ].where((s) => s.isNotEmpty).join(' · '),
+                style: TextStyle(fontSize: 10.5, color: context.cMuted),
+                maxLines: 1, overflow: TextOverflow.ellipsis)),
           ]),
         ])),
         Row(children: List.generate(3, (i) => Icon(
-          i < bp.etoiles ? Icons.star_rounded : Icons.star_outline_rounded,
-          color: i < bp.etoiles ? _gold : context.cBorder,
+          i < point.stars
+              ? Icons.star_rounded
+              : Icons.star_outline_rounded,
+          color: i < point.stars ? _gold : context.cBorder,
           size: 18,
         ))),
       ]),
     );
+  }
+
+  static String _fmt(DateTime? d) {
+    if (d == null) return '';
+    const mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août',
+                  'sept.','oct.','nov.','déc.'];
+    return '${d.day} ${mois[d.month - 1]}';
   }
 }
