@@ -4,15 +4,12 @@
 --
 --  ── Pourquoi ce script existe ───────────────────────────────────────────────
 --
---  `20260724_primary_tools.sql` a ajoute les modules `liaison`, `cantine` et
---  `recompenses` et les a accordes aux MODELES de roles
---  (`role_template_permissions`).
+--  `20260724_primary_tools.sql` a ajoute les modules `liaison` et `recompenses`
+--  et les a accordes aux MODELES de roles (`role_template_permissions`).
 --
---  La `cantine` est concernee autant que le reste : le modele accorde
---  `cantine.gerer` a l'Adjoint et a la Secretaire. Sans propagation, le menu de
---  la cantine n'est modifiable que par le fondateur — dont l'acces vient de
---  `is_admin_role`, pas d'un grant. La secretaire verrait le bouton et se
---  ferait refuser.
+--  La `cantine`, elle, n'est PAS propagee : elle est supprimee juste apres
+--  (20260726_drop_canteen). Inutile d'accorder des droits sur une table qui
+--  disparait dans la migration suivante.
 --
 --  Mais un role reel (`staff_roles`) ne LIT PAS son modele : il en garde une
 --  COPIE, faite une fois pour toutes a sa creation (`staff_role_permissions`,
@@ -72,7 +69,7 @@ join public.role_templates t_commun
 join public.role_template_permissions tp
   on tp.role_template_id = t_commun.id
 where r.based_on_template_id is not null
-  and tp.permission_key in ('liaison', 'cantine', 'recompenses')
+  and tp.permission_key in ('liaison', 'recompenses')
 on conflict do nothing;
 
 -- ============================================================================
@@ -85,16 +82,6 @@ on conflict do nothing;
 --     where u.role::text = 'teacher';
 --
 --    -- Attendu : true / true pour LES QUATRE, Jean Ngoubili compris.
---
---  Et la cantine, cote personnel administratif :
---
---    select u.full_name, r.name as role,
---           public.has_permission(u.auth_uid, 'cantine', 'gerer') as gere_cantine
---      from public.users u
---      join public.staff_roles r on r.id = u.staff_role_id
---     where r.name in ('Secrétaire', 'Adjoint');
---
---    -- Attendu : true. Sinon le menu n'est modifiable que par le fondateur.
 --
 --  Et le detail, si besoin :
 --
@@ -112,5 +99,5 @@ on conflict do nothing;
 --  ROLLBACK
 --
 --    delete from public.staff_role_permissions
---     where permission_key in ('liaison', 'cantine', 'recompenses');
+--     where permission_key in ('liaison', 'recompenses');
 -- ============================================================================
