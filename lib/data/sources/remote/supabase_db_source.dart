@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/bulletin/bulletin_math.dart';
 import '../../../core/config/school_format.dart';
 import '../../../core/config/school_taxonomy.dart';
 
@@ -152,6 +153,19 @@ class SbSubject {
         coefficient: j['coefficient'] as int? ?? 1,
         color: j['color'] as String?,
       );
+}
+
+/// « Rien à générer » — mais **pourquoi** ?
+///
+/// L'écran affichait « Aucune note pour ce trimestre » dans trois situations
+/// très différentes : classe vide, programme vide, notes absentes. L'admin
+/// cherchait des notes qui existaient, alors que le vrai problème était ailleurs.
+/// Un message faux coûte une demi-journée.
+class ReportCardEmpty implements Exception {
+  final String message;
+  const ReportCardEmpty(this.message);
+  @override
+  String toString() => message;
 }
 
 class SbGrade {
@@ -1784,11 +1798,22 @@ class SupabaseDbSource {
         .toList();
   }
 
-  /// Génère (statut 'draft') les bulletins de TOUS les élèves de la classe pour
-  /// un trimestre : moyenne par matière (moyenne simple des notes /20), moyenne
-  /// générale pondérée par coefficient, rang dans la classe, mention. Recalcule
-  /// et écrase les bulletins existants de la période (repassés en 'draft' →
-  /// à republier). Renvoie le nombre de bulletins générés.
+  /// Génère (statut 'draft') les bulletins de TOUS les élèves d'une classe.
+  ///
+  /// Le calcul est celui de [buildBulletins] — **le seul**. Cette méthode avait
+  /// le sien : une moyenne arithmétique de toutes les notes, sur le catalogue de
+  /// matières de l'ÉCOLE et non sur le programme de la classe. C'était le
+  /// troisième calcul de moyenne du projet, et le troisième à donner un chiffre
+  /// différent des deux autres. Un bulletin figé faux, c'est un élève qui
+  /// redouble à tort — et le document est archivé, donc l'erreur survit.
+  ///
+  /// Le bulletin est une PHOTO : on fige les lignes, le rang, les repères de la
+  /// classe. Il doit rester lisible dans dix ans, même si l'école a changé ses
+  /// coefficients depuis.
+  ///
+  /// Jette [ReportCardEmpty] plutôt que de renvoyer 0 : « rien à générer » a
+  /// deux causes très différentes — pas d'élèves, ou pas de notes — et l'admin
+  /// doit savoir laquelle.
   static Future<int> generateReportCards({
     required String schoolId,
     required String classId,
@@ -1799,89 +1824,80 @@ class SupabaseDbSource {
     final students = (await getStudents(schoolId: schoolId))
         .where((s) => s.classId == classId)
         .toList();
-    if (students.isEmpty) return 0;
-    final subjects = await getSubjects(schoolId: schoolId);
-    final allGrades = await getGradesForClass(classId);
-    final periodGrades = allGrades
-        .where((g) => g.period == period && g.subjectId != null)
+    if (students.isEmpty) {
+      throw const ReportCardEmpty('Cette classe n’a aucun élève.');
+    }
+
+    final programme = await getCoursesForClass(classId);
+    if (programme.every((c) => c.subjectId == null)) {
+      throw const ReportCardEmpty(
+          'Cette classe n’a aucune matière à son programme. '
+          'Ajoutez-les dans « Cours ».');
+    }
+
+    final school = await getSchool(schoolId);
+    final grades = (await getGradesForClass(classId))
+        .where((g) => g.period == period)
         .toList();
-
-    // Calcul par élève.
-    final computed = <({
-      String studentId,
-      String name,
-      List<SbReportCardLine> lines,
-      double general,
-    })>[];
-    for (final st in students) {
-      final bySubject = <String, List<SbGrade>>{};
-      for (final g in periodGrades.where((g) => g.studentId == st.id)) {
-        (bySubject[g.subjectId!] ??= []).add(g);
-      }
-      final lines = <SbReportCardLine>[];
-      double totalPts = 0;
-      int totalCoef = 0;
-      for (final subj in subjects) {
-        final gs = bySubject[subj.id];
-        if (gs == null || gs.isEmpty) continue;
-        final avg = gs.fold(0.0, (a, g) => a + g.outOf20) / gs.length;
-        final comment = gs
-            .where((g) => g.comment != null && g.comment!.isNotEmpty)
-            .lastOrNull
-            ?.comment;
-        lines.add(SbReportCardLine(
-          subject: subj.name,
-          coef: subj.coefficient,
-          average: double.parse(avg.toStringAsFixed(2)),
-          appreciation: comment ?? _appreciationFor(avg),
-        ));
-        totalPts += avg * subj.coefficient;
-        totalCoef += subj.coefficient;
-      }
-      final general = totalCoef > 0 ? totalPts / totalCoef : 0.0;
-      computed.add((
-        studentId: st.id,
-        name: '${st.prenom} ${st.nom}'.trim(),
-        lines: lines,
-        general: general,
-      ));
+    if (grades.isEmpty) {
+      throw const ReportCardEmpty(
+          'Aucune note saisie pour cette période dans cette classe.');
     }
 
-    // Rang (seuls les élèves ayant au moins une note sont classés).
-    final ranked = computed.where((c) => c.lines.isNotEmpty).toList()
-      ..sort((a, b) => b.general.compareTo(a.general));
-    final rankOf = <String, int>{};
-    for (int i = 0; i < ranked.length; i++) {
-      rankOf[ranked[i].studentId] = i + 1;
+    final absences = await getAbsencesForClass(classId);
+    final attendance = <String, ({int absences, int lates})>{};
+    for (final a in absences) {
+      final cur = attendance[a.studentId] ?? (absences: 0, lates: 0);
+      attendance[a.studentId] = a.status == 'late'
+          ? (absences: cur.absences, lates: cur.lates + 1)
+          : (absences: cur.absences + 1, lates: cur.lates);
     }
-    final classSize = ranked.length;
 
-    final rows = <Map<String, dynamic>>[];
+    final bulletins = buildBulletins(
+      studentIds: students.map((s) => s.id).toList(),
+      programme: programme,
+      grades: grades,
+      rules: BulletinRules.fromSchool(school),
+      attendance: attendance,
+    );
+
     final now = DateTime.now().toIso8601String();
-    for (final c in ranked) {
-      final general = double.parse(c.general.toStringAsFixed(2));
+    final rows = <Map<String, dynamic>>[];
+    for (final st in students) {
+      final b = bulletins[st.id];
+      if (b == null || b.isEmpty) continue; // un élève sans note n'a pas de bulletin
       rows.add({
         'school_id': schoolId,
-        'student_id': c.studentId,
-        'student_name': c.name,
+        'student_id': st.id,
+        'student_name': st.fullName,
         'class_id': classId,
         'academic_year': academicYear,
         'period': period,
-        'lines': c.lines.map((l) => l.toJson()).toList(),
-        'general_average': general,
-        'rank': rankOf[c.studentId],
-        'class_size': classSize,
-        'mention': _mentionFor(general),
+        'lines': b.lines.map((l) => l.toJson()).toList(),
+        'general_average': b.average,
+        'rank': b.rank,
+        'class_size': b.classSize,
+        'class_average': b.classAverage,
+        'best_average': b.bestAverage,
+        'worst_average': b.worstAverage,
+        'absences_count': b.absences,
+        'late_count': b.lates,
+        'mention': b.mention,
+        'decision': b.decision,
         'status': 'draft',
         'generated_at': now,
         if (createdBy != null) 'created_by': createdBy,
       });
     }
-    if (rows.isNotEmpty) {
-      await _db
-          .from('report_cards')
-          .upsert(rows, onConflict: 'student_id,academic_year,period');
+
+    if (rows.isEmpty) {
+      throw const ReportCardEmpty(
+          'Aucun élève de cette classe n’a de note pour cette période.');
     }
+
+    await _db
+        .from('report_cards')
+        .upsert(rows, onConflict: 'student_id,academic_year,period');
     return rows.length;
   }
 

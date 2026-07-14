@@ -58,10 +58,17 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
       );
       ref.invalidate(reportCardsForClassProvider(_key));
       messenger.showSnackBar(SnackBar(
-        content: Text(n == 0
-            ? 'Aucune note pour ce trimestre — rien à générer.'
-            : '$n bulletin(s) généré(s) en brouillon.'),
-        backgroundColor: n == 0 ? _gold : _green,
+        content: Text('$n bulletin(s) généré(s) en brouillon.'),
+        backgroundColor: _green,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } on ReportCardEmpty catch (e) {
+      // On dit POURQUOI il n'y a rien à générer. « Aucune note » s'affichait
+      // aussi quand la classe était vide, ou sans programme : l'admin cherchait
+      // des notes qui existaient bel et bien.
+      messenger.showSnackBar(SnackBar(
+        content: Text(e.message),
+        backgroundColor: _gold,
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
