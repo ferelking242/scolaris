@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/bulletin/bulletin_math.dart';
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
@@ -11,16 +12,24 @@ const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 
-/// Types d'évaluation — le vocabulaire de la BASE (contrainte grades_type_check :
-/// devoir | examen | controle | tp | oral | projet). Le carnet parlait
-/// « interro1/interro2 », que la base refusait : aucune note ne pouvait être
-/// enregistrée. C'est le même vocabulaire que l'espace élève.
-const _types = ['devoir', 'controle', 'examen'];
-const _typeLabels = {
-  'devoir': 'Devoir',
-  'controle': 'Contrôle',
-  'examen': 'Examen',
-};
+/// Une colonne du carnet : un type d'évaluation et son rang.
+///
+/// Le carnet avait trois colonnes figées (Devoir · Contrôle · Examen). Le
+/// bulletin congolais en demande quatre — **Devoir 1, Devoir 2, D.D et la
+/// Composition** — et leur nombre appartient à l'école. Les colonnes se
+/// construisent donc à partir de [BulletinRules]. Cf. 20260740.
+///
+/// `type` reste le vocabulaire de la base (contrainte `grades_type_check` :
+/// devoir | examen | controle | tp | oral | projet). La composition est un
+/// `examen` : on ne crée pas un mot de plus pour la même chose.
+typedef _Slot = ({String type, int seq, String label});
+
+List<_Slot> _slotsOf(BulletinRules rules) => [
+      for (var i = 0; i < rules.devoirs; i++)
+        (type: 'devoir', seq: i + 1, label: rules.devoirLabels[i]),
+      if (rules.compoWeight > 0)
+        (type: 'examen', seq: 1, label: 'Compo'),
+    ];
 
 class GradebookPage extends ConsumerStatefulWidget {
   const GradebookPage({super.key});
@@ -328,7 +337,7 @@ class _GradesPanel extends ConsumerStatefulWidget {
 }
 
 class _GradesPanelState extends ConsumerState<_GradesPanel> {
-  // studentId → type → controller
+  // studentId → « type#seq » → controller
   final Map<String, Map<String, TextEditingController>> _ctrls = {};
   List<SbGrade> _loadedGrades = [];
   bool _gradesLoaded = false;
@@ -359,55 +368,66 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     _loadedGrades = grades;
   }
 
-  TextEditingController _ctrl(String studentId, String type) {
+  TextEditingController _ctrl(String studentId, _Slot slot) {
+    final k = '${slot.type}#${slot.seq}';
     _ctrls[studentId] ??= {};
-    if (_ctrls[studentId]![type] == null) {
-      final existing = _loadedGrades
-          .where((g) => g.studentId == studentId && g.type == type)
-          .firstOrNull;
-      _ctrls[studentId]![type] = TextEditingController(
+    if (_ctrls[studentId]![k] == null) {
+      final existing = _existing(studentId, slot);
+      _ctrls[studentId]![k] = TextEditingController(
         text: existing != null ? existing.score.toStringAsFixed(1) : '',
       );
     }
-    return _ctrls[studentId]![type]!;
+    return _ctrls[studentId]![k]!;
   }
 
-  /// Note déjà enregistrée en base pour (élève, type) = **validée → verrouillée**.
-  SbGrade? _existing(String studentId, String type) => _loadedGrades
-      .where((g) => g.studentId == studentId && g.type == type)
+  /// Note déjà en base pour (élève, colonne) = **validée → verrouillée**.
+  SbGrade? _existing(String studentId, _Slot slot) => _loadedGrades
+      .where((g) =>
+          g.studentId == studentId &&
+          g.type == slot.type &&
+          g.sequence == slot.seq)
       .firstOrNull;
 
-  bool _isLocked(String studentId, String type) =>
-      _existing(studentId, type) != null;
+  bool _isLocked(String studentId, _Slot slot) =>
+      _existing(studentId, slot) != null;
 
-  /// Moyenne = notes verrouillées (base) + notes saisies non encore validées.
+  /// La moyenne affichée est celle du BULLETIN, pas une moyenne bête :
+  /// `M.C × (1-w) + Compo × w`. Le prof doit voir dans son carnet le chiffre qui
+  /// finira sur le document — sinon il découvre l'écart le jour du conseil.
   ///
-  /// Les notes déjà en base peuvent avoir un autre barème que celui affiché
-  /// (une interro sur 10 dans une série sur 20) : on les ramène sur le barème
-  /// courant avant de les mélanger.
-  double? _avg(String studentId) {
-    final vals = <double>[];
-    for (final type in _types) {
-      final existing = _existing(studentId, type);
+  /// Les notes déjà en base peuvent avoir un autre barème (une interro sur 10
+  /// dans une série sur 20) : on les ramène sur le barème courant.
+  double? _avg(String studentId, List<_Slot> slots, BulletinRules rules) {
+    double? valueAt(_Slot slot) {
+      final existing = _existing(studentId, slot);
       if (existing != null) {
         final m = existing.maxScore > 0 ? existing.maxScore : _max;
-        vals.add(existing.score / m * _max);
-        continue;
+        return existing.score / m * _max;
       }
-      final c = _ctrls[studentId]?[type];
-      final v = double.tryParse((c?.text ?? '').trim().replaceAll(',', '.'));
-      if (v != null) vals.add(v);
+      final c = _ctrls[studentId]?['${slot.type}#${slot.seq}'];
+      return double.tryParse((c?.text ?? '').trim().replaceAll(',', '.'));
     }
-    if (vals.isEmpty) return null;
-    return vals.fold(0.0, (s, v) => s + v) / vals.length;
+
+    final devoirs = [
+      for (final s in slots.where((s) => s.type == 'devoir')) valueAt(s),
+    ].whereType<double>().toList();
+    final compo = slots.where((s) => s.type == 'examen').map(valueAt).firstOrNull;
+
+    final mc = devoirs.isEmpty
+        ? null
+        : devoirs.reduce((a, b) => a + b) / devoirs.length;
+    if (mc == null && compo == null) return null;
+    if (mc == null || compo == null) return mc ?? compo;
+    final w = rules.compoWeight;
+    return mc * (1 - w) + compo * w;
   }
 
   /// Cellule : verrouillée si la note est déjà validée, ou si ce professeur n'a
   /// pas le droit de saisir (`notes.saisir`). Un directeur peut décider que
   /// chez lui les profs consultent sans noter — la base le refuserait de toute
   /// façon, autant ne pas afficher un champ qui mènera à une erreur.
-  Widget _cell(String studentId, String type, {required bool canSaisir}) {
-    final existing = _existing(studentId, type);
+  Widget _cell(String studentId, _Slot slot, {required bool canSaisir}) {
+    final existing = _existing(studentId, slot);
     if (existing != null) {
       return _LockedGrade(value: existing.score, max: existing.maxScore);
     }
@@ -416,7 +436,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
           style: TextStyle(fontSize: 12.5, color: context.cMuted));
     }
     return _GradeInput(
-      controller: _ctrl(studentId, type),
+      controller: _ctrl(studentId, slot),
       onChanged: () => setState(() {}),
     );
   }
@@ -441,19 +461,25 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
         ],
       ),
     );
-    if (ok == true) await _save(students);
+    if (ok == true) await _save(students, _slotsOf(_rules));
   }
 
-  Future<void> _save(List<SbStudent> students) async {
+  BulletinRules get _rules =>
+      BulletinRules.fromSchool(ref.read(schoolProvider).valueOrNull);
+
+  Future<void> _save(List<SbStudent> students, List<_Slot> slots) async {
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
       for (final s in students) {
-        for (final type in _types) {
+        for (final slot in slots) {
           // Note déjà validée → verrouillée, on n'y touche pas.
-          if (_isLocked(s.id, type)) continue;
-          final raw =
-              _ctrls[s.id]?[type]?.text.trim().replaceAll(',', '.') ?? '';
+          if (_isLocked(s.id, slot)) continue;
+          final raw = _ctrls[s.id]?['${slot.type}#${slot.seq}']
+                  ?.text
+                  .trim()
+                  .replaceAll(',', '.') ??
+              '';
           if (raw.isEmpty) continue;
           final score = double.tryParse(raw);
           if (score == null) continue;
@@ -465,7 +491,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
             score: score.clamp(0.0, _max),
             maxScore: _max,
             period: widget.period,
-            type: type,
+            type: slot.type,
+            sequence: slot.seq,
             teacherId: widget.teacherId,
           );
         }
@@ -511,6 +538,10 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     // peut retirer `notes.saisir` à ses profs. La base le refuserait ; le
     // carnet, lui, affichait encore les champs et le bouton.
     final canSaisir = ref.watch(canProvider('notes.saisir'));
+    // Les colonnes du carnet viennent de la formule de l'ÉCOLE : 3 devoirs +
+    // composition au CSBFE, autre chose ailleurs.
+    final rules = BulletinRules.fromSchool(ref.watch(schoolProvider).valueOrNull);
+    final slots = _slotsOf(rules);
 
     return studentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -576,11 +607,11 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                       columns: [
                         'Élève',
                         'Matricule',
-                        for (final t in _types)
-                          '${_typeLabels[t]} /${_max.toStringAsFixed(0)}',
+                        for (final slot in slots)
+                          '${slot.label} /${_max.toStringAsFixed(0)}',
                         'Moy.',
                       ],
-                      flex: const [3, 2, 1, 1, 1, 1],
+                      flex: [3, 2, for (final _ in slots) 1, 1],
                       rows: [
                         for (final s in students)
                           [
@@ -601,10 +632,10 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                             Text(s.matricule ?? '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: muted)),
-                            for (final t in _types)
-                              _cell(s.id, t, canSaisir: canSaisir),
+                            for (final slot in slots)
+                              _cell(s.id, slot, canSaisir: canSaisir),
                             Builder(builder: (_) {
-                              final avg = _avg(s.id);
+                              final avg = _avg(s.id, slots, rules);
                               if (avg == null) {
                                 return const Text('—',
                                     style: TextStyle(
