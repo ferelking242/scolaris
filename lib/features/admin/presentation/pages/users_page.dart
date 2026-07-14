@@ -482,10 +482,18 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           ],
         ];
 
+        const founders = {'admin', 'direction', 'directeur', 'dg'};
+
         final users = allUsers.where((u) {
           if (_filter == 'all') return true;
           if (_isFamilies) return u.role == _filter;
-          if (_filter == 'none') return u.staffRoleId == null;
+          // « Sans rôle » signale les comptes à configurer. Le FONDATEUR n'en
+          // fait pas partie : il n'a pas de rôle du personnel, et c'est normal —
+          // son accès vient de son `users.role`.
+          if (_filter == 'none') {
+            return u.staffRoleId == null &&
+                !founders.contains(u.role.toLowerCase());
+          }
           return u.staffRoleId == _filter;
         }).toList();
         final familiesEnabled =
@@ -803,35 +811,51 @@ class _FilterRow extends StatelessWidget {
 /// personnel sans rôle attribué — les comptes d'avant la bascule RBAC —, elle
 /// le dit franchement : sans rôle, ces gens n'ont AUCUN accès, et c'est
 /// exactement ce qu'un admin doit pouvoir repérer d'un coup d'œil.
+/// Le rôle affiché est le RÔLE DU PERSONNEL — celui que l'école a nommé, et qui
+/// porte les droits. Jamais le rôle technique du compte.
+///
+/// Ce badge ne cherchait le vrai rôle que pour trois valeurs (`staff_custom`,
+/// `finance`, `surveillance`). `teacher` n'en faisait pas partie : à l'époque,
+/// les enseignants n'avaient aucun rôle. Depuis 20260721 ils en portent un — le
+/// badge ne l'avait jamais appris, et continuait d'afficher « teacher ».
+///
+/// Les autres cas affichaient l'anglais de la base tel quel : « student »,
+/// « parent », « admin ».
 class _RoleBadge extends ConsumerWidget {
   final SbUser user;
   const _RoleBadge({required this.user});
 
-  static const _staffRoles = {'staff_custom', 'finance', 'surveillance'};
+  /// Le FONDATEUR n'a pas de rôle du personnel : il est reconnu à son
+  /// `users.role`. Même liste qu'en base (has_permission) et que
+  /// supabase_auth_source.dart.
+  static const _founders = {'admin', 'direction', 'directeur', 'dg'};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isStaff = _staffRoles.contains(user.role.toLowerCase());
+    final role = user.role.toLowerCase();
 
-    if (isStaff && user.staffRoleId == null) {
-      return _pill(context, 'Sans rôle', const Color(0xFFDC2626));
+    // Les familles n'ont pas de rôle du personnel : un libellé, en français.
+    if (role == 'student') {
+      return _pill(context, 'Élève', const Color(0xFF15803D));
+    }
+    if (role == 'parent') {
+      return _pill(context, 'Parent', const Color(0xFF7C3AED));
     }
 
-    var label = user.role;
-    var color = _color(user.role) ?? context.cMuted;
-
-    if (isStaff) {
+    // Le rôle du personnel, avec le nom et la couleur choisis par l'école.
+    if (user.staffRoleId != null) {
       final roles = ref.watch(staffRolesProvider).asData?.value;
       final r = roles?.where((r) => r.id == user.staffRoleId).firstOrNull;
-      if (r != null) {
-        label = r.name;
-        color = colorFromHex(r.color); // la couleur choisie pour le rôle
-      } else {
-        label = user.roleTitle ?? user.role;
-      }
+      if (r != null) return _pill(context, r.name, colorFromHex(r.color));
     }
 
-    return _pill(context, label, color);
+    if (_founders.contains(role)) {
+      return _pill(context, 'Administrateur', const Color(0xFF8B1A00));
+    }
+
+    // Un membre du personnel sans rôle ne peut RIEN faire : la base lui refuse
+    // tout. On le signale en rouge plutôt que de le laisser passer inaperçu.
+    return _pill(context, 'Sans rôle', const Color(0xFFDC2626));
   }
 
   Widget _pill(BuildContext context, String label, Color color) => Container(
@@ -847,22 +871,8 @@ class _RoleBadge extends ConsumerWidget {
                 fontSize: 11, color: color, fontWeight: FontWeight.w700)),
       );
 
-  static Color? _color(String r) {
-    switch (r) {
-      case 'admin':
-        return const Color(0xFF8B1A00);
-      case 'teacher':
-        return const Color(0xFF0891B2);
-      case 'student':
-        return const Color(0xFF16A34A);
-      case 'parent':
-        return const Color(0xFF7C3AED);
-      case 'finance':
-        return const Color(0xFFC17F24);
-      default:
-        return null; // ← neutre résolu depuis le thème dans build()
-    }
-  }
+  // Plus de palette par rôle TECHNIQUE : la couleur d'un membre du personnel est
+  // celle de son rôle, choisie par l'école dans la page des rôles.
 }
 
 class _StatusDot extends StatelessWidget {
