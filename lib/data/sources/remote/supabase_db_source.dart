@@ -270,6 +270,20 @@ class SbReportCard {
   final String status;          // 'draft' | 'published'
   final DateTime? publishedAt;
 
+  /// Les repères du conseil de classe, figés à la génération. Un bulletin est
+  /// une photo : on garde le rang et la moyenne de la classe **de ce jour-là**.
+  final double? classAverage;
+  final double? bestAverage;
+  final double? worstAverage;
+  final int absencesCount;
+  final int lateCount;
+  final String? decision;
+
+  /// Les lignes **brutes** (jsonb), avec tout le détail : devoirs, M.C, compo,
+  /// total, rang par matière. [lines] n'en garde qu'un résumé (pour les vieux
+  /// écrans) ; ceci permet de reconstruire le bulletin complet à l'identique.
+  final List<Map<String, dynamic>> rawLines;
+
   const SbReportCard({
     required this.id,
     required this.studentId,
@@ -278,12 +292,19 @@ class SbReportCard {
     required this.academicYear,
     required this.period,
     this.lines = const [],
+    this.rawLines = const [],
     this.generalAverage = 0,
     this.rank,
     this.classSize,
     this.mention,
     this.status = 'draft',
     this.publishedAt,
+    this.classAverage,
+    this.bestAverage,
+    this.worstAverage,
+    this.absencesCount = 0,
+    this.lateCount = 0,
+    this.decision,
   });
 
   bool get isPublished => status == 'published';
@@ -301,6 +322,7 @@ class SbReportCard {
       lines: list
           .map((e) => SbReportCardLine.fromJson(e as Map<String, dynamic>))
           .toList(),
+      rawLines: [for (final e in list) Map<String, dynamic>.from(e as Map)],
       generalAverage: (j['general_average'] as num?)?.toDouble() ?? 0,
       rank: (j['rank'] as num?)?.toInt(),
       classSize: (j['class_size'] as num?)?.toInt(),
@@ -309,8 +331,27 @@ class SbReportCard {
       publishedAt: j['published_at'] != null
           ? DateTime.tryParse(j['published_at'] as String)
           : null,
+      classAverage: (j['class_average'] as num?)?.toDouble(),
+      bestAverage: (j['best_average'] as num?)?.toDouble(),
+      worstAverage: (j['worst_average'] as num?)?.toDouble(),
+      absencesCount: (j['absences_count'] as num?)?.toInt() ?? 0,
+      lateCount: (j['late_count'] as num?)?.toInt() ?? 0,
+      decision: j['decision'] as String?,
     );
   }
+
+  /// Le bulletin complet, reconstruit à l'identique depuis la version archivée.
+  Bulletin toBulletin() => Bulletin.fromFrozen(
+        lines: rawLines,
+        average: generalAverage,
+        rank: rank,
+        classSize: classSize,
+        classAverage: classAverage,
+        bestAverage: bestAverage,
+        worstAverage: worstAverage,
+        absences: absencesCount,
+        lates: lateCount,
+      );
 }
 
 class SbAttendance {

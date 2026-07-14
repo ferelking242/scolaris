@@ -105,6 +105,26 @@ class BulletinLine {
         'rank': rank,
         'appreciation': appreciation,
       };
+
+  /// Relit une ligne **figée** (bulletin généré puis archivé). Cf. [toJson].
+  factory BulletinLine.fromJson(Map<String, dynamic> j) {
+    double? d(Object? v) => (v as num?)?.toDouble();
+    final rawDevoirs = j['devoirs'];
+    return BulletinLine(
+      subjectId: j['subject_id'] as String? ?? '',
+      subject: j['subject'] as String? ?? '—',
+      coef: (j['coef'] as num?)?.toInt() ?? 1,
+      devoirs: rawDevoirs is List
+          ? [for (final v in rawDevoirs) d(v)]
+          : const [],
+      compo: d(j['compo']),
+      mc: d(j['mc']),
+      average: d(j['average']),
+      total: d(j['total']),
+      rank: (j['rank'] as num?)?.toInt(),
+      appreciation: j['appreciation'] as String? ?? '',
+    );
+  }
 }
 
 /// Le bulletin complet d'un élève, pour une période.
@@ -154,6 +174,37 @@ class Bulletin {
   String get decision => average >= 10 ? 'ADMIS(E)' : 'REDOUBLE';
 
   bool get isEmpty => lines.isEmpty;
+
+  /// Reconstruit un bulletin **figé** depuis ce qui a été archivé au moment de
+  /// la génération. Une PHOTO : on n'a pas recalculé, on relit le document tel
+  /// qu'il a été signé — le rang et la moyenne de la classe d'alors, pas ceux
+  /// d'aujourd'hui.
+  factory Bulletin.fromFrozen({
+    required List<Map<String, dynamic>> lines,
+    required double average,
+    int? rank,
+    int? classSize,
+    double? classAverage,
+    double? bestAverage,
+    double? worstAverage,
+    int absences = 0,
+    int lates = 0,
+  }) {
+    final parsed = [for (final l in lines) BulletinLine.fromJson(l)];
+    return Bulletin(
+      lines: parsed,
+      totalPoints: parsed.fold(0.0, (s, l) => s + (l.total ?? 0)),
+      totalCoef: parsed.fold(0, (s, l) => s + l.coef),
+      average: average,
+      rank: rank,
+      classSize: classSize ?? parsed.length,
+      classAverage: classAverage,
+      bestAverage: bestAverage,
+      worstAverage: worstAverage,
+      absences: absences,
+      lates: lates,
+    );
+  }
 }
 
 /// L'appréciation d'une moyenne. Barème lu sur le bulletin du CSBFE :

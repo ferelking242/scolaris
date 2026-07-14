@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/bulletin/bulletin_math.dart';
 import '../../../../core/config/school_format.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../widgets/bulletin_view.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF16A34A);
@@ -222,13 +224,43 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             icon: Icons.assignment_outlined,
             title: 'Pas encore généré',
             description: 'Clique « Générer » pour calculer les bulletins de ce trimestre.')
-        else
+        else ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 4),
+            child: Text('Touchez un élève pour voir et imprimer son bulletin.',
+                style: TextStyle(fontSize: 12, color: context.cMuted)),
+          ),
           for (final c in cards) ...[
-            _StudentRow(card: c),
+            _StudentRow(
+              card: c,
+              onTap: () => _openBulletin(c),
+            ),
             const SizedBox(height: 8),
           ],
+        ],
       ],
     );
+  }
+
+  /// Ouvre le bulletin **figé** : on le relit tel qu'il a été généré, on ne le
+  /// recalcule pas. C'est la photo officielle, pas l'aperçu vivant.
+  void _openBulletin(SbReportCard card) {
+    final school = ref.read(schoolProvider).valueOrNull;
+    final className =
+        (ref.read(classesProvider).valueOrNull ?? const <SbClass>[])
+            .where((c) => c.id == card.classId)
+            .map((c) => c.name)
+            .firstOrNull ??
+            '';
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _FrozenBulletinPage(
+        card: card,
+        school: school,
+        className: className,
+        periodLabel: _fmt.periodLabel(card.period),
+        rules: BulletinRules.fromSchool(school),
+      ),
+    ));
   }
 
   Widget _statusBanner(int total, int drafts, int published, List<SbReportCard> cards) {
@@ -378,13 +410,17 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
 
 class _StudentRow extends StatelessWidget {
   final SbReportCard card;
-  const _StudentRow({required this.card});
+  final VoidCallback onTap;
+  const _StudentRow({required this.card, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final avg = card.generalAverage;
     final avgColor = avg >= 14 ? _green : avg >= 10 ? _gold : _terra;
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: context.cCard,
@@ -420,7 +456,62 @@ class _StudentRow extends StatelessWidget {
         card.isPublished
             ? StatusPill.success('Publié')
             : StatusPill.warning('Brouillon'),
+        const SizedBox(width: 6),
+        Icon(Icons.chevron_right_rounded, size: 20, color: context.cMuted),
       ]),
+    ),
+    );
+  }
+}
+
+/// Le bulletin **figé** — relu depuis l'archive, pas recalculé. La photo
+/// officielle : le rang et la moyenne de la classe sont ceux du jour de la
+/// génération, même si des notes ont bougé depuis.
+class _FrozenBulletinPage extends StatelessWidget {
+  final SbReportCard card;
+  final SbSchool? school;
+  final String className;
+  final String periodLabel;
+  final BulletinRules rules;
+  const _FrozenBulletinPage({
+    required this.card,
+    required this.school,
+    required this.className,
+    required this.periodLabel,
+    required this.rules,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Un élève-fiche : le bulletin figé porte le nom, pas le compte. On
+    // reconstruit juste ce dont la vue et le PDF ont besoin.
+    final student = SbStudent(
+      id: card.studentId,
+      nom: card.studentName ?? '',
+      prenom: '', // fullName = « <nom> » : le nom est déjà complet dans l'archive
+      classe: className,
+    );
+    return Scaffold(
+      backgroundColor: context.cPage,
+      appBar: AppBar(
+        backgroundColor: context.cCard,
+        foregroundColor: context.cInk,
+        title: Text('Bulletin · ${card.studentName ?? ''}'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          BulletinView(
+            school: school,
+            student: student,
+            className: className,
+            periodLabel: periodLabel,
+            bulletin: card.toBulletin(),
+            rules: rules,
+            frozen: true,
+          ),
+        ],
+      ),
     );
   }
 }

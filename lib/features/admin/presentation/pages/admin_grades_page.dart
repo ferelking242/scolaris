@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/bulletin/bulletin_math.dart';
-import 'bulletin_pdf.dart';
+import '../widgets/bulletin_view.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
@@ -287,187 +287,21 @@ class _StudentBulletinPage extends ConsumerWidget {
                 periodLabel: periodLabel,
               ),
               const SizedBox(height: 14),
-              _BulletinTable(bulletin: b, rules: rules),
-              const SizedBox(height: 14),
-              _CouncilCard(bulletin: b),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  // Impression DIRECTE : `printing` ouvre la boîte de dialogue
-                  // du système. Pas d'export-puis-ouvrir — le bulletin part à
-                  // l'imprimante, ou se sauvegarde en PDF, au choix.
-                  onPressed: () => printBulletin(
-                    school: school,
-                    student: student,
-                    className: className,
-                    periodLabel: periodLabel,
-                    bulletin: b,
-                    rules: rules,
-                  ),
-                  icon: const Icon(Icons.print_rounded, size: 18),
-                  label: const Text('Imprimer le bulletin',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _terra,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
+              // La MÊME vue que la page « Bulletins » : un bulletin se ressemble
+              // partout, qu'on le prévisualise ou qu'on le ressorte du classeur.
+              BulletinView(
+                school: school,
+                student: student,
+                className: className,
+                periodLabel: periodLabel,
+                bulletin: b,
+                rules: rules,
               ),
               const SizedBox(height: 8),
             ]);
           },
         ),
       ]),
-    );
-  }
-}
-
-/// Le tableau du bulletin — celui du papier : le détail des devoirs, la M.C, la
-/// composition, le coefficient, le total, la moyenne, le rang, l'observation.
-///
-/// L'ancien n'affichait qu'une moyenne par matière. Le parent ne pouvait pas
-/// voir d'où elle venait — et le prof ne pouvait pas la vérifier.
-class _BulletinTable extends StatelessWidget {
-  final Bulletin bulletin;
-  final BulletinRules rules;
-  const _BulletinTable({required this.bulletin, required this.rules});
-
-  static String _n(double? v) =>
-      v == null ? '—' : v.toStringAsFixed(2).replaceAll('.', ',');
-  static String _rg(int? r) => r == null ? '—' : (r == 1 ? '1er' : '${r}e');
-
-  @override
-  Widget build(BuildContext context) {
-    final labels = rules.devoirLabels;
-    return DataPanel(
-      title: 'Notes de la période',
-      padding: EdgeInsets.zero,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowHeight: 40,
-          dataRowMinHeight: 36,
-          dataRowMaxHeight: 42,
-          columnSpacing: 18,
-          headingTextStyle: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: context.cMuted),
-          dataTextStyle: TextStyle(fontSize: 12.5, color: context.cInk),
-          columns: [
-            const DataColumn(label: Text('Matière')),
-            for (final l in labels) DataColumn(label: Text(l), numeric: true),
-            const DataColumn(label: Text('M.C'), numeric: true),
-            const DataColumn(label: Text('Compo'), numeric: true),
-            const DataColumn(label: Text('Coef.'), numeric: true),
-            const DataColumn(label: Text('Total'), numeric: true),
-            const DataColumn(label: Text('Moy.'), numeric: true),
-            const DataColumn(label: Text('RG'), numeric: true),
-            const DataColumn(label: Text('Observations')),
-          ],
-          rows: [
-            for (final l in bulletin.lines)
-              DataRow(cells: [
-                DataCell(Text(l.subject,
-                    style: const TextStyle(fontWeight: FontWeight.w600))),
-                for (final d in l.devoirs) DataCell(Text(_n(d))),
-                DataCell(Text(_n(l.mc))),
-                DataCell(Text(_n(l.compo))),
-                DataCell(Text('${l.coef}')),
-                DataCell(Text(_n(l.total))),
-                DataCell(Text(_n(l.average),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: (l.average ?? 0) >= 10 ? _green : _terra))),
-                DataCell(Text(_rg(l.rank))),
-                DataCell(Text(l.appreciation,
-                    style: TextStyle(fontSize: 12, color: context.cMuted))),
-              ]),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Le pavé du conseil de classe : ce qui décide du passage en classe supérieure.
-class _CouncilCard extends StatelessWidget {
-  final Bulletin bulletin;
-  const _CouncilCard({required this.bulletin});
-
-  static String _n(double? v) =>
-      v == null ? '—' : v.toStringAsFixed(2).replaceAll('.', ',');
-
-  @override
-  Widget build(BuildContext context) {
-    final b = bulletin;
-    final ok = b.average >= 10;
-
-    Widget stat(String k, String v) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(k, style: TextStyle(fontSize: 12.5, color: context.cMuted)),
-            Text(v,
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: context.cInk)),
-          ]),
-        );
-
-    return DataPanel(
-      title: 'Conseil de classe',
-      child: Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        children: [
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Moyenne générale', '${_n(b.average)} / 20'),
-              stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
-              stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
-            ]),
-          ),
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Moyenne de la classe', _n(b.classAverage)),
-              stat('Premier', _n(b.bestAverage)),
-              stat('Dernier', _n(b.worstAverage)),
-            ]),
-          ),
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Absences', '${b.absences}'),
-              stat('Retards', '${b.lates}'),
-            ]),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              color: (ok ? _green : _terra).withValues(alpha: .08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: (ok ? _green : _terra).withValues(alpha: .3)),
-            ),
-            child: Column(children: [
-              Text(b.decision,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: ok ? _green : _terra)),
-              const SizedBox(height: 2),
-              Text('Mention : ${b.mention}',
-                  style: TextStyle(fontSize: 12, color: context.cMuted)),
-            ]),
-          ),
-        ],
-      ),
     );
   }
 }
