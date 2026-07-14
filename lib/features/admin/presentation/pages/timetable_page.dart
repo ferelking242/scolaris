@@ -359,7 +359,7 @@ class _SessionSheetState extends ConsumerState<_SessionSheet> {
     // un COURS du programme de la classe. Sinon l'emploi du temps pourrait
     // désigner Mme Ibara là où le programme dit M. Loko — deux vérités pour un
     // seul fait. La base refuse d'ailleurs le créneau (cf. 20260739).
-    final coursesAsync = ref.watch(classCoursesProvider(widget.classId));
+    final coursesAsync = ref.watch(coursesForClassProvider(widget.classId));
     return Padding(
       padding: EdgeInsets.only(
         left: 20,

@@ -263,19 +263,10 @@ final teachersProvider = FutureProvider<List<SbUser>>((ref) async {
   return users.where((u) => u.role == 'teacher').toList();
 });
 
-// ── Programme d'une classe (ses cours) ───────────────────────────────────────
-/// Les matières que **cette classe** étudie, avec leur coefficient et leurs
-/// enseignants. À préférer à [subjectsProvider] partout où l'on parle d'une
-/// classe précise : le catalogue de l'école contient la philosophie, le CM2 ne
-/// l'étudie pas.
-final classCoursesProvider =
-    FutureProvider.family<List<SbCourse>, String>((ref, classId) async {
-  return SupabaseDbSource.getCoursesForClass(classId);
-});
-
 // ── Subjects ──────────────────────────────────────────────────────────────────
 /// Le **catalogue de l'école** — pas le programme d'une classe. Pour savoir ce
-/// qu'une classe étudie, voir [classCoursesProvider].
+/// qu'une classe étudie (et avec quel coefficient), voir
+/// [coursesForClassProvider].
 final subjectsProvider = FutureProvider<List<SbSubject>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return [];
@@ -611,6 +602,29 @@ final coursesForSchoolProvider =
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return [];
   return SupabaseDbSource.getCoursesForSchool(schoolId);
+});
+
+/// Les enseignants qui n'ont **aucune classe** : ni titulariat, ni cours.
+///
+/// Ils se connectent et ne peuvent rien faire — ni carnet, ni appel. Rien ne le
+/// signalait à l'administration : on pouvait inviter un prof et l'oublier. C'est
+/// à lui qu'il revenait de s'en plaindre. Cf. `teacherAssignmentsProvider` pour
+/// les deux (et seules) sources d'affectation.
+final teachersWithoutClassProvider = FutureProvider<Set<String>>((ref) async {
+  final teachers = await ref.watch(teachersProvider.future);
+  final courses = await ref.watch(coursesForSchoolProvider.future);
+  final classes = await ref.watch(classesProvider.future);
+
+  final assigned = <String>{
+    for (final c in courses) ...c.teachers.map((t) => t.teacherId),
+    for (final c in classes)
+      if (c.mainTeacherId != null) c.mainTeacherId!,
+  };
+
+  return teachers
+      .where((t) => !assigned.contains(t.id))
+      .map((t) => t.id)
+      .toSet();
 });
 
 /// Cours de l'élève connecté (déduit de sa classe via son profil).

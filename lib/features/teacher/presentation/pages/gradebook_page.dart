@@ -119,7 +119,7 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
               //  catalogue de l'école : le lycée enseigne la philosophie, le
               //  CM2 non. Le titulaire (primaire) les a toutes ; les autres
               //  seulement celles dont ils ont le cours.
-              ref.watch(classCoursesProvider(selectedClass.id)).when(
+              ref.watch(coursesForClassProvider(selectedClass.id)).when(
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => const SizedBox.shrink(),
                 data: (courses) {

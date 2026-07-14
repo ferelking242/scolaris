@@ -189,7 +189,7 @@ class _ClassGradesPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsByClassProvider(classObj.name));
     final gradesAsync = ref.watch(gradesForClassProvider(classObj.id));
-    final subjectsAsync = ref.watch(classCoursesProvider(classObj.id));
+    final subjectsAsync = ref.watch(coursesForClassProvider(classObj.id));
 
     if (studentsAsync.isLoading || gradesAsync.isLoading || subjectsAsync.isLoading) {
       return const DataPanel(
@@ -306,7 +306,7 @@ class _StudentBulletinPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final periodLabel = ref.watch(schoolFormatProvider).periodLabel(period);
     final gradesAsync = ref.watch(gradesForStudentProvider(student.id));
-    final subjectsAsync = ref.watch(classCoursesProvider(classId));
+    final subjectsAsync = ref.watch(coursesForClassProvider(classId));
     final school = ref.watch(schoolProvider).valueOrNull;
 
     return PageScaffold(

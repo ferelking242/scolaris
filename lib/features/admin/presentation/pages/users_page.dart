@@ -579,7 +579,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                 overflow: TextOverflow.ellipsis,
                                 style:
                                     TextStyle(fontSize: 12, color: context.cMuted)),
-                            _RoleBadge(user: u),
+                            _RoleCell(user: u),
                             _StatusDot(active: u.isActive),
                             Text(
                               u.lastSeenAt != null
@@ -821,6 +821,48 @@ class _FilterRow extends StatelessWidget {
 ///
 /// Les autres cas affichaient l'anglais de la base tel quel : « student »,
 /// « parent », « admin ».
+/// Le rôle, plus l'alerte « Sans classe » pour un enseignant qui n'enseigne
+/// nulle part.
+///
+/// On pouvait inviter un professeur et l'oublier : il se connectait, n'avait ni
+/// carnet ni appel, et c'était à lui de venir s'en plaindre. Le même oubli
+/// silencieux que « Sans rôle » — désormais visible d'un coup d'œil.
+class _RoleCell extends ConsumerWidget {
+  final SbUser user;
+  const _RoleCell({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orphans =
+        ref.watch(teachersWithoutClassProvider).valueOrNull ?? const <String>{};
+    final idle = user.role == 'teacher' && orphans.contains(user.id);
+
+    if (!idle) return _RoleBadge(user: user);
+
+    return Wrap(spacing: 4, runSpacing: 2, children: [
+      _RoleBadge(user: user),
+      Tooltip(
+        message: 'Ni titulaire d’une classe, ni enseignant d’un cours : '
+            'il ne peut ni noter ni faire l’appel.',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEA580C).withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+                color: const Color(0xFFEA580C).withValues(alpha: .3)),
+          ),
+          child: const Text('Sans classe',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFEA580C))),
+        ),
+      ),
+    ]);
+  }
+}
+
 class _RoleBadge extends ConsumerWidget {
   final SbUser user;
   const _RoleBadge({required this.user});
