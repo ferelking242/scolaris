@@ -1729,14 +1729,19 @@ class SupabaseDbSource {
         .toList();
   }
 
-  /// Bulletins PUBLIÉS d'un élève (élève / parent) — triés du plus récent.
+  /// Bulletins d'un élève — vue INTERNE (administration, personnel autorisé).
+  ///
+  /// Aucun écran famille ne l'appelle : le bulletin ne se consulte pas en
+  /// libre-service. La base l'interdit de toute façon (`report_cards` exige
+  /// `notes.voir`), donc un appel depuis un compte élève ou parent reviendrait
+  /// vide — pas en erreur, VIDE. C'est le genre de silence qui fait perdre une
+  /// journée : ne rebranchez pas ceci côté famille.
   static Future<List<SbReportCard>> getReportCardsForStudent(
       String studentId) async {
     final data = await _db
         .from('report_cards')
         .select()
         .eq('student_id', studentId)
-        .eq('status', 'published')
         .order('period');
     return (data as List)
         .map((j) => SbReportCard.fromJson(j as Map<String, dynamic>))

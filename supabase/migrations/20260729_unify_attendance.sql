@@ -167,11 +167,15 @@ create trigger trg_stamp_absence_recorder
   for each row execute function public.stamp_absence_recorder();
 
 -- ============================================================================
---  5. BULLETINS — un brouillon n'est PAS un bulletin
+--  5. BULLETINS — un document INTERNE a l'etablissement
 --
---  L'admin GENERE (brouillon), puis PUBLIE. Or la policy laissait tout membre de
---  l'ecole lire la table : un eleve pouvait voir son bulletin AVANT publication,
---  brouillon compris — et le modifier.
+--  Decision : le bulletin reste chez l'administration et le personnel autorise.
+--  Ni l'eleve ni le parent n'y ont acces — pas meme au bulletin publie, pas meme
+--  en lecture. Le bulletin se remet, il ne se consulte pas en libre-service.
+--
+--  Etat avant : `tenant_isolation` laissait tout membre de l'ecole LIRE ET
+--  ECRIRE la table. Un eleve voyait donc son bulletin des le brouillon — et
+--  pouvait changer sa moyenne generale, son rang et sa mention.
 -- ============================================================================
 drop policy if exists tenant_isolation on public.report_cards;
 
@@ -180,14 +184,7 @@ create policy report_cards_read on public.report_cards
   for select to authenticated
   using (
     public.is_member_of(school_id)
-    and (
-      -- La famille ne voit que le bulletin PUBLIE. C'est tout l'interet du
-      -- brouillon : l'ecole se relit avant que la famille lise.
-      ((student_id = public.my_user_id()
-        or public.is_my_child(auth.uid(), student_id))
-       and status = 'published')
-      or public.has_permission(auth.uid(), 'notes', 'voir')
-    )
+    and public.has_permission(auth.uid(), 'notes', 'voir')
   );
 
 drop policy if exists report_cards_write on public.report_cards;

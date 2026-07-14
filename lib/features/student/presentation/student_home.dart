@@ -65,9 +65,10 @@ class StudentHome extends ConsumerWidget {
     required SchoolLevel level,
     required String? planCode,
   }) {
-    // Le BULLETIN n'est plus dans l'espace élève, quel que soit le niveau :
-    // c'est un document remis à la famille → il vit dans l'espace parent
-    // (fiche de l'enfant). `BulletinPage` reste, seul le parent y accède.
+    // Le BULLETIN n'est nulle part côté famille — ni élève, ni parent. C'est un
+    // document interne à l'établissement : il se produit et se remet, il ne se
+    // consulte pas en libre-service. La base le refuse aussi (report_cards
+    // exige `notes.voir`), donc l'écran n'aurait rien pu charger.
     //
     // En primaire, l'élève ne gère en plus rien d'administratif : finance,
     // documents et messagerie sont eux aussi des actes de parent.
