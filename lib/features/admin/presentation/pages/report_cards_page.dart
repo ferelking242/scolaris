@@ -19,7 +19,11 @@ const _gold  = Color(0xFFC17F24);
 /// pour un trimestre. L'admin GÉNÈRE (brouillon, calcul figé) puis PUBLIE aux
 /// familles. Tant que ce n'est pas publié, l'élève/parent ne voit rien.
 class ReportCardsPage extends ConsumerStatefulWidget {
-  const ReportCardsPage({super.key});
+  /// `true` quand la page est rendue comme ONGLET dans « Notes & Bulletins » :
+  /// on retire alors son propre en-tête (le parent en fournit un) pour ne pas
+  /// empiler deux bandeaux.
+  final bool embedded;
+  const ReportCardsPage({super.key, this.embedded = false});
   @override
   ConsumerState<ReportCardsPage> createState() => _ReportCardsPageState();
 }
@@ -146,6 +150,22 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
       _classId = classes.first.id;
     }
 
+    final content = classesAsync.when(
+      loading: () =>
+          const Center(child: CircularProgressIndicator(color: _terra)),
+      error: (e, _) => Center(child: Text('Erreur : $e',
+          style: TextStyle(color: context.cMuted))),
+      data: (cls) => cls.isEmpty
+          ? const Center(child: EmptyState(
+              icon: Icons.class_outlined,
+              title: 'Aucune classe',
+              description: 'Crée des classes pour générer leurs bulletins.'))
+          : _body(cls),
+    );
+
+    // En onglet, on ne rend QUE le contenu : l'en-tête vient de la page parente.
+    if (widget.embedded) return content;
+
     return Scaffold(
       backgroundColor: context.cPage,
       body: Column(children: [
@@ -154,20 +174,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           subtitle: 'Génération & publication · Année ${_year.isEmpty ? '—' : _year}',
           icon: Icons.workspace_premium_rounded,
         ),
-        Expanded(
-          child: classesAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator(color: _terra)),
-            error: (e, _) => Center(child: Text('Erreur : $e',
-                style: TextStyle(color: context.cMuted))),
-            data: (cls) => cls.isEmpty
-                ? const Center(child: EmptyState(
-                    icon: Icons.class_outlined,
-                    title: 'Aucune classe',
-                    description: 'Crée des classes pour générer leurs bulletins.'))
-                : _body(cls),
-          ),
-        ),
+        Expanded(child: content),
       ]),
     );
   }

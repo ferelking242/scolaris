@@ -12,24 +12,8 @@ const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 
-/// Une colonne du carnet : un type d'évaluation et son rang.
-///
-/// Le carnet avait trois colonnes figées (Devoir · Contrôle · Examen). Le
-/// bulletin congolais en demande quatre — **Devoir 1, Devoir 2, D.D et la
-/// Composition** — et leur nombre appartient à l'école. Les colonnes se
-/// construisent donc à partir de [BulletinRules]. Cf. 20260740.
-///
-/// `type` reste le vocabulaire de la base (contrainte `grades_type_check` :
-/// devoir | examen | controle | tp | oral | projet). La composition est un
-/// `examen` : on ne crée pas un mot de plus pour la même chose.
-typedef _Slot = ({String type, int seq, String label});
-
-List<_Slot> _slotsOf(BulletinRules rules) => [
-      for (var i = 0; i < rules.devoirs; i++)
-        (type: 'devoir', seq: i + 1, label: rules.devoirLabels[i]),
-      if (rules.compoWeight > 0)
-        (type: 'examen', seq: 1, label: 'Compo'),
-    ];
+// Les colonnes du carnet (Devoir 1, Devoir 2, D.D, Compo) viennent de la formule
+// de l'école — voir [BulletinRules.slots], partagé avec le bulletin admin.
 
 class GradebookPage extends ConsumerStatefulWidget {
   const GradebookPage({super.key});
@@ -368,7 +352,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     _loadedGrades = grades;
   }
 
-  TextEditingController _ctrl(String studentId, _Slot slot) {
+  TextEditingController _ctrl(String studentId, GradeSlot slot) {
     final k = '${slot.type}#${slot.seq}';
     _ctrls[studentId] ??= {};
     if (_ctrls[studentId]![k] == null) {
@@ -381,14 +365,14 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   }
 
   /// Note déjà en base pour (élève, colonne) = **validée → verrouillée**.
-  SbGrade? _existing(String studentId, _Slot slot) => _loadedGrades
+  SbGrade? _existing(String studentId, GradeSlot slot) => _loadedGrades
       .where((g) =>
           g.studentId == studentId &&
           g.type == slot.type &&
           g.sequence == slot.seq)
       .firstOrNull;
 
-  bool _isLocked(String studentId, _Slot slot) =>
+  bool _isLocked(String studentId, GradeSlot slot) =>
       _existing(studentId, slot) != null;
 
   /// La moyenne affichée est celle du BULLETIN, pas une moyenne bête :
@@ -397,8 +381,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   ///
   /// Les notes déjà en base peuvent avoir un autre barème (une interro sur 10
   /// dans une série sur 20) : on les ramène sur le barème courant.
-  double? _avg(String studentId, List<_Slot> slots, BulletinRules rules) {
-    double? valueAt(_Slot slot) {
+  double? _avg(String studentId, List<GradeSlot> slots, BulletinRules rules) {
+    double? valueAt(GradeSlot slot) {
       final existing = _existing(studentId, slot);
       if (existing != null) {
         final m = existing.maxScore > 0 ? existing.maxScore : _max;
@@ -426,7 +410,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   /// pas le droit de saisir (`notes.saisir`). Un directeur peut décider que
   /// chez lui les profs consultent sans noter — la base le refuserait de toute
   /// façon, autant ne pas afficher un champ qui mènera à une erreur.
-  Widget _cell(String studentId, _Slot slot, {required bool canSaisir}) {
+  Widget _cell(String studentId, GradeSlot slot, {required bool canSaisir}) {
     final existing = _existing(studentId, slot);
     if (existing != null) {
       return _LockedGrade(value: existing.score, max: existing.maxScore);
@@ -461,13 +445,13 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
         ],
       ),
     );
-    if (ok == true) await _save(students, _slotsOf(_rules));
+    if (ok == true) await _save(students, _rules.slots);
   }
 
   BulletinRules get _rules =>
       BulletinRules.fromSchool(ref.read(schoolProvider).valueOrNull);
 
-  Future<void> _save(List<SbStudent> students, List<_Slot> slots) async {
+  Future<void> _save(List<SbStudent> students, List<GradeSlot> slots) async {
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -541,7 +525,7 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     // Les colonnes du carnet viennent de la formule de l'ÉCOLE : 3 devoirs +
     // composition au CSBFE, autre chose ailleurs.
     final rules = BulletinRules.fromSchool(ref.watch(schoolProvider).valueOrNull);
-    final slots = _slotsOf(rules);
+    final slots = rules.slots;
 
     return studentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),

@@ -49,6 +49,23 @@ class BulletinRules {
         for (var i = 1; i <= devoirs; i++)
           (devoirs == 3 && i == 3) ? 'D.D' : 'Devoir $i',
       ];
+
+  /// Les colonnes de saisie : les devoirs, puis la composition (si elle pèse).
+  /// `type` est le vocabulaire de la base (`grades_type_check`) : la compo est
+  /// un `examen` — on ne crée pas un mot de plus pour la même chose.
+  List<GradeSlot> get slots => [
+        for (var i = 0; i < devoirs; i++)
+          GradeSlot(type: 'devoir', seq: i + 1, label: devoirLabels[i]),
+        if (compoWeight > 0) const GradeSlot(type: 'examen', seq: 1, label: 'Compo'),
+      ];
+}
+
+/// Une colonne de saisie de note : un type d'évaluation et son rang.
+class GradeSlot {
+  final String type;
+  final int seq;
+  final String label;
+  const GradeSlot({required this.type, required this.seq, required this.label});
 }
 
 /// Une ligne du bulletin : une matière, ses notes, sa moyenne, son rang.
