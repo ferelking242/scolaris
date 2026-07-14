@@ -58,9 +58,32 @@ class SchoolTaxonomy {
   /// Le système seul ne suffit pas : « francophone » désigne le programme
   /// français en France et le programme africain au Congo. Ce sont deux
   /// catalogues de niveaux différents.
-  static String systemTypeOf({String? system, String? country}) {
+  /// Types d'établissement relevant de l'enseignement SUPÉRIEUR.
+  static const _higherEd = {'universite', 'superieur'};
+
+  static String systemTypeOf({
+    String? system,
+    String? country,
+    List<String> types = const [],
+  }) {
     final s = (system ?? 'francophone').toLowerCase();
     final c = (country ?? 'CG').toUpperCase();
+
+    // Le SUPÉRIEUR a ses propres catalogues. Les niveaux `universite_l/m/d`
+    // n'existent QUE sous `lmd`, `ancien_systeme_univ`, `anglophone_university`
+    // et `grande_ecole` — jamais sous `francophone_africa`.
+    //
+    // Sans cette règle, une université francophone demandait les cycles
+    // universitaires dans le catalogue du primaire : deux tiroirs qui ne
+    // communiquent pas, et une liste de niveaux VIDE. Aucune erreur, juste un
+    // menu déroulant sans rien dedans — le même piège que « S1 » contre « T1 ».
+    if (types.any(_higherEd.contains)) {
+      if (s == 'grande_ecole') return 'grande_ecole';
+      if (s == 'anglophone') return 'anglophone_university';
+      // « ancien_systeme_univ » existe aussi, mais le LMD est la norme dans la
+      // zone : c'est le défaut raisonnable, et l'école peut en changer.
+      return 'lmd';
+    }
 
     switch (s) {
       case 'anglophone':

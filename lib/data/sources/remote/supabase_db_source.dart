@@ -740,10 +740,14 @@ class SbSchool {
   /// Un complexe scolaire en a plusieurs. Vide = types non renseignés.
   List<String> get cycles => SchoolTaxonomy.cyclesOf(types);
 
-  /// `class_levels.system_type` de cette école (système + pays).
+  /// `class_levels.system_type` de cette école (système + pays + types).
+  ///
+  /// Les types comptent : une université ne cherche pas ses niveaux dans le même
+  /// catalogue qu'un lycée, même à système et pays identiques.
   String get levelSystemType => SchoolTaxonomy.systemTypeOf(
         system: educationalSystem,
         country: country,
+        types: types,
       );
 
   factory SbSchool.fromJson(Map<String, dynamic> j) {
