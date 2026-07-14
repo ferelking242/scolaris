@@ -40,7 +40,9 @@ class StaffPermissions {
   static const finance = 'finance';
   static const reports = 'reports';
   static const timetable = 'timetable';
-  static const communication = 'communication';
+  // `communication` a été retiré : la messagerie et les annonces n'existent
+  // plus (cf. 20260732_drop_messaging.sql). Une case à cocher qui ne commande
+  // rien est pire qu'absente : elle promet une sécurité inexistante.
   static const staffManage = 'staff_manage';
   static const schoolConfig = 'school_config';
 
@@ -95,12 +97,6 @@ class StaffPermissions {
       icon: Icons.table_chart_outlined,
     ),
     StaffPermission(
-      key: communication,
-      label: 'Communication',
-      description: 'Annonces et notifications',
-      icon: Icons.campaign_outlined,
-    ),
-    StaffPermission(
       key: staffManage,
       label: 'Gérer le personnel',
       description: 'Inviter et modifier d\'autres membres',
@@ -126,7 +122,7 @@ class StaffPermissions {
   /// Modèles de départ (presets). L'admin part de l'un d'eux puis ajuste les
   /// cases librement. « Co-Directeur » = accès total via [kAllPermission].
   static const Map<String, List<String>> presets = {
-    'Secrétaire': [students, classes, communication, timetable],
+    'Secrétaire': [students, classes, timetable],
     'Comptable': [finance, reports],
     'Surveillant': [attendance, discipline],
     'Co-Directeur': [kAllPermission],

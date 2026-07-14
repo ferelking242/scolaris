@@ -20,7 +20,7 @@ const _cyan   = Color(0xFF0891B2);
 // ══════════════════════════════════════════════════════════════════════════
 // Modèle de notification (flux agrégé — aucune table dédiée)
 // ══════════════════════════════════════════════════════════════════════════
-enum _NotifKind { grade, absence, announcement, payment }
+enum _NotifKind { grade, absence, payment }
 
 class _Notif {
   final _NotifKind kind;
@@ -37,21 +37,18 @@ class _Notif {
   Color get color => switch (kind) {
         _NotifKind.grade        => _gold,
         _NotifKind.absence      => _terra,
-        _NotifKind.announcement => _cyan,
         _NotifKind.payment      => _orange,
       };
 
   IconData get icon => switch (kind) {
         _NotifKind.grade        => Icons.grading_rounded,
         _NotifKind.absence      => Icons.event_busy_rounded,
-        _NotifKind.announcement => Icons.campaign_rounded,
         _NotifKind.payment      => Icons.account_balance_wallet_rounded,
       };
 
   String get categoryLabel => switch (kind) {
         _NotifKind.grade        => 'Note',
         _NotifKind.absence      => 'Présence',
-        _NotifKind.announcement => 'Annonce',
         _NotifKind.payment      => 'Paiement',
       };
 }
@@ -82,20 +79,17 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         ? ref.watch(gradesForStudentProvider(session.id))
         : const AsyncValue<List<SbGrade>>.data([]);
     final absencesAsync = ref.watch(myAbsencesProvider);
-    final annAsync      = ref.watch(announcementsProvider);
     final invoicesAsync = isPrimaire
         ? const AsyncValue<List<SbInvoice>>.data([])
         : ref.watch(myInvoicesProvider);
 
     final stillLoading = gradesAsync.isLoading &&
         absencesAsync.isLoading &&
-        annAsync.isLoading &&
         invoicesAsync.isLoading;
 
     final feed = _buildFeed(
       grades: gradesAsync.valueOrNull ?? const [],
       absences: absencesAsync.valueOrNull ?? const [],
-      announcements: annAsync.valueOrNull ?? const [],
       invoices: invoicesAsync.valueOrNull ?? const [],
     );
 
@@ -144,9 +138,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       _NotifKind.grade        => const GradesPage(),
       _NotifKind.absence      => const AttendancePage(),
       _NotifKind.payment      => const StudentPaymentsPage(),
-      _NotifKind.announcement => const GradesPage(), // pas de page annonces dédiée → no-op léger
     };
-    if (kind == _NotifKind.announcement) return; // annonces : carte informative
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
@@ -162,7 +154,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   List<_Notif> _buildFeed({
     required List<SbGrade> grades,
     required List<SbAbsence> absences,
-    required List<SbAnnouncement> announcements,
     required List<SbInvoice> invoices,
   }) {
     final out = <_Notif>[];
@@ -189,18 +180,6 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       ));
     }
 
-    for (final ann in announcements) {
-      final role = ann.targetRole;
-      // L'enum côté base est 'students'/'all' ; on tolère aussi le singulier.
-      const okRoles = {'all', 'students', 'student'};
-      if (role != null && role.isNotEmpty && !okRoles.contains(role)) continue;
-      out.add(_Notif(
-        kind: _NotifKind.announcement,
-        title: ann.title,
-        body: ann.content ?? (ann.authorName != null ? 'Par ${ann.authorName}' : ''),
-        date: ann.createdAt,
-      ));
-    }
 
     for (final inv in invoices) {
       final s = inv.status.toLowerCase();
@@ -259,14 +238,12 @@ class _FilterBar extends StatelessWidget {
   String _label(_NotifKind k) => switch (k) {
         _NotifKind.grade        => 'Notes',
         _NotifKind.absence      => 'Présences',
-        _NotifKind.announcement => 'Annonces',
         _NotifKind.payment      => 'Paiements',
       };
 
   Color _color(_NotifKind k) => switch (k) {
         _NotifKind.grade        => _gold,
         _NotifKind.absence      => _terra,
-        _NotifKind.announcement => _cyan,
         _NotifKind.payment      => _orange,
       };
 }
@@ -334,7 +311,7 @@ class _NotifCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tappable = notif.kind != _NotifKind.announcement;
+    const tappable = true;
     return GestureDetector(
       onTap: tappable ? onTap : null,
       child: Container(

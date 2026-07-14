@@ -10,7 +10,6 @@ import '../../../presentation/providers/nav_providers.dart';
 import '../roles/roles_permissions_page.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
-import 'pages/notification_center_page.dart';
 import 'pages/timetable_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
@@ -124,10 +123,9 @@ class AdminHome extends ConsumerWidget {
           permission: StaffPermissions.schoolConfig),
     ]),
     RoleNavGroup(labelKey: 'sections.account', entries: [
-      RoleNavEntry(icon: Icons.campaign_outlined, activeIcon: Icons.campaign_rounded,
-          labelKey: 'nav.notifications',
-          page: PermissionGuard(permission: StaffPermissions.communication, child: NotificationCenterPage()),
-          permission: StaffPermissions.communication),
+      // Pas de centre de notifications : la messagerie et les annonces ont été
+      // retirées (décision utilisateur). Elles étaient aussi le dernier trou de
+      // la RLS — un élève pouvait écrire au nom d'un autre.
       RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
           labelKey: 'nav.features', page: FeaturesHubPage()),
       RoleNavEntry(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded,
@@ -602,7 +600,6 @@ class _DashToday extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recentAsync      = ref.watch(recentStudentsProvider);
     final invoicesAsync    = ref.watch(invoicesProvider);
-    final announcementsAsync = ref.watch(announcementsProvider);
 
     final today = DateTime.now();
     bool sameDay(DateTime? d) =>
@@ -620,11 +617,6 @@ class _DashToday extends ConsumerWidget {
       data: (list) => list.where((inv) => inv.isOverdue).length,
       orElse: () => null,
     );
-    final announcements = announcementsAsync.maybeWhen(
-      data: (list) => list.length,
-      orElse: () => null,
-    );
-
     String fmt(int? n, String singular, String plural) {
       if (n == null) return '…';
       return '$n ${n == 1 ? singular : plural}';
@@ -646,9 +638,6 @@ class _DashToday extends ConsumerWidget {
           overdue == 0 || overdue == null && invoicesAsync.hasValue
               ? 'Aucune facture en retard'
               : fmt(overdue, 'facture en retard', 'factures en retard')),
-      (Icons.campaign_outlined,
-          _green,
-          fmt(announcements, 'annonce active', 'annonces actives')),
     ];
 
     final c = _DashColors.of(context);

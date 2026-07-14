@@ -451,20 +451,6 @@ final myChildrenInvoicesProvider =
   return out;
 });
 
-// ── Messages ──────────────────────────────────────────────────────────────────
-final messagesProvider = FutureProvider<List<SbMessage>>((ref) async {
-  final schoolId = ref.watch(currentSchoolIdProvider);
-  if (schoolId == null) return [];
-  return SupabaseDbSource.getMessages(schoolId: schoolId);
-});
-
-// ── Announcements ─────────────────────────────────────────────────────────────
-final announcementsProvider = FutureProvider<List<SbAnnouncement>>((ref) async {
-  final schoolId = ref.watch(currentSchoolIdProvider);
-  if (schoolId == null) return [];
-  return SupabaseDbSource.getAnnouncements(schoolId: schoolId);
-});
-
 // ── Users ─────────────────────────────────────────────────────────────────────
 final usersProvider = FutureProvider<List<SbUser>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
@@ -533,12 +519,19 @@ final studentCountProvider = FutureProvider<int>((ref) async {
 // Tous sont paramétrés par `studentId` : ils servent aussi bien à l'élève
 // (« moi ») qu'au parent (« mon enfant »), sans duplication. La RLS fait le
 // tri en base — voir `20260724_primary_tools.sql`.
+//
+// ⚠️ `autoDispose` n'est pas une coquetterie ici. Ce sont des flux VIVANTS :
+// l'enseignant écrit pendant que la famille a l'app ouverte. Sans autoDispose,
+// un FutureProvider charge une fois et garde son résultat pour toute la
+// session — un parent qui ouvre le cahier avant que le maître n'écrive verrait
+// une page vide jusqu'au redémarrage de l'application. Avec autoDispose, le
+// provider est jeté quand la page se ferme et rechargé à la réouverture.
 // ══════════════════════════════════════════════════════════════════════════
 
 /// Mots du cahier de liaison concernant un élève : ceux qui le visent
 /// nommément ET ceux adressés à sa classe.
-final liaisonEntriesForStudentProvider =
-    FutureProvider.family<List<SbLiaisonEntry>, String>((ref, studentId) async {
+final liaisonEntriesForStudentProvider = FutureProvider.autoDispose
+    .family<List<SbLiaisonEntry>, String>((ref, studentId) async {
   final student = await ref.watch(studentByIdProvider(studentId).future);
   return SupabaseDbSource.getLiaisonEntriesForStudent(
     studentId,
@@ -547,35 +540,37 @@ final liaisonEntriesForStudentProvider =
 });
 
 /// Mots écrits pour une classe (vue enseignant).
-final liaisonEntriesForClassProvider =
-    FutureProvider.family<List<SbLiaisonEntry>, String>((ref, classId) async {
+final liaisonEntriesForClassProvider = FutureProvider.autoDispose
+    .family<List<SbLiaisonEntry>, String>((ref, classId) async {
   return SupabaseDbSource.getLiaisonEntriesForClass(classId);
 });
 
 /// Les accusés de réception déjà signés par le parent connecté.
 /// Vide pour un élève : accuser réception est un acte de parent.
-final myLiaisonAcksProvider = FutureProvider<Set<String>>((ref) async {
+final myLiaisonAcksProvider =
+    FutureProvider.autoDispose<Set<String>>((ref) async {
   final session = ref.watch(authSessionProvider);
   if (session == null) return const {};
   return SupabaseDbSource.getMyLiaisonAcks(session.id);
 });
 
 /// Bons points d'un élève.
-final meritPointsForStudentProvider =
-    FutureProvider.family<List<SbMeritPoint>, String>((ref, studentId) async {
+final meritPointsForStudentProvider = FutureProvider.autoDispose
+    .family<List<SbMeritPoint>, String>((ref, studentId) async {
   return SupabaseDbSource.getMeritPointsForStudent(studentId);
 });
 
 /// Catalogue de badges de l'école (vue admin — sans les obtentions).
-final badgeCatalogProvider = FutureProvider<List<SbBadge>>((ref) async {
+final badgeCatalogProvider =
+    FutureProvider.autoDispose<List<SbBadge>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return const [];
   return SupabaseDbSource.getBadgeCatalog(schoolId);
 });
 
 /// Badges de l'école, marqués obtenus/non obtenus pour l'élève visé.
-final badgesForStudentProvider =
-    FutureProvider.family<List<SbBadge>, String>((ref, studentId) async {
+final badgesForStudentProvider = FutureProvider.autoDispose
+    .family<List<SbBadge>, String>((ref, studentId) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return const [];
   return SupabaseDbSource.getBadgesForStudent(

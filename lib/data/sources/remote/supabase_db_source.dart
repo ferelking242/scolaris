@@ -585,81 +585,6 @@ class SbPayment {
       );
 }
 
-class SbMessage {
-  final String id;
-  final String? senderId;
-  final String? senderName;
-  final String? content;
-  final DateTime? createdAt;
-  final bool isRead;
-  final String? messageType;
-
-  const SbMessage({
-    required this.id,
-    this.senderId,
-    this.senderName,
-    this.content,
-    this.createdAt,
-    this.isRead = false,
-    this.messageType,
-  });
-
-  factory SbMessage.fromJson(Map<String, dynamic> j) {
-    final senderMap = j['users'] as Map<String, dynamic>?;
-    return SbMessage(
-      id: j['id'] as String,
-      senderId: j['sender_id'] as String?,
-      senderName: senderMap?['full_name'] as String?,
-      content: j['content'] as String?,
-      createdAt: j['created_at'] != null ? DateTime.tryParse(j['created_at'] as String) : null,
-      isRead: (j['read_by'] as List?)?.isNotEmpty ?? false,
-      messageType: j['message_type'] as String?,
-    );
-  }
-}
-
-class SbAnnouncement {
-  final String id;
-  final String title;
-  final String? content;
-  final String? authorName;
-  final String? targetRole;
-  final String? priority;
-  final String? targetClassId;
-  final bool isPinned;
-  final int likesCount;
-  final DateTime? createdAt;
-
-  const SbAnnouncement({
-    required this.id,
-    required this.title,
-    this.content,
-    this.authorName,
-    this.targetRole,
-    this.priority,
-    this.targetClassId,
-    this.isPinned = false,
-    this.likesCount = 0,
-    this.createdAt,
-  });
-
-  factory SbAnnouncement.fromJson(Map<String, dynamic> j) {
-    final authorMap = j['users'] as Map<String, dynamic>?;
-    return SbAnnouncement(
-      id: j['id'] as String,
-      title: j['title'] as String? ?? '',
-      content: j['content'] as String?,
-      authorName: authorMap?['full_name'] as String?,
-      targetRole: j['target_role'] as String?,
-      priority: j['priority'] as String?,
-      targetClassId: j['target_class_id'] as String?,
-      isPinned: j['is_pinned'] as bool? ?? false,
-      likesCount: j['likes_count'] as int? ?? 0,
-      createdAt: j['created_at'] != null ? DateTime.tryParse(j['created_at'] as String) : null,
-    );
-  }
-}
-
 class SbUser {
   final String id;
   final String? schoolId;
@@ -1893,57 +1818,6 @@ class SupabaseDbSource {
     return (data as List)
         .map((j) => SbSubmission.fromJson(j as Map<String, dynamic>))
         .toList();
-  }
-
-  // ── Messages ──────────────────────────────────────────────────────────────
-  static Future<List<SbMessage>> getMessages({String? schoolId}) async {
-    var q = _db
-        .from('messages')
-        .select('*, users!sender_id(full_name)');
-    if (schoolId != null) q = q.eq('school_id', schoolId);
-    final data = await q.order('created_at', ascending: false).limit(50);
-    return (data as List).map((j) => SbMessage.fromJson(j as Map<String, dynamic>)).toList();
-  }
-
-  // ── Announcements ─────────────────────────────────────────────────────────
-  static Future<List<SbAnnouncement>> getAnnouncements({String? schoolId}) async {
-    var q = _db
-        .from('announcements')
-        .select('*, users!author_id(full_name)')
-        .eq('is_published', true);
-    if (schoolId != null) q = q.eq('school_id', schoolId);
-    final data = await q.order('is_pinned', ascending: false).order('created_at', ascending: false);
-    return (data as List).map((j) => SbAnnouncement.fromJson(j as Map<String, dynamic>)).toList();
-  }
-
-  /// Publie une annonce. `targetRole` ∈ all/students/parents/teachers/admin,
-  /// `priority` ∈ normal/important/urgent. `targetClassId` cible une classe.
-  static Future<void> createAnnouncement({
-    required String schoolId,
-    required String authorId,
-    required String title,
-    required String content,
-    String targetRole = 'all',
-    String priority = 'normal',
-    String? targetClassId,
-  }) async {
-    final now = DateTime.now().toIso8601String();
-    await _db.from('announcements').insert({
-      'id': const Uuid().v4(),
-      'school_id': schoolId,
-      'author_id': authorId,
-      'title': title.trim(),
-      'content': content.trim(),
-      'target_role': targetRole,
-      'priority': priority,
-      if (targetClassId != null) 'target_class_id': targetClassId,
-      'is_published': true,
-      'published_at': now,
-    });
-  }
-
-  static Future<void> deleteAnnouncement(String id) async {
-    await _db.from('announcements').delete().eq('id', id);
   }
 
   // ── Users ─────────────────────────────────────────────────────────────────
