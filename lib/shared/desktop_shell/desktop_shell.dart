@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/theme_controller.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
@@ -903,13 +902,6 @@ class _AccountPanel extends ConsumerWidget {
             onTap: () {
               Navigator.of(context, rootNavigator: true).pop();
               onSettings?.call();
-            },
-          ),
-          _PanelItem(
-            icon: Icons.brightness_6_outlined,
-            label: 'Changer le thème',
-            onTap: () {
-              ref.read(themeControllerProvider.notifier).toggleBrightness();
             },
           ),
           Container(

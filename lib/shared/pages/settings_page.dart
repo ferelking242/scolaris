@@ -858,53 +858,16 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl      = ref.watch(themeControllerProvider);
-    final themeMode = ctrl.mode;
-    final accent    = ctrl.accent;
+    final accent    = ref.watch(themeControllerProvider).accent;
     final settings  = ref.watch(settingsProvider);
     final locale    = context.locale;
-    final isDark    = themeMode == ThemeMode.dark ||
-        (themeMode == ThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+    final isDark    = false; // thème clair uniquement
 
     return _SubPageShell(
       title: 'settings.appearance'.tr(),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-          // ── Thème ──────────────────────────────────────────────────────
-          _SectionLabel('settings.section.theme'.tr()),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.wb_sunny_rounded,
-              label: 'settings.theme.light'.tr(),
-              sub: 'settings.theme.light_sub'.tr(),
-              selected: themeMode == ThemeMode.light,
-              accent: accent,
-              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.light),
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.nightlight_round,
-              label: 'settings.theme.dark'.tr(),
-              sub: 'settings.theme.dark_sub'.tr(),
-              selected: themeMode == ThemeMode.dark,
-              accent: accent,
-              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.dark),
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _ThemeModeCard(
-              icon: Icons.brightness_auto_rounded,
-              label: 'settings.theme.system'.tr(),
-              sub: 'settings.theme.system_sub'.tr(),
-              selected: themeMode == ThemeMode.system,
-              accent: accent,
-              onTap: () => ref.read(themeControllerProvider.notifier).setMode(ThemeMode.system),
-            )),
-          ]),
-          const SizedBox(height: 12),
 
           // ── Contraste élevé ────────────────────────────────────────────
           AnimatedContainer(
@@ -1328,80 +1291,6 @@ class _MiniStatCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Theme mode card (Light / Dark / System)
 // ─────────────────────────────────────────────────────────────────────────────
-class _ThemeModeCard extends StatelessWidget {
-  final IconData icon;
-  final String label, sub;
-  final bool selected;
-  final Color accent;
-  final VoidCallback onTap;
-  const _ThemeModeCard({
-    required this.icon, required this.label, required this.sub,
-    required this.selected, required this.accent, required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withOpacity(.08)
-              : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? accent.withOpacity(.6)
-                : Theme.of(context).colorScheme.outline.withOpacity(.3),
-            width: selected ? 1.8 : 1.0,
-          ),
-          boxShadow: selected
-              ? [BoxShadow(
-                  color: accent.withOpacity(.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3))]
-              : [],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: selected
-                    ? accent.withOpacity(.15)
-                    : Theme.of(context).colorScheme.surfaceContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 19,
-                  color: selected
-                      ? accent
-                      : Theme.of(context).colorScheme.onSurface.withOpacity(.5)),
-            ),
-            const SizedBox(height: 7),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: selected
-                        ? accent
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(sub,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
-                    fontSize: 9.5),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Media choice bottom sheet (avatar / banner)
@@ -2730,80 +2619,6 @@ class _SettingsItemToggle extends StatelessWidget {
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ]),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Settings Item Theme
-// ─────────────────────────────────────────────────────────────────────────────
-class _SettingsItemTheme extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label;
-  final String currentValue;
-  final ThemeMode themeMode;
-  final ValueChanged<ThemeMode> onChanged;
-  const _SettingsItemTheme({
-    required this.icon, required this.color, required this.label,
-    required this.currentValue, required this.themeMode, required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: color.withOpacity(.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: color),
-            ),
-            const SizedBox(width: 14),
-            Text(label,
-                style: const TextStyle(
-                    color: _ink, fontSize: 14, fontWeight: FontWeight.w500)),
-            const Spacer(),
-            Text(currentValue,
-                style: TextStyle(color: _muted.withOpacity(.8), fontSize: 12)),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            const SizedBox(width: 50),
-            Expanded(
-              child: SegmentedButton<ThemeMode>(
-                segments: const [
-                  ButtonSegment(
-                      value: ThemeMode.light,
-                      icon: Icon(Icons.light_mode_outlined, size: 14),
-                      label: Text('Clair')),
-                  ButtonSegment(
-                      value: ThemeMode.dark,
-                      icon: Icon(Icons.dark_mode_outlined, size: 14),
-                      label: Text('Sombre')),
-                  ButtonSegment(
-                      value: ThemeMode.system,
-                      icon: Icon(Icons.phone_android_outlined, size: 14),
-                      label: Text('Auto')),
-                ],
-                selected: {themeMode},
-                showSelectedIcon: false,
-                style: ButtonStyle(
-                  textStyle: WidgetStateProperty.all(
-                      const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                ),
-                onSelectionChanged: (s) => onChanged(s.first),
-              ),
-            ),
-          ]),
-        ],
-      ),
     );
   }
 }
