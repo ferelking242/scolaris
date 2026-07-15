@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import 'child_payments_page.dart';
 import '../../../student/presentation/pages/attendance_page.dart';
 import '../../../student/presentation/pages/cahier_liaison_page.dart';
 import '../../../student/presentation/pages/carnet_recompenses_page.dart';
@@ -41,6 +43,7 @@ class ChildDetailPage extends ConsumerWidget {
     final grades   = ref.watch(gradesForStudentProvider(child.id));
     final absences = ref.watch(absencesForStudentProvider(child.id));
     final invoices = ref.watch(invoicesForStudentProvider(child.id));
+    final account  = ref.watch(tuitionAccountProvider(child.id));
 
     final gradeList = grades.valueOrNull ?? const <SbGrade>[];
     final moyenne = gradeList.isEmpty
@@ -48,9 +51,34 @@ class ChildDetailPage extends ConsumerWidget {
         : gradeList.fold<double>(0, (s, g) => s + g.outOf20) / gradeList.length;
 
     final absenceList = absences.valueOrNull ?? const <SbAbsence>[];
-    final unpaid = (invoices.valueOrNull ?? const <SbInvoice>[])
-        .where((i) => !i.isPaid)
-        .length;
+
+    // Scolarité : le VRAI statut vient du compte (à jour / doit X), pas du
+    // nombre de factures — la facture-compte annuelle reste « pending » toute
+    // l'année et ferait croire à un impayé même quand l'élève est à jour.
+    final acc = account.valueOrNull;
+    final acctLoading = account.isLoading;
+    final String scolariteValue;
+    final String scolariteSuffix;
+    final Color scolariteColor;
+    if (acc != null) {
+      if (acc.isUpToDate) {
+        scolariteValue = 'À jour';
+        scolariteSuffix = '';
+        scolariteColor = _green;
+      } else {
+        scolariteValue = NumberFormat.compact(locale: 'fr').format(acc.owedNow);
+        scolariteSuffix = ' ${acc.currency}';
+        scolariteColor = _orange;
+      }
+    } else {
+      // Repli (pas de grille) : on retombe sur le nombre d'impayés.
+      final unpaid = (invoices.valueOrNull ?? const <SbInvoice>[])
+          .where((i) => !i.isPaid)
+          .length;
+      scolariteValue = '$unpaid';
+      scolariteSuffix = unpaid > 1 ? ' factures' : ' facture';
+      scolariteColor = unpaid == 0 ? _green : _orange;
+    }
 
     final recent = ([...gradeList]..sort((a, b) =>
             (b.gradedAt ?? DateTime(2000)).compareTo(a.gradedAt ?? DateTime(2000))))
@@ -86,12 +114,12 @@ class ChildDetailPage extends ConsumerWidget {
           )),
           const SizedBox(width: 10),
           Expanded(child: _StatCard(
-            icon: Icons.receipt_long_rounded,
-            label: 'Impayés',
-            value: '$unpaid',
-            suffix: unpaid > 1 ? ' factures' : ' facture',
-            color: unpaid == 0 ? _green : _orange,
-            loading: invoices.isLoading,
+            icon: Icons.account_balance_wallet_rounded,
+            label: 'Scolarité',
+            value: scolariteValue,
+            suffix: scolariteSuffix,
+            color: scolariteColor,
+            loading: acctLoading && invoices.isLoading,
           )),
         ]),
         const SizedBox(height: 20),
@@ -100,6 +128,17 @@ class ChildDetailPage extends ConsumerWidget {
         Text('Sa scolarité', style: TextStyle(
             color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
+        _NavTile(
+          icon: Icons.account_balance_wallet_rounded, color: _orange,
+          title: 'Scolarité & paiements',
+          subtitle: acc == null
+              ? 'Compte, factures et règlements'
+              : (acc.isUpToDate
+                  ? 'À jour'
+                  : 'Doit ${NumberFormat.decimalPattern("fr").format(acc.owedNow)} ${acc.currency}'),
+          onTap: () => _push(context, ChildPaymentsPage(child: child)),
+        ),
+        const SizedBox(height: 8),
         _NavTile(
           icon: Icons.grading_rounded, color: _gold,
           title: 'Notes',

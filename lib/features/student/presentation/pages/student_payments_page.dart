@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../admin/presentation/widgets/tuition_account.dart' show coveredUntilLabel;
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart';
+import '../../../../shared/pdf/invoice_pdf.dart';
 import '../../../../shared/widgets/online_payment_sheet.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -22,6 +24,8 @@ class StudentPaymentsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user        = ref.watch(authSessionProvider);
     final invoicesAsync = ref.watch(myInvoicesProvider);
+    // Le COMPTE de scolarité (solde qui court) — remplace la pile de tranches.
+    final acc         = ref.watch(tuitionAccountProvider(user?.id ?? '')).valueOrNull;
     final level       = ref.watch(studentSchoolLevelProvider).valueOrNull
         ?? SchoolLevel.lycee;
     final onlinePay   = ref.watch(onlinePaymentEnabledProvider).valueOrNull ?? false;
@@ -46,34 +50,54 @@ class StudentPaymentsPage extends ConsumerWidget {
                 child: Text('Erreur : $e',
                     style: const TextStyle(color: _terra)))),
         data: (invoices) {
-          final currency = invoices.isNotEmpty ? invoices.first.currency : 'FCFA';
-          final total = invoices.fold<double>(0, (s, i) => s + i.amount);
-          final paye  = invoices
-              .where((i) => i.status.toLowerCase() == 'paid')
-              .fold<double>(0, (s, i) => s + i.amount);
-          final restant = (total - paye).clamp(0, double.infinity).toDouble();
-
-          // Échéancier : trié par date d'échéance (puis non datées à la fin).
-          final sorted = [...invoices]..sort((a, b) {
+          // La scolarité est un COMPTE (acc) ; les autres frais restent des
+          // factures discrètes (inscription, etc.).
+          final others = [...invoices.where((i) => !i.isTuition)]..sort((a, b) {
             final da = a.dueDate, db = b.dueDate;
             if (da == null && db == null) return 0;
             if (da == null) return 1;
             if (db == null) return -1;
             return da.compareTo(db);
           });
-          final unpaid = sorted.where((i) {
-            final s = i.status.toLowerCase();
-            return s != 'paid' && s != 'cancelled';
-          }).toList();
-          final hasUnpaid = unpaid.isNotEmpty;
-          // Échéance la plus urgente (en retard d'abord, sinon la plus proche).
-          final urgent = unpaid.isEmpty ? null : unpaid.first;
+          final currency = acc?.currency ??
+              (invoices.isNotEmpty ? invoices.first.currency : 'FCFA');
+
+          // Totaux du bandeau : depuis le compte si dispo, sinon repli sur la
+          // somme des factures (école sans grille de frais).
+          final total = acc?.annual ??
+              invoices.fold<double>(0, (s, i) => s + i.amount);
+          final paye = acc?.paid ??
+              invoices
+                  .where((i) => i.status.toLowerCase() == 'paid')
+                  .fold<double>(0, (s, i) => s + i.amount);
+          final restant = acc?.balance ??
+              (total - paye).clamp(0, double.infinity).toDouble();
+
+          // La facture-compte de scolarité (pour le paiement en ligne). Peut ne
+          // pas encore exister tant qu'aucun versement n'a été enregistré.
+          SbInvoice? tuitionInvoice;
+          for (final i in invoices) {
+            if (i.isTuition && !i.isPaid) { tuitionInvoice = i; break; }
+          }
+
+          // Autres frais impayés (hors scolarité) — pour le rappel et le CTA.
+          final othersUnpaid = others.where(_isUnpaid).toList();
 
           // Règle une liste de factures en ligne, puis rafraîchit.
-          Future<void> pay(List<SbInvoice> list) async {
-            final ok = await showOnlinePaymentSheet(context, ref, list);
+          Future<void> pay(List<SbInvoice> list, {double? suggested}) async {
+            final ok = await showOnlinePaymentSheet(context, ref, list,
+                suggestedAmount: suggested);
             if (ok) ref.invalidate(myInvoicesProvider);
           }
+
+          // Pour la scolarité : pré-remplir le dû à ce jour (sinon une mensualité).
+          final tuitionSuggest =
+              acc == null ? null : (acc.owedNow > 0.01 ? acc.owedNow : acc.monthly);
+
+          // Rappel : d'abord un retard de scolarité, sinon la prochaine échéance
+          // d'un autre frais.
+          final scolariteEnRetard = acc != null && acc.owedNow > 0.01;
+          final urgentOther = othersUnpaid.isEmpty ? null : othersUnpaid.first;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
@@ -91,59 +115,98 @@ class StudentPaymentsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // ── Rappel : prochaine échéance / retard ───────────────────
-                if (urgent != null) ...[
+                // ── Rappel : retard de scolarité / prochaine échéance ──────
+                if (scolariteEnRetard) ...[
+                  _AccountReminder(
+                    acc: acc,
+                    online: onlinePay && tuitionInvoice != null,
+                    onPay: tuitionInvoice == null
+                        ? null
+                        : () => pay([tuitionInvoice!], suggested: tuitionSuggest),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (urgentOther != null) ...[
                   _ReminderBanner(
-                    invoice: urgent,
+                    invoice: urgentOther,
                     currency: currency,
                     online: onlinePay,
-                    onPay: () => pay([urgent]),
+                    onPay: () => pay([urgentOther]),
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                if (invoices.isEmpty)
-                  const _EmptyInvoices()
-                else ...[
+                // ── Scolarité : l'échéancier du compte ─────────────────────
+                if (acc != null) ...[
                   _SectionTitle(
                     icon: Icons.receipt_long_rounded,
                     label: feesTitle,
                     gradient: const [_terra, _orange],
                   ),
                   const SizedBox(height: 12),
-                  for (final inv in sorted) ...[
+                  _ScheduleCard(acc: acc, currency: currency),
+                  if (onlinePay && tuitionInvoice != null && restant > 0.01) ...[
+                    const SizedBox(height: 12),
+                    _PayCta(
+                      online: true,
+                      count: 1,
+                      onPay: () => pay([tuitionInvoice!], suggested: tuitionSuggest),
+                    ),
+                  ],
+                ] else if (invoices.isNotEmpty) ...[
+                  // Repli (pas de grille) : ancienne liste de tranches.
+                  _SectionTitle(
+                    icon: Icons.receipt_long_rounded,
+                    label: feesTitle,
+                    gradient: const [_terra, _orange],
+                  ),
+                  const SizedBox(height: 12),
+                  for (final inv in others) ...[
                     _TrancheCard(
                       invoice: inv,
                       currency: currency,
                       onPay: (onlinePay && _isUnpaid(inv)) ? () => pay([inv]) : null,
+                      onDownload: () => printInvoice(school: school, invoice: inv),
                     ),
                     const SizedBox(height: 10),
                   ],
+                ],
 
-                  // ── Tout régler en une fois ────────────────────────────
-                  if (hasUnpaid) ...[
-                    const SizedBox(height: 8),
-                    _PayCta(
-                      online: onlinePay,
-                      count: unpaid.length,
-                      onPay: () => pay(unpaid),
-                    ),
-                  ],
-
+                // ── Autres frais (inscription, etc.) ───────────────────────
+                if (acc != null && others.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   _SectionTitle(
-                    icon: Icons.history_rounded,
-                    label: 'Historique des paiements',
+                    icon: Icons.article_outlined,
+                    label: 'Autres frais',
                     gradient: const [_gold, _orange],
                   ),
                   const SizedBox(height: 12),
-                  _HistoriqueCard(
-                    paid: invoices
-                        .where((i) => i.status.toLowerCase() == 'paid')
-                        .toList(),
-                    currency: currency,
-                  ),
+                  for (final inv in others) ...[
+                    _TrancheCard(
+                      invoice: inv,
+                      currency: currency,
+                      onPay: (onlinePay && _isUnpaid(inv)) ? () => pay([inv]) : null,
+                      onDownload: () => printInvoice(school: school, invoice: inv),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ],
+
+                if (acc == null && invoices.isEmpty) const _EmptyInvoices(),
+
+                // ── Historique ─────────────────────────────────────────────
+                const SizedBox(height: 24),
+                _SectionTitle(
+                  icon: Icons.history_rounded,
+                  label: 'Historique des paiements',
+                  gradient: const [_gold, _orange],
+                ),
+                const SizedBox(height: 12),
+                _HistoriqueCard(
+                  paid: invoices
+                      .where((i) => i.status.toLowerCase() == 'paid')
+                      .toList(),
+                  currency: currency,
+                ),
 
                 const SizedBox(height: 24),
                 _SectionTitle(
@@ -256,6 +319,172 @@ class _ReminderBanner extends StatelessWidget {
   }
 }
 
+// ── Rappel de compte (retard de scolarité) ─────────────────────────────────
+class _AccountReminder extends StatelessWidget {
+  final SbTuitionAccount acc;
+  final bool online;
+  final VoidCallback? onPay;
+  const _AccountReminder({required this.acc, required this.online, this.onPay});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _terra.withOpacity(.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _terra.withOpacity(.3)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.warning_amber_rounded, color: _terra, size: 22),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Scolarité en retard',
+              style: TextStyle(color: cs.onSurface, fontSize: 13.5, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text('À régler maintenant · ${_fmtMoney(acc.owedNow)} ${acc.currency}',
+              style: const TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
+        ])),
+        if (online && onPay != null) ...[
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: onPay,
+            style: FilledButton.styleFrom(
+              backgroundColor: _terra,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Payer'),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+// ── Échéancier du compte de scolarité ───────────────────────────────────────
+class _ScheduleCard extends StatelessWidget {
+  final SbTuitionAccount acc;
+  final String currency;
+  const _ScheduleCard({required this.acc, required this.currency});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final covered = acc.periodsCovered; // fractionnaire : 3,5 = 3 mois + moitié
+    final today = DateTime.now();
+    final periods = acc.periods;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+      ),
+      child: Column(children: [
+        // En-tête : payé / total.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          child: Row(children: [
+            Expanded(
+              child: Text('Payé ${_fmtMoney(acc.paid)} sur ${_fmtMoney(acc.annual)} $currency',
+                  style: TextStyle(color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w800)),
+            ),
+            Text('Couvert jusqu\'à ${coveredUntilLabel(acc, acc.paid)}',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
+          ]),
+        ),
+        const Divider(height: 1),
+        for (int i = 0; i < periods.length; i++)
+          _MonthRow(
+            period: periods[i],
+            monthly: acc.monthly,
+            currency: currency,
+            covered: covered,
+            index: i,
+            today: today,
+            isLast: i == periods.length - 1,
+          ),
+      ]),
+    );
+  }
+}
+
+class _MonthRow extends StatelessWidget {
+  final SbTuitionPeriod period;
+  final double monthly;
+  final String currency;
+  final double covered; // nb de mois couverts (fractionnaire)
+  final int index;
+  final DateTime today;
+  final bool isLast;
+  const _MonthRow({
+    required this.period,
+    required this.monthly,
+    required this.currency,
+    required this.covered,
+    required this.index,
+    required this.today,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final due = !period.due.isAfter(today); // échu ?
+    final fullyCovered = covered >= index + 1 - 0.001;
+    final partlyCovered = !fullyCovered && covered > index + 0.001;
+
+    // Réglé (vert) · Partiel (or) · En retard (terra) · À venir (gris).
+    final Color color;
+    final String label;
+    if (fullyCovered) {
+      color = _green;
+      label = 'Réglé';
+    } else if (partlyCovered) {
+      color = _gold;
+      label = 'Partiel';
+    } else if (due) {
+      color = _terra;
+      label = 'En retard';
+    } else {
+      color = cs.onSurfaceVariant;
+      label = 'À venir';
+    }
+
+    final monthLabel = period.label.replaceFirst('Scolarité — ', '');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: isLast ? null : Border(bottom: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: Row(children: [
+        Container(width: 8, height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(monthLabel.isEmpty ? period.code : monthLabel,
+              style: TextStyle(color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        Text('${_fmtMoney(monthly)} $currency',
+            style: TextStyle(color: cs.onSurface, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withOpacity(.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(.3)),
+          ),
+          child: Text(label,
+              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+        ),
+      ]),
+    );
+  }
+}
+
 // ── Summary Card ──────────────────────────────────────────────────────────
 class _SummaryCard extends StatelessWidget {
   final String name, headerTitle, year, currency;
@@ -358,14 +587,19 @@ class _TrancheCard extends StatelessWidget {
   final SbInvoice invoice;
   final String currency;
   final VoidCallback? onPay;
-  const _TrancheCard({required this.invoice, required this.currency, this.onPay});
+  final VoidCallback? onDownload;
+  const _TrancheCard({
+    required this.invoice,
+    required this.currency,
+    this.onPay,
+    this.onDownload,
+  });
 
   PayStatut get _statut {
-    switch (invoice.status.toLowerCase()) {
-      case 'paid':    return PayStatut.paye;
-      case 'overdue': return PayStatut.enRetard;
-      default:        return PayStatut.enAttente;
-    }
+    if (invoice.isPaid) return PayStatut.paye;
+    // isLate = échéance dépassée impayée ; status=='overdue' n'est jamais écrit.
+    if (invoice.isLate) return PayStatut.enRetard;
+    return PayStatut.enAttente;
   }
 
   Color get _statusColor => switch (_statut) {
@@ -449,6 +683,22 @@ class _TrancheCard extends StatelessWidget {
                 child: const Text('Payer', style: TextStyle(
                     color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
               ),
+            ),
+          ],
+          if (onDownload != null) ...[
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: onDownload,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.download_rounded,
+                    size: 13, color: cs.onSurfaceVariant),
+                const SizedBox(width: 3),
+                Text(invoice.isPaid ? 'Reçu' : 'Facture',
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700)),
+              ]),
             ),
           ],
         ]),

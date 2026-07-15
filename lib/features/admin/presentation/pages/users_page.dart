@@ -14,6 +14,7 @@ import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
 import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
+import '../widgets/tuition_account.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
@@ -42,6 +43,7 @@ class UsersPage extends ConsumerStatefulWidget {
 
 class _UsersPageState extends ConsumerState<UsersPage> {
   String _filter = 'all';
+  String _search = '';
 
   bool get _isFamilies => widget.scope == UsersScope.families;
 
@@ -313,6 +315,180 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                     : 'Jamais'),
           ]),
         ),
+        const SizedBox(height: 14),
+
+        // Famille — parents/tuteurs liés (parent_student). Chaque contact ouvre
+        // sa propre fiche.
+        Builder(builder: (_) {
+          final guardians = ref.watch(guardiansForStudentProvider(u.id));
+          return DataPanel(
+            title: 'Famille',
+            child: guardians.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(
+                    child: SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))),
+              ),
+              error: (e, _) => Text('Contacts indisponibles.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+              data: (list) => list.isEmpty
+                  ? Text(
+                      'Aucun parent lié. Ajoutez-en un à l\'inscription de l\'élève.',
+                      style: TextStyle(fontSize: 12.5, color: context.cMuted))
+                  : Column(
+                      children: [
+                        for (final g in list)
+                          _GuardianRow(
+                            g: g,
+                            onTap: () => setState(() => _viewId = g.parentId),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
+        const SizedBox(height: 14),
+
+        // Compte scolarité — payé / dû / à jour, et encaissement d'un versement
+        // (si le membre a le droit finance).
+        TuitionAccountCard(
+          studentId: u.id,
+          studentName: u.fullName,
+          canCollect: ref.watch(canProvider('comptabilite.creer_facture')),
+        ),
+      ]),
+    );
+  }
+
+  // ── Fiche parent (profil inline) ────────────────────────────────────────
+  Widget _parentProfileView(SbUser u) {
+    final familiesEnabled =
+        ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
+    final canEnable = familiesEnabled && u.authUid == null;
+    final email = _displayEmail(u.email);
+
+    return PageScaffold(
+      title: u.fullName,
+      subtitle: 'Fiche parent',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(
+          label: 'Tous les utilisateurs',
+          onTap: () => setState(() => _viewId = null),
+        ),
+        const SizedBox(height: 14),
+
+        // En-tête.
+        Row(children: [
+          Avatar(name: u.fullName, size: 54),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(u.fullName,
+                  style: TextStyle(
+                      color: context.cInk,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Row(children: [
+                const _MiniChip(icon: Icons.family_restroom_rounded, label: 'Parent'),
+                const SizedBox(width: 6),
+                u.isActive
+                    ? StatusPill.success('Actif')
+                    : StatusPill.neutral('Bloqué'),
+              ]),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 16),
+
+        // Actions (mêmes droits fins que la fiche élève).
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (ref.watch(canProvider('utilisateurs.modifier')))
+            ActionButton(
+                label: 'Modifier', icon: Icons.edit_outlined,
+                onTap: () => _editUser(u)),
+          if (canEnable && ref.watch(canProvider('utilisateurs.modifier')))
+            ActionButton(
+                label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
+                onTap: () => _enableAccess(u)),
+          if (ref.watch(canProvider('utilisateurs.gerer_roles')))
+            ActionButton(
+              label: u.isActive ? 'Bloquer' : 'Réactiver',
+              icon: u.isActive
+                  ? Icons.block_rounded
+                  : Icons.check_circle_outline_rounded,
+              onTap: () => _toggleActive(u),
+            ),
+        ]),
+        const SizedBox(height: 16),
+
+        // Contact.
+        DataPanel(
+          title: 'Contact',
+          child: Column(children: [
+            _ProfileKV(label: 'Email', value: email ?? '—'),
+            _ProfileKV(
+                label: 'Téléphone',
+                value: (u.phone?.trim().isNotEmpty ?? false) ? u.phone! : '—'),
+          ]),
+        ),
+        const SizedBox(height: 14),
+
+        // Compte & accès.
+        DataPanel(
+          title: 'Compte & accès',
+          child: Column(children: [
+            const _ProfileKV(label: 'Rôle', value: 'Parent'),
+            _ProfileKV(
+                label: 'Statut', value: u.isActive ? 'Actif' : 'Bloqué'),
+            _ProfileKV(
+                label: 'Connexion',
+                value: u.authUid != null
+                    ? 'Compte activé'
+                    : 'Fiche sans connexion'),
+            _ProfileKV(
+                label: 'Dernière connexion',
+                value: u.lastSeenAt != null
+                    ? _relativeTime(u.lastSeenAt!)
+                    : 'Jamais'),
+          ]),
+        ),
+        const SizedBox(height: 14),
+
+        // Enfants liés — chacun ouvre sa fiche élève.
+        Builder(builder: (_) {
+          final children = ref.watch(childrenOfParentProvider(u.id));
+          return DataPanel(
+            title: 'Enfants',
+            child: children.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(
+                    child: SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))),
+              ),
+              error: (e, _) => Text('Liste indisponible.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+              data: (list) => list.isEmpty
+                  ? Text('Aucun enfant rattaché à ce parent.',
+                      style: TextStyle(fontSize: 12.5, color: context.cMuted))
+                  : Column(
+                      children: [
+                        for (final s in list)
+                          _ChildRow(
+                            student: s,
+                            onTap: () => setState(() => _viewId = s.id),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
       ]),
     );
   }
@@ -452,11 +628,14 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ),
       data: (everyone) {
         final allUsers = everyone.where((u) => _inScope(u.role)).toList();
-        // Fiche élève inline : remplace la liste par le profil.
+        // Fiche inline : remplace la liste par le profil (élève OU parent).
         if (_viewId != null) {
           final match = allUsers.where((u) => u.id == _viewId).toList();
           if (match.isNotEmpty) {
-            return _studentProfileView(match.first);
+            final target = match.first;
+            return target.role == 'parent'
+                ? _parentProfileView(target)
+                : _studentProfileView(target);
           }
           // Utilisateur disparu (supprimé) → on referme la fiche.
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -495,6 +674,12 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                 !founders.contains(u.role.toLowerCase());
           }
           return u.staffRoleId == _filter;
+        }).where((u) {
+          // Recherche libre : nom ou email, insensible à la casse.
+          final q = _search.trim().toLowerCase();
+          if (q.isEmpty) return true;
+          return u.fullName.toLowerCase().contains(q) ||
+              u.email.toLowerCase().contains(q);
         }).toList();
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
@@ -528,14 +713,20 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             const SizedBox(height: 12),
             DataPanel(
               title: 'Comptes',
-              headerActions: const [
-                SearchInput(hint: 'Rechercher un utilisateur…')
+              headerActions: [
+                SearchInput(
+                  hint: 'Rechercher un utilisateur…',
+                  onChanged: (v) => setState(() => _search = v),
+                )
               ],
               child: users.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.all(24),
                       child: Center(
-                          child: Text('Aucun utilisateur.',
+                          child: Text(
+                              _search.trim().isEmpty
+                                  ? 'Aucun utilisateur.'
+                                  : 'Aucun résultat pour « ${_search.trim()} ».',
                               style: TextStyle(color: context.cMuted))),
                     )
                   : DataTablePanel(
@@ -551,30 +742,36 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                       rows: [
                         for (final u in users)
                           [
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: u.role == 'student'
-                                  ? () => setState(() => _viewId = u.id)
-                                  : null,
-                              child: Row(children: [
-                                Avatar(name: u.fullName, size: 24),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(u.fullName,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                          color: context.cInk,
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w600)),
-                                ),
-                                if (u.role == 'student') ...[
-                                  const SizedBox(width: 4),
-                                  Icon(Icons.chevron_right_rounded,
-                                      size: 15,
-                                      color: context.cMuted.withValues(alpha: .5)),
-                                ],
-                              ]),
-                            ),
+                            Builder(builder: (_) {
+                              // Élèves ET parents ouvrent une fiche détaillée.
+                              final openable =
+                                  u.role == 'student' || u.role == 'parent';
+                              return GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: openable
+                                    ? () => setState(() => _viewId = u.id)
+                                    : null,
+                                child: Row(children: [
+                                  Avatar(name: u.fullName, size: 24),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(u.fullName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            color: context.cInk,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                  if (openable) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.chevron_right_rounded,
+                                        size: 15,
+                                        color:
+                                            context.cMuted.withValues(alpha: .5)),
+                                  ],
+                                ]),
+                              );
+                            }),
                             Text(u.email,
                                 overflow: TextOverflow.ellipsis,
                                 style:
@@ -758,6 +955,134 @@ class _ProfileKV extends StatelessWidget {
                   fontWeight: FontWeight.w600)),
         ),
       ]),
+    );
+  }
+}
+
+/// Les fiches parent créées à l'inscription reçoivent un email de substitution
+/// `parent.xxxx@parent.scolaris.local` (aucun email fourni). Ne pas l'afficher :
+/// ce n'est pas un vrai contact.
+String? _displayEmail(String? email) {
+  final e = email?.trim();
+  if (e == null || e.isEmpty) return null;
+  if (e.endsWith('@parent.scolaris.local')) return null;
+  return e;
+}
+
+/// Ligne « parent/tuteur » de la fiche élève. Ouvre la fiche du parent.
+class _GuardianRow extends StatelessWidget {
+  final SbGuardianLink g;
+  final VoidCallback onTap;
+  const _GuardianRow({required this.g, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final email = _displayEmail(g.email);
+    final phone = (g.phone?.trim().isNotEmpty ?? false) ? g.phone!.trim() : null;
+    final contact = [phone, email].whereType<String>().join(' · ');
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          Avatar(name: g.fullName, size: 34),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(
+                  child: Text(g.fullName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: context.cInk,
+                          fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 6),
+                _TinyTag(label: g.relationship),
+                if (g.isPrimary) ...[
+                  const SizedBox(width: 4),
+                  const _TinyTag(label: 'Principal', accent: true),
+                ],
+              ]),
+              const SizedBox(height: 2),
+              Text(
+                contact.isEmpty ? 'Aucun contact renseigné' : contact,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, color: context.cMuted),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            g.hasAccount ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+            size: 15,
+            color: g.hasAccount ? const Color(0xFF15803D) : context.cMuted,
+          ),
+          Icon(Icons.chevron_right_rounded,
+              size: 16, color: context.cMuted.withValues(alpha: .5)),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Ligne « enfant » de la fiche parent. Ouvre la fiche de l'élève.
+class _ChildRow extends StatelessWidget {
+  final SbStudent student;
+  final VoidCallback onTap;
+  const _ChildRow({required this.student, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final classe = student.classGroup.isNotEmpty ? student.classGroup : 'Sans classe';
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          Avatar(name: student.fullName, size: 34),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(student.fullName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: context.cInk,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(classe,
+                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ]),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              size: 16, color: context.cMuted.withValues(alpha: .5)),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Micro-étiquette (relation, « Principal »).
+class _TinyTag extends StatelessWidget {
+  final String label;
+  final bool accent;
+  const _TinyTag({required this.label, this.accent = false});
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ? _terra : context.cMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 9.5, color: color, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -992,6 +1317,12 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   }
 
   Future<void> _loadProfile() async {
+    // Un élève/parent n'a pas de fiche `staff_profiles` : ne rien charger, sinon
+    // on afficherait (et créerait) des champs employé qui ne les concernent pas.
+    if (_isFamily) {
+      setState(() => _profileLoaded = true);
+      return;
+    }
     final p = await SupabaseDbSource.getStaffProfile(widget.user.id);
     if (!mounted) return;
     setState(() {
@@ -1004,6 +1335,10 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   // teacher/student/parent dont l'accès est défini par le rôle).
   static const _restrictable = {'staff_custom', 'finance', 'surveillance'};
   bool get _isStaff => _restrictable.contains(widget.user.role.toLowerCase());
+
+  // Élève ou parent : pas de fiche employé, pas de rôle du personnel.
+  bool get _isFamily =>
+      widget.user.role == 'student' || widget.user.role == 'parent';
 
   Set<String> _initPerms() {
     final p = widget.user.permissions;
@@ -1099,7 +1434,12 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
       );
 
       final schoolId = ref.read(currentSchoolIdProvider);
-      if (schoolId != null && _profileLoaded) {
+      if (_isFamily) {
+        // Élève/parent : seul le téléphone (colonne `users`) est commun. Pas de
+        // fiche `staff_profiles` — l'y écrire créerait un employé fantôme.
+        await SupabaseDbSource.updateUserPhone(
+            id: widget.user.id, phone: _staffInfo.phone.text);
+      } else if (schoolId != null && _profileLoaded) {
         await SupabaseDbSource.updateUserPhone(
             id: widget.user.id, phone: _staffInfo.phone.text);
         await SupabaseDbSource.upsertStaffProfile(
@@ -1194,8 +1534,20 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                   return null;
                 },
               ),
-              // Fiche : téléphone, matricule, sexe, naissance, embauche, contrat.
-              if (_profileLoaded)
+              // Élève/parent : seul le téléphone. Le personnel a la fiche
+              // complète (matricule, sexe, naissance, embauche, contrat).
+              if (_isFamily)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: TextFormField(
+                    controller: _staffInfo.phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                        labelText: 'Téléphone',
+                        prefixIcon: Icon(Icons.phone_outlined)),
+                  ),
+                )
+              else if (_profileLoaded)
                 _StaffInfoFields(info: _staffInfo)
               else
                 const Padding(

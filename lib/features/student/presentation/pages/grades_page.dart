@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import 'simulateur_moyenne_page.dart';
 
@@ -54,6 +55,15 @@ class GradesPage extends ConsumerWidget {
     final sid = studentId ?? session?.id;
     final heading = title ?? 'Mes notes';
 
+    // Barème du CYCLE de l'élève affiché (surcharge par cycle si l'école en a
+    // une, sinon son défaut). Vue élève → mon cycle ; vue parent → celui de
+    // l'enfant, déduit de sa classe.
+    final SchoolLevel? level = studentId == null
+        ? ref.watch(studentSchoolLevelProvider).valueOrNull
+        : SchoolLevel.fromClassName(
+            ref.watch(studentByIdProvider(studentId!)).valueOrNull?.niveau);
+    final fmt = ref.watch(schoolFormatForLevelProvider(level));
+
     final gradesAsync = sid != null
         ? ref.watch(gradesForStudentProvider(sid))
         : const AsyncValue<List<SbGrade>>.data([]);
@@ -68,9 +78,13 @@ class GradesPage extends ConsumerWidget {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (grades) {
-        final avg = grades.isEmpty
+        // Moyenne sur le barème du cycle : `avgRatio` (0→1) pour les seuils de
+        // couleur, `avgScore` pour l'affichage (8/10, 16/20, 70/100, B…).
+        final avgRatio = grades.isEmpty
             ? 0.0
-            : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+            : (grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length) / 20;
+        final avgScore = avgRatio * fmt.maxScore;
+        final isLetter = fmt.gradingScale == 'letter';
         final best = grades.isEmpty
             ? null
             : grades.reduce((a, b) => a.outOf20 >= b.outOf20 ? a : b);
@@ -102,10 +116,10 @@ class GradesPage extends ConsumerWidget {
                       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         Expanded(child: _MetricCard(
                           label: 'Moyenne générale',
-                          value: avg.toStringAsFixed(1),
-                          // Barème de l'école : /20, /100 ou lettres.
-                          unit: '/ ${ref.watch(schoolFormatProvider).maxScore.toStringAsFixed(0)}',
-                          color: avg >= 14 ? _green : avg >= 10 ? _gold : _terra,
+                          // Barème du cycle : /10, /20, /100 ou lettre.
+                          value: isLetter ? fmt.grade(avgScore) : avgScore.toStringAsFixed(1),
+                          unit: isLetter ? '' : '/ ${fmt.maxScore.toStringAsFixed(0)}',
+                          color: avgRatio >= .70 ? _green : avgRatio >= .50 ? _gold : _terra,
                           icon: Icons.grading_rounded,
                         )),
                         const SizedBox(width: 10),
@@ -113,7 +127,7 @@ class GradesPage extends ConsumerWidget {
                           label: 'Meilleure matière',
                           value: best?.subjectName?.split(' ').first ?? '—',
                           unit: best != null
-                              ? '${best.outOf20.toStringAsFixed(1)}/20'
+                              ? fmt.grade((best.outOf20 / 20) * fmt.maxScore)
                               : '',
                           color: _green,
                           icon: Icons.emoji_events_rounded,

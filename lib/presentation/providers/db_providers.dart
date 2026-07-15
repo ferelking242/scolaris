@@ -52,6 +52,25 @@ final schoolFormatProvider = Provider<SchoolFormat>((ref) {
   return school?.format ?? const SchoolFormat();
 });
 
+/// Format (barème) résolu pour un **cycle** donné. Applique la surcharge par
+/// cycle (`metadata.grading_by_cycle`) si l'école en a une, sinon son défaut.
+/// Clé = valeur de l'enum [SchoolLevel] (`primaire`, `lycee`…). `null` → défaut.
+final schoolFormatForLevelProvider =
+    Provider.family<SchoolFormat, SchoolLevel?>((ref, level) {
+  final school = ref.watch(schoolProvider).asData?.value;
+  return school?.formatForCycle(level?.name) ?? const SchoolFormat();
+});
+
+/// Format (barème) de l'élève connecté : le barème de SON cycle. C'est CE
+/// provider — pas `schoolFormatProvider` — que doivent lire les écrans élèves,
+/// pour qu'un primaire noté /10 et un lycéen noté /20 coexistent dans la même
+/// école.
+final studentFormatProvider = Provider<SchoolFormat>((ref) {
+  final level = ref.watch(studentSchoolLevelProvider).valueOrNull;
+  final school = ref.watch(schoolProvider).asData?.value;
+  return school?.formatForCycle(level?.name) ?? const SchoolFormat();
+});
+
 // ── Rôles du personnel (RBAC granulaire) ────────────────────────────────────
 /// Vrai si l'école a déjà au moins un rôle de personnel.
 ///
@@ -148,6 +167,21 @@ final myChildrenProvider = FutureProvider<List<SbStudent>>((ref) async {
 final studentByIdProvider =
     FutureProvider.family<SbStudent?, String>((ref, studentId) async {
   return SupabaseDbSource.getStudentById(studentId);
+});
+
+/// Les parents/tuteurs d'un élève (fiche élève côté admin). Clé : studentId.
+final guardiansForStudentProvider = FutureProvider.autoDispose
+    .family<List<SbGuardianLink>, String>((ref, studentId) async {
+  if (studentId.isEmpty) return const [];
+  return SupabaseDbSource.getGuardiansForStudent(studentId);
+});
+
+/// Les enfants d'un parent donné (fiche parent côté admin). Clé : parentId.
+/// Distinct de [myChildrenProvider], qui vise le parent CONNECTÉ.
+final childrenOfParentProvider = FutureProvider.autoDispose
+    .family<List<SbStudent>, String>((ref, parentId) async {
+  if (parentId.isEmpty) return const [];
+  return SupabaseDbSource.getChildrenForParent(parentId);
 });
 
 // ── Classes ───────────────────────────────────────────────────────────────────
@@ -534,6 +568,51 @@ final myChildrenInvoicesProvider =
   return out;
 });
 
+/// Le COMPTE de scolarité d'un élève (modèle « solde qui court »). `null` si
+/// pas de classe ou pas de grille de frais. Clé : studentId.
+final tuitionAccountProvider = FutureProvider.autoDispose
+    .family<SbTuitionAccount?, String>((ref, studentId) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return null;
+  final year = ref.watch(schoolProvider).valueOrNull?.academicYear;
+  if (year == null || year.isEmpty) return null;
+  return SupabaseDbSource.getTuitionAccount(
+    studentId: studentId,
+    schoolId: schoolId,
+    academicYear: year,
+  );
+});
+
+/// Comptes scolarité de TOUS les élèves, calculés EN LOT (une requête factures
+/// + une requête grilles, au lieu d'une par élève). Absent de la map = pas de
+/// grille pour la classe de l'élève.
+final tuitionAccountsProvider =
+    FutureProvider.autoDispose<Map<String, SbTuitionAccount>>((ref) async {
+  final students = await ref.watch(studentsProvider.future);
+  final fees = await ref.watch(feeStructuresProvider.future);
+  final invoices = await ref.watch(invoicesProvider.future);
+
+  final feeByClass = <String, SbFeeStructure>{};
+  for (final f in fees) {
+    if (f.isActive) feeByClass[f.classId] = f;
+  }
+  final paidByStudent = <String, double>{};
+  for (final inv in invoices) {
+    final sid = inv.studentId;
+    if (inv.isTuition && sid != null) {
+      paidByStudent[sid] = (paidByStudent[sid] ?? 0) + inv.amountPaid;
+    }
+  }
+  final out = <String, SbTuitionAccount>{};
+  for (final s in students) {
+    final fee = s.classId == null ? null : feeByClass[s.classId];
+    if (fee == null) continue;
+    out[s.id] =
+        SupabaseDbSource.tuitionAccountFrom(fee, paidByStudent[s.id] ?? 0);
+  }
+  return out;
+});
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 final usersProvider = FutureProvider<List<SbUser>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
@@ -566,6 +645,15 @@ final subscriptionProvider = FutureProvider<SbSubscription?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return null;
   return SupabaseDbSource.getSubscription(schoolId);
+});
+
+/// Historique des versements d'abonnement de l'école (récent → ancien) —
+/// source des reçus ré-imprimables.
+final subscriptionPaymentsProvider =
+    FutureProvider<List<SbSubscriptionPayment>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return SupabaseDbSource.getSubscriptionPayments(schoolId);
 });
 
 /// Code de l'offre courante (simple/pro/max), null si aucun abonnement.
@@ -698,6 +786,15 @@ final teachersWithoutClassProvider = FutureProvider<Set<String>>((ref) async {
       .where((t) => !assigned.contains(t.id))
       .map((t) => t.id)
       .toSet();
+});
+
+/// Supports de cours (`course_materials`) d'une matière — onglet Ressources du
+/// détail d'un cours. `autoDispose` : lié à une page de détail éphémère.
+final courseMaterialsForSubjectProvider =
+    FutureProvider.autoDispose.family<List<SbCourseMaterial>, String>(
+        (ref, subject) async {
+  if (subject.trim().isEmpty) return const [];
+  return SupabaseDbSource.getCourseMaterialsForSubject(subject);
 });
 
 /// Cours de l'élève connecté (déduit de sa classe via son profil).

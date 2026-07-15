@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../features/admin/presentation/widgets/tuition_account.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/pdf/invoice_pdf.dart';
 import '../../../../shared/widgets/online_payment_sheet.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -24,9 +27,38 @@ class ParentPaymentsPage extends ConsumerWidget {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (invoices) {
-        final due = invoices
+        final school = ref.watch(schoolProvider).valueOrNull;
+        final children = ref.watch(myChildrenProvider).valueOrNull ?? const [];
+        final online =
+            ref.watch(onlinePaymentEnabledProvider).valueOrNull ?? false;
+
+        // La scolarité est désormais un COMPTE (carte par enfant, ci-dessous) ;
+        // le tableau ne garde que les autres frais (inscription, etc.).
+        final others = invoices.where((i) => !i.isTuition).toList();
+        final due = others
             .where((i) => !i.isPaid)
-            .fold<double>(0, (a, b) => a + b.amount);
+            .fold<double>(0, (a, b) => a + b.balance);
+
+        // La facture-compte de scolarité d'un enfant (peut ne pas encore
+        // exister tant qu'aucun versement n'a été enregistré).
+        SbInvoice? tuitionInvoiceOf(String childId) {
+          for (final i in invoices) {
+            if (i.isTuition && i.studentId == childId && !i.isPaid) return i;
+          }
+          return null;
+        }
+
+        Future<void> payTuition(SbInvoice inv) async {
+          // Pré-remplit le dû à ce jour (compte déjà chargé par la carte).
+          final owed = ref
+              .read(tuitionAccountProvider(inv.studentId ?? ''))
+              .valueOrNull
+              ?.owedNow;
+          final ok = await showOnlinePaymentSheet(context, ref, [inv],
+              suggestedAmount: (owed != null && owed > 0.01) ? owed : null);
+          if (ok) ref.invalidate(myChildrenInvoicesProvider);
+        }
+
         return PageScaffold(
           title: 'Paiements',
           subtitle: 'Scolarité, cantine et transport',
@@ -34,16 +66,39 @@ class ParentPaymentsPage extends ConsumerWidget {
             if (due > 0)
               ActionButton(
                   label:
-                      'Tout payer (${NumberFormat.compact(locale: "fr").format(due)})',
+                      'Payer les autres frais (${NumberFormat.compact(locale: "fr").format(due)})',
                   icon: Icons.credit_card_rounded,
                   primary: true,
                   onTap: () => showOnlinePaymentSheet(context, ref,
-                      invoices.where((i) => !i.isPaid).toList())),
+                      others.where((i) => !i.isPaid).toList())),
           ],
-          child: invoices.isEmpty
-              ? const _EmptyState()
-              : DataPanel(
-                  title: 'Factures récentes',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Compte de scolarité, un par enfant ──────────────────────
+              for (final c in children) ...[
+                TuitionAccountCard(
+                  studentId: c.id,
+                  studentName: c.fullName,
+                  title: children.length > 1
+                      ? 'Scolarité — ${c.fullName}'
+                      : 'Compte scolarité',
+                  onPayOnline: online
+                      ? () {
+                          final inv = tuitionInvoiceOf(c.id);
+                          if (inv != null) payTuition(inv);
+                        }
+                      : null,
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // ── Autres frais ────────────────────────────────────────────
+              if (others.isEmpty && children.isEmpty)
+                const _EmptyState()
+              else if (others.isNotEmpty)
+                DataPanel(
+                  title: 'Autres frais',
                   headerActions: const [SearchInput()],
                   child: DataTablePanel(
                     columns: const [
@@ -57,7 +112,7 @@ class ParentPaymentsPage extends ConsumerWidget {
                     ],
                     flex: const [2, 2, 3, 2, 2, 2, 2],
                     rows: [
-                      for (final inv in invoices)
+                      for (final inv in others)
                         [
                           // Un parent peut avoir plusieurs enfants : sans cette
                           // colonne, il ne sait pas qui la facture concerne.
@@ -90,22 +145,34 @@ class ParentPaymentsPage extends ConsumerWidget {
                                   fontWeight: FontWeight.w700)),
                           Align(
                               alignment: Alignment.centerLeft,
-                              child: _statusPill(inv.status)),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: ActionButton(
-                              label: inv.isPaid ? 'Reçu' : 'Payer',
-                              onTap: inv.isPaid
-                                  ? () {}
-                                  : () => showOnlinePaymentSheet(
-                                      context, ref, [inv]),
-                              primary: !inv.isPaid,
+                              child: _statusPill(inv.isLate ? 'overdue' : inv.status)),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            // Télécharger : reçu si soldée, sinon la facture.
+                            IconButton(
+                              icon: const Icon(Icons.download_rounded, size: 18),
+                              color: muted,
+                              tooltip: inv.isPaid
+                                  ? 'Télécharger le reçu'
+                                  : 'Télécharger la facture',
+                              onPressed: () =>
+                                  printInvoice(school: school, invoice: inv),
                             ),
-                          ),
+                            if (!inv.isPaid) ...[
+                              const SizedBox(width: 4),
+                              ActionButton(
+                                label: 'Payer',
+                                primary: true,
+                                onTap: () =>
+                                    showOnlinePaymentSheet(context, ref, [inv]),
+                              ),
+                            ],
+                          ]),
                         ],
                     ],
                   ),
                 ),
+            ],
+          ),
         );
       },
     );

@@ -16,7 +16,6 @@ import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
 import 'primary_student_home.dart' show PrimaryDashboard;
-import 'pages/annales_quiz_page.dart';
 import 'pages/attendance_page.dart';
 import 'pages/cahier_liaison_page.dart';
 import 'pages/cahier_textes_page.dart';
@@ -27,7 +26,6 @@ import 'pages/grades_page.dart';
 import 'pages/inscription_ue_page.dart';
 import 'pages/library/library_page.dart';
 import 'pages/notifications_page.dart';
-import 'pages/prepa_bac_page.dart';
 import 'pages/releve_ects_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/simulateur_moyenne_page.dart';
@@ -52,18 +50,20 @@ class StudentHome extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final level = ref.watch(studentSchoolLevelProvider).valueOrNull
         ?? SchoolLevel.lycee;
-    final planCode = ref.watch(currentPlanCodeProvider).valueOrNull;
 
     return ResponsiveRoleShell(
       role: UserRole.student,
       title: 'Scolaris',
-      groups: _groups(level: level, planCode: planCode),
+      groups: _groups(level: level),
     );
   }
 
+  // La nav ne filtre pas par offre : elle montre toujours les entrées, et ce
+  // sont les widgets `PlanGate` (Bibliothèque, Documents) qui remplacent leur
+  // contenu par une bannière « upgrade » si l'offre ne suffit pas. Inutile donc
+  // de passer le plan ici.
   List<RoleNavGroup> _groups({
     required SchoolLevel level,
-    required String? planCode,
   }) {
     // Le BULLETIN n'est nulle part côté famille — ni élève, ni parent. C'est un
     // document interne à l'établissement : il se produit et se remet, il ne se
@@ -73,12 +73,9 @@ class StudentHome extends ConsumerWidget {
     // En primaire, l'élève ne gère en plus rien d'administratif : finance,
     // documents et messagerie sont eux aussi des actes de parent.
     final isPrimaire = level == SchoolLevel.primaire;
-    final isCollege = level == SchoolLevel.college;
-    final isLycee   = level == SchoolLevel.lycee;
     final isUniv    = level == SchoolLevel.universite ||
                       level == SchoolLevel.master ||
                       level == SchoolLevel.doctorat;
-    final isCollegeOrLycee = isCollege || isLycee;
 
     // Dashboard : variante « enfant » en primaire, sinon le dashboard standard.
     final Widget dashboard =
@@ -135,15 +132,11 @@ class StudentHome extends ConsumerWidget {
       ]),
 
       // ── Outils Lycée ──────────────────────────────────────────────────────
-      if (isLycee)
-        const RoleNavGroup(labelKey: 'sections.learning', entries: [
-          RoleNavEntry(
-            icon: Icons.school_outlined,
-            activeIcon: Icons.school_rounded,
-            labelKey: 'nav.prepa_bac',
-            page: PrepaBacPage(),
-          ),
-        ]),
+      // « Prépa-Bac » retirée : l'écran était 100 % fictif (annales, fiches et
+      // planning codés en dur, progressions inventées, aucune table derrière).
+      // Les vraies annales du BAC vivent déjà dans la Bibliothèque → onglet
+      // Examens (table `exam_subjects`, filtrée sur le cycle de l'élève). À
+      // réintroduire seulement si un besoin réel avec un backend apparaît.
 
       // ── Outils primaire ───────────────────────────────────────────────────
       if (isPrimaire)
@@ -268,9 +261,23 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 
     final loading = gradesAsync.isLoading || scheduleAsync.isLoading;
 
-    final moyenne = grades.isEmpty
+    // Barème du CYCLE de l'élève (surcharge par cycle si l'école en a une). Tout
+    // est calculé en interne sur /20 (via `outOf20`) puis converti à l'affichage
+    // via `k`, comme les notes et le bulletin.
+    final fmt = ref.watch(studentFormatProvider);
+    final k = fmt.maxScore / 20;
+    final isLetter = fmt.gradingScale == 'letter';
+
+    // Moyenne sur /20 (interne, pour les seuils de couleur), puis convertie.
+    final avg20 = grades.isEmpty
         ? null
         : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+    final avgScore = avg20 == null ? null : avg20 * k;
+    final avgRatio = avg20 == null ? null : (avg20 / 20).clamp(0.0, 1.0);
+    final avgText = avg20 == null
+        ? null
+        : isLetter ? fmt.grade(avgScore) : avgScore!.toStringAsFixed(1);
+    final unit = isLetter ? '' : '/${fmt.maxScore.toStringAsFixed(0)}';
 
     final todayDay = DateTime.now().weekday;
     final edt = (schedules.where((s) => s.dayOfWeek == todayDay).toList()
@@ -289,7 +296,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     double acc = 0;
     for (var i = 0; i < graded.length; i++) {
       acc += graded[i].outOf20;
-      running.add(acc / (i + 1));
+      running.add(acc / (i + 1) * k); // moyenne glissante convertie au barème
     }
     final progression =
         running.length > 6 ? running.sublist(running.length - 6) : running;
@@ -321,7 +328,9 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               initials: initials, loading: loading,
               classLabel: profile?.classe,
               levelLabel: level.label,
-              moyenne: moyenne,
+              moyenneText: avgText,
+              moyenneUnit: unit,
+              moyenneRatio: avgRatio,
             ),
             const SizedBox(height: 16),
 
@@ -330,7 +339,8 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               enabled: loading, effect: shimmer,
               child: _QuickStats(
                 loading: loading,
-                moyenne: moyenne,
+                moyenneText: avgText,
+                moyenneUnit: unit,
                 absences: absences.length,
                 notes: grades.length,
               ),
@@ -358,7 +368,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                     )),
                 'notifications': () => _push(const NotificationsPage()),
                 'simulateur':    () => _push(const SimulateurMoyennePage()),
-                'annales':       () => _push(const AnnalesQuizPage()),
               },
             ),
             const SizedBox(height: 24),
@@ -368,12 +377,12 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(child: _buildEdtSection(edt, loading, shimmer)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildNotesChartSection(progression, progLabels, loading, shimmer)),
+                Expanded(child: _buildNotesChartSection(progression, progLabels, loading, shimmer, fmt.maxScore)),
               ])
             else ...[
               _buildEdtSection(edt, loading, shimmer),
               const SizedBox(height: 22),
-              _buildNotesChartSection(progression, progLabels, loading, shimmer),
+              _buildNotesChartSection(progression, progLabels, loading, shimmer, fmt.maxScore),
             ],
             const SizedBox(height: 22),
 
@@ -421,17 +430,19 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 
   Widget _buildNotesChartSection(
       List<double> values, List<String> labels, bool loading,
-      ShimmerEffect shimmer) {
+      ShimmerEffect shimmer, double maxScore) {
     if (!loading && values.length < 2) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
         _MiniEmpty(icon: Icons.show_chart_rounded, label: 'Pas assez de notes pour la courbe'),
       ]);
     }
+    final k = maxScore / 20;
     return Skeletonizer(
       enabled: loading, effect: shimmer,
       child: _NoteProgressionChart(
-        values: loading ? _progSkeleton : values,
+        values: loading ? [for (final v in _progSkeleton) v * k] : values,
         labels: loading ? _progSkeletonLabels : labels,
+        maxScore: maxScore,
       ),
     );
   }
@@ -499,16 +510,18 @@ class _HeroBanner extends StatelessWidget {
   final bool loading;
   final String? classLabel;
   final String? levelLabel;
-  final double? moyenne;
+  final String? moyenneText;
+  final String moyenneUnit;
+  final double? moyenneRatio;
   const _HeroBanner({
     required this.greeting, required this.name,
     required this.initials, required this.loading,
-    this.classLabel, this.levelLabel, this.moyenne,
+    this.classLabel, this.levelLabel,
+    this.moyenneText, this.moyenneUnit = '/20', this.moyenneRatio,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -578,34 +591,36 @@ class _HeroBanner extends StatelessWidget {
               ]),
             ],
           ])),
-          // Moyenne
-          if (!loading && moyenne != null)
-            Column(children: [
-              Text(moyenne!.toStringAsFixed(1),
+          // Moyenne — sur le barème du cycle ; seuils via le ratio 0→1.
+          if (!loading && moyenneText != null)
+            Builder(builder: (_) {
+              final r = moyenneRatio ?? 0;
+              final c = r >= 0.7 ? _green : r >= 0.5 ? _gold : _terra;
+              return Column(children: [
+              Text(moyenneText!,
                   style: const TextStyle(
                       color: Colors.white, fontSize: 26,
                       fontWeight: FontWeight.w900, letterSpacing: -1)),
-              Text('/20', style: TextStyle(
-                  color: Colors.white.withOpacity(.55), fontSize: 11)),
+              if (moyenneUnit.isNotEmpty)
+                Text(moyenneUnit, style: TextStyle(
+                    color: Colors.white.withOpacity(.55), fontSize: 11)),
               const SizedBox(height: 2),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: (moyenne! >= 14 ? _green : moyenne! >= 10 ? _gold : _terra)
-                      .withOpacity(.25),
+                  color: c.withOpacity(.25),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: (moyenne! >= 14 ? _green : moyenne! >= 10 ? _gold : _terra)
-                          .withOpacity(.5)),
+                  border: Border.all(color: c.withOpacity(.5)),
                 ),
                 child: Text(
-                  moyenne! >= 14 ? '✓ Bien' : moyenne! >= 10 ? '→ OK' : 'Effort',
+                  r >= 0.7 ? '✓ Bien' : r >= 0.5 ? '→ OK' : 'Effort',
                   style: TextStyle(
-                      color: moyenne! >= 14 ? _green : moyenne! >= 10 ? _gold : Colors.white,
+                      color: r >= 0.7 ? _green : r >= 0.5 ? _gold : Colors.white,
                       fontSize: 9, fontWeight: FontWeight.w800),
                 ),
               ),
-            ]),
+            ]);
+            }),
         ]),
       ]),
     );
@@ -634,20 +649,21 @@ class _HeroBadge extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 class _QuickStats extends StatelessWidget {
   final bool loading;
-  final double? moyenne;
+  final String? moyenneText;
+  final String moyenneUnit;
   final int absences, notes;
   const _QuickStats({
-    required this.loading, required this.moyenne,
+    required this.loading, required this.moyenneText,
+    required this.moyenneUnit,
     required this.absences, required this.notes,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final data = [
       (icon: Icons.star_rounded, label: 'Moyenne',
-       val: loading ? '00.0' : (moyenne?.toStringAsFixed(1) ?? '—'),
-       sub: '/20', c: _gold),
+       val: loading ? '00.0' : (moyenneText ?? '—'),
+       sub: moyenneUnit, c: _gold),
       (icon: Icons.event_busy_rounded, label: 'Absences',
        val: loading ? '0' : '$absences',
        sub: absences > 1 ? ' jours' : ' jour',
@@ -806,7 +822,6 @@ class _PremiumShortcutsGrid extends StatelessWidget {
     (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
     (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),
     (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur', c: _gold),
-    (key: 'annales',      icon: Icons.quiz_rounded,             label: 'Quiz',       c: _terra),
   ];
 
   @override
@@ -958,7 +973,9 @@ class _EdtTimeline extends StatelessWidget {
 class _NoteProgressionChart extends StatelessWidget {
   final List<double> values;
   final List<String> labels;
-  const _NoteProgressionChart({required this.values, required this.labels});
+  final double maxScore;
+  const _NoteProgressionChart({
+    required this.values, required this.labels, this.maxScore = 20});
 
   @override
   Widget build(BuildContext context) {
@@ -1000,9 +1017,9 @@ class _NoteProgressionChart extends StatelessWidget {
         SizedBox(
           height: 110,
           child: LineChart(LineChartData(
-            minY: 8.0, maxY: 20.0,
+            minY: maxScore * 0.4, maxY: maxScore,
             gridData: FlGridData(show: true, drawVerticalLine: false,
-              horizontalInterval: 4.0,
+              horizontalInterval: maxScore / 5,
               getDrawingHorizontalLine: (_) => FlLine(
                   color: cs.outline.withOpacity(.15), strokeWidth: 1.0)),
             borderData: FlBorderData(show: false),
@@ -1042,7 +1059,8 @@ class _NoteProgressionChart extends StatelessWidget {
             lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
               tooltipRoundedRadius: 8.0,
               getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
-                '${s.y}/20', const TextStyle(color: Colors.white,
+                '${s.y.toStringAsFixed(1)}/${maxScore.toStringAsFixed(0)}',
+                const TextStyle(color: Colors.white,
                     fontSize: 11, fontWeight: FontWeight.w700),
               )).toList(),
             )),

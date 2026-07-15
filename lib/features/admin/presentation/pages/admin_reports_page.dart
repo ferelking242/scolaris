@@ -56,11 +56,13 @@ class AdminReportsPage extends ConsumerWidget {
     // ── Finances ────────────────────────────────────────────────────────────
     final collected =
         invoices.where((i) => i.isPaid).fold<double>(0, (a, b) => a + b.amount);
-    final pending = invoices
-        .where((i) => i.isPending)
-        .fold<double>(0, (a, b) => a + b.amount);
+    // Buckets exclusifs : « en retard » sur isLate (échéance dépassée impayée),
+    // « en attente » = impayé pas encore échu — sinon double comptage.
     final overdue = invoices
-        .where((i) => i.isOverdue)
+        .where((i) => i.isLate)
+        .fold<double>(0, (a, b) => a + b.amount);
+    final pending = invoices
+        .where((i) => !i.isPaid && !i.isLate && i.status != 'cancelled')
         .fold<double>(0, (a, b) => a + b.amount);
     final billed = collected + pending + overdue;
     final recovery = billed > 0 ? (collected / billed * 100) : 0.0;

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/pdf/subscription_receipt_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 /// Libellés lisibles des clés de fonctionnalités stockées en base (`plans.features`).
@@ -147,6 +148,14 @@ class AdminSubscriptionPage extends ConsumerWidget {
             style: TextStyle(fontSize: 11.5, color: context.cMuted),
           ),
         ),
+        const SizedBox(height: 14),
+        DataPanel(
+          title: 'Historique de facturation',
+          child: _BillingHistory(
+            planNameByCode: {for (final p in plans) p.code: p.name},
+            fmt: fmt,
+          ),
+        ),
       ]),
     );
   }
@@ -226,7 +235,8 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
   Future<void> _pay() async {
     final schoolId = ref.read(currentSchoolIdProvider);
     final full = _fullPrice;
-    if (schoolId == null || full == null) return;
+    final charge = _chargeNow;
+    if (schoolId == null || full == null || charge == null) return;
     setState(() => _processing = true);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -240,14 +250,41 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
         currency: widget.currency,
         creditBalance: _newCreditBalance,
       );
+      // Trace le versement (source du reçu). Le crédit appliqué = ce qui a été
+      // déduit du prix plein ; l'id d'abonnement vient de l'école (une ligne
+      // par école, seedée à l'inscription).
+      SbSubscriptionPayment? payment;
+      final subId = widget.currentSub?.id;
+      if (subId != null && subId.isNotEmpty) {
+        payment = await SupabaseDbSource.recordSubscriptionPayment(
+          subscriptionId: subId,
+          schoolId: schoolId,
+          planCode: widget.plan.code,
+          period: _yearly ? 'annual' : 'monthly',
+          amount: charge,
+          currency: widget.currency,
+          creditApplied: (full - charge).clamp(0.0, full),
+        );
+      }
       ref.invalidate(subscriptionProvider);
+      ref.invalidate(subscriptionPaymentsProvider);
       ref.invalidate(studentCountProvider);
       ref.invalidate(onlinePaymentEnabledProvider);
       if (mounted) navigator.pop();
+      final school = ref.read(schoolProvider).valueOrNull;
+      final planName = widget.plan.name;
       messenger.showSnackBar(SnackBar(
         backgroundColor: const Color(0xFF15803D),
         behavior: SnackBarBehavior.floating,
-        content: Text('Offre ${widget.plan.name} activée !'),
+        content: Text('Offre $planName activée !'),
+        action: payment != null
+            ? SnackBarAction(
+                label: 'Reçu',
+                textColor: Colors.white,
+                onPressed: () => printSubscriptionReceipt(
+                    school: school, payment: payment!, planName: planName),
+              )
+            : null,
       ));
     } catch (e) {
       if (mounted) {
@@ -540,6 +577,93 @@ class _UsageBar extends StatelessWidget {
         Text('Vous approchez de la limite de votre offre. Passez à l\'offre supérieure.',
             style: TextStyle(fontSize: 12, color: barColor, fontWeight: FontWeight.w600)),
       ],
+    ]);
+  }
+}
+
+/// Historique des versements d'abonnement — chaque ligne est un reçu
+/// ré-téléchargeable (PDF Scolaris → école).
+class _BillingHistory extends ConsumerWidget {
+  final Map<String, String> planNameByCode;
+  final NumberFormat fmt;
+  const _BillingHistory({required this.planNameByCode, required this.fmt});
+
+  static const _months = ['jan.','fév.','mars','avr.','mai','juin',
+                          'juil.','août','sep.','oct.','nov.','déc.'];
+  static String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.watch(subscriptionPaymentsProvider);
+    final school = ref.watch(schoolProvider).valueOrNull;
+
+    return paymentsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Text('Erreur : $e',
+          style: TextStyle(fontSize: 12, color: context.cMuted)),
+      data: (payments) {
+        if (payments.isEmpty) {
+          return Row(children: [
+            Icon(Icons.receipt_long_rounded, size: 18, color: context.cMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Aucun paiement pour le moment. Votre reçu apparaîtra '
+                  'ici dès votre premier règlement.',
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+            ),
+          ]);
+        }
+        return Column(children: [
+          for (var i = 0; i < payments.length; i++) ...[
+            _row(context, payments[i], school),
+            if (i < payments.length - 1)
+              Divider(height: 16, color: context.cBorder),
+          ],
+        ]);
+      },
+    );
+  }
+
+  Widget _row(BuildContext context, SbSubscriptionPayment p, SbSchool? school) {
+    final planName = planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase();
+    final periodLabel = p.isYearly ? 'annuel' : 'mensuel';
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF15803D).withValues(alpha: .12),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF15803D)),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Offre $planName · $periodLabel',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+          const SizedBox(height: 2),
+          Text('${_fmtDate(p.date)} · Réf. ${p.reference ?? p.id.substring(0, 8).toUpperCase()}',
+              style: TextStyle(fontSize: 11, color: context.cMuted)),
+        ]),
+      ),
+      const SizedBox(width: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text('${fmt.format(p.amount)} ${p.currency}',
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
+        if (p.creditApplied > 0.01)
+          Text('crédit − ${fmt.format(p.creditApplied)}',
+              style: const TextStyle(fontSize: 10, color: Color(0xFF15803D))),
+      ]),
+      IconButton(
+        tooltip: 'Télécharger le reçu',
+        icon: const Icon(Icons.download_rounded, size: 20),
+        color: const Color(0xFF8B1A00),
+        onPressed: () => printSubscriptionReceipt(
+            school: school, payment: p, planName: planName),
+      ),
     ]);
   }
 }
