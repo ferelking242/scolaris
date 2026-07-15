@@ -6,6 +6,7 @@ import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra = Color(0xFF8B1A00);
@@ -333,7 +334,12 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
   /// comparer. Défaut = barème de l'école, que le prof peut abaisser (10 au
   /// primaire, par exemple).
   double? _maxScore;
-  double get _max => _maxScore ?? ref.read(schoolFormatProvider).maxScore;
+  /// Cycle de la classe notée → barème par défaut de CE cycle (ex. primaire /10
+  /// dans un complexe réglé ainsi), et non plus le défaut global de l'école.
+  SchoolLevel? get _cycleLevel =>
+      SchoolLevel.fromClassName(widget.classObj.level);
+  double get _max =>
+      _maxScore ?? ref.read(schoolFormatForLevelProvider(_cycleLevel)).maxScore;
 
   String get _key =>
       '${widget.classObj.id}|${widget.subjectId}|${widget.period}';

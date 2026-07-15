@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/bulletin/bulletin_math.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../pages/bulletin_pdf.dart';
 
@@ -42,8 +43,19 @@ class BulletinView extends StatelessWidget {
   static const _terra = Color(0xFF8B1A00);
   static const _green = Color(0xFF2D6A4F);
 
-  static String _n(double? v) =>
-      v == null ? '—' : v.toStringAsFixed(2).replaceAll('.', ',');
+  /// Barème d'AFFICHAGE du bulletin = celui du CYCLE de la classe (résolu depuis
+  /// l'école). Le calcul interne reste sur 20 (rang, mention, décision) ; on ne
+  /// convertit qu'à l'affichage. `_k` = facteur d'échelle (0,5 pour /10, 5 pour
+  /// /100, 1 pour /20 → aucune conversion).
+  double get _maxScore =>
+      school?.formatForCycle(SchoolLevel.fromClassName(className)?.name)
+          .maxScore ??
+      20;
+  double get _k => _maxScore / 20;
+
+  /// Une NOTE, ramenée du calcul interne (/20) au barème du cycle pour l'écran.
+  String _n(double? v) =>
+      v == null ? '—' : (v * _k).toStringAsFixed(2).replaceAll('.', ',');
   static String _rg(int? r) => r == null ? '—' : (r == 1 ? '1er' : '${r}e');
 
   @override
@@ -156,7 +168,7 @@ class BulletinView extends StatelessWidget {
           SizedBox(
             width: 240,
             child: Column(children: [
-              stat('Moyenne générale', '${_n(b.average)} / 20'),
+              stat('Moyenne générale', '${_n(b.average)} / ${_maxScore.toStringAsFixed(0)}'),
               stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
               stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
             ]),

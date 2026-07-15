@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
@@ -585,20 +586,6 @@ class _FilterSheetState extends State<_FilterSheet> {
             ),
           );
         }),
-        const SizedBox(height: 8),
-
-        // ── Type de matière ────────────────────────────────────────────────────
-        _SectionLabel('Catégorie', cs),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: const [
-          _TypeChip('Toutes',      Icons.apps_rounded,            true),
-          _TypeChip('Sciences',    Icons.science_rounded,         false),
-          _TypeChip('Lettres',     Icons.menu_book_rounded,       false),
-          _TypeChip('Langues',     Icons.language_rounded,        false),
-          _TypeChip('Arts & EPS',  Icons.palette_rounded,         false),
-          _TypeChip('Humaines',    Icons.public_rounded,          false),
-          _TypeChip('Droit/Éco',   Icons.gavel_rounded,           false),
-        ]),
         const SizedBox(height: 24),
 
         // ── Appliquer ──────────────────────────────────────────────────────────
@@ -614,31 +601,6 @@ class _FilterSheetState extends State<_FilterSheet> {
             child: const Text('Appliquer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),
-      ]),
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  const _TypeChip(this.label, this.icon, this.selected);
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? _terra.withValues(alpha: .1) : cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: selected ? _terra : cs.outlineVariant),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: selected ? _terra : cs.onSurfaceVariant),
-        const SizedBox(width: 5),
-        Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600,
-            color: selected ? _terra : cs.onSurface)),
       ]),
     );
   }
@@ -804,7 +766,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             children: [
               _InfoTab(course: c, color: color),
               _ProgramTab(course: c, color: color),
-              _ResourcesTab(color: color),
+              _ResourcesTab(color: color, subject: c.name),
             ],
           ),
         ),
@@ -927,12 +889,6 @@ class _ProgramTab extends StatelessWidget {
 
   /// Strip **bold** markdown and trim.
   static String _clean(String s) => s.replaceAll(RegExp(r'\*{1,2}'), '').trim();
-
-  /// A line is a chapter header if it matches common patterns.
-  static bool _isHeader(String s) => RegExp(
-    r'^(chapitre|chapter|partie|part|thème|theme|module|unité|unite)\s',
-    caseSensitive: false,
-  ).hasMatch(s) || RegExp(r'^\d+[\.\)—\-]\s').hasMatch(s);
 
   /// Parse raw text into structured (title, subtitle?) pairs.
   static List<({String title, String? subtitle})> _parse(String raw) {
@@ -1107,22 +1063,126 @@ class _ChapterNode extends StatelessWidget {
 }
 
 // ── Tab Ressources ────────────────────────────────────────────────────────────
-class _ResourcesTab extends StatelessWidget {
+class _ResourcesTab extends ConsumerWidget {
   final Color color;
-  const _ResourcesTab({required this.color});
+  final String subject;
+  const _ResourcesTab({required this.color, required this.subject});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final async = ref.watch(courseMaterialsForSubjectProvider(subject));
+
+    Widget centered(Widget child) =>
+        Center(child: Padding(padding: const EdgeInsets.all(32), child: child));
+
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => centered(Text('Erreur : $e',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+      data: (mats) {
+        if (mats.isEmpty) {
+          return centered(Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.folder_open_rounded,
+                size: 48, color: cs.onSurfaceVariant.withValues(alpha: .4)),
+            const SizedBox(height: 12),
+            Text('Aucune ressource',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700,
+                    color: cs.onSurface)),
+            const SizedBox(height: 6),
+            Text(
+                "Les documents et supports de ce cours apparaîtront ici dès "
+                "que l'enseignant les aura déposés.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          ]));
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          itemCount: mats.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => _ResourceTile(material: mats[i], color: color),
+        );
+      },
+    );
+  }
+}
+
+class _ResourceTile extends StatelessWidget {
+  final SbCourseMaterial material;
+  final Color color;
+  const _ResourceTile({required this.material, required this.color});
+
+  static IconData _iconFor(String? type) {
+    final t = (type ?? '').toLowerCase();
+    if (t.contains('corrig'))  return Icons.fact_check_rounded;
+    if (t.contains('exerc'))   return Icons.edit_note_rounded;
+    if (t.contains('td') || t.contains('tp')) return Icons.science_rounded;
+    if (t.contains('video') || t.contains('vidéo')) return Icons.play_circle_rounded;
+    return Icons.description_rounded;
+  }
+
+  static String _sizeLabel(int? kb) {
+    if (kb == null || kb <= 0) return '';
+    if (kb < 1024) return '$kb Ko';
+    return '${(kb / 1024).toStringAsFixed(1)} Mo';
+  }
+
+  Future<void> _open() async {
+    final url = material.fileUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.folder_open_rounded, size: 48, color: cs.onSurfaceVariant.withValues(alpha: .4)),
-          const SizedBox(height: 12),
-          Text('Ressources à venir', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface)),
-          const SizedBox(height: 6),
-          Text("Les documents, exercices et supports seront disponibles ici.",
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+    final hasFile = material.fileUrl != null && material.fileUrl!.isNotEmpty;
+    final meta = [
+      if (material.type != null && material.type!.isNotEmpty) material.type!,
+      if (material.level != null && material.level!.isNotEmpty) material.level!,
+      _sizeLabel(material.sizeKb),
+    ].where((s) => s.isNotEmpty).join(' · ');
+
+    return GestureDetector(
+      onTap: hasFile ? _open : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_iconFor(material.type), size: 20, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(material.title,
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700,
+                    color: cs.onSurface),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+            if (meta.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(meta, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            ],
+          ])),
+          const SizedBox(width: 8),
+          Icon(hasFile ? Icons.open_in_new_rounded : Icons.lock_outline_rounded,
+              size: 15, color: cs.onSurfaceVariant),
         ]),
       ),
     );

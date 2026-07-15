@@ -81,6 +81,13 @@ class PrimaryDashboard extends ConsumerWidget {
     final grades      = gradesAsync.valueOrNull ?? const <SbGrade>[];
     final absences    = ref.watch(myAbsencesProvider).valueOrNull ?? const <SbAbsence>[];
 
+    // Barème du CYCLE de l'élève (ex. primaire /10 si l'école l'a réglé ainsi),
+    // et non plus un /10 codé en dur. `studentFormatProvider` applique la
+    // surcharge par cycle si elle existe, sinon le défaut de l'école.
+    final fmt      = ref.watch(studentFormatProvider);
+    final maxScore = fmt.maxScore;
+    final isLetter = fmt.gradingScale == 'letter';
+
     final classId = profile?.classId;
     final scheduleAsync = (classId != null && classId.isNotEmpty)
         ? ref.watch(schedulesForClassProvider(classId))
@@ -89,10 +96,12 @@ class PrimaryDashboard extends ConsumerWidget {
 
     final loading = gradesAsync.isLoading || scheduleAsync.isLoading;
 
-    // Moyenne /10 (barème primaire) dérivée des vraies notes ramenées sur 20.
-    final avg10 = grades.isEmpty
+    // Moyenne exprimée sur le barème du cycle. `avgRatio` (0→1) sert au donut ;
+    // `avgScore` est la valeur affichée (ex. 8,0 en /10, 16 en /20, 70 en /100).
+    final avgRatio = grades.isEmpty
         ? 0.0
-        : (grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length) / 2;
+        : (grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length) / 20;
+    final avgScore = avgRatio * maxScore;
 
     // EDT du jour.
     final todayDay = DateTime.now().weekday;
@@ -113,7 +122,7 @@ class PrimaryDashboard extends ConsumerWidget {
         .take(6)
         .map((g) => (
               m: g.subjectName ?? g.title ?? '—',
-              n: g.outOf20 / 2,
+              n: (g.outOf20 / 20) * maxScore,
               c: _colorFor(g.subjectName ?? ''),
             ))
         .toList();
@@ -130,7 +139,11 @@ class PrimaryDashboard extends ConsumerWidget {
 
           // ── 2. Moyenne + mini-stats ──────────────────────────────────
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: _MoyenneDonut(avg: avg10, loading: loading)),
+            Expanded(child: _MoyenneDonut(
+                ratio: avgRatio,
+                valueText: isLetter ? fmt.grade(avgScore) : avgScore.toStringAsFixed(1),
+                unitText: isLetter ? '' : '/${maxScore.toStringAsFixed(0)}',
+                loading: loading)),
             const SizedBox(width: 12),
             Expanded(child: Column(children: [
               _MiniStatCard(icon: Icons.event_busy_rounded,
@@ -156,7 +169,10 @@ class PrimaryDashboard extends ConsumerWidget {
             const _MiniEmpty(icon: Icons.grading_rounded,
                 label: 'Pas encore de notes')
           else
-            _NotesBarChart(notes: barNotes),
+            _NotesBarChart(
+                notes: barNotes,
+                maxY: maxScore,
+                unit: isLetter ? '' : '/${maxScore.toStringAsFixed(0)}'),
           const SizedBox(height: 22),
 
           // ── 4. Emploi du temps aujourd'hui ────────────────────────────
@@ -189,7 +205,8 @@ class PrimaryDashboard extends ConsumerWidget {
             for (final g in recent.take(3)) ...[
               _NoteRow(
                   matiere: g.subjectName ?? g.title ?? '—',
-                  note: g.outOf20 / 2,
+                  note: (g.outOf20 / 20) * maxScore,
+                  max: maxScore,
                   date: _fmtShort(g.gradedAt),
                   color: _colorFor(g.subjectName ?? '')),
               const SizedBox(height: 8),
@@ -321,12 +338,20 @@ class _Badge extends StatelessWidget {
 
 // ── Donut moyenne ─────────────────────────────────────────────────────────
 class _MoyenneDonut extends StatelessWidget {
-  final double avg;
+  /// Remplissage de l'arc (0→1) et textes déjà formatés sur le barème du cycle.
+  final double ratio;
+  final String valueText, unitText;
   final bool loading;
-  const _MoyenneDonut({required this.avg, required this.loading});
+  const _MoyenneDonut({
+    required this.ratio,
+    required this.valueText,
+    required this.unitText,
+    required this.loading,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final r = ratio.clamp(0.0, 1.0);
     return Container(
       height: 170,
       decoration: ScolarisSurface.themedCard(context, radius: 18),
@@ -351,23 +376,24 @@ class _MoyenneDonut extends StatelessWidget {
                   centerSpaceRadius: 34,
                   sections: [
                     PieChartSectionData(
-                      value: avg, color: _gold,
+                      value: r, color: _gold,
                       radius: 14.0, showTitle: false,
                     ),
                     PieChartSectionData(
-                      value: (10 - avg).clamp(0, 10),
+                      value: 1 - r,
                       color: _gold.withOpacity(0.12),
                       radius: 14.0, showTitle: false,
                     ),
                   ],
                 )),
                 Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(avg.toStringAsFixed(1),
+                  Text(valueText,
                       style: const TextStyle(color: _gold, fontSize: 18,
                           fontWeight: FontWeight.w900)),
-                  Text('/10', style: TextStyle(
-                      color: context.cMuted, fontSize: 10,
-                      fontWeight: FontWeight.w600)),
+                  if (unitText.isNotEmpty)
+                    Text(unitText, style: TextStyle(
+                        color: context.cMuted, fontSize: 10,
+                        fontWeight: FontWeight.w600)),
                 ]),
               ]),
             ),
@@ -428,7 +454,9 @@ class _MiniStatCard extends StatelessWidget {
 // ── Bar chart notes ────────────────────────────────────────────────────────
 class _NotesBarChart extends StatelessWidget {
   final List<({String m, double n, Color c})> notes;
-  const _NotesBarChart({required this.notes});
+  final double maxY;
+  final String unit;
+  const _NotesBarChart({required this.notes, required this.maxY, required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +466,7 @@ class _NotesBarChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('Notes /10', style: TextStyle(
+          Text('Notes ${unit.isEmpty ? '' : unit}'.trim(), style: TextStyle(
               color: context.cInk, fontSize: 12, fontWeight: FontWeight.w700)),
           const Spacer(),
           Container(
@@ -453,11 +481,11 @@ class _NotesBarChart extends StatelessWidget {
         ]),
         const SizedBox(height: 8),
         Expanded(child: BarChart(BarChartData(
-          maxY: 10.0,
+          maxY: maxY,
           minY: 0.0,
           gridData: FlGridData(
             show: true,
-            horizontalInterval: 5.0,
+            horizontalInterval: maxY / 2,
             drawVerticalLine: false,
             getDrawingHorizontalLine: (_) => FlLine(
                 color: context.cBorder, strokeWidth: 1.0),
@@ -504,7 +532,7 @@ class _NotesBarChart extends StatelessWidget {
             touchTooltipData: BarTouchTooltipData(
               tooltipRoundedRadius: 8.0,
               getTooltipItem: (g, _, r, __) => BarTooltipItem(
-                '${r.toY.toStringAsFixed(1)}/10',
+                '${r.toY.toStringAsFixed(1)}$unit',
                 const TextStyle(color: _white, fontSize: 11,
                     fontWeight: FontWeight.w700),
               ),
@@ -598,14 +626,14 @@ class _TodayTimeline extends StatelessWidget {
 // ── Note row ──────────────────────────────────────────────────────────────
 class _NoteRow extends StatelessWidget {
   final String matiere, date;
-  final double note;
+  final double note, max;
   final Color color;
-  const _NoteRow({required this.matiere, required this.note,
+  const _NoteRow({required this.matiere, required this.note, required this.max,
       required this.date, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final pct = (note / 10).clamp(0.0, 1.0);
+    final pct = (max > 0 ? note / max : 0.0).clamp(0.0, 1.0);
     final good = pct >= 0.70;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

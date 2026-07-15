@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-import '../../../../../core/theme/app_theme.dart';
+import '../../../../../presentation/providers/db_providers.dart';
+import '../../../../../shared/data/features_catalog.dart';
 import '../../../../../shared/data/mock_library_data.dart';
 import 'library_advanced_search_page.dart';
 import 'library_stats_page.dart';
@@ -28,13 +30,13 @@ class _QuickResult {
 // ══════════════════════════════════════════════════════════════════════════
 // LibraryPage — hub principal (sans sidebar droite, navigation interne)
 // ══════════════════════════════════════════════════════════════════════════
-class LibraryPage extends StatefulWidget {
+class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
   @override
-  State<LibraryPage> createState() => _LibraryPageState();
+  ConsumerState<LibraryPage> createState() => _LibraryPageState();
 }
 
-class _LibraryPageState extends State<LibraryPage>
+class _LibraryPageState extends ConsumerState<LibraryPage>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   bool _loading = true;
@@ -110,6 +112,18 @@ class _LibraryPageState extends State<LibraryPage>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Vraie classe de l'élève (pour les recommandations « Pour ta classe »).
+    // Vide si non chargée / pas de classe → l'onglet Accueil montre du générique.
+    final userClasse = ref.watch(myStudentProfileProvider).valueOrNull?.classe ?? '';
+    // Examens pertinents pour le cycle de l'élève (CEPE au primaire, BEPC au
+    // collège, BAC au lycée). Cycle inconnu / supérieur → tous les examens.
+    final cycle = ref.watch(studentSchoolLevelProvider).valueOrNull;
+    final examLevels = switch (cycle) {
+      SchoolLevel.primaire => const ['CEPE'],
+      SchoolLevel.college  => const ['BEPC'],
+      SchoolLevel.lycee    => const ['BAC'],
+      _                    => const ['CEPE', 'BEPC', 'BAC'],
+    };
     return GestureDetector(
       onTap: () => _searchFocus.unfocus(),
       child: Container(
@@ -186,6 +200,7 @@ class _LibraryPageState extends State<LibraryPage>
               children: [
                 _HomeTab(
                     loading: _loading,
+                    userClasse: userClasse,
                     onGo: _go,
                     onSwitchTab: _switchTab),
                 _BooksTab(
@@ -199,6 +214,7 @@ class _LibraryPageState extends State<LibraryPage>
                 _ExamsTab(
                   loading: _loading,
                   level: _examLevel,
+                  allowed: examLevels,
                   onLevelChanged: (l) => setState(() => _examLevel = l),
                   onGo: _go,
                 ),
@@ -920,19 +936,20 @@ class _MaterialTile extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════
 class _HomeTab extends StatelessWidget {
   final bool loading;
+  final String userClasse;
   final Function(Widget) onGo;
   final Function(int) onSwitchTab;
   const _HomeTab({
     required this.loading,
+    required this.userClasse,
     required this.onGo,
     required this.onSwitchTab,
   });
 
-  static const _userClasse = '5e A';
+  bool get _hasClasse => userClasse.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -974,9 +991,9 @@ class _HomeTab extends StatelessWidget {
         _CategoryGrid(onSwitchTab: onSwitchTab, onGo: onGo),
         const SizedBox(height: 22),
 
-        // ── Recommandés pour la classe ───────────────────────────────
+        // ── Recommandés pour la classe (réelle) ──────────────────────
         _SectionLabel(
-          'Pour ta classe · $_userClasse',
+          _hasClasse ? 'Pour ta classe · $userClasse' : 'Recommandés pour toi',
           action: 'Voir tout',
           onAction: () => onSwitchTab(1),
         ),
@@ -990,11 +1007,11 @@ class _HomeTab extends StatelessWidget {
             height: 176,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: MockLibraryData.recommendedForClasse(_userClasse)
+              itemCount: MockLibraryData.recommendedForClasse(userClasse)
                   .take(5).length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) {
-                final books = MockLibraryData.recommendedForClasse(_userClasse)
+                final books = MockLibraryData.recommendedForClasse(userClasse)
                     .take(5).toList();
                 return _BookCover(
                     book: books[i],
@@ -1024,7 +1041,7 @@ class _HomeTab extends StatelessWidget {
               baseColor: Color(0xFFEAE3DB),
               highlightColor: Color(0xFFF5F0EA)),
           child: Column(children: [
-            ...MockLibraryData.recommendedExamsForClasse(_userClasse)
+            ...MockLibraryData.recommendedExamsForClasse(userClasse)
                 .take(4)
                 .map((e) => _ExamTile(
                       exam: e,
@@ -1328,31 +1345,42 @@ class _BooksTab extends StatelessWidget {
 class _ExamsTab extends StatelessWidget {
   final bool loading;
   final String level;
+  /// Niveaux d'examens pertinents pour le cycle de l'élève (ex. ['CEPE']).
+  final List<String> allowed;
   final ValueChanged<String> onLevelChanged;
   final Function(Widget) onGo;
   const _ExamsTab({
-    required this.loading, required this.level,
+    required this.loading, required this.level, required this.allowed,
     required this.onLevelChanged, required this.onGo,
   });
-
-  static const _levels = ['Tous', 'CEPE', 'BEPC', 'BAC'];
-
-  List<ExamSubject> get _filtered => level == 'Tous'
-      ? MockLibraryData.examSubjects
-      : MockLibraryData.examSubjects
-          .where((e) => e.levelLabel == level)
-          .toList();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final exams = _filtered;
+    // Base : seulement les examens du/des cycle(s) autorisé(s).
+    final base = MockLibraryData.examSubjects
+        .where((e) => allowed.contains(e.levelLabel))
+        .toList();
+    // Une sélection hors périmètre retombe sur « Tous ».
+    final effLevel = (level == 'Tous' || allowed.contains(level)) ? level : 'Tous';
+    final exams = effLevel == 'Tous'
+        ? base
+        : base.where((e) => e.levelLabel == effLevel).toList();
+    // Puces seulement si plusieurs cycles pertinents (sinon la liste EST déjà
+    // celle du cycle — inutile de filtrer).
+    final chips = allowed.length > 1 ? ['Tous', ...allowed] : const <String>[];
+
     return Column(children: [
       Container(
         color: cs.surface,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(children: [
-          ..._levels.map((l) => Padding(
+          if (chips.isEmpty && allowed.isNotEmpty)
+            Text('Examens ${allowed.first}',
+                style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 12, fontWeight: FontWeight.w700)),
+          ...chips.map((l) => Padding(
             padding: const EdgeInsets.only(right: 7),
             child: GestureDetector(
               onTap: () => onLevelChanged(l),
@@ -1361,22 +1389,22 @@ class _ExamsTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
-                  color: l == level
+                  color: l == effLevel
                       ? _accent
                       : const Color(0xFFF0EBE5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(l,
                     style: TextStyle(
-                        color: l == level ? Colors.white : cs.onSurfaceVariant,
+                        color: l == effLevel ? Colors.white : cs.onSurfaceVariant,
                         fontSize: 12,
-                        fontWeight: l == level
+                        fontWeight: l == effLevel
                             ? FontWeight.w700
                             : FontWeight.w500)),
               ),
             ),
           )),
-          Spacer(),
+          const Spacer(),
           Text('${exams.length} sujet${exams.length > 1 ? 's' : ''}',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
         ]),

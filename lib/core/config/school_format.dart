@@ -96,6 +96,7 @@ class SchoolFormat {
   /// Note maximale du barème. 20, 100 — ou 20 en interne pour les lettres, que
   /// l'on convertit à l'affichage.
   double get maxScore => switch (gradingScale) {
+        'numeric_10' => 10,
         'numeric_100' => 100,
         _ => 20,
       };
@@ -113,6 +114,9 @@ class SchoolFormat {
         return _letter(score / maxScore * 100);
       case 'numeric_100':
         return '${score.toStringAsFixed(0)}/100';
+      case 'numeric_10':
+        final s = score.toStringAsFixed(score % 1 == 0 ? 0 : 1);
+        return '${s.replaceAll('.', ',')}/10';
       default:
         final s = score.toStringAsFixed(score % 1 == 0 ? 0 : 2);
         return '${s.replaceAll('.', ',')}/20';
@@ -123,6 +127,7 @@ class SchoolFormat {
   String get gradeHeader => switch (gradingScale) {
         'letter' => 'Note',
         'numeric_100' => 'Note/100',
+        'numeric_10' => 'Note/10',
         _ => 'Note/20',
       };
 

@@ -649,6 +649,73 @@ class SbFeeStructure {
       );
 }
 
+/// Une échéance de scolarité (mois/trimestre) : libellé + date d'échéance.
+/// Élément du calendrier d'un compte, pour afficher « sept payé · déc reste 5K ».
+class SbTuitionPeriod {
+  final String code;   // '2025-09', '2025-T1'
+  final String label;  // 'Scolarité — septembre 2025'
+  final DateTime due;
+  const SbTuitionPeriod(
+      {required this.code, required this.label, required this.due});
+}
+
+/// Le COMPTE de scolarité d'un élève : ce qu'il doit sur l'année, ce qu'il a
+/// versé, et où il en est PAR RAPPORT À LA DATE DU JOUR.
+///
+/// Remplace la pile de N factures mensuelles par une seule vérité : un solde
+/// qui court. « À jour » ne se lit pas dans un statut, il se CALCULE (versé ≥ dû
+/// à ce jour). Les versements descendent en cascade sur les mois les plus
+/// anciens — mais ici on n'a besoin que des totaux pour le dire.
+class SbTuitionAccount {
+  final double monthly;      // mensualité (ou montant par tranche)
+  final int periodsCount;    // nb de tranches sur l'année
+  final int periodsElapsed;  // tranches déjà échues à ce jour
+  final double paid;         // total réellement versé
+  final String currency;
+  final List<SbTuitionPeriod> periods;
+
+  const SbTuitionAccount({
+    required this.monthly,
+    required this.periodsCount,
+    required this.periodsElapsed,
+    required this.paid,
+    required this.currency,
+    this.periods = const [],
+  });
+
+  /// Total dû sur l'année entière.
+  double get annual => monthly * periodsCount;
+
+  /// Dû à ce jour : ce qui aurait dû être réglé compte tenu des mois écoulés.
+  double get dueToDate => monthly * periodsElapsed;
+
+  /// Reste à payer sur l'année (jamais négatif).
+  double get balance {
+    final b = annual - paid;
+    return b < 0 ? 0 : b;
+  }
+
+  /// Ce que l'élève doit MAINTENANT (mois échus non couverts). C'est le vrai
+  /// « il est en retard de combien ? ».
+  double get owedNow {
+    final o = dueToDate - paid;
+    return o < 0 ? 0 : o;
+  }
+
+  /// À jour : le versé couvre au moins le dû à ce jour (tolérance d'un centime).
+  bool get isUpToDate => paid >= dueToDate - 0.01;
+
+  /// Solde payé d'avance (couvre des mois pas encore échus).
+  double get credit {
+    final c = paid - dueToDate;
+    return c < 0 ? 0 : c;
+  }
+
+  /// Nombre de tranches couvertes par le versé — fractionnaire : 3,5 = trois
+  /// mois pleins + un demi. Sert au « couvert jusqu'à mi-décembre ».
+  double get periodsCovered => monthly > 0 ? paid / monthly : 0;
+}
+
 class SbInvoice {
   final String id;
   final String? studentId;
@@ -662,6 +729,10 @@ class SbInvoice {
   final String? period;     // ex. '2025-09' ou '2025-T1' (scolarité)
   final String? category;   // ex. 'tuition'
 
+  /// Cumul déjà encaissé sur cette facture (somme des `payments`). Permet les
+  /// paiements PARTIELS : une facture peut être payée en plusieurs fois.
+  final double amountPaid;
+
   const SbInvoice({
     required this.id,
     this.studentId,
@@ -674,12 +745,22 @@ class SbInvoice {
     this.status = 'pending',
     this.period,
     this.category,
+    this.amountPaid = 0,
   });
 
   bool get isPaid => status == 'paid';
   bool get isPending => status == 'pending';
   bool get isOverdue => status == 'overdue';
   bool get isTuition => category == 'tuition';
+
+  /// Reste dû (jamais négatif).
+  double get balance {
+    final b = amount - amountPaid;
+    return b < 0 ? 0 : b;
+  }
+
+  /// Partiellement payée : un acompte reçu, mais pas le solde.
+  bool get isPartiallyPaid => !isPaid && amountPaid > 0 && balance > 0;
 
   /// En retard « réel » : non payé et échéance dépassée (le statut reste
   /// souvent 'pending' même après l'échéance).
@@ -708,7 +789,21 @@ class SbInvoice {
       status: j['status'] as String? ?? 'pending',
       period: j['period'] as String?,
       category: j['category'] as String?,
+      amountPaid: _sumPayments(j['payments']),
     );
+  }
+
+  // Somme des encaissements embarqués (`payments(amount)`). Absent/null → 0,
+  // pour rester compatible avec les requêtes qui ne les embarquent pas.
+  static double _sumPayments(dynamic payments) {
+    if (payments is! List) return 0;
+    var total = 0.0;
+    for (final p in payments) {
+      if (p is Map<String, dynamic>) {
+        total += (p['amount'] as num?)?.toDouble() ?? 0;
+      }
+    }
+    return total;
   }
 }
 
@@ -802,6 +897,28 @@ class SbUser {
       );
 }
 
+/// Lien parent↔élève enrichi du contact du parent (`parent_student` + `users`).
+/// Sert aux DEUX fiches : les tuteurs d'un élève, et l'inverse via les enfants.
+class SbGuardianLink {
+  final String parentId;
+  final String fullName;
+  final String? email;
+  final String? phone;
+  final String relationship; // « Père », « Mère », « Tuteur »…
+  final bool isPrimary;
+  final bool hasAccount; // login parent activé (auth_uid non nul)
+
+  const SbGuardianLink({
+    required this.parentId,
+    required this.fullName,
+    this.email,
+    this.phone,
+    this.relationship = 'Parent',
+    this.isPrimary = false,
+    this.hasAccount = false,
+  });
+}
+
 /// Fiche du personnel (table `staff_profiles`).
 ///
 /// Pendant de `teacher_profiles` pour le personnel non enseignant, qui n'avait
@@ -868,6 +985,12 @@ class SbSchool {
   final String currency;
   final String gradingScale;
 
+  /// Surcharges de barème PAR CYCLE (metadata.grading_by_cycle). Clés = valeurs
+  /// de l'enum SchoolLevel (`primaire`, `college`, `lycee`, `universite`…),
+  /// valeurs = un barème (`numeric_10`, `numeric_20`, `numeric_100`, `letter`).
+  /// Vide = tous les cycles suivent `gradingScale` (le défaut de l'école).
+  final Map<String, String> gradingByCycle;
+
   /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
   final String periodSystem;
 
@@ -893,6 +1016,7 @@ class SbSchool {
     this.educationalSystem,
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
+    this.gradingByCycle = const {},
     this.periodSystem = 'trimester',
     this.bulletinDevoirs = 3,
     this.bulletinCompoWeight = 0.5,
@@ -901,6 +1025,19 @@ class SbSchool {
   SchoolFormat get format => SchoolFormat(
         currency: currency,
         gradingScale: gradingScale,
+        periodSystem: periodSystem,
+      );
+
+  /// Barème applicable à un [cycle] donné (clé SchoolLevel : `primaire`…).
+  /// Surcharge du cycle si définie, sinon le défaut de l'école.
+  String gradingScaleForCycle(String? cycle) =>
+      (cycle != null ? gradingByCycle[cycle] : null) ?? gradingScale;
+
+  /// [SchoolFormat] résolu pour un cycle : même devise/périodes que l'école,
+  /// mais le barème du cycle. `null` → le format par défaut de l'école.
+  SchoolFormat formatForCycle(String? cycle) => SchoolFormat(
+        currency: currency,
+        gradingScale: gradingScaleForCycle(cycle),
         periodSystem: periodSystem,
       );
 
@@ -930,6 +1067,10 @@ class SbSchool {
           meta is Map ? meta['educational_system'] as String? : null,
       currency: j['currency'] as String? ?? 'XAF',
       gradingScale: j['grading_scale'] as String? ?? 'numeric_20',
+      gradingByCycle: meta is Map && meta['grading_by_cycle'] is Map
+          ? (meta['grading_by_cycle'] as Map).map(
+              (k, v) => MapEntry(k.toString(), v.toString()))
+          : const {},
       periodSystem: j['period_system'] as String? ?? 'trimester',
       bulletinDevoirs: (j['bulletin_devoirs'] as num?)?.toInt() ?? 3,
       bulletinCompoWeight:
@@ -1091,11 +1232,17 @@ class SbSchedule {
 /// l'admin la charge dans ses matières au lieu de tout saisir.
 class SbSubjectCatalog {
   final String id;
-  final String cycle;       // primaire | college | lycee
+  final String cycle;       // prescolaire | primaire | college | lycee
   final String name;
   final String? shortName;
   final num defaultCoefficient;
   final int orderNum;
+
+  /// Série du lycée à laquelle la matière (et son coefficient) est propre :
+  /// `A`, `C`, `D`… `null` = tronc commun (toutes séries du cycle). Sert de
+  /// référence pour pré-remplir le coefficient par série dans `class_subjects` ;
+  /// la table `subjects` de l'école, elle, reste plate (un seul coef par nom).
+  final String? series;
 
   const SbSubjectCatalog({
     required this.id,
@@ -1104,6 +1251,7 @@ class SbSubjectCatalog {
     this.shortName,
     this.defaultCoefficient = 1,
     this.orderNum = 0,
+    this.series,
   });
 
   factory SbSubjectCatalog.fromJson(Map<String, dynamic> j) => SbSubjectCatalog(
@@ -1113,9 +1261,11 @@ class SbSubjectCatalog {
         shortName: j['short_name'] as String?,
         defaultCoefficient: (j['default_coefficient'] as num?) ?? 1,
         orderNum: j['order_num'] as int? ?? 0,
+        series: j['series'] as String?,
       );
 
   String get cycleLabel => switch (cycle) {
+        'prescolaire' => 'Préscolaire',
         'primaire' => 'Primaire',
         'college' => 'Collège',
         'lycee' => 'Lycée',
@@ -1254,6 +1404,44 @@ class SbCourse {
   }
 }
 
+/// Un support de cours (`course_materials`) : PDF, exercice, corrigé… rattaché
+/// à une matière. Alimente l'onglet « Ressources » du détail d'un cours.
+class SbCourseMaterial {
+  final String id;
+  final String title;
+  final String subject;
+  final String? type;      // 'cours' | 'exercice' | 'corrige' | 'td'…
+  final String? level;     // niveau/classe visé
+  final String? publisher; // qui l'a déposé
+  final String? fileUrl;
+  final int? sizeKb;
+  final DateTime? createdAt;
+
+  const SbCourseMaterial({
+    required this.id,
+    required this.title,
+    required this.subject,
+    this.type,
+    this.level,
+    this.publisher,
+    this.fileUrl,
+    this.sizeKb,
+    this.createdAt,
+  });
+
+  factory SbCourseMaterial.fromJson(Map<String, dynamic> j) => SbCourseMaterial(
+        id: j['id'] as String,
+        title: j['title'] as String? ?? '—',
+        subject: j['subject'] as String? ?? '',
+        type: j['type'] as String?,
+        level: j['level'] as String?,
+        publisher: j['publisher'] as String?,
+        fileUrl: j['file_url'] as String?,
+        sizeKb: (j['size_kb'] as num?)?.toInt(),
+        createdAt: DateTime.tryParse(j['created_at'] as String? ?? ''),
+      );
+}
+
 /// Un enseignant rattaché à un cours.
 ///
 /// `role` n'est qu'un **affichage** : « principal » et « co » ont exactement
@@ -1364,6 +1552,69 @@ class SbCourseTeacher {
         );
   }
 
+  /// Un versement d'abonnement (école → Scolaris), figé pour le reçu.
+  /// `amount` = montant réellement encaissé ; `creditApplied` = crédit
+  /// (prorata + report) déduit ; prix plein de l'offre = `amount + creditApplied`.
+  class SbSubscriptionPayment {
+    final String id;
+    final String? subscriptionId;
+    final String? schoolId;
+    final String? planCode;
+    final String? period; // 'monthly' | 'annual'
+    final double amount;
+    final double creditApplied;
+    final String currency;
+    final String? method; // mobile_money | card | bank | cash
+    final String? provider;
+    final String? reference;
+    final String status; // pending | success | failed | refunded
+    final DateTime? paidAt;
+    final DateTime? createdAt;
+
+    const SbSubscriptionPayment({
+      required this.id,
+      this.subscriptionId,
+      this.schoolId,
+      this.planCode,
+      this.period,
+      this.amount = 0,
+      this.creditApplied = 0,
+      this.currency = 'XAF',
+      this.method,
+      this.provider,
+      this.reference,
+      this.status = 'success',
+      this.paidAt,
+      this.createdAt,
+    });
+
+    double get fullPrice => amount + creditApplied;
+    bool get isYearly => period == 'annual';
+    DateTime get date => paidAt ?? createdAt ?? DateTime.now();
+
+    factory SbSubscriptionPayment.fromJson(Map<String, dynamic> j) =>
+        SbSubscriptionPayment(
+          id: j['id'] as String? ?? '',
+          subscriptionId: j['subscription_id'] as String?,
+          schoolId: j['school_id'] as String?,
+          planCode: j['plan_code'] as String?,
+          period: j['period'] as String?,
+          amount: (j['amount'] as num?)?.toDouble() ?? 0,
+          creditApplied: (j['credit_applied'] as num?)?.toDouble() ?? 0,
+          currency: j['currency'] as String? ?? 'XAF',
+          method: j['method'] as String?,
+          provider: j['provider'] as String?,
+          reference: j['reference'] as String?,
+          status: j['status'] as String? ?? 'success',
+          paidAt: j['paid_at'] != null
+              ? DateTime.tryParse(j['paid_at'] as String)
+              : null,
+          createdAt: j['created_at'] != null
+              ? DateTime.tryParse(j['created_at'] as String)
+              : null,
+        );
+  }
+
 // ── Data source ───────────────────────────────────────────────────────────────
 
 class SupabaseDbSource {
@@ -1426,6 +1677,50 @@ class SupabaseDbSource {
     return (data as List)
         .map((j) => SbStudent.fromUserRow(j as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Les parents/tuteurs d'un élève, via `parent_student`, enrichis du contact
+  /// (`users`). Deux requêtes, même raison que [getChildrenForParent] : ne pas
+  /// dépendre du nom de la contrainte FK pour un embed PostgREST.
+  static Future<List<SbGuardianLink>> getGuardiansForStudent(
+      String studentId) async {
+    final links = await _db
+        .from('parent_student')
+        .select('parent_id, relationship, is_primary')
+        .eq('student_id', studentId);
+
+    final rows = (links as List).cast<Map<String, dynamic>>();
+    final ids = rows
+        .map((r) => r['parent_id'] as String?)
+        .whereType<String>()
+        .toList();
+    if (ids.isEmpty) return const [];
+
+    final users = await _db
+        .from('users')
+        .select('id, full_name, email, phone, auth_uid')
+        .inFilter('id', ids);
+    final byId = <String, Map<String, dynamic>>{
+      for (final u in (users as List).cast<Map<String, dynamic>>())
+        u['id'] as String: u,
+    };
+
+    return rows.map((r) {
+      final u = byId[r['parent_id']];
+      return SbGuardianLink(
+        parentId: r['parent_id'] as String,
+        fullName: (u?['full_name'] as String?)?.trim().isNotEmpty == true
+            ? u!['full_name'] as String
+            : 'Parent',
+        email: u?['email'] as String?,
+        phone: u?['phone'] as String?,
+        relationship: (r['relationship'] as String?)?.isNotEmpty == true
+            ? r['relationship'] as String
+            : 'Parent',
+        isPrimary: r['is_primary'] as bool? ?? false,
+        hasAccount: u?['auth_uid'] != null,
+      );
+    }).toList();
   }
 
   /// Dernières fiches élèves créées (pour le feed d'activité du tableau de bord).
@@ -1494,9 +1789,16 @@ class SupabaseDbSource {
   }
 
   /// Catalogue de matières types (référence, lecture seule). Filtré par cycles.
+  ///
+  /// [series] restreint en plus aux matières d'un lot de séries du lycée. La
+  /// convention : `series = null` en base = **tronc commun** (toutes séries) —
+  /// on le garde TOUJOURS, on ne filtre que les lignes propres à une série. Un
+  /// filtre `['C','D']` renvoie donc : le tronc commun + les matières C + D,
+  /// mais pas les matières propres à A.
   static Future<List<SbSubjectCatalog>> getSubjectCatalog({
     String system = 'francophone_africa',
-    List<String> cycles = const ['primaire', 'college', 'lycee'],
+    List<String> cycles = const ['prescolaire', 'primaire', 'college', 'lycee'],
+    List<String>? series,
   }) async {
     final data = await _db
         .from('subject_catalog')
@@ -1504,9 +1806,17 @@ class SupabaseDbSource {
         .eq('system_type', system)
         .inFilter('cycle', cycles)
         .order('order_num');
-    return (data as List)
+    var list = (data as List)
         .map((j) => SbSubjectCatalog.fromJson(j as Map<String, dynamic>))
         .toList();
+    if (series != null) {
+      // Tronc commun (series == null) toujours conservé ; sinon la série doit
+      // faire partie du lot demandé.
+      list = list
+          .where((c) => c.series == null || series.contains(c.series))
+          .toList();
+    }
+    return list;
   }
 
   static Future<void> createSubject({
@@ -1551,8 +1861,9 @@ class SupabaseDbSource {
   static Future<int> loadSubjectsFromCatalog({
     required String schoolId,
     required List<String> cycles,
+    List<String>? series,
   }) async {
-    final catalog = await getSubjectCatalog(cycles: cycles);
+    final catalog = await getSubjectCatalog(cycles: cycles, series: series);
     final existing = await getSubjects(schoolId: schoolId);
     final existingNames =
         existing.map((s) => s.name.trim().toLowerCase()).toSet();
@@ -1665,7 +1976,9 @@ class SupabaseDbSource {
 
   // ── Invoices ──────────────────────────────────────────────────────────────
   static Future<List<SbInvoice>> getInvoices({String? schoolId}) async {
-    var q = _db.from('invoices').select('*, users!student_id(full_name)');
+    var q = _db
+        .from('invoices')
+        .select('*, users!student_id(full_name), payments(amount)');
     if (schoolId != null) q = q.eq('school_id', schoolId);
     final data = await q.order('created_at', ascending: false);
     return (data as List).map((j) => SbInvoice.fromJson(j as Map<String, dynamic>)).toList();
@@ -1701,7 +2014,10 @@ class SupabaseDbSource {
     });
   }
 
-  /// Enregistre un encaissement (espèces par défaut) et marque la facture payée.
+  /// Enregistre un encaissement (espèces par défaut). Le statut de la facture est
+  /// recalculé à partir du CUMUL encaissé : « paid » si le solde est couvert,
+  /// sinon on garde « pending » (paiement partiel — pas de valeur de statut
+  /// dédiée pour ne pas dépendre d'un CHECK que le dépôt ne versionne pas).
   static Future<void> recordPayment({
     required String invoiceId,
     required String studentId,
@@ -1718,10 +2034,44 @@ class SupabaseDbSource {
       'payment_method': method,
       if (reference != null && reference.isNotEmpty) 'reference': reference,
     });
+
+    // Recalcule le cumul encaissé vs le montant dû.
+    final inv = await _db
+        .from('invoices')
+        .select('amount')
+        .eq('id', invoiceId)
+        .maybeSingle();
+    final due = (inv?['amount'] as num?)?.toDouble() ?? 0;
+    final pays =
+        await _db.from('payments').select('amount').eq('invoice_id', invoiceId);
+    final paid = (pays as List).fold<double>(
+        0, (a, p) => a + (((p as Map)['amount'] as num?)?.toDouble() ?? 0));
+
     await _db.from('invoices').update({
-      'status': 'paid',
+      // Tolérance d'un centime pour les arrondis.
+      'status': paid >= due - 0.01 ? 'paid' : 'pending',
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', invoiceId);
+  }
+
+  /// Paiement en ligne DEMANDÉ par une famille (élève/parent). Les familles sont
+  /// en lecture seule sur `payments` (sécurité : pas d'auto-déclaration de
+  /// paiement) → l'écriture passe par l'Edge Function `record-online-payment`,
+  /// qui vérifie le lien famille↔élève puis écrit côté serveur. Réservé aux
+  /// offres avec paiement en ligne ; l'offre simple règle à la caisse.
+  static Future<void> recordOnlinePayment({
+    required String invoiceId,
+    required double amount,
+    String method = 'mobile_money',
+    String? reference,
+  }) async {
+    final res = await _db.functions.invoke('record-online-payment', body: {
+      'invoiceId': invoiceId,
+      'amount': amount,
+      'method': method,
+      if (reference != null && reference.isNotEmpty) 'reference': reference,
+    });
+    _throwIfFnError(res);
   }
 
   /// Supprime une facture (et ses encaissements éventuels).
@@ -1733,7 +2083,7 @@ class SupabaseDbSource {
   static Future<List<SbInvoice>> getInvoicesForStudent(String studentId) async {
     final data = await _db
         .from('invoices')
-        .select()
+        .select('*, payments(amount)')
         .eq('student_id', studentId)
         .order('created_at', ascending: false);
     return (data as List).map((j) => SbInvoice.fromJson(j as Map<String, dynamic>)).toList();
@@ -1812,6 +2162,145 @@ class SupabaseDbSource {
       }
     }
     return out;
+  }
+
+  /// Le COMPTE de scolarité d'un élève (modèle « solde qui court »), calculé à
+  /// partir de la grille de sa classe + du cumul déjà versé. `null` si l'élève
+  /// n'a pas de classe ou si sa classe n'a pas de grille de frais.
+  ///
+  /// « Payé » = somme des encaissements sur ses factures de scolarité — que ce
+  /// soit un compte annuel unique ou d'anciennes tranches : on additionne, donc
+  /// la lecture reste juste pendant la transition.
+  static Future<SbTuitionAccount?> getTuitionAccount({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+  }) async {
+    final student = await getStudentById(studentId);
+    final classId = student?.classId;
+    if (classId == null || classId.isEmpty) return null;
+
+    final fees = await getFeeStructures(schoolId, academicYear);
+    SbFeeStructure? fee;
+    for (final f in fees) {
+      if (f.classId == classId && f.isActive) {
+        fee = f;
+        break;
+      }
+    }
+    if (fee == null) return null;
+
+    final invoices = await getInvoicesForStudent(studentId);
+    final paid = invoices
+        .where((i) => i.isTuition)
+        .fold<double>(0, (a, b) => a + b.amountPaid);
+
+    return tuitionAccountFrom(fee, paid);
+  }
+
+  /// Calcul PUR du compte à partir de la grille + du cumul versé (aucune
+  /// requête). Sert au compte d'un élève ET au calcul en lot d'une liste.
+  static SbTuitionAccount tuitionAccountFrom(SbFeeStructure fee, double paid) {
+    final periods = tuitionPeriods(fee);
+    final today = DateTime.now();
+    final elapsed = periods.where((p) => !p.due.isAfter(today)).length;
+    return SbTuitionAccount(
+      monthly: fee.amountPerPeriod,
+      periodsCount: fee.periodsCount,
+      periodsElapsed: elapsed,
+      paid: paid,
+      currency: fee.currency,
+      periods: [
+        for (final p in periods)
+          SbTuitionPeriod(code: p.period, label: p.label, due: p.due),
+      ],
+    );
+  }
+
+  /// Le compte annuel de scolarité d'un élève — UNE facture dont le montant est
+  /// le total de l'année (période = l'année scolaire, pour la distinguer des
+  /// éventuelles tranches mensuelles). Créée à la première nécessité. Renvoie son
+  /// id, ou `null` si la classe de l'élève n'a pas de grille de frais.
+  static Future<String?> _ensureTuitionAccount({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+  }) async {
+    // Déjà là ?
+    final existing = await _db
+        .from('invoices')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('category', 'tuition')
+        .eq('period', academicYear)
+        .limit(1)
+        .maybeSingle();
+    if (existing != null) return existing['id'] as String;
+
+    // Sinon, le créer depuis la grille de la classe.
+    final student = await getStudentById(studentId);
+    final classId = student?.classId;
+    if (classId == null || classId.isEmpty) return null;
+    final fees = await getFeeStructures(schoolId, academicYear);
+    SbFeeStructure? fee;
+    for (final f in fees) {
+      if (f.classId == classId && f.isActive) {
+        fee = f;
+        break;
+      }
+    }
+    if (fee == null) return null;
+
+    final annual = fee.amountPerPeriod * fee.periodsCount;
+    final id = const Uuid().v4();
+    await _db.from('invoices').insert({
+      'id': id,
+      'school_id': schoolId,
+      'student_id': studentId,
+      'invoice_number': 'SCO-$academicYear-${id.substring(0, 6).toUpperCase()}',
+      'description': 'Scolarité $academicYear',
+      'amount': annual,
+      'currency': fee.currency,
+      'category': 'tuition',
+      'period': academicYear,
+      'issued_date': DateTime.now().toIso8601String().split('T').first,
+      // Pas d'échéance unique : le retard se lit sur le compte (owedNow), pas
+      // sur un due_date de fin d'année.
+      'status': 'pending',
+    });
+    return id;
+  }
+
+  /// Enregistre un VERSEMENT de scolarité sur le compte de l'élève. Le versement
+  /// s'accumule sur le compte annuel (paiements partiels gérés) ; le statut passe
+  /// à « paid » une fois toute l'année soldée. Le « à jour » mois par mois, lui,
+  /// se déduit du compte ([getTuitionAccount]), pas du statut.
+  ///
+  /// Lève une exception si la classe de l'élève n'a pas de grille de frais.
+  static Future<void> recordTuitionPayment({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+    required double amount,
+    String method = 'cash',
+    String? reference,
+  }) async {
+    final invoiceId = await _ensureTuitionAccount(
+      studentId: studentId,
+      schoolId: schoolId,
+      academicYear: academicYear,
+    );
+    if (invoiceId == null) {
+      throw Exception(
+          'Aucune grille de frais pour la classe de cet élève : impossible d\'encaisser la scolarité.');
+    }
+    await recordPayment(
+      invoiceId: invoiceId,
+      studentId: studentId,
+      amount: amount,
+      method: method,
+      reference: reference,
+    );
   }
 
   /// Génère l'échéancier annuel pour TOUS les élèves des classes ayant une
@@ -2205,6 +2694,61 @@ class SupabaseDbSource {
       'current_period_end': end.toIso8601String(),
       'updated_at': now.toIso8601String(),
     }).eq('school_id', schoolId);
+  }
+
+  /// Enregistre un versement d'abonnement (école → Scolaris) et renvoie la ligne
+  /// créée — la source du reçu imprimable. `amount` = encaissé, `creditApplied`
+  /// = crédit déduit. La référence est générée si non fournie (démo).
+  static Future<SbSubscriptionPayment> recordSubscriptionPayment({
+    required String subscriptionId,
+    required String schoolId,
+    required String planCode,
+    required String period, // 'monthly' | 'annual'
+    required double amount,
+    required String currency,
+    double creditApplied = 0,
+    String method = 'mobile_money',
+    String? provider,
+    String? reference,
+  }) async {
+    final now = DateTime.now();
+    final ref = (reference != null && reference.trim().isNotEmpty)
+        ? reference.trim()
+        : 'SCO-${now.year}${now.month.toString().padLeft(2, '0')}'
+            '-${subscriptionId.substring(0, 4).toUpperCase()}'
+            '${now.millisecondsSinceEpoch.toString().substring(7)}';
+    final data = await _db
+        .from('subscription_payments')
+        .insert({
+          'subscription_id': subscriptionId,
+          'school_id': schoolId,
+          'plan_code': planCode,
+          'period': period,
+          'amount': amount,
+          'credit_applied': creditApplied,
+          'currency': currency,
+          'method': method,
+          'provider': provider,
+          'reference': ref,
+          'status': 'success',
+          'paid_at': now.toIso8601String(),
+        })
+        .select()
+        .single();
+    return SbSubscriptionPayment.fromJson(data);
+  }
+
+  /// Historique des versements d'abonnement de l'école (récent → ancien).
+  static Future<List<SbSubscriptionPayment>> getSubscriptionPayments(
+      String schoolId) async {
+    final data = await _db
+        .from('subscription_payments')
+        .select()
+        .eq('school_id', schoolId)
+        .order('paid_at', ascending: false);
+    return (data as List)
+        .map((j) => SbSubscriptionPayment.fromJson(j as Map<String, dynamic>))
+        .toList();
   }
 
   /// Nombre d'élèves actifs de l'école (pour l'usage vs limite de l'offre).
@@ -2842,13 +3386,28 @@ class SupabaseDbSource {
     required String currency,
     required String gradingScale,
     required String periodSystem,
+    Map<String, String>? gradingByCycle,
   }) async {
-    await _db.from('schools').update({
+    final update = <String, dynamic>{
       'currency': currency,
       'grading_scale': gradingScale,
       'period_system': periodSystem,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    };
+    // Surcharges par cycle : fusionnées dans `metadata` (lecture-fusion-écriture)
+    // pour ne pas écraser `types` / `educational_system` déjà présents.
+    if (gradingByCycle != null) {
+      final row = await _db
+          .from('schools')
+          .select('metadata')
+          .eq('id', id)
+          .maybeSingle();
+      update['metadata'] = <String, dynamic>{
+        ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
+        'grading_by_cycle': gradingByCycle,
+      };
+    }
+    await _db.from('schools').update(update).eq('id', id);
   }
 
   static Future<void> updateSchool({
@@ -2973,6 +3532,23 @@ class SupabaseDbSource {
         .order('name');
     return (data as List)
         .map((j) => SbCourse.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Supports de cours (`course_materials`) d'une matière — pour l'onglet
+  /// Ressources du détail d'un cours. Filtré par nom de matière ; la RLS borne
+  /// déjà au tenant. Vide si la matière est vide (pas de requête inutile).
+  static Future<List<SbCourseMaterial>> getCourseMaterialsForSubject(
+      String subject) async {
+    if (subject.trim().isEmpty) return const [];
+    final data = await _db
+        .from('course_materials')
+        .select('id, title, subject, type, level, publisher, file_url, '
+            'size_kb, created_at')
+        .eq('subject', subject)
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((j) => SbCourseMaterial.fromJson(j as Map<String, dynamic>))
         .toList();
   }
 

@@ -8,6 +8,10 @@ import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra = Color(0xFF8B1A00);
 
+/// Texte de recherche de la liste des classes. `autoDispose` : il se remet à
+/// vide dès qu'on quitte la page.
+final _classSearchProvider = StateProvider.autoDispose<String>((ref) => '');
+
 class AdminClassesPage extends ConsumerWidget {
   const AdminClassesPage({super.key});
 
@@ -101,6 +105,18 @@ class AdminClassesPage extends ConsumerWidget {
             : const <Map<String, dynamic>>[];
         final canCreate = ref.watch(canProvider('classes.creer'));
 
+        // Recherche libre : nom, niveau ou section, insensible à la casse.
+        final rawSearch = ref.watch(_classSearchProvider).trim();
+        final search = rawSearch.toLowerCase();
+        final filtered = search.isEmpty
+            ? classes
+            : classes
+                .where((cl) =>
+                    cl.name.toLowerCase().contains(search) ||
+                    (cl.level ?? '').toLowerCase().contains(search) ||
+                    (cl.section ?? '').toLowerCase().contains(search))
+                .toList();
+
         return PageScaffold(
         title: 'Classes & sections',
         subtitle: '${classes.length} classes dans l\'établissement',
@@ -117,18 +133,31 @@ class AdminClassesPage extends ConsumerWidget {
         ],
         child: DataPanel(
           title: 'Toutes les classes',
-          headerActions: const [SearchInput(hint: 'Rechercher classe…')],
+          headerActions: [
+            SearchInput(
+              hint: 'Rechercher classe…',
+              onChanged: (v) =>
+                  ref.read(_classSearchProvider.notifier).state = v,
+            )
+          ],
           child: classes.isEmpty
               ? (pending.isNotEmpty && canCreate
                   ? _ImportBanner(
                       count: pending.length,
                       onImport: () => _importRegistration(context, ref))
                   : const _EmptyState())
+              : filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                      child: Text('Aucun résultat pour « $rawSearch ».',
+                          style: TextStyle(color: context.cMuted))),
+                )
               : DataTablePanel(
                   columns: const ['Classe', 'Niveau', 'Section', 'Capacité', ''],
                   flex: const [2, 3, 3, 2, 2],
                   rows: [
-                    for (final cl in classes)
+                    for (final cl in filtered)
                       [
                         Text(cl.name,
                             style: TextStyle(

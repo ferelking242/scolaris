@@ -861,7 +861,6 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
     final accent    = ref.watch(themeControllerProvider).accent;
     final settings  = ref.watch(settingsProvider);
     final locale    = context.locale;
-    final isDark    = false; // thème clair uniquement
 
     return _SubPageShell(
       title: 'settings.appearance'.tr(),
@@ -880,7 +879,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: settings.contrasteEleve
-                    ? (isDark ? Colors.white.withOpacity(.25) : Colors.black.withOpacity(.3))
+                    ? Colors.black.withOpacity(.3)
                     : Theme.of(context).colorScheme.outline.withOpacity(.25),
                 width: settings.contrasteEleve ? 1.6 : 1.0,
               ),
@@ -890,13 +889,13 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 width: 36, height: 36,
                 decoration: BoxDecoration(
                   color: settings.contrasteEleve
-                      ? (isDark ? Colors.white.withOpacity(.12) : Colors.black.withOpacity(.1))
+                      ? Colors.black.withOpacity(.1)
                       : Theme.of(context).colorScheme.surfaceContainer,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.contrast_rounded, size: 18,
                     color: settings.contrasteEleve
-                        ? (isDark ? Colors.white : Colors.black)
+                        ? Colors.black
                         : Theme.of(context).colorScheme.onSurface.withOpacity(.55)),
               ),
               const SizedBox(width: 12),
@@ -906,9 +905,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                         color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 13.5, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(isDark
-                    ? 'Mode sombre pur — fond noir absolu'
-                    : 'Texte et bordures plus marqués',
+                Text('Texte et bordures plus marqués',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(.45),
                         fontSize: 11.5)),
@@ -1995,9 +1992,6 @@ class _NotificationsSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final cs = Theme.of(context).colorScheme;
-
     return _SubPageShell(
       title: 'Notifications',
       child: SingleChildScrollView(
@@ -2009,13 +2003,13 @@ class _NotificationsSettingsPage extends ConsumerWidget {
           _SettingsCard(
             margin: EdgeInsets.zero,
             items: [
-              _SettingsItemToggle(
+              // Le push n'est pas encore branché (aucune infra FCM/Realtime).
+              // Marqué « à venir » plutôt qu'un faux interrupteur sans effet.
+              _SettingsItemComingSoon(
                 icon: Icons.notifications_outlined,
-                color: const Color(0xFF0E5FA3),
+                color: Color(0xFF0E5FA3),
                 label: 'Notifications push',
-                value: settings.notificationsPush,
-                onChanged: (v) =>
-                    ref.read(settingsProvider.notifier).setNotificationsPush(v),
+                description: 'Alertes en temps réel (web & mobile)',
               ),
               _SettingsItemComingSoon(
                 icon: Icons.mail_outline_rounded,
@@ -2085,27 +2079,6 @@ class _NotificationsSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainer,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outline.withOpacity(.2)),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.info_outline_rounded, size: 15, color: cs.onSurface.withOpacity(.45)),
-              const SizedBox(width: 10),
-              Expanded(child: Text(
-                'Les notifications nécessitent l\'autorisation de votre appareil. '
-                'Activez-les dans les réglages système si elles ne s\'affichent pas.',
-                style: TextStyle(
-                    color: cs.onSurface.withOpacity(.55),
-                    fontSize: 11.5, height: 1.5),
-              )),
-            ]),
-          ),
         ]),
       ),
     );
@@ -2155,22 +2128,11 @@ class _StoragePage extends StatelessWidget {
                           color: cs.onSurface,
                           fontSize: 13.5, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text('Données hors-ligne et ressources mises en cache',
+                  Text('Images et ressources mises en cache en mémoire',
                       style: TextStyle(
                           color: cs.onSurface.withOpacity(.5),
                           fontSize: 11.5)),
                 ])),
-              ]),
-              const SizedBox(height: 14),
-              Row(children: [
-                _StorageBar(
-                    label: 'Cours', value: 0.35, color: const Color(0xFF0E5FA3)),
-                const SizedBox(width: 8),
-                _StorageBar(
-                    label: 'Notes', value: 0.2, color: _gold),
-                const SizedBox(width: 8),
-                _StorageBar(
-                    label: 'Médias', value: 0.15, color: _terra),
               ]),
               const SizedBox(height: 14),
               SizedBox(
@@ -2253,46 +2215,16 @@ class _StoragePage extends StatelessWidget {
             ),
             onPressed: () {
               Navigator.pop(ctx);
+              // Vide réellement le cache image en mémoire de Flutter.
+              PaintingBinding.instance.imageCache
+                ..clear()
+                ..clearLiveImages();
               _showSnack(context, 'Cache vidé avec succès', color: _green);
             },
             child: const Text('Vider', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StorageBar extends StatelessWidget {
-  final String label;
-  final double value;
-  final Color color;
-  const _StorageBar({required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: TextStyle(
-                color: cs.onSurface.withOpacity(.55),
-                fontSize: 10, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: value,
-            backgroundColor: cs.outline.withOpacity(.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 6,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text('${(value * 100).round()}%',
-            style: TextStyle(
-                color: color, fontSize: 9.5, fontWeight: FontWeight.w700)),
-      ]),
     );
   }
 }

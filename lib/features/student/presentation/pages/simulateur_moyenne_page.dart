@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
@@ -13,44 +15,23 @@ class _Matiere {
   final String nom;
   final int coeff;
   double? note;
-  _Matiere({required this.nom, required this.coeff, this.note});
+  _Matiere({required this.nom, required this.coeff});
 }
 
 // ── Page principale ───────────────────────────────────────────────────────────
-class SimulateurMoyennePage extends StatefulWidget {
+// Calculateur de moyenne pondérée. L'élève saisit ses propres matières,
+// coefficients et notes — aucun preset codé en dur (l'ancien « Terminale EMI »
+// n'était vrai que pour une série, et faux pour tous les autres). Les notes et
+// la moyenne suivent le barème du cycle de l'élève (/10, /20, /100…).
+class SimulateurMoyennePage extends ConsumerStatefulWidget {
   const SimulateurMoyennePage({super.key});
   @override
-  State<SimulateurMoyennePage> createState() => _SimulateurMoyennePageState();
+  ConsumerState<SimulateurMoyennePage> createState() =>
+      _SimulateurMoyennePageState();
 }
 
-class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tab;
-
-  final _matieresBac = [
-    _Matiere(nom: 'Mathématiques',       coeff: 7),
-    _Matiere(nom: 'Sciences Physiques',  coeff: 6),
-    _Matiere(nom: 'Chimie',              coeff: 4),
-    _Matiere(nom: 'Algorithmique',       coeff: 4),
-    _Matiere(nom: 'Électronique',        coeff: 4),
-    _Matiere(nom: 'Français',            coeff: 3),
-    _Matiere(nom: 'Anglais',             coeff: 2),
-    _Matiere(nom: 'Histoire-Géo',        coeff: 2),
-    _Matiere(nom: 'Philosophie',         coeff: 2),
-    _Matiere(nom: 'EPS',                 coeff: 1),
-  ];
-
-  final _matieresLibre = <_Matiere>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 2, vsync: this);
-    _tab.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() { _tab.dispose(); super.dispose(); }
+class _SimulateurMoyennePageState extends ConsumerState<SimulateurMoyennePage> {
+  final _matieres = <_Matiere>[];
 
   double? _calcMoyenne(List<_Matiere> mats) {
     final valides = mats.where((m) => m.note != null).toList();
@@ -60,59 +41,38 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
     return sumPond / sumCoeff;
   }
 
-  Color _moyColor(double m) => m >= 14 ? _green : m >= 10 ? _gold : _terra;
-  String _mention(double m) {
-    if (m >= 16) return 'Très Bien';
-    if (m >= 14) return 'Bien';
-    if (m >= 12) return 'Assez Bien';
-    if (m >= 10) return 'Passable';
+  // Seuils sur le ratio 0→1 pour rester justes quel que soit le barème.
+  Color _moyColor(double ratio) =>
+      ratio >= 0.7 ? _green : ratio >= 0.5 ? _gold : _terra;
+  String _mention(double ratio) {
+    if (ratio >= 0.8) return 'Très Bien';
+    if (ratio >= 0.7) return 'Bien';
+    if (ratio >= 0.6) return 'Assez Bien';
+    if (ratio >= 0.5) return 'Passable';
     return 'Insuffisant';
   }
 
   @override
   Widget build(BuildContext context) {
-    final mats = _tab.index == 0 ? _matieresBac : _matieresLibre;
-    final moyenne = _calcMoyenne(mats);
+    final fmt = ref.watch(studentFormatProvider);
+    final maxScore = fmt.maxScore;
+    final isLetter = fmt.gradingScale == 'letter';
+    final moyenne = _calcMoyenne(_matieres);
+    final ratio = moyenne == null ? null : (moyenne / maxScore).clamp(0.0, 1.0);
 
     return PageScaffold(
       title: 'Simulateur de moyenne',
       subtitle: 'Calcule ta moyenne pondérée',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Tabs ────────────────────────────────────────────────────────────
-        Container(
-          height: 42,
-          decoration: BoxDecoration(
-            color: context.cBorder.withOpacity(.3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.all(4),
-          child: TabBar(
-            controller: _tab,
-            indicator: BoxDecoration(
-              color: context.cCard,
-              borderRadius: BorderRadius.circular(9),
-              boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4)],
-            ),
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            labelColor: _terra,
-            unselectedLabelColor: context.cMuted,
-            labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-            unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-            tabs: const [Tab(text: 'Terminale EMI'), Tab(text: 'Personnalisé')],
-          ),
-        ),
-        const SizedBox(height: 16),
-
         // ── Résultat ────────────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: moyenne == null
+              colors: ratio == null
                   ? [const Color(0xFF2A1A00), const Color(0xFF4A2800)]
-                  : [const Color(0xFF1A0500), _moyColor(moyenne)],
+                  : [const Color(0xFF1A0500), _moyColor(ratio)],
               begin: Alignment.topLeft, end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
@@ -132,9 +92,12 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
               const SizedBox(height: 4),
               moyenne == null
                   ? const Text('—', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900))
-                  : Text('${moyenne.toStringAsFixed(2)} / 20',
+                  : Text(
+                      isLetter
+                          ? fmt.grade(moyenne)
+                          : '${moyenne.toStringAsFixed(2)} / ${maxScore.toStringAsFixed(0)}',
                       style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-              if (moyenne != null) ...[
+              if (ratio != null) ...[
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -142,14 +105,14 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
                     color: Colors.white.withOpacity(.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(_mention(moyenne),
+                  child: Text(_mention(ratio),
                       style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
               ],
             ])),
             if (moyenne != null) ...[
               Column(children: [
-                Text('${mats.where((m) => m.note != null).length}',
+                Text('${_matieres.where((m) => m.note != null).length}',
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
                 const Text('matières', style: TextStyle(color: Colors.white60, fontSize: 10)),
               ]),
@@ -159,52 +122,50 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
         const SizedBox(height: 16),
 
         // ── Bouton reset ────────────────────────────────────────────────────
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () => setState(() { for (final m in mats) m.note = null; }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border.all(color: context.cBorder),
-                borderRadius: BorderRadius.circular(8),
+        if (_matieres.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => setState(() { for (final m in _matieres) m.note = null; }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: context.cBorder),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.refresh_rounded, size: 13, color: context.cMuted),
+                  const SizedBox(width: 5),
+                  Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
+                ]),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.refresh_rounded, size: 13, color: context.cMuted),
-                const SizedBox(width: 5),
-                Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
-              ]),
             ),
           ),
+        if (_matieres.isNotEmpty) const SizedBox(height: 12),
+
+        // ── Formulaire d'ajout ──────────────────────────────────────────────
+        _AddMatiereForm(
+          onAdd: (nom, coeff) {
+            setState(() => _matieres.add(_Matiere(nom: nom, coeff: coeff)));
+          },
         ),
         const SizedBox(height: 12),
 
-        // ── Formulaire d'ajout (onglet personnalisé) ─────────────────────────
-        if (_tab.index == 1) ...[
-          _AddMatiereForm(
-            onAdd: (nom, coeff) {
-              setState(() => _matieresLibre.add(_Matiere(nom: nom, coeff: coeff)));
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-
         // ── Liste matières ──────────────────────────────────────────────────
-        if (mats.isEmpty)
+        if (_matieres.isEmpty)
           const EmptyState(
             icon: Icons.add_circle_outline_rounded,
             title: 'Aucune matière',
-            description: 'Ajoutez des matières avec le formulaire ci-dessus.',
+            description: 'Ajoute tes matières avec le formulaire ci-dessus, saisis tes notes et coefficients pour estimer ta moyenne.',
           )
         else
-          ...mats.asMap().entries.map((entry) => Padding(
+          ..._matieres.asMap().entries.map((entry) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _MatiereRow(
               mat: entry.value,
+              maxScore: maxScore,
               onChanged: (v) => setState(() => entry.value.note = v),
-              onDelete: _tab.index == 1
-                  ? () => setState(() => _matieresLibre.removeAt(entry.key))
-                  : null,
+              onDelete: () => setState(() => _matieres.removeAt(entry.key)),
             ),
           )),
       ]),
@@ -215,9 +176,13 @@ class _SimulateurMoyennePageState extends State<SimulateurMoyennePage>
 // ── Ligne matière ─────────────────────────────────────────────────────────────
 class _MatiereRow extends StatefulWidget {
   final _Matiere mat;
+  final double maxScore;
   final ValueChanged<double?> onChanged;
   final VoidCallback? onDelete;
-  const _MatiereRow({required this.mat, required this.onChanged, this.onDelete});
+  const _MatiereRow({
+    required this.mat, required this.maxScore,
+    required this.onChanged, this.onDelete,
+  });
   @override
   State<_MatiereRow> createState() => _MatiereRowState();
 }
@@ -238,13 +203,15 @@ class _MatiereRowState extends State<_MatiereRow> {
   Color get _noteColor {
     final n = widget.mat.note;
     if (n == null) return context.cMuted;
-    if (n >= 14) return const Color(0xFF1B5E20);
-    if (n >= 10) return const Color(0xFFC17F24);
+    final ratio = n / widget.maxScore;
+    if (ratio >= 0.7) return const Color(0xFF1B5E20);
+    if (ratio >= 0.5) return const Color(0xFFC17F24);
     return const Color(0xFF8B1A00);
   }
 
   @override
   Widget build(BuildContext context) {
+    final maxLabel = widget.maxScore.toStringAsFixed(0);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -268,7 +235,7 @@ class _MatiereRowState extends State<_MatiereRow> {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cInk))),
         // Input note
         SizedBox(
-          width: 60,
+          width: 64,
           child: TextField(
             controller: _ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -276,8 +243,8 @@ class _MatiereRowState extends State<_MatiereRow> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _noteColor),
             decoration: InputDecoration(
-              hintText: '—',
-              hintStyle: TextStyle(color: context.cMuted),
+              hintText: '/$maxLabel',
+              hintStyle: TextStyle(color: context.cMuted, fontSize: 12),
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -290,7 +257,8 @@ class _MatiereRowState extends State<_MatiereRow> {
             ),
             onChanged: (v) {
               final d = double.tryParse(v);
-              widget.onChanged(d != null && d >= 0 && d <= 20 ? d : null);
+              widget.onChanged(
+                  d != null && d >= 0 && d <= widget.maxScore ? d : null);
             },
           ),
         ),

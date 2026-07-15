@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/config/countries.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra  = Color(0xFF8B1A00);
@@ -61,6 +62,7 @@ const _kCurrencies = <String, String>{
 
 /// Barèmes de notation (`schools.grading_scale` — contrainte : ces trois clés).
 const _kGradingScales = <String, String>{
+  'numeric_10': 'Sur 10',
   'numeric_20': 'Sur 20',
   'numeric_100': 'Sur 100',
   'letter': 'Lettres (A–F)',
@@ -96,6 +98,9 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   String _currency     = 'XAF';
   String _gradingScale = 'numeric_20';
   String _periodSystem = 'trimester';
+  /// Surcharges de barème par cycle (clé = SchoolLevel.name). Vide = tous les
+  /// cycles suivent `_gradingScale`. N'a de sens que pour un complexe scolaire.
+  Map<String, String> _gradingByCycle = {};
 
   bool _loading  = true;
   bool _saving   = false;
@@ -106,6 +111,16 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   /// Pilotent les niveaux de classe proposés — cf. [SchoolTaxonomy].
   final Set<String> _types = {};
   String _eduSystem = 'francophone';
+
+  /// Cycles (SchoolLevel) réellement offerts, dérivés des types. Doublons
+  /// fusionnés (garderie+primaire → primaire), triés du plus petit au plus grand.
+  /// Le barème par cycle n'a de sens que s'il y en a plusieurs.
+  List<SchoolLevel> get _offeredLevels => _types
+      .map(SchoolLevel.fromSchoolType)
+      .whereType<SchoolLevel>()
+      .toSet()
+      .toList()
+    ..sort((a, b) => a.index.compareTo(b.index));
 
   @override
   void initState() {
@@ -129,6 +144,7 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _accentColor       = school.accentColor;
           _currency          = school.currency;
           _gradingScale      = school.gradingScale;
+          _gradingByCycle    = Map.of(school.gradingByCycle);
           _periodSystem      = school.periodSystem;
           _types
             ..clear()
@@ -174,6 +190,12 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         currency:     _currency,
         gradingScale: _gradingScale,
         periodSystem: _periodSystem,
+        // On ne garde que les surcharges des cycles réellement offerts, pour
+        // ne pas laisser traîner un barème d'un cycle que l'école n'a plus.
+        gradingByCycle: {
+          for (final l in _offeredLevels)
+            if (_gradingByCycle[l.name] != null) l.name: _gradingByCycle[l.name]!,
+        },
       );
       ref.invalidate(schoolProvider);
       // Les niveaux de classe proposés en dépendent directement.
@@ -316,7 +338,9 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                         Expanded(
                           child: _Picker<String>(
                             value: _gradingScale,
-                            label: 'Barème des notes',
+                            label: _offeredLevels.length > 1
+                                ? 'Barème par défaut'
+                                : 'Barème des notes',
                             icon: Icons.grading_outlined,
                             items: _kGradingScales,
                             onChanged: (v) =>
@@ -324,6 +348,39 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                           ),
                         ),
                       ]),
+                      // Barème PAR CYCLE — seulement pour un complexe scolaire
+                      // (primaire + collège + lycée…). Chaque cycle peut suivre le
+                      // défaut ou avoir son propre barème (ex. primaire /10).
+                      if (_offeredLevels.length > 1) ...[
+                        const SizedBox(height: 14),
+                        Text('Barème par cycle',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: context.cMuted)),
+                        const SizedBox(height: 4),
+                        Text(
+                            'Laissez « Barème par défaut » pour suivre le réglage '
+                            'ci-dessus. Ex. primaire /10, secondaire /20.',
+                            style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                        const SizedBox(height: 10),
+                        for (final lvl in _offeredLevels) ...[
+                          _Picker<String>(
+                            value: _gradingByCycle[lvl.name] ?? '',
+                            label: 'Barème — ${lvl.label}',
+                            icon: Icons.school_outlined,
+                            items: {'': 'Barème par défaut', ..._kGradingScales},
+                            onChanged: (v) => setState(() {
+                              if (v == null || v.isEmpty) {
+                                _gradingByCycle.remove(lvl.name);
+                              } else {
+                                _gradingByCycle[lvl.name] = v;
+                              }
+                            }),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
                       const SizedBox(height: 12),
                       _Picker<String>(
                         value: _periodSystem,

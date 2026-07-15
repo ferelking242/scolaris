@@ -535,17 +535,26 @@ class _ActivityItem extends StatelessWidget {
 
 // ── Quick actions panel ───────────────────────────────────────────────────────
 class _DashQuickActions extends ConsumerWidget {
-  // (icône, libellé, couleur, labelKey de nav cible)
+  // (icône, libellé, couleur, labelKey de nav cible, permission requise).
+  // Le labelKey DOIT correspondre exactement à une entrée de `_allGroups`,
+  // sinon l'intention de nav tombe dans le vide (indexWhere == -1).
   static const _actions = [
-    (Icons.person_add_rounded, 'Inscrire un élève',  _terra,            'nav.users'),
-    (Icons.class_rounded,      'Gérer les classes',  _orange,           'nav.classes'),
-    (Icons.menu_book_rounded,  'Gérer les matières', Color(0xFF388E3C), 'nav.subjects'),
-    (Icons.summarize_rounded,  'Voir les rapports',  _gold,             'nav.reports'),
+    (Icons.person_add_rounded, 'Inscrire un élève',  _terra,            'Élèves & familles', StaffPermissions.students),
+    (Icons.class_rounded,      'Gérer les classes',  _orange,           'nav.classes',       StaffPermissions.classes),
+    (Icons.menu_book_rounded,  'Gérer les matières', Color(0xFF388E3C), 'nav.subjects',      StaffPermissions.classes),
+    (Icons.summarize_rounded,  'Voir les rapports',  _gold,             'nav.reports',       StaffPermissions.reports),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = _DashColors.of(context);
+    final user = ref.watch(authSessionProvider);
+
+    // Mêmes règles que le menu : on ne propose que les actions dont la page
+    // cible est accessible au membre connecté. Panneau masqué si aucune.
+    final actions = _actions.where((a) => user?.can(a.$5) ?? false).toList();
+    if (actions.isEmpty) return const SizedBox.shrink();
+
     return Container(
       decoration: BoxDecoration(
         color: c.card,
@@ -563,13 +572,13 @@ class _DashQuickActions extends ConsumerWidget {
           ]),
         ),
         Divider(height: 1, color: c.divider),
-        ...List.generate(_actions.length, (i) {
-          final a = _actions[i];
+        ...List.generate(actions.length, (i) {
+          final a = actions[i];
           return Column(children: [
             Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: i == _actions.length - 1
+                borderRadius: i == actions.length - 1
                     ? const BorderRadius.vertical(bottom: Radius.circular(14))
                     : BorderRadius.zero,
                 onTap: () =>
@@ -594,7 +603,7 @@ class _DashQuickActions extends ConsumerWidget {
                 ),
               ),
             ),
-            if (i < _actions.length - 1)
+            if (i < actions.length - 1)
               Divider(height: 1, indent: 58, color: c.divider),
           ]);
         }),
@@ -623,7 +632,7 @@ class _DashToday extends ConsumerWidget {
       orElse: () => null,
     );
     final overdue = invoicesAsync.maybeWhen(
-      data: (list) => list.where((inv) => inv.isOverdue).length,
+      data: (list) => list.where((inv) => inv.isLate).length,
       orElse: () => null,
     );
     String fmt(int? n, String singular, String plural) {

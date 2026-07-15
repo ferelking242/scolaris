@@ -1339,8 +1339,8 @@ class _PreRegisterBtn extends StatelessWidget {
   const _schoolUsers = [
     // Primaire — École Lumière du Congo (ELC)
     _SchoolUser(label:'Thomas Mouyabi',subtitle:'Directeur · École Lumière du Congo',email:'thomas.mouyabi@elc.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
-    _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · CM2 A · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
-    _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2 A · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
+    _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
+    _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
     _SchoolUser(label:'Rose Okemba',subtitle:'Secrétariat · École Lumière',email:'rose.okemba@elc.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF558B2F),school:'Primaire'),
     // ── Un compte par RÔLE (droits fins) — cf. 20260735 + 20260750_seed_role_demos.
     //    Tous à l'École Lumière, pour vérifier ce que chaque rôle peut/ne peut pas.
@@ -1356,18 +1356,18 @@ class _PreRegisterBtn extends StatelessWidget {
     _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice · Primaire',email:'parent.elc@elc.cg',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
     // Collège — Saint-François de Sales (CSFS)
     _SchoolUser(label:'Andrée Koumba',subtitle:'Directrice · Collège St-François',email:'andree.koumba@csfs.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF1565C0),school:'Collège'),
-    _SchoolUser(label:'Céleste Ibara',subtitle:'Enseignante · 6ème A · Collège',email:'celeste.ibara@csfs.cg',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Collège'),
-    _SchoolUser(label:'Ferel Ondongo',subtitle:'Élève · 6ème A · Collège',email:'ferel.ondongo@csfs.cg',icon:Icons.school_rounded,color:Color(0xFF0288D1),school:'Collège'),
+    _SchoolUser(label:'Céleste Ibara',subtitle:'Enseignante · Collège',email:'celeste.ibara@csfs.cg',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Collège'),
+    _SchoolUser(label:'Ferel Ondongo',subtitle:'Élève · Collège',email:'ferel.ondongo@csfs.cg',icon:Icons.school_rounded,color:Color(0xFF0288D1),school:'Collège'),
     _SchoolUser(label:'Rémy Makosso',subtitle:'Secrétariat · Collège St-François',email:'remy.makosso@csfs.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF00838F),school:'Collège'),
     // Lycée — Savorgnan de Brazza (LSB)
     _SchoolUser(label:'Serge Bouya',subtitle:'Directeur · Lycée Savorgnan de Brazza',email:'serge.bouya@lsb.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
-    _SchoolUser(label:'Pascal Nzoukou',subtitle:'Enseignant · Terminale D · Lycée',email:'pascal.nzoukou@lsb.cg',icon:Icons.menu_book_rounded,color:Color(0xFFC17F24),school:'Lycée'),
-    _SchoolUser(label:'Bienvenu Makoumbou',subtitle:'Élève · Terminale D · Lycée',email:'bienvenu.makoumbou@lsb.cg',icon:Icons.account_balance_rounded,color:Color(0xFFD4540A),school:'Lycée'),
+    _SchoolUser(label:'Pascal Nzoukou',subtitle:'Enseignant · Lycée',email:'pascal.nzoukou@lsb.cg',icon:Icons.menu_book_rounded,color:Color(0xFFC17F24),school:'Lycée'),
+    _SchoolUser(label:'Bienvenu Makoumbou',subtitle:'Élève · Lycée',email:'bienvenu.makoumbou@lsb.cg',icon:Icons.account_balance_rounded,color:Color(0xFFD4540A),school:'Lycée'),
     _SchoolUser(label:'Christelle Niangou',subtitle:'Secrétariat · Lycée Savorgnan',email:'christelle.niangou@lsb.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
     // Université — Denis Sassou Nguesso (UDSN)
     _SchoolUser(label:'Pr. Alain Nzoussi',subtitle:'Recteur · Université DSN',email:'alain.nzoussi@udsn.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF6A1B9A),school:'Université'),
-    _SchoolUser(label:'Dr. Henri Loemba',subtitle:'Enseignant · Licence 1 Droit',email:'henri.loemba@udsn.cg',icon:Icons.menu_book_rounded,color:Color(0xFF7B1FA2),school:'Université'),
-    _SchoolUser(label:'Gloire Mouamba',subtitle:'Étudiant · Licence 1 Droit',email:'gloire.mouamba@udsn.cg',icon:Icons.science_rounded,color:Color(0xFF8E24AA),school:'Université'),
+    _SchoolUser(label:'Dr. Henri Loemba',subtitle:'Enseignant · Université',email:'henri.loemba@udsn.cg',icon:Icons.menu_book_rounded,color:Color(0xFF7B1FA2),school:'Université'),
+    _SchoolUser(label:'Gloire Mouamba',subtitle:'Étudiant · Université',email:'gloire.mouamba@udsn.cg',icon:Icons.science_rounded,color:Color(0xFF8E24AA),school:'Université'),
     _SchoolUser(label:'Patricia Etsiona',subtitle:'Secrétariat · Université DSN',email:'patricia.etsiona@udsn.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF6A1B9A),school:'Université'),
   ];
 

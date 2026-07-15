@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -24,10 +23,13 @@ class FinancePaymentsPage extends ConsumerWidget {
       data: (invoices) {
         final collected =
             invoices.where((i) => i.isPaid).fold(0.0, (a, b) => a + b.amount);
-        final pending =
-            invoices.where((i) => i.isPending).fold(0.0, (a, b) => a + b.amount);
+        // En retard = échéance dépassée impayée (isLate), pas status=='overdue'
+        // qui n'est jamais écrit. En attente = impayé mais pas encore échu.
         final overdue =
-            invoices.where((i) => i.isOverdue).fold(0.0, (a, b) => a + b.amount);
+            invoices.where((i) => i.isLate).fold(0.0, (a, b) => a + b.amount);
+        final pending = invoices
+            .where((i) => !i.isPaid && !i.isLate && i.status != 'cancelled')
+            .fold(0.0, (a, b) => a + b.amount);
         final fmt = NumberFormat.compact(locale: 'fr');
 
         return PageScaffold(
@@ -128,7 +130,7 @@ class FinancePaymentsPage extends ConsumerWidget {
                                     fontWeight: FontWeight.w700)),
                             Align(
                                 alignment: Alignment.centerLeft,
-                                child: _statusPill(inv.status)),
+                                child: _statusPill(inv.isLate ? 'overdue' : inv.status)),
                           ],
                       ],
                     ),

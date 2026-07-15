@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -127,7 +128,12 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
       title: 'Cours',
       subtitle: 'Gérer les cours par classe',
       actions: [
-        if (_selectedClassId != null && schoolId != null)
+        // Les écritures suivent les droits fins du rôle, comme Classes/Matières.
+        // Affecter un enseignant à un cours lui donne l'accès notation/appel :
+        // raison de plus pour ne pas laisser créer un cours sans `classes.creer`.
+        if (_selectedClassId != null &&
+            schoolId != null &&
+            ref.watch(canProvider('classes.creer')))
           ActionButton(
             label: 'Ajouter',
             icon: Icons.add_rounded,
@@ -268,6 +274,8 @@ class _CoursesList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final coursesAsync = ref.watch(coursesForClassProvider(classId));
+    final canEdit = ref.watch(canProvider('classes.modifier'));
+    final canDelete = ref.watch(canProvider('classes.supprimer'));
     return coursesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Erreur : $e')),
@@ -296,6 +304,8 @@ class _CoursesList extends ConsumerWidget {
             ),
             ...filtered.map((c) => _CourseAdminCard(
                   course: c,
+                  canEdit: canEdit,
+                  canDelete: canDelete,
                   onEdit: () => onEdit(c),
                   onDelete: () => onDelete(c),
                 )),
@@ -309,10 +319,18 @@ class _CoursesList extends ConsumerWidget {
 // ── Carte cours admin ─────────────────────────────────────────────────────────
 class _CourseAdminCard extends StatelessWidget {
   final SbCourse course;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _CourseAdminCard({required this.course, required this.onEdit, required this.onDelete});
+  const _CourseAdminCard({
+    required this.course,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   static Color _parseColor(String? hex) {
     if (hex == null) return _terra;
@@ -393,12 +411,15 @@ class _CourseAdminCard extends StatelessWidget {
             ]),
           ),
 
-          // ── Actions ────────────────────────────────────────────────
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(icon: Icon(Icons.edit_outlined, size: 18, color: c), onPressed: onEdit, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-            const SizedBox(height: 4),
-            IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFCCA99A)), onPressed: onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-          ]),
+          // ── Actions (selon les droits fins du rôle) ────────────────
+          if (canEdit || canDelete)
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              if (canEdit)
+                IconButton(icon: Icon(Icons.edit_outlined, size: 18, color: c), onPressed: onEdit, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              if (canEdit && canDelete) const SizedBox(height: 4),
+              if (canDelete)
+                IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFCCA99A)), onPressed: onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            ]),
         ]),
       ),
     );
@@ -682,14 +703,13 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
             hint: 'ex: Salle B12, Labo Physique, Terrain…',
           ),
           const SizedBox(height: 4),
-          // Suggestions rapides
-          Wrap(spacing: 6, runSpacing: 4, children: const [
-            _RoomSuggestion('Salle flexible'),
-            _RoomSuggestion('Non défini'),
-            _RoomSuggestion('Amphi A'),
-            _RoomSuggestion('Laboratoire'),
-            _RoomSuggestion('Terrain'),
-          ].map((w) => w).toList()),
+          // Suggestions rapides : un tap remplit le champ salle.
+          Wrap(spacing: 6, runSpacing: 4, children: [
+            for (final s in const [
+              'Salle flexible', 'Non défini', 'Amphi A', 'Laboratoire', 'Terrain'
+            ])
+              _RoomSuggestion(s, onTap: () => setState(() => _room.text = s)),
+          ]),
           const SizedBox(height: 14),
 
           // ── Coefficient + Heures/sem + Chapitres ─────────────────
@@ -855,24 +875,24 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
 // ── Suggestion salle rapide ───────────────────────────────────────────────────
 class _RoomSuggestion extends StatelessWidget {
   final String label;
-  const _RoomSuggestion(this.label);
+  final VoidCallback onTap;
+  const _RoomSuggestion(this.label, {required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // We need the controller from parent — pass via callback via a different pattern
-    // Simple display only: tapping copies the suggestion into the parent field
-    // Since we can't easily access parent state here, we use an InheritedWidget approach.
-    // Instead, this just shows as a non-interactive chip (the user reads and types).
-    // For proper tap-to-fill, the parent wraps with a callback.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: cs.outlineVariant),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -989,7 +1009,9 @@ class _EmptyCourses extends ConsumerWidget {
   const _EmptyCourses({required this.schoolId, required this.classId, required this.onCreated});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Center(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canCreate = ref.watch(canProvider('classes.creer'));
+    return Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -997,22 +1019,30 @@ class _EmptyCourses extends ConsumerWidget {
             const SizedBox(height: 14),
             const Text('Aucun cours pour cette classe', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _terra)),
             const SizedBox(height: 6),
-            Builder(builder: (ctx) => Text('Ajoutez des cours ou chargez les matières types.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Theme.of(ctx).colorScheme.onSurfaceVariant))),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => _openCourseForm(
-                context, ref, schoolId, classId, null,
-                () {
-                  ref.invalidate(coursesForClassProvider(classId));
-                  ref.invalidate(coursesForSchoolProvider);
-                  onCreated();
-                },
+            Builder(builder: (ctx) => Text(
+                canCreate
+                    ? 'Ajoutez des cours ou chargez les matières types.'
+                    : 'Aucun cours n\'a encore été créé pour cette classe.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Theme.of(ctx).colorScheme.onSurfaceVariant))),
+            if (canCreate) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () => _openCourseForm(
+                  context, ref, schoolId, classId, null,
+                  () {
+                    ref.invalidate(coursesForClassProvider(classId));
+                    ref.invalidate(coursesForSchoolProvider);
+                    onCreated();
+                  },
+                ),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Créer un cours'),
+                style: FilledButton.styleFrom(backgroundColor: _terra),
               ),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Créer un cours'),
-              style: FilledButton.styleFrom(backgroundColor: _terra),
-            ),
+            ],
           ]),
         ),
       );
+  }
 }

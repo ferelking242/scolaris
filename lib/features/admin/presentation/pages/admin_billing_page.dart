@@ -7,6 +7,7 @@ import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
+import 'tuition_accounts_page.dart';
 import 'tuition_fees_page.dart';
 import 'tuition_tracking_page.dart';
 
@@ -44,39 +45,24 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
   Future<void> _collect(
       BuildContext context, WidgetRef ref, SbInvoice inv) async {
     final messenger = ScaffoldMessenger.of(context);
-    final fmt = NumberFormat.decimalPattern('fr');
-    final ok = await showDialog<bool>(
+    // Montant à encaisser : partiel possible, défaut = solde restant.
+    final amount = await showDialog<double>(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Enregistrer l\'encaissement'),
-        content: Text(
-            'Confirmer la réception de ${fmt.format(inv.amount)} ${inv.currency} '
-            'pour « ${inv.description ?? 'facture'} »'
-            '${inv.studentName != null ? ' (${inv.studentName})' : ''} ?\n\n'
-            'Paiement en espèces — la facture passera à « Payé ».'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: _green),
-            child: const Text('Encaisser'),
-          ),
-        ],
-      ),
+      builder: (_) => _CollectDialog(inv: inv),
     );
-    if (ok != true) return;
+    if (amount == null) return;
     try {
       await SupabaseDbSource.recordPayment(
         invoiceId: inv.id,
         studentId: inv.studentId ?? '',
-        amount: inv.amount,
+        amount: amount,
       );
       ref.invalidate(invoicesProvider);
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Encaissement enregistré.'),
+      final remaining = inv.balance - amount;
+      messenger.showSnackBar(SnackBar(
+        content: Text(remaining > 0.01
+            ? 'Acompte enregistré. Reste dû : ${NumberFormat.decimalPattern('fr').format(remaining)} ${inv.currency}.'
+            : 'Encaissement enregistré. Facture soldée.'),
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
@@ -122,9 +108,83 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
     }
   }
 
+  /// La table des factures ponctuelles (encaisser / supprimer). Utilisée par la
+  /// sous-vue « Factures ponctuelles ».
+  Widget _invoicesPanel(
+      BuildContext context, WidgetRef ref, List<SbInvoice> invoices) {
+    return DataPanel(
+      title: 'Factures ponctuelles',
+      child: invoices.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                  child: Text(
+                      'Aucune facture. Cliquez « Nouvelle facture » pour commencer.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: context.cMuted))),
+            )
+          : DataTablePanel(
+              columns: const ['Facture', 'Élève', 'Montant', 'Statut', ''],
+              flex: const [2, 3, 2, 2, 2],
+              rows: [
+                for (final inv in invoices)
+                  [
+                    Text(inv.invoiceNumber ?? inv.id.substring(0, 8),
+                        style: TextStyle(
+                            color: context.cInk,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
+                    Text(inv.studentName ?? '—',
+                        style:
+                            TextStyle(fontSize: 12.5, color: context.cInk)),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                              '${NumberFormat.decimalPattern("fr").format(inv.amount)} ${inv.currency}',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: context.cInk,
+                                  fontWeight: FontWeight.w700)),
+                          if (inv.isPartiallyPaid)
+                            Text(
+                                'reste ${NumberFormat.decimalPattern("fr").format(inv.balance)}',
+                                style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: Color(0xFFEA580C),
+                                    fontWeight: FontWeight.w700)),
+                        ]),
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: _statusPill(inv)),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (!inv.isPaid)
+                        _MiniBtn(
+                          label: 'Encaisser',
+                          color: _green,
+                          onTap: () => _collect(context, ref, inv),
+                        ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline_rounded,
+                            size: 16, color: context.cMuted),
+                        tooltip: 'Supprimer',
+                        onPressed: () => _delete(context, ref, inv),
+                      ),
+                    ]),
+                  ],
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sous-vues inline (pas de route plein écran).
+    if (_view == 'accounts') {
+      return TuitionAccountsPage(
+          onBack: () => setState(() => _view = 'overview'));
+    }
     if (_view == 'fees') {
       return TuitionFeesPage(onBack: () => setState(() => _view = 'overview'));
     }
@@ -143,19 +203,58 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
         title: 'Aperçu facturation',
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (invoices) {
+      data: (allInvoices) {
+        // La SCOLARITÉ vit dans « Comptes scolarité » (compte + cascade) ; ici on
+        // ne traite que les FRAIS PONCTUELS (inscription, cantine…). On exclut donc
+        // la ligne-compte annuelle, qui fausserait les totaux et n'a pas d'échéance.
+        final invoices =
+            allInvoices.where((i) => !i.isTuition).toList();
+
+        // « Encaissé » = argent RÉELLEMENT reçu (cumul des paiements, acomptes
+        // compris). « En retard »/« En attente » = SOLDE restant dû, réparti sur
+        // isLate (échéance dépassée) vs pas encore échu. Buckets exclusifs.
         final collected =
-            invoices.where((i) => i.isPaid).fold(0.0, (a, b) => a + b.amount);
-        final pending =
-            invoices.where((i) => i.isPending).fold(0.0, (a, b) => a + b.amount);
+            invoices.fold(0.0, (a, b) => a + b.amountPaid);
         final overdue =
-            invoices.where((i) => i.isOverdue).fold(0.0, (a, b) => a + b.amount);
+            invoices.where((i) => i.isLate).fold(0.0, (a, b) => a + b.balance);
+        final pending = invoices
+            .where((i) => !i.isPaid && !i.isLate && i.status != 'cancelled')
+            .fold(0.0, (a, b) => a + b.balance);
         final fmt = NumberFormat.compact(locale: 'fr');
+
+        // Sous-vue « Factures ponctuelles » : la liste sur sa propre page.
+        if (_view == 'invoices') {
+          return PageScaffold(
+            title: 'Factures ponctuelles',
+            subtitle: 'Inscription, cantine, transport, fournitures…',
+            actions: [
+              if (ref.watch(canProvider('comptabilite.creer_facture')))
+                ActionButton(
+                  label: 'Nouvelle facture',
+                  icon: Icons.add_rounded,
+                  primary: true,
+                  onTap: () => _newInvoice(context, ref),
+                ),
+            ],
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              BackLinkRow(
+                  label: 'Retour à l\'aperçu',
+                  onTap: () => setState(() => _view = 'overview')),
+              const SizedBox(height: 14),
+              _invoicesPanel(context, ref, invoices),
+            ]),
+          );
+        }
 
         return PageScaffold(
           title: 'Aperçu facturation',
           subtitle: 'Scolarité — suivi des paiements de l\'établissement',
           actions: [
+            ActionButton(
+              label: 'Comptes scolarité',
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () => setState(() => _view = 'accounts'),
+            ),
             ActionButton(
               label: 'Frais de scolarité',
               icon: Icons.event_repeat_rounded,
@@ -178,7 +277,7 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
           ],
           child: Column(children: [
             DataPanel(
-              title: 'Ce mois',
+              title: 'Frais ponctuels — vue d\'ensemble',
               child: LayoutBuilder(builder: (ctx, c) {
                 final boxes = [
                   _StatBox(
@@ -225,63 +324,25 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
               }),
             ),
             const SizedBox(height: 14),
-            DataPanel(
-              title: 'Toutes les factures',
-              child: invoices.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                          child: Text(
-                              'Aucune facture. Cliquez « Nouvelle facture » pour commencer.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: context.cMuted))),
-                    )
-                  : DataTablePanel(
-                      columns: const [
-                        'Facture',
-                        'Élève',
-                        'Montant',
-                        'Statut',
-                        ''
-                      ],
-                      flex: const [2, 3, 2, 2, 2],
-                      rows: [
-                        for (final inv in invoices)
-                          [
-                            Text(inv.invoiceNumber ?? inv.id.substring(0, 8),
-                                style: TextStyle(
-                                    color: context.cInk,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600)),
-                            Text(inv.studentName ?? '—',
-                                style: TextStyle(
-                                    fontSize: 12.5, color: context.cInk)),
-                            Text(
-                                '${NumberFormat.decimalPattern("fr").format(inv.amount)} ${inv.currency}',
-                                style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: context.cInk,
-                                    fontWeight: FontWeight.w700)),
-                            Align(
-                                alignment: Alignment.centerLeft,
-                                child: _statusPill(inv.status)),
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                              if (!inv.isPaid)
-                                _MiniBtn(
-                                  label: 'Encaisser',
-                                  color: _green,
-                                  onTap: () => _collect(context, ref, inv),
-                                ),
-                              IconButton(
-                                icon: Icon(Icons.delete_outline_rounded,
-                                    size: 16, color: context.cMuted),
-                                tooltip: 'Supprimer',
-                                onPressed: () => _delete(context, ref, inv),
-                              ),
-                            ]),
-                          ],
-                      ],
-                    ),
+            // La liste est sur sa propre page (scolarité exclue).
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _view = 'invoices'),
+              child: DataPanel(
+                title: 'Factures ponctuelles',
+                child: Row(children: [
+                  Icon(Icons.receipt_long_rounded, color: context.cMuted, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                        invoices.isEmpty
+                            ? 'Aucune facture ponctuelle pour l\'instant.'
+                            : '${invoices.length} facture(s) — inscription, cantine, transport…',
+                        style: TextStyle(fontSize: 13, color: context.cInk)),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: context.cMuted),
+                ]),
+              ),
             ),
             const SizedBox(height: 14),
             const PlanGateBanner(
@@ -301,11 +362,16 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
     );
   }
 
-  static Widget _statusPill(String s) => switch (s) {
-        'paid' => StatusPill.success('Payé'),
-        'overdue' => StatusPill.danger('En retard'),
-        _ => StatusPill.warning('En attente'),
-      };
+  static Widget _statusPill(SbInvoice inv) {
+    if (inv.isPaid) return StatusPill.success('Payé');
+    if (inv.status == 'cancelled') return StatusPill.neutral('Annulée');
+    if (inv.isLate) {
+      return StatusPill.danger(
+          inv.isPartiallyPaid ? 'Retard · partiel' : 'En retard');
+    }
+    if (inv.isPartiallyPaid) return StatusPill.warning('Partiel');
+    return StatusPill.warning('En attente');
+  }
 }
 
 // ── Dialogue : nouvelle facture ──────────────────────────────────────────────
@@ -319,15 +385,18 @@ class _InvoiceDialog extends ConsumerStatefulWidget {
 
 class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _desc = TextEditingController(text: 'Frais de scolarité');
+  final _desc = TextEditingController(text: 'Frais d\'inscription');
   final _amount = TextEditingController();
   SbStudent? _student;
-  String _category = 'Scolarité';
+  String _category = 'Inscription';
+  DateTime? _dueDate;
   bool _loading = false;
   String? _error;
 
+  // La SCOLARITÉ ne se saisit plus ici : elle passe par le compte de scolarité
+  // (Facturation → Comptes scolarité), qui gère le solde qui court et la
+  // cascade des versements. Ici, seulement les frais ponctuels.
   static const _categories = [
-    'Scolarité',
     'Inscription',
     'Cantine',
     'Transport',
@@ -362,6 +431,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
         description: _desc.text.trim(),
         amount: amount,
         category: _category,
+        dueDate: _dueDate?.toIso8601String().split('T').first,
         currency: ref.read(schoolFormatProvider).currency,
       );
       widget.onSaved();
@@ -417,7 +487,15 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
                 for (final c in _categories)
                   DropdownMenuItem(value: c, child: Text(c)),
               ],
-              onChanged: (v) => setState(() => _category = v ?? 'Scolarité'),
+              onChanged: (v) => setState(() => _category = v ?? 'Inscription'),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'La scolarité se gère dans « Comptes scolarité », pas ici.',
+                style: TextStyle(fontSize: 11.5, color: context.cMuted),
+              ),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -443,6 +521,43 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
                 return null;
               },
             ),
+            const SizedBox(height: 12),
+            // Échéance optionnelle : sans elle, la facture ne peut jamais être
+            // « en retard » (isLate se base sur due_date).
+            InkWell(
+              onTap: () async {
+                final now = DateTime.now();
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _dueDate ?? now.add(const Duration(days: 30)),
+                  firstDate: DateTime(now.year - 1),
+                  lastDate: DateTime(now.year + 2),
+                  locale: const Locale('fr'),
+                );
+                if (d != null) setState(() => _dueDate = d);
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Échéance (optionnel)',
+                  prefixIcon: const Icon(Icons.event_outlined),
+                  suffixIcon: _dueDate != null
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _dueDate = null),
+                        )
+                      : null,
+                ),
+                child: Text(
+                  _dueDate == null
+                      ? 'Aucune échéance'
+                      : DateFormat.yMMMMd('fr').format(_dueDate!),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: _dueDate == null ? context.cMuted : context.cInk),
+                ),
+              ),
+            ),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!,
@@ -466,6 +581,112 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white))
               : const Text('Créer la facture'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dialogue : encaisser (montant partiel possible) ──────────────────────────
+class _CollectDialog extends StatefulWidget {
+  final SbInvoice inv;
+  const _CollectDialog({required this.inv});
+  @override
+  State<_CollectDialog> createState() => _CollectDialogState();
+}
+
+class _CollectDialogState extends State<_CollectDialog> {
+  late final TextEditingController _amount =
+      TextEditingController(text: widget.inv.balance.toStringAsFixed(0));
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final v = double.tryParse(_amount.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) {
+      setState(() => _error = 'Montant invalide.');
+      return;
+    }
+    if (v > widget.inv.balance + 0.01) {
+      setState(() => _error =
+          'Dépasse le reste dû (${NumberFormat.decimalPattern('fr').format(widget.inv.balance)} ${widget.inv.currency}).');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = widget.inv;
+    final fmt = NumberFormat.decimalPattern('fr');
+    final soldeComplet = inv.amountPaid <= 0.01;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Enregistrer un encaissement'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '${inv.description ?? 'Facture'}'
+            '${inv.studentName != null ? ' · ${inv.studentName}' : ''}',
+            style: TextStyle(fontSize: 12.5, color: context.cMuted),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            soldeComplet
+                ? 'Montant dû : ${fmt.format(inv.amount)} ${inv.currency}'
+                : 'Déjà réglé ${fmt.format(inv.amountPaid)} · reste ${fmt.format(inv.balance)} ${inv.currency}',
+            style: TextStyle(
+                fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _amount,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Montant reçu (${inv.currency})',
+            prefixIcon: const Icon(Icons.payments_outlined),
+          ),
+          onSubmitted: (_) => _confirm(),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(
+                () => _amount.text = inv.balance.toStringAsFixed(0)),
+            icon: const Icon(Icons.done_all_rounded, size: 15),
+            label: const Text('Solde complet'),
+            style: TextButton.styleFrom(
+                padding: EdgeInsets.zero, foregroundColor: _green),
+          ),
+        ),
+        if (_error != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(_error!,
+                style: const TextStyle(color: _terra, fontSize: 12.5)),
+          ),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _confirm,
+          style: FilledButton.styleFrom(backgroundColor: _green),
+          child: const Text('Encaisser'),
         ),
       ],
     );

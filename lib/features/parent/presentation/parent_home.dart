@@ -371,7 +371,7 @@ class _AttentionSection extends ConsumerWidget {
       final absences = ref.watch(absencesForStudentProvider(c.id)).valueOrNull
           ?? const <SbAbsence>[];
 
-      for (final i in invoices.where((i) => i.isOverdue)) {
+      for (final i in invoices.where((i) => i.isLate)) {
         items.add(_AlertCard(
           icon: Icons.warning_amber_rounded,
           color: _terra,

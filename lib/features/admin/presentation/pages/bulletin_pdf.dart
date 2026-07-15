@@ -19,6 +19,7 @@ import 'package:printing/printing.dart';
 
 import '../../../../core/bulletin/bulletin_math.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../shared/data/features_catalog.dart';
 
 /// Le document « papier » reste en noir sur blanc, volontairement : il sera
 /// photocopié, tamponné, rangé dans un classeur. Les couleurs de l'app n'ont
@@ -142,6 +143,13 @@ pw.Page _bulletinPage({
 }) {
   final devoirLabels = rules.devoirLabels;
   final year = school?.academicYear ?? '';
+  // Barème d'affichage = celui du CYCLE de la classe. Le calcul reste sur 20 ;
+  // `k` convertit à l'affichage (0,5 → /10, 5 → /100, 1 → /20 inchangé).
+  final maxScore = school
+          ?.formatForCycle(SchoolLevel.fromClassName(className)?.name)
+          .maxScore ??
+      20;
+  final k = maxScore / 20;
   return pw.Page(
     pageFormat: PdfPageFormat.a4,
     theme: theme,
@@ -153,9 +161,9 @@ pw.Page _bulletinPage({
         pw.SizedBox(height: 14),
         _identity(student, className),
         pw.SizedBox(height: 10),
-        _table(bulletin, devoirLabels),
+        _table(bulletin, devoirLabels, maxScore, k),
         pw.SizedBox(height: 12),
-        _council(bulletin, decision, councilComment, school),
+        _council(bulletin, decision, councilComment, school, maxScore, k),
       ],
     ),
   );
@@ -237,7 +245,10 @@ pw.Widget _identity(SbStudent student, String className) {
 }
 
 // ── Le tableau des matières ──────────────────────────────────────────────────
-pw.Widget _table(Bulletin b, List<String> devoirLabels) {
+pw.Widget _table(Bulletin b, List<String> devoirLabels, double maxScore, double k) {
+  // Une NOTE, ramenée du calcul interne (/20) au barème du cycle.
+  String s(double? v) => _n(v == null ? null : v * k);
+  final sur = 'sur ${maxScore.toStringAsFixed(0)}';
   pw.Widget cell(String t, {bool head = false, pw.Alignment? align, double size = 8}) =>
       pw.Container(
         alignment: align ?? pw.Alignment.center,
@@ -266,24 +277,24 @@ pw.Widget _table(Bulletin b, List<String> devoirLabels) {
     children: [
       pw.TableRow(children: [
         cell('Matières', head: true, align: pw.Alignment.centerLeft),
-        for (final d in devoirLabels) cell('$d\nsur 20', head: true),
-        cell('M.C\nsur 20', head: true),
-        cell('Compo\nsur 20', head: true),
+        for (final d in devoirLabels) cell('$d\n$sur', head: true),
+        cell('M.C\n$sur', head: true),
+        cell('Compo\n$sur', head: true),
         cell('Coef.', head: true),
         cell('Total', head: true),
-        cell('Moy\nsur 20', head: true),
+        cell('Moy\n$sur', head: true),
         cell('RG', head: true),
         cell('Observations', head: true),
       ]),
       for (final l in b.lines)
         pw.TableRow(children: [
           cell(l.subject, align: pw.Alignment.centerLeft, size: 8.5),
-          for (final d in l.devoirs) cell(_n(d)),
-          cell(_n(l.mc)),
-          cell(_n(l.compo)),
+          for (final d in l.devoirs) cell(s(d)),
+          cell(s(l.mc)),
+          cell(s(l.compo)),
           cell('${l.coef}'),
-          cell(_n(l.total)),
-          cell(_n(l.average)),
+          cell(s(l.total)),
+          cell(s(l.average)),
           cell(_rg(l.rank)),
           cell(l.appreciation, size: 7.5),
         ]),
@@ -296,8 +307,8 @@ pw.Widget _table(Bulletin b, List<String> devoirLabels) {
           for (var i = 0; i < devoirLabels.length + 1; i++) cell(''),
           cell('Total', head: true),
           cell('${b.totalCoef}', head: true),
-          cell(_n(b.totalPoints), head: true),
-          cell(_n(b.average), head: true),
+          cell(s(b.totalPoints), head: true),
+          cell(s(b.average), head: true),
           cell(_rg(b.rank), head: true),
           cell(b.mention, head: true),
         ],
@@ -308,7 +319,10 @@ pw.Widget _table(Bulletin b, List<String> devoirLabels) {
 
 // ── Le conseil de classe ─────────────────────────────────────────────────────
 pw.Widget _council(
-    Bulletin b, String? decision, String? comment, SbSchool? school) {
+    Bulletin b, String? decision, String? comment, SbSchool? school,
+    double maxScore, double k) {
+  // Une NOTE, ramenée du calcul interne (/20) au barème du cycle.
+  String s(double? v) => _n(v == null ? null : v * k);
   pw.Widget box(String title, List<pw.Widget> children, {int flex = 1}) =>
       pw.Expanded(
         flex: flex,
@@ -348,10 +362,10 @@ pw.Widget _council(
     pw.SizedBox(width: 6),
     box('RÉSULTAT', [
       line('Rang', '${_rg(b.rank)} / ${b.classSize}'),
-      line('Moyenne', '${_n(b.average)} / 20'),
-      line('Moy. classe', _n(b.classAverage)),
-      line('Premier', _n(b.bestAverage)),
-      line('Dernier', _n(b.worstAverage)),
+      line('Moyenne', '${s(b.average)} / ${maxScore.toStringAsFixed(0)}'),
+      line('Moy. classe', s(b.classAverage)),
+      line('Premier', s(b.bestAverage)),
+      line('Dernier', s(b.worstAverage)),
     ], flex: 2),
     pw.SizedBox(width: 6),
     box('DÉCISION DU CONSEIL', [

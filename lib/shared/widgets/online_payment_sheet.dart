@@ -17,11 +17,15 @@ const _muted = Color(0xFF7A5C44);
 ///   encaissement réel n'a lieu côté opérateur ; on enregistre simplement le
 ///   paiement en base et la facture passe à « payé ». Le jour où un agrégateur
 ///   est branché, seule la partie « confirmation opérateur » change.
+/// [suggestedAmount] : pré-remplit le montant à payer quand il n'y a qu'une
+/// seule facture (ex. le dû à ce jour d'un compte de scolarité). Le parent peut
+/// le modifier — pour régler une tranche, tout le solde, ou un acompte.
 Future<bool> showOnlinePaymentSheet(
   BuildContext context,
   WidgetRef ref,
-  List<SbInvoice> invoices,
-) async {
+  List<SbInvoice> invoices, {
+  double? suggestedAmount,
+}) async {
   if (invoices.isEmpty) return false;
   final enabled = await ref.read(onlinePaymentEnabledProvider.future);
   if (!context.mounted) return false;
@@ -52,7 +56,8 @@ Future<bool> showOnlinePaymentSheet(
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => _PaymentSheet(invoices: invoices, ref: ref),
+    builder: (_) =>
+        _PaymentSheet(invoices: invoices, ref: ref, suggested: suggestedAmount),
   );
   return paid ?? false;
 }
@@ -60,13 +65,17 @@ Future<bool> showOnlinePaymentSheet(
 class _PaymentSheet extends StatefulWidget {
   final List<SbInvoice> invoices;
   final WidgetRef ref;
-  const _PaymentSheet({required this.invoices, required this.ref});
+  final double? suggested;
+  const _PaymentSheet(
+      {required this.invoices, required this.ref, this.suggested});
   @override
   State<_PaymentSheet> createState() => _PaymentSheetState();
 }
 
 class _PaymentSheetState extends State<_PaymentSheet> {
   final _phone = TextEditingController();
+  // Montant éditable quand il n'y a qu'une facture (scolarité, un frais).
+  late final TextEditingController _amount;
   String _operator = 'mtn';
   bool _processing = false;
   String? _error;
@@ -76,17 +85,49 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     ('airtel', 'Airtel Money', Color(0xFFE40000)),
   ];
 
+  bool get _single => widget.invoices.length == 1;
+
+  @override
+  void initState() {
+    super.initState();
+    // Défaut : le montant suggéré (dû à ce jour), sinon le solde restant.
+    final def = _single
+        ? (widget.suggested ?? widget.invoices.first.balance)
+        : 0.0;
+    _amount = TextEditingController(
+        text: def <= 0 ? '' : def.toStringAsFixed(0));
+  }
+
   @override
   void dispose() {
     _phone.dispose();
+    _amount.dispose();
     super.dispose();
   }
+
+  // Total à régler : le montant saisi si une facture, sinon la somme des soldes.
+  double get _total => _single
+      ? (double.tryParse(_amount.text.trim().replaceAll(',', '.')) ?? 0)
+      : widget.invoices.fold<double>(0, (a, b) => a + b.balance);
 
   Future<void> _pay() async {
     final phone = _phone.text.trim();
     if (phone.length < 6) {
       setState(() => _error = 'Entrez un numéro Mobile Money valide.');
       return;
+    }
+    if (_single) {
+      final v = _total;
+      final bal = widget.invoices.first.balance;
+      if (v <= 0) {
+        setState(() => _error = 'Entrez un montant à payer.');
+        return;
+      }
+      if (v > bal + 0.01) {
+        setState(() => _error =
+            'Dépasse le reste dû (${NumberFormat.decimalPattern("fr").format(bal)} ${widget.invoices.first.currency}).');
+        return;
+      }
     }
     setState(() {
       _processing = true;
@@ -97,17 +138,39 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       // Simulation de la confirmation opérateur (remplacé plus tard par
       // l'appel réel à l'agrégateur).
       await Future<void>.delayed(const Duration(milliseconds: 1200));
-      for (final inv in widget.invoices) {
-        await SupabaseDbSource.recordPayment(
+      final method = _operator == 'mtn' ? 'mtn_momo' : 'airtel_money';
+      final ref = 'SIM-${DateTime.now().millisecondsSinceEpoch}';
+      // Écriture SERVEUR (Edge Function) : les familles sont en lecture seule
+      // sur `payments`. La fonction vérifie le lien famille↔élève puis écrit.
+      if (_single) {
+        final inv = widget.invoices.first;
+        await SupabaseDbSource.recordOnlinePayment(
           invoiceId: inv.id,
-          studentId: inv.studentId ?? '',
-          amount: inv.amount,
-          method: _operator == 'mtn' ? 'mtn_momo' : 'airtel_money',
-          reference: 'SIM-${DateTime.now().millisecondsSinceEpoch}',
+          amount: _total, // partiel possible → cascade sur le compte
+          method: method,
+          reference: ref,
         );
+      } else {
+        for (final inv in widget.invoices) {
+          await SupabaseDbSource.recordOnlinePayment(
+            invoiceId: inv.id,
+            amount: inv.balance, // le reste dû, pas le montant d'origine
+            method: method,
+            reference: ref,
+          );
+        }
       }
       widget.ref.invalidate(myInvoicesProvider);
       widget.ref.invalidate(invoicesProvider);
+      widget.ref.invalidate(myChildrenInvoicesProvider);
+      // Rafraîchit les comptes de scolarité concernés.
+      for (final inv in widget.invoices) {
+        final sid = inv.studentId;
+        if (sid != null) {
+          widget.ref.invalidate(tuitionAccountProvider(sid));
+          widget.ref.invalidate(invoicesForStudentProvider(sid));
+        }
+      }
       if (mounted) navigator.pop(true);
     } catch (e) {
       if (mounted) {
@@ -122,11 +185,10 @@ class _PaymentSheetState extends State<_PaymentSheet> {
   @override
   Widget build(BuildContext context) {
     final invs = widget.invoices;
-    final total = invs.fold<double>(0, (a, b) => a + b.amount);
     final currency = invs.first.currency;
     final amount =
-        '${NumberFormat.decimalPattern("fr").format(total)} $currency';
-    final label = invs.length == 1
+        '${NumberFormat.decimalPattern("fr").format(_total)} $currency';
+    final label = _single
         ? (invs.first.description ?? 'Frais de scolarité')
         : '${invs.length} factures';
     return Padding(
@@ -165,6 +227,22 @@ class _PaymentSheetState extends State<_PaymentSheet> {
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(fontSize: 12.5, color: _muted)),
         const SizedBox(height: 18),
+        // Montant éditable (une seule facture) : régler une tranche, un
+        // acompte, ou tout le solde. Le solde restant est rappelé en dessous.
+        if (_single) ...[
+          TextField(
+            controller: _amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() => _error = null),
+            decoration: InputDecoration(
+              labelText: 'Montant à payer ($currency)',
+              helperText:
+                  'Reste dû : ${NumberFormat.decimalPattern("fr").format(invs.first.balance)} $currency',
+              prefixIcon: const Icon(Icons.payments_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         Row(
           children: [
             for (final op in _operators)

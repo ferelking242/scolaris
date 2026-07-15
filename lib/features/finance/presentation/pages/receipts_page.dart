@@ -28,8 +28,8 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
           : _statusFilter == 'Payés'
               ? inv.isPaid
               : _statusFilter == 'En attente'
-                  ? inv.isPending
-                  : inv.isOverdue;
+                  ? (inv.isPending && !inv.isLate)
+                  : inv.isLate;
       final q = _search.toLowerCase();
       final matchSearch = q.isEmpty ||
           (inv.studentName?.toLowerCase().contains(q) ?? false) ||
@@ -125,7 +125,7 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
                                     : '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: _muted)),
-                            _statusPill(inv.status),
+                            _statusPill(inv.isLate ? 'overdue' : inv.status),
                             InkWell(
                               onTap: () {},
                               child: const Padding(
