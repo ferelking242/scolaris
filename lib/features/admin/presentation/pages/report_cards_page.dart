@@ -40,82 +40,170 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   String get _year => ref.read(schoolProvider).valueOrNull?.academicYear ?? '';
   String get _key => '${_classId ?? ''}|$_year|$_period';
 
-  Future<void> _generate() async {
+  String get _periodKey => '${_classId ?? ''}|$_period';
+
+  void _refresh() {
+    ref.invalidate(reportCardsForClassProvider(_key));
+    ref.invalidate(gradePeriodProvider(_periodKey));
+    ref.invalidate(gradesForClassProvider(_classId ?? ''));
+    ref.invalidate(classBulletinsProvider(_periodKey));
+  }
+
+  void _toast(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  /// Écrit (ou réécrit) le snapshot officiel. Réutilisé par la validation et par
+  /// « Recalculer ». Renvoie le nombre de bulletins, ou `null` si rien (motif
+  /// déjà affiché).
+  Future<int?> _writeSnapshot() async {
     final schoolId = ref.read(currentSchoolIdProvider);
-    if (schoolId == null || _classId == null || _year.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await _confirm(
-      title: 'Générer les bulletins',
-      body: 'Calculer les bulletins du ${_fmt.periodLabel(_period)} pour tous les '
-          'élèves de la classe.\n\nLes bulletins déjà publiés repasseront en '
-          'brouillon : il faudra les republier.',
-      action: 'Générer',
-      color: _terra,
-    );
-    if (ok != true) return;
-    setState(() => _busy = true);
+    if (schoolId == null || _classId == null || _year.isEmpty) return null;
     try {
-      final n = await SupabaseDbSource.generateReportCards(
+      return await SupabaseDbSource.generateReportCards(
         schoolId: schoolId,
         classId: _classId!,
         academicYear: _year,
         period: _period,
         createdBy: ref.read(authSessionProvider)?.id,
       );
-      ref.invalidate(reportCardsForClassProvider(_key));
-      messenger.showSnackBar(SnackBar(
-        content: Text('$n bulletin(s) généré(s) en brouillon.'),
-        backgroundColor: _green,
-        behavior: SnackBarBehavior.floating,
-      ));
     } on ReportCardEmpty catch (e) {
-      // On dit POURQUOI il n'y a rien à générer. « Aucune note » s'affichait
-      // aussi quand la classe était vide, ou sans programme : l'admin cherchait
-      // des notes qui existaient bel et bien.
-      messenger.showSnackBar(SnackBar(
-        content: Text(e.message),
-        backgroundColor: _gold,
-        behavior: SnackBarBehavior.floating,
-      ));
+      // « Aucune note » recouvrait trois causes (classe vide, pas de programme,
+      // pas de note) : on dit laquelle.
+      _toast(e.message, _gold);
+      return null;
+    }
+  }
+
+  /// VALIDER : fige le bulletin officiel PUIS gèle les notes de la période.
+  /// Les deux vont ensemble — figer sans geler laisserait le snapshot dériver.
+  Future<void> _validate() async {
+    if (_classId == null) return;
+    final ok = await _confirm(
+      title: 'Valider la période',
+      body: 'Le bulletin de chaque élève va être figé, et les notes du '
+          '${_fmt.periodLabel(_period)} ne seront plus modifiables par les '
+          'professeurs.\n\nUne correction restera possible pour l’administration, '
+          'avec motif et trace.',
+      action: 'Valider',
+      color: _terra,
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final n = await _writeSnapshot();
+      if (n == null) return; // rien à figer : message déjà montré
+      await SupabaseDbSource.validatePeriod(_classId!, _period);
+      _refresh();
+      _toast('Période validée · $n bulletin(s) figé(s).', _green);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra, behavior: SnackBarBehavior.floating));
+      _toast('Échec : $e', _terra);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _publish() async {
-    if (_classId == null || _year.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
+  /// RECALCULER : reporte les corrections dans le bulletin officiel. Remplace
+  /// l’ancien « Régénérer » — il n’a de sens QUE quand une correction a eu lieu
+  /// depuis la validation, et le bandeau ne le propose que dans ce cas.
+  Future<void> _recompute() async {
+    setState(() => _busy = true);
+    try {
+      final n = await _writeSnapshot();
+      if (n == null) return;
+      _refresh();
+      _toast('Bulletin officiel recalculé ($n).', _green);
+    } catch (e) {
+      _toast('Échec : $e', _terra);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _lock() async {
+    if (_classId == null) return;
     final ok = await _confirm(
-      title: 'Publier aux familles',
-      body: 'Rendre ces bulletins visibles par les élèves et leurs parents. '
-          'Action immédiate.',
-      action: 'Publier',
-      color: _green,
+      title: 'Verrouiller la période',
+      body: 'Plus AUCUNE note ne pourra être modifiée, par personne — même pas '
+          'l’administration. Il faudra déverrouiller pour corriger.',
+      action: 'Verrouiller',
+      color: _terra,
     );
     if (ok != true) return;
     setState(() => _busy = true);
     try {
-      final n = await SupabaseDbSource.publishReportCards(
-        classId: _classId!, academicYear: _year, period: _period);
-      ref.invalidate(reportCardsForClassProvider(_key));
-      messenger.showSnackBar(SnackBar(
-        content: Text(n == 0
-            ? 'Aucun brouillon à publier.'
-            : '$n bulletin(s) publié(s).'),
-        backgroundColor: n == 0 ? _gold : _green,
-        behavior: SnackBarBehavior.floating,
-      ));
+      await SupabaseDbSource.lockPeriod(_classId!, _period);
+      _refresh();
+      _toast('Période verrouillée.', _green);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra, behavior: SnackBarBehavior.floating));
+      _toast('Échec : $e', _terra);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _reopen({required bool locked}) async {
+    if (_classId == null) return;
+    // Rouvrir une période VERROUILLÉE exige un motif (la base le refusera sinon).
+    final reason = locked ? await _askReason('Rouvrir la période verrouillée') : null;
+    if (locked && (reason == null || reason.isEmpty)) return;
+    if (!locked) {
+      final ok = await _confirm(
+        title: 'Rouvrir la période',
+        body: 'Les professeurs pourront de nouveau modifier les notes. Le '
+            'bulletin figé sera obsolète jusqu’à une nouvelle validation.',
+        action: 'Rouvrir',
+        color: _terra,
+      );
+      if (ok != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      await SupabaseDbSource.reopenPeriod(_classId!, _period, reason: reason);
+      _refresh();
+      _toast('Période rouverte.', _green);
+    } catch (e) {
+      _toast('Échec : $e', _terra);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String?> _askReason(String title) async {
+    final ctrl = TextEditingController();
+    final res = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Motif',
+            hintText: 'Il sera enregistré dans l’historique.',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: _terra),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+    return res;
   }
 
   Future<bool?> _confirm({
@@ -182,8 +270,6 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   Widget _body(List<SbClass> classes) {
     final cardsAsync = ref.watch(reportCardsForClassProvider(_key));
     final cards = cardsAsync.valueOrNull ?? const <SbReportCard>[];
-    final published = cards.where((c) => c.isPublished).length;
-    final drafts = cards.length - published;
 
     return ListView(
       // En onglet, la page parente fait déjà défiler : ce ListView doit alors
@@ -223,8 +309,8 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         ),
         const SizedBox(height: 14),
 
-        // ── Bandeau d'état + actions ───────────────────────────────────
-        _statusBanner(cards.length, drafts, published, cards),
+        // ── Bandeau d'état + actions (piloté par l'état de la période) ──
+        _workflowBanner(cards),
         const SizedBox(height: 16),
 
         // ── Aperçu ─────────────────────────────────────────────────────
@@ -234,8 +320,8 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         else if (cards.isEmpty)
           const EmptyState(
             icon: Icons.assignment_outlined,
-            title: 'Pas encore généré',
-            description: 'Clique « Générer » pour calculer les bulletins de ce trimestre.')
+            title: 'Pas encore clôturé',
+            description: 'Validez la période pour figer les bulletins de ce trimestre.')
         else ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 8, left: 4),
@@ -275,20 +361,40 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     ));
   }
 
-  Widget _statusBanner(int total, int drafts, int published, List<SbReportCard> cards) {
-    final (Color color, IconData icon, String text) = total == 0
-        ? (_gold, Icons.pending_outlined, 'Bulletins non générés pour ce trimestre.')
-        : published == total
-            ? (_green, Icons.verified_rounded, 'Publié — visible par les élèves et parents.')
-            : drafts == total
-                ? (_terra, Icons.edit_note_rounded, 'Brouillon — $total bulletin(s) non publié(s).')
-                : (_gold, Icons.info_outline_rounded,
-                    '$published publié(s) · $drafts brouillon(s).');
+  /// Le bandeau qui pilote la clôture. Ce qu'il montre — et propose — dépend de
+  /// l'ÉTAT de la période, plus du nombre de brouillons/publiés (la publication
+  /// aux familles n'existe plus).
+  Widget _workflowBanner(List<SbReportCard> cards) {
+    final period = ref.watch(gradePeriodProvider(_periodKey)).valueOrNull;
+    final status = period?.status ?? 'open';
 
-    final publishedAt = cards
-        .where((c) => c.publishedAt != null)
-        .map((c) => c.publishedAt!)
+    final canValider = ref.watch(canProvider('notes.valider'));
+    final canVerrou = ref.watch(canProvider('notes.verrouiller'));
+
+    // Une correction depuis la validation ? On compare la dernière écriture de
+    // note à la date de validation. Si une note est plus récente, le bulletin
+    // figé n'est plus à jour — c'est là, et LÀ SEULEMENT, qu'on propose de
+    // recalculer (l'ex-« Régénérer », qui ne servait à rien).
+    final grades = ref.watch(gradesForClassProvider(_classId ?? '')).valueOrNull
+            ?? const <SbGrade>[];
+    final lastEdit = grades
+        .where((g) => g.period == _period)
+        .map((g) => g.updatedAt)
+        .whereType<DateTime>()
         .fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
+    final pending = status == 'validated' &&
+        period?.validatedAt != null &&
+        lastEdit != null &&
+        lastEdit.isAfter(period!.validatedAt!);
+
+    final (Color color, IconData icon, String text) = switch (status) {
+      'validated' => (_green, Icons.verified_rounded,
+          'Période validée · notes gelées. Correction possible avec motif.'),
+      'locked' => (_terra, Icons.lock_rounded,
+          'Période verrouillée · aucune modification possible.'),
+      _ => (_gold, Icons.lock_open_rounded,
+          'Période ouverte · les professeurs saisissent librement.'),
+    };
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -304,40 +410,55 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           Expanded(child: Text(text,
               style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700))),
         ]),
-        if (publishedAt != null) ...[
+        if (period?.validatedAt != null && status != 'open') ...[
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(left: 28),
-            child: Text('Publié le ${DateFormat('d MMM yyyy', 'fr').format(publishedAt)}',
+            child: Text('Validée le ${DateFormat('d MMM yyyy', 'fr').format(period!.validatedAt!)}',
                 style: TextStyle(color: context.cMuted, fontSize: 11.5)),
           ),
         ],
+        if (pending) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _gold.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Des corrections ne sont pas encore dans le bulletin officiel.',
+              style: TextStyle(fontSize: 12, color: context.cInk),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
-        // Générer et publier un bulletin exigent `notes.publier` : la base
-        // refuse toute écriture sur report_cards sans ce droit.
-        Row(children: [
-          if (ref.watch(canProvider('notes.publier')))
-            Expanded(
-              child: _actionBtn(
-                label: total == 0 ? 'Générer' : 'Régénérer',
-                icon: Icons.calculate_rounded,
-                color: _terra,
-                filled: total == 0,
-                onTap: _busy ? null : _generate,
-              ),
-            ),
-          if (drafts > 0 && ref.watch(canProvider('notes.publier'))) ...[
-            const SizedBox(width: 10),
-            Expanded(
-              child: _actionBtn(
-                label: 'Publier',
-                icon: Icons.send_rounded,
-                color: _green,
-                filled: true,
-                onTap: _busy ? null : _publish,
-              ),
-            ),
+        Wrap(spacing: 10, runSpacing: 8, children: [
+          // OUVERTE → Valider.
+          if (status == 'open' && canValider)
+            _actionBtn(label: 'Valider la période',
+                icon: Icons.verified_outlined, color: _terra, filled: true,
+                onTap: _busy ? null : _validate),
+          // VALIDÉE → Recalculer (si corrections), Verrouiller, Rouvrir.
+          if (status == 'validated') ...[
+            if (pending && canValider)
+              _actionBtn(label: 'Appliquer les corrections',
+                  icon: Icons.sync_rounded, color: _gold, filled: true,
+                  onTap: _busy ? null : _recompute),
+            if (canVerrou)
+              _actionBtn(label: 'Verrouiller',
+                  icon: Icons.lock_outline_rounded, color: _terra, filled: false,
+                  onTap: _busy ? null : _lock),
+            if (canVerrou)
+              _actionBtn(label: 'Rouvrir',
+                  icon: Icons.lock_open_outlined, color: context.cMuted, filled: false,
+                  onTap: _busy ? null : () => _reopen(locked: false)),
           ],
+          // VERROUILLÉE → Déverrouiller.
+          if (status == 'locked' && canVerrou)
+            _actionBtn(label: 'Déverrouiller',
+                icon: Icons.lock_open_outlined, color: _terra, filled: true,
+                onTap: _busy ? null : () => _reopen(locked: true)),
         ]),
       ]),
     );

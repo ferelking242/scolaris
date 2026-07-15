@@ -99,7 +99,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
           subtitle: switch (_tab) {
             _Tab.notes => 'Consulter et corriger les notes, matière par matière',
             _Tab.bulletins => 'Le bulletin de chaque élève',
-            _Tab.generer => 'Figer et publier les bulletins aux familles',
+            _Tab.generer => 'Valider, verrouiller et archiver les bulletins',
           },
           // PageScaffold fait DÉJÀ défiler verticalement : ici, pas d'Expanded
           // ni de second SingleChildScrollView — ils recevraient une hauteur
@@ -146,7 +146,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
   }
 }
 
-/// Le basculement Notes / Bulletins / Générer.
+/// Le basculement Notes / Bulletins / Clôture.
 class _TabBar extends StatelessWidget {
   final _Tab value;
   final ValueChanged<_Tab> onChanged;
@@ -187,7 +187,7 @@ class _TabBar extends StatelessWidget {
       const SizedBox(width: 8),
       tab(_Tab.bulletins, 'Bulletins', Icons.receipt_long_rounded),
       const SizedBox(width: 8),
-      tab(_Tab.generer, 'Générer', Icons.workspace_premium_rounded),
+      tab(_Tab.generer, 'Clôture', Icons.workspace_premium_rounded),
     ]);
   }
 }
@@ -317,7 +317,16 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
   }
 
   Future<void> _save(List<SbStudent> students, List<GradeSlot> slots,
-      double maxScore) async {
+      double maxScore, {required bool reasonRequired}) async {
+    // Période validée : un motif unique couvre le lot de corrections. La base le
+    // réclame de toute façon, et il part dans l'historique.
+    String? reason;
+    if (reasonRequired) {
+      reason = await _askReason();
+      if (reason == null || reason.isEmpty) return; // annulé
+    }
+    if (!mounted) return;
+
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     var n = 0;
@@ -330,23 +339,40 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                   .replaceAll(',', '.') ??
               '';
           if (raw.isEmpty) continue;
-          final score = double.tryParse(raw);
+          final score = double.tryParse(raw)?.clamp(0.0, maxScore);
           if (score == null) continue;
-          await SupabaseDbSource.upsertGrade(
-            studentId: s.id,
-            classId: widget.classObj.id,
-            schoolId: widget.schoolId,
-            subjectId: widget.subjectId,
-            score: score.clamp(0.0, maxScore),
-            maxScore: maxScore,
-            period: widget.period,
-            type: slot.type,
-            sequence: slot.seq,
-          );
+          // Sur période validée, on passe par la RPC qui transporte le motif
+          // jusqu'au trigger d'audit (motif + écriture, même transaction).
+          if (reasonRequired) {
+            await SupabaseDbSource.saveGradeWithReason(
+              studentId: s.id,
+              classId: widget.classObj.id,
+              schoolId: widget.schoolId,
+              subjectId: widget.subjectId,
+              score: score,
+              maxScore: maxScore,
+              period: widget.period,
+              type: slot.type,
+              sequence: slot.seq,
+              reason: reason,
+            );
+          } else {
+            await SupabaseDbSource.upsertGrade(
+              studentId: s.id,
+              classId: widget.classObj.id,
+              schoolId: widget.schoolId,
+              subjectId: widget.subjectId,
+              score: score,
+              maxScore: maxScore,
+              period: widget.period,
+              type: slot.type,
+              sequence: slot.seq,
+            );
+          }
           n++;
         }
       }
-      // Recharge : notes, bulletins, tout ce qui en dépend.
+      _seeded = false; // relire les valeurs enregistrées
       ref.invalidate(gradesForClassProvider(widget.classObj.id));
       ref.invalidate(classBulletinsProvider(
           '${widget.classObj.id}|${widget.period}'));
@@ -369,6 +395,71 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     }
   }
 
+  Future<String?> _askReason() async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Motif de la correction'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            hintText: 'ex : erreur de recopie du Devoir 2',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: _terra),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Le bandeau d'état de la période, en tête du tableau.
+  Widget _stateBanner(BuildContext context, String status, bool canEdit) {
+    final (Color c, IconData i, String t) = switch (status) {
+      'validated' => (
+          _gold,
+          Icons.verified_outlined,
+          canEdit
+              ? 'Période validée — toute correction demande un motif (tracé).'
+              : 'Période validée — consultation seule (droit de correction requis).'
+        ),
+      'locked' => (
+          _terra,
+          Icons.lock_outline_rounded,
+          'Période verrouillée — notes non modifiables.'
+        ),
+      _ => (
+          _green,
+          Icons.lock_open_outlined,
+          canEdit ? 'Période ouverte — saisie libre.' : 'Consultation seule.'
+        ),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(children: [
+        Icon(i, size: 15, color: c),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(t,
+              style: TextStyle(
+                  fontSize: 12, color: c, fontWeight: FontWeight.w600)),
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmt = ref.watch(schoolFormatProvider);
@@ -378,10 +469,22 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     final studentsAsync = ref.watch(studentsByClassProvider(widget.classObj.name));
     final gradesAsync = ref.watch(gradesForClassProvider(widget.classObj.id));
 
-    // Le fondateur a « * ». Sinon il faut `notes.corriger` pour toucher une note
-    // déjà validée, et `notes.saisir` pour remplir une case vide.
+    // L'état de la période décide de tout — c'est la même règle qu'en base :
+    //   ouverte    → saisie/édition avec `notes.saisir`
+    //   validée    → correction avec `notes.corriger` + MOTIF obligatoire
+    //   verrouillée→ lecture seule pour tous
+    final period = ref
+        .watch(gradePeriodProvider('${widget.classObj.id}|${widget.period}'))
+        .valueOrNull;
+    final status = period?.status ?? 'open';
     final canCorriger = ref.watch(canProvider('notes.corriger'));
-    final canSaisir = canCorriger || ref.watch(canProvider('notes.saisir'));
+    final canSaisir = ref.watch(canProvider('notes.saisir'));
+    final canEdit = status == 'open'
+        ? (canSaisir || canCorriger)
+        : status == 'validated'
+            ? canCorriger
+            : false; // verrouillée
+    final reasonRequired = status == 'validated';
 
     return studentsAsync.when(
       loading: () => const DataPanel(
@@ -433,12 +536,7 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
         return DataPanel(
           title: '${widget.classObj.name} — ${widget.subjectName}',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            if (!canSaisir)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text('Consultation seule.',
-                    style: TextStyle(fontSize: 12, color: context.cMuted)),
-              ),
+            _stateBanner(context, status, canEdit),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
@@ -471,18 +569,20 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                       )),
                       for (final slot in slots)
                         DataCell(_cell(s.id, slot, existing(s.id, slot),
-                            canSaisir: canSaisir, canCorriger: canCorriger)),
+                            canEdit: canEdit)),
                     ]),
                 ],
               ),
             ),
-            if (canSaisir) ...[
+            if (canEdit) ...[
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed:
-                      _saving ? null : () => _save(students, slots, maxScore),
+                  onPressed: _saving
+                      ? null
+                      : () => _save(students, slots, maxScore,
+                          reasonRequired: reasonRequired),
                   icon: _saving
                       ? const SizedBox(
                           width: 16,
@@ -504,21 +604,11 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     );
   }
 
-  /// Une case. Verrouillée si la note existe déjà **et** que l'admin n'a pas le
-  /// droit de corriger : on affiche alors la valeur, non modifiable, avec un
-  /// cadenas discret.
+  /// Une case. Éditable seulement si l'état de la période l'autorise ([canEdit]).
+  /// Sinon, lecture seule — la valeur si elle existe, sinon un tiret.
   Widget _cell(String sid, GradeSlot slot, SbGrade? existing,
-      {required bool canSaisir, required bool canCorriger}) {
-    final locked = existing != null && !canCorriger;
-    if (locked) {
-      return Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(existing.score.toStringAsFixed(1),
-            style: TextStyle(fontSize: 12.5, color: context.cInk)),
-        const SizedBox(width: 3),
-        Icon(Icons.lock_outline_rounded, size: 12, color: context.cMuted),
-      ]);
-    }
-    if (!canSaisir) {
+      {required bool canEdit}) {
+    if (!canEdit) {
       return Text(existing?.score.toStringAsFixed(1) ?? '—',
           style: TextStyle(fontSize: 12.5, color: context.cMuted));
     }

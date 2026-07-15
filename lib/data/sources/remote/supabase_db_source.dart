@@ -189,6 +189,11 @@ class SbGrade {
   final String? title;
   final String? comment;
   final DateTime? gradedAt;
+
+  /// Dernière écriture. Sert à repérer une correction **postérieure** à la
+  /// validation d'une période : si `updatedAt` dépasse la date de validation, le
+  /// bulletin figé n'est plus à jour.
+  final DateTime? updatedAt;
   final String? teacherId;
 
   const SbGrade({
@@ -204,6 +209,7 @@ class SbGrade {
     this.title,
     this.comment,
     this.gradedAt,
+    this.updatedAt,
     this.teacherId,
   });
 
@@ -224,6 +230,7 @@ class SbGrade {
       title: j['title'] as String?,
       comment: j['comment'] as String?,
       gradedAt: j['graded_at'] != null ? DateTime.tryParse(j['graded_at'] as String) : null,
+      updatedAt: j['updated_at'] != null ? DateTime.tryParse(j['updated_at'] as String) : null,
       teacherId: j['teacher_id'] as String?,
     );
   }
@@ -351,6 +358,43 @@ class SbReportCard {
         worstAverage: worstAverage,
         absences: absencesCount,
         lates: lateCount,
+      );
+}
+
+/// L'état d'une période de notes (classe × trimestre). Ce qui gèle les notes et
+/// scelle le bulletin. Cf. 20260746.
+class SbGradePeriod {
+  final String classId;
+  final String period;
+  final String status; // 'open' | 'validated' | 'locked'
+  final DateTime? validatedAt;
+  final DateTime? lockedAt;
+
+  const SbGradePeriod({
+    required this.classId,
+    required this.period,
+    required this.status,
+    this.validatedAt,
+    this.lockedAt,
+  });
+
+  bool get isOpen => status == 'open';
+  bool get isValidated => status == 'validated';
+  bool get isLocked => status == 'locked';
+
+  /// Les notes se modifient-elles encore librement (période ouverte) ?
+  bool get allowsFreeEdit => isOpen;
+
+  factory SbGradePeriod.fromJson(Map<String, dynamic> j) => SbGradePeriod(
+        classId: j['class_id'] as String? ?? '',
+        period: j['period'] as String? ?? '',
+        status: j['status'] as String? ?? 'open',
+        validatedAt: j['validated_at'] != null
+            ? DateTime.tryParse(j['validated_at'] as String)
+            : null,
+        lockedAt: j['locked_at'] != null
+            ? DateTime.tryParse(j['locked_at'] as String)
+            : null,
       );
 }
 
@@ -1789,21 +1833,8 @@ class SupabaseDbSource {
 
   // ── Bulletins officiels (report_cards) ──────────────────────────────────────
 
-  static String _mentionFor(double avg) {
-    if (avg >= 16) return 'Très Bien';
-    if (avg >= 14) return 'Bien';
-    if (avg >= 12) return 'Assez Bien';
-    if (avg >= 10) return 'Passable';
-    return 'Insuffisant';
-  }
-
-  static String _appreciationFor(double avg) {
-    if (avg >= 16) return 'Excellent travail, continuez sur cette lancée.';
-    if (avg >= 14) return 'Très bon résultat ce trimestre.';
-    if (avg >= 12) return 'Bon niveau, peut encore progresser.';
-    if (avg >= 10) return 'Résultat passable, des efforts sont nécessaires.';
-    return 'Résultat insuffisant, un travail important est requis.';
-  }
+  // La mention et l'appréciation viennent de bulletin_math.dart (mentionOf) —
+  // les copies locales, restes de l'ancien calcul, ont été retirées.
 
   /// Bulletins d'une classe pour un trimestre (tous statuts) — vue admin.
   static Future<List<SbReportCard>> getReportCardsForClass(
@@ -2720,6 +2751,71 @@ class SupabaseDbSource {
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ÉTAT D'UNE PÉRIODE (workflow du bulletin) — cf. 20260746/47/48
+  // Ouverte → Validée → Verrouillée. C'est ce qui gèle les notes et scelle le
+  // bulletin. Les transitions passent par des fonctions SECURITY DEFINER qui
+  // vérifient le droit et tracent le changement.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Lit l'état d'une période. Absente en base = « open » (défaut).
+  static Future<SbGradePeriod> getGradePeriod(
+      String classId, String period) async {
+    final row = await _db
+        .from('grade_periods')
+        .select()
+        .eq('class_id', classId)
+        .eq('period', period)
+        .maybeSingle();
+    return row == null
+        ? SbGradePeriod(classId: classId, period: period, status: 'open')
+        : SbGradePeriod.fromJson(row);
+  }
+
+  static Future<void> validatePeriod(String classId, String period) =>
+      _db.rpc('validate_period',
+          params: {'p_class': classId, 'p_period': period});
+
+  static Future<void> lockPeriod(String classId, String period) =>
+      _db.rpc('lock_period', params: {'p_class': classId, 'p_period': period});
+
+  static Future<void> reopenPeriod(String classId, String period,
+          {String? reason}) =>
+      _db.rpc('reopen_period', params: {
+        'p_class': classId,
+        'p_period': period,
+        if (reason != null) 'p_reason': reason,
+      });
+
+  /// Corrige (ou saisit) une note **en transportant le motif** jusqu'au trigger
+  /// d'audit — le motif et l'écriture doivent tenir dans la même transaction,
+  /// d'où le passage par la fonction SQL plutôt que par un upsert direct.
+  /// [reason] est obligatoire côté base dès que la période est validée.
+  static Future<void> saveGradeWithReason({
+    required String studentId,
+    required String classId,
+    required String schoolId,
+    required String subjectId,
+    required double score,
+    required double maxScore,
+    required String period,
+    required String type,
+    required int sequence,
+    String? reason,
+  }) =>
+      _db.rpc('save_grade', params: {
+        'p_student': studentId,
+        'p_class': classId,
+        'p_school': schoolId,
+        'p_subject': subjectId,
+        'p_score': score,
+        'p_max': maxScore,
+        'p_period': period,
+        'p_type': type,
+        'p_sequence': sequence,
+        if (reason != null) 'p_reason': reason,
+      });
 
   // ── Cours = le PROGRAMME d'une classe ─────────────────────────────────────
   //  « Cette classe étudie cette matière, avec ce coefficient, enseignée par

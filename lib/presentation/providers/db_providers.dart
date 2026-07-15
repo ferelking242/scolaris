@@ -360,6 +360,16 @@ final absencesForClassProvider = FutureProvider.family<List<SbAbsence>, String>(
   (ref, classId) async => SupabaseDbSource.getAbsencesForClass(classId),
 );
 
+/// L'état d'une période (classe × trimestre) : ouverte / validée / verrouillée.
+/// Clé : `classId|période`. C'est lui qui décide si les notes sont encore
+/// modifiables et quels boutons de clôture proposer.
+final gradePeriodProvider =
+    FutureProvider.family<SbGradePeriod, String>((ref, key) async {
+  final parts = key.split('|');
+  return SupabaseDbSource.getGradePeriod(
+      parts.first, parts.length > 1 ? parts[1] : 'T1');
+});
+
 /// Les bulletins de **toute une classe**, pour une période. Clé : `classId|période`.
 ///
 /// Toute la classe d'un coup, et pas élève par élève : le rang par matière, le
