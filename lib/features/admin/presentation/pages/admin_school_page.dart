@@ -46,6 +46,32 @@ const _kEduSystems = <String, String>{
   'grande_ecole': 'Grande école',
 };
 
+/// Devises proposées. La clé est le code ISO 4217 stocké dans `schools.currency`
+/// (SchoolFormat en déduit le symbole). Zone CFA + voisins courants.
+const _kCurrencies = <String, String>{
+  'XAF': 'FCFA — Afrique centrale (XAF)',
+  'XOF': 'FCFA — Afrique de l\'Ouest (XOF)',
+  'CDF': 'Franc congolais (CDF)',
+  'NGN': 'Naira (NGN)',
+  'GHS': 'Cedi (GHS)',
+  'MAD': 'Dirham marocain (MAD)',
+  'USD': 'Dollar US (USD)',
+  'EUR': 'Euro (EUR)',
+};
+
+/// Barèmes de notation (`schools.grading_scale` — contrainte : ces trois clés).
+const _kGradingScales = <String, String>{
+  'numeric_20': 'Sur 20',
+  'numeric_100': 'Sur 100',
+  'letter': 'Lettres (A–F)',
+};
+
+/// Découpage de l'année (`schools.period_system` — contrainte : ces deux clés).
+const _kPeriodSystems = <String, String>{
+  'trimester': 'Trimestres (T1 · T2 · T3)',
+  'semester': 'Semestres (S1 · S2)',
+};
+
 class AdminSchoolPage extends ConsumerStatefulWidget {
   const AdminSchoolPage({super.key});
   @override
@@ -63,6 +89,13 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   String? _academicYear;
   final _logoUrl      = TextEditingController();
   String? _accentColor;
+
+  // Format de l'école : devise, barème, découpage de l'année. Jusqu'ici figés
+  // sur leurs valeurs par défaut (XAF / /20 / trimestre), sans aucun écran pour
+  // les changer.
+  String _currency     = 'XAF';
+  String _gradingScale = 'numeric_20';
+  String _periodSystem = 'trimester';
 
   bool _loading  = true;
   bool _saving   = false;
@@ -94,6 +127,9 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _academicYear      = school.academicYear;
           _logoUrl.text      = school.logoUrl      ?? '';
           _accentColor       = school.accentColor;
+          _currency          = school.currency;
+          _gradingScale      = school.gradingScale;
+          _periodSystem      = school.periodSystem;
           _types
             ..clear()
             ..addAll(school.types);
@@ -132,6 +168,12 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         id:                schoolId,
         types:             _types.toList(),
         educationalSystem: _eduSystem,
+      );
+      await SupabaseDbSource.updateSchoolFormat(
+        id:           schoolId,
+        currency:     _currency,
+        gradingScale: _gradingScale,
+        periodSystem: _periodSystem,
       );
       ref.invalidate(schoolProvider);
       // Les niveaux de classe proposés en dépendent directement.
@@ -242,6 +284,57 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       ),
                     ]),
                   ]),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Devise, barème & périodes ───────────────────────────────
+                // Figés sur XAF / /20 / trimestre jusqu'ici, sans écran pour en
+                // changer : une université ne pouvait pas passer en semestres,
+                // une école hors zone CFA ne pouvait pas changer de devise.
+                DataPanel(
+                  title: 'Devise, barème & périodes',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'Utilisés partout : montants (facturation), notes et '
+                          'bulletins. À régler selon votre pays et votre système.',
+                          style: TextStyle(fontSize: 12, color: context.cMuted)),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(
+                          child: _Picker<String>(
+                            value: _currency,
+                            label: 'Devise',
+                            icon: Icons.payments_outlined,
+                            items: _kCurrencies,
+                            onChanged: (v) =>
+                                setState(() => _currency = v ?? 'XAF'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _Picker<String>(
+                            value: _gradingScale,
+                            label: 'Barème des notes',
+                            icon: Icons.grading_outlined,
+                            items: _kGradingScales,
+                            onChanged: (v) =>
+                                setState(() => _gradingScale = v ?? 'numeric_20'),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 12),
+                      _Picker<String>(
+                        value: _periodSystem,
+                        label: 'Découpage de l\'année',
+                        icon: Icons.calendar_view_month_outlined,
+                        items: _kPeriodSystems,
+                        onChanged: (v) =>
+                            setState(() => _periodSystem = v ?? 'trimester'),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 

@@ -89,9 +89,31 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
       final catalog  = await StaffRolesSource.fetchPermissionCatalog();
       final existing = await StaffRolesSource.fetchStaffRoles(schoolId);
 
+      final templates =
+          await StaffRolesSource.fetchRoleTemplates(_kRoleCatalogCycle);
+
       final drafts = <RoleDraft>[];
       if (existing.isNotEmpty) {
         drafts.addAll(existing.map(RoleDraft.fromStaffRole));
+
+        // Les modèles du catalogue pas encore instanciés apparaissent AUSSI ici,
+        // en PROPOSITION — pour que cette page montre exactement les mêmes rôles
+        // que la fenêtre « Inviter un membre » (qui, elle, propose ces modèles
+        // et les crée à la volée). Sans ça, on pouvait donner un rôle « Adjoint »
+        // à l'invitation alors qu'il n'apparaissait nulle part ici.
+        //
+        // `isDirty = false` : une proposition n'est PAS écrite en base tant qu'on
+        // n'y touche pas (ou qu'un membre ne la porte pas via l'invitation). Un
+        // simple enregistrement ne doit pas matérialiser des rôles inutilisés.
+        // Le fondateur (Direction) existe déjà parmi `existing` — on le saute.
+        final names = drafts.map((d) => d.name).toSet();
+        for (final t in templates) {
+          if (t.level == 'Direction') continue;
+          if (names.contains(t.name)) continue;
+          final proposal = RoleDraft.fromTemplate(t, draftId: _newDraftId());
+          proposal.isDirty = false;
+          drafts.add(proposal);
+        }
       } else {
         final allKeys = <String>{
           for (final m in catalog) for (final s in m.subPermissions) '${m.key}.${s.key}',
@@ -120,11 +142,9 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
           grants: allKeys,
         ));
 
-        final templates =
-            await StaffRolesSource.fetchRoleTemplates(_kRoleCatalogCycle);
+        // École neuve : là on SEED les modèles (isDirty par fromTemplate) pour
+        // que l'onboarding crée d'emblée le jeu de rôles complet.
         for (final t in templates) {
-          // On saute le modèle de Direction : le brouillon ci-dessus le couvre
-          // déjà, et deux chefs d'établissement n'auraient aucun sens.
           if (t.level == 'Direction') continue;
           drafts.add(RoleDraft.fromTemplate(t, draftId: _newDraftId()));
         }

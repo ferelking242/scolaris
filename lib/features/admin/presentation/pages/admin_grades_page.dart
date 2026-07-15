@@ -376,6 +376,10 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
       ref.invalidate(gradesForClassProvider(widget.classObj.id));
       ref.invalidate(classBulletinsProvider(
           '${widget.classObj.id}|${widget.period}'));
+      // Une correction sur période validée alimente le journal : rafraîchir
+      // l'Historique de l'onglet Clôture (même clé classe|période).
+      ref.invalidate(periodAuditProvider(
+          '${widget.classObj.id}|${widget.period}'));
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: Text('$n note(s) enregistrée(s).'),

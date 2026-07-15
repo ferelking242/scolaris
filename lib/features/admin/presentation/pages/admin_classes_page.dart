@@ -90,14 +90,25 @@ class AdminClassesPage extends ConsumerWidget {
         title: 'Classes & sections',
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (classes) => PageScaffold(
+      data: (classes) {
+        // Classes saisies à l'inscription mais jamais reportées ici (elles
+        // vivent dans `school_classes`, que le tableau de bord ne lit pas). On
+        // ne les propose à l'import que si la vraie table est encore vide.
+        final schoolId = ref.read(currentSchoolIdProvider);
+        final pending = classes.isEmpty && schoolId != null
+            ? (ref.watch(registrationClassesProvider(schoolId)).valueOrNull
+                ?? const <Map<String, dynamic>>[])
+            : const <Map<String, dynamic>>[];
+        final canCreate = ref.watch(canProvider('classes.creer'));
+
+        return PageScaffold(
         title: 'Classes & sections',
         subtitle: '${classes.length} classes dans l\'établissement',
         actions: [
           // Les boutons suivent les droits FINS du rôle, comme la base : sans
           // `classes.creer`, l'écriture serait refusée — autant ne pas la
           // proposer.
-          if (ref.watch(canProvider('classes.creer')))
+          if (canCreate)
             ActionButton(
                 label: 'Nouvelle classe',
                 icon: Icons.add_rounded,
@@ -108,7 +119,11 @@ class AdminClassesPage extends ConsumerWidget {
           title: 'Toutes les classes',
           headerActions: const [SearchInput(hint: 'Rechercher classe…')],
           child: classes.isEmpty
-              ? const _EmptyState()
+              ? (pending.isNotEmpty && canCreate
+                  ? _ImportBanner(
+                      count: pending.length,
+                      onImport: () => _importRegistration(context, ref))
+                  : const _EmptyState())
               : DataTablePanel(
                   columns: const ['Classe', 'Niveau', 'Section', 'Capacité', ''],
                   flex: const [2, 3, 3, 2, 2],
@@ -157,8 +172,39 @@ class AdminClassesPage extends ConsumerWidget {
                   ],
                 ),
         ),
-      ),
+      );
+      },
     );
+  }
+
+  /// Reporte les classes de l'inscription dans la vraie table `classes`, puis
+  /// rafraîchit la liste. Le vrai correctif du « piège des classes » : ce que
+  /// l'admin a saisi à l'inscription apparaît enfin dans son tableau de bord.
+  Future<void> _importRegistration(BuildContext context, WidgetRef ref) async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    final year =
+        ref.read(schoolProvider).valueOrNull?.academicYear ?? '2025-2026';
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final n = await SupabaseDbSource.importRegistrationClasses(
+          schoolId: schoolId, academicYear: year);
+      ref.invalidate(classesProvider);
+      ref.invalidate(registrationClassesProvider(schoolId));
+      messenger.showSnackBar(SnackBar(
+        content: Text(n > 0
+            ? '$n classe(s) importée(s) depuis votre inscription.'
+            : 'Rien à importer (déjà à jour).'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF16A34A),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Import impossible : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+    }
   }
 }
 
@@ -587,6 +633,45 @@ class _EmptyState extends StatelessWidget {
           child: Text('Aucune classe créée.',
               style: TextStyle(color: context.cMuted, fontSize: 14)),
         ),
+      );
+}
+
+/// Bannière proposant d'importer les classes saisies à l'inscription.
+///
+/// L'assistant d'inscription écrit les classes dans `school_classes` (avant
+/// connexion, sous le compte anonyme) — une table que le tableau de bord ne lit
+/// jamais. Résultat : elles semblaient perdues. Ce bouton les reporte dans la
+/// vraie table `classes`, en un tap.
+class _ImportBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onImport;
+  const _ImportBanner({required this.count, required this.onImport});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(children: [
+          Icon(Icons.download_for_offline_outlined, size: 40, color: _terra),
+          const SizedBox(height: 12),
+          Text('$count classe(s) saisie(s) à votre inscription',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(
+            'Elles n’ont pas encore été ajoutées à votre tableau de bord. '
+            'Importez-les pour les utiliser (vous pourrez les modifier ensuite).',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: context.cMuted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onImport,
+            icon: const Icon(Icons.playlist_add_rounded, size: 18),
+            label: Text('Importer $count classe(s)'),
+            style: FilledButton.styleFrom(backgroundColor: _terra),
+          ),
+        ]),
       );
 }
 

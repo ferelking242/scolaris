@@ -51,9 +51,9 @@ begin
 
   insert into public.grade_periods
     (school_id, class_id, period, academic_year, status, validated_by, validated_at)
-  values (v_school, p_class, p_period, v_year, 'validated', auth.uid(), now())
+  values (v_school, p_class, p_period, v_year, 'validated', public.my_user_id(), now())
   on conflict (class_id, period) do update
-    set status = 'validated', validated_by = auth.uid(), validated_at = now(),
+    set status = 'validated', validated_by = public.my_user_id(), validated_at = now(),
         locked_by = null, locked_at = null, updated_at = now();
 
   perform public._audit_period(p_class, p_period, v_old, 'validated', null);
@@ -82,7 +82,7 @@ begin
   end if;
 
   update public.grade_periods
-     set status = 'locked', locked_by = auth.uid(), locked_at = now(),
+     set status = 'locked', locked_by = public.my_user_id(), locked_at = now(),
          updated_at = now()
    where class_id = p_class and period = p_period;
 

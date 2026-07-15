@@ -158,6 +158,14 @@ final classesProvider = FutureProvider<List<SbClass>>((ref) async {
   return SupabaseDbSource.getClasses(schoolId: schoolId, branchId: branch?.id);
 });
 
+/// Les classes saisies à l'inscription (table `school_classes`) qui n'ont jamais
+/// été reportées dans le tableau de bord. Sert à proposer leur import. Cf.
+/// AdminClassesPage._ImportBanner.
+final registrationClassesProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, schoolId) {
+  return SupabaseDbSource.getRegistrationClasses(schoolId);
+});
+
 // ── Emploi du temps (par classe) ─────────────────────────────────────────────
 final schedulesForClassProvider =
     FutureProvider.family<List<SbSchedule>, String>((ref, classId) async {

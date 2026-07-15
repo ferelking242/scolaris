@@ -1342,6 +1342,14 @@ class _PreRegisterBtn extends StatelessWidget {
     _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · CM2 A · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
     _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2 A · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
     _SchoolUser(label:'Rose Okemba',subtitle:'Secrétariat · École Lumière',email:'rose.okemba@elc.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF558B2F),school:'Primaire'),
+    // ── Un compte par RÔLE (droits fins) — cf. 20260735 + 20260750_seed_role_demos.
+    //    Tous à l'École Lumière, pour vérifier ce que chaque rôle peut/ne peut pas.
+    _SchoolUser(label:'Gaston Milandou',subtitle:'Rôle Chef d\'établissement · accès total',email:'chef.elc@elc.cg',icon:Icons.gavel_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
+    _SchoolUser(label:'Firmin Loubota',subtitle:'Rôle Adjoint · pédagogie, notes, discipline',email:'adjoint.elc@elc.cg',icon:Icons.shield_moon_outlined,color:Color(0xFF7E3FF2),school:'Primaire'),
+    _SchoolUser(label:'Clarisse Ndinga',subtitle:'Rôle Secrétaire · élèves, inscriptions',email:'secretaire.elc@elc.cg',icon:Icons.folder_shared_rounded,color:Color(0xFFD4540A),school:'Primaire'),
+    _SchoolUser(label:'Sylvie Bakala',subtitle:'Rôle Comptable · facturation, paiements',email:'comptable.elc@elc.cg',icon:Icons.calculate_rounded,color:Color(0xFF00897B),school:'Primaire'),
+    _SchoolUser(label:'André Mabiala',subtitle:'Rôle Surveillant · présences, discipline',email:'surveillant.elc@elc.cg',icon:Icons.visibility_rounded,color:Color(0xFF3949AB),school:'Primaire'),
+    _SchoolUser(label:'Basile Kaya',subtitle:'Rôle Enseignant · notes & présences',email:'enseignant.elc@elc.cg',icon:Icons.school_rounded,color:Color(0xFFC17F24),school:'Primaire'),
     // Le seul compte PARENT de la démo (cf. 20260727_seed_parent_demo.sql).
     // Rattaché à Alice Moukoko via `parent_student` — sans ce lien, l'espace
     // parent serait vide, quel que soit le reste.

@@ -277,6 +277,10 @@ class SbReportCard {
   final String status;          // 'draft' | 'published'
   final DateTime? publishedAt;
 
+  /// Quand ce snapshot a été (re)calculé. Sert à savoir si une note corrigée
+  /// depuis est déjà reportée dans le bulletin officiel, ou non.
+  final DateTime? generatedAt;
+
   /// Les repères du conseil de classe, figés à la génération. Un bulletin est
   /// une photo : on garde le rang et la moyenne de la classe **de ce jour-là**.
   final double? classAverage;
@@ -306,6 +310,7 @@ class SbReportCard {
     this.mention,
     this.status = 'draft',
     this.publishedAt,
+    this.generatedAt,
     this.classAverage,
     this.bestAverage,
     this.worstAverage,
@@ -337,6 +342,9 @@ class SbReportCard {
       status: j['status'] as String? ?? 'draft',
       publishedAt: j['published_at'] != null
           ? DateTime.tryParse(j['published_at'] as String)
+          : null,
+      generatedAt: j['generated_at'] != null
+          ? DateTime.tryParse(j['generated_at'] as String)
           : null,
       classAverage: (j['class_average'] as num?)?.toDouble(),
       bestAverage: (j['best_average'] as num?)?.toDouble(),
@@ -1972,7 +1980,6 @@ class SupabaseDbSource {
       attendance: attendance,
     );
 
-    final now = DateTime.now().toIso8601String();
     final rows = <Map<String, dynamic>>[];
     for (final st in students) {
       final b = bulletins[st.id];
@@ -1996,7 +2003,8 @@ class SupabaseDbSource {
         'mention': b.mention,
         'decision': b.decision,
         'status': 'draft',
-        'generated_at': now,
+        // `generated_at` est pose cote serveur (trigger stamp_report_card_...),
+        // pour partager l'horloge de grades.updated_at — cf. 20260749.
         if (createdBy != null) 'created_by': createdBy,
       });
     }
@@ -2555,6 +2563,61 @@ class SupabaseDbSource {
     });
   }
 
+  /// Les classes saisies dans l'ASSISTANT d'inscription. Elles vivent dans
+  /// `school_classes` (tables permissives, écrites par le client anonyme avant
+  /// connexion) — que le tableau de bord ne lit jamais. On les expose ici pour
+  /// pouvoir les reporter dans la vraie table `classes`. Cf. importRegistrationClasses.
+  static Future<List<Map<String, dynamic>>> getRegistrationClasses(
+      String schoolId) async {
+    final data = await _db
+        .from('school_classes')
+        .select('name, level')
+        .eq('school_id', schoolId);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Reporte les classes de l'inscription (`school_classes`) dans la vraie table
+  /// `classes` — ce que l'assistant ne pouvait pas faire lui-même (RLS : il
+  /// tournait sous le compte anonyme, avant connexion). Idempotent : on saute
+  /// toute classe dont le nom existe déjà. Renvoie le nombre importé.
+  static Future<int> importRegistrationClasses({
+    required String schoolId,
+    required String academicYear,
+  }) async {
+    final reg = await getRegistrationClasses(schoolId);
+    if (reg.isEmpty) return 0;
+
+    final existing = await _db
+        .from('classes')
+        .select('name')
+        .eq('school_id', schoolId);
+    final taken = <String>{
+      for (final e in (existing as List))
+        ((e['name'] as String?) ?? '').trim().toLowerCase(),
+    };
+
+    final rows = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final r in reg) {
+      final name = ((r['name'] as String?) ?? '').trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      if (taken.contains(key) || !seen.add(key)) continue;
+      rows.add({
+        'id': const Uuid().v4(),
+        'school_id': schoolId,
+        'name': name,
+        if (r['level'] != null) 'level': r['level'],
+        'max_students': 35,
+        'academic_year': academicYear,
+        'is_active': true,
+      });
+    }
+    if (rows.isEmpty) return 0;
+    await _db.from('classes').insert(rows);
+    return rows.length;
+  }
+
   static Future<void> updateClass({
     required String id,
     String? name,
@@ -2765,6 +2828,25 @@ class SupabaseDbSource {
 
     await _db.from('schools').update({
       'metadata': meta,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
+  /// Les trois réglages « format » de l'école : devise, barème, découpage de
+  /// l'année. Ils vivaient sur des valeurs par défaut (XAF / /20 / trimestre)
+  /// qu'aucun écran ne permettait de changer — une université ne pouvait pas
+  /// passer en semestres, une école hors zone CFA ne pouvait pas changer de
+  /// devise. Cet écrit comble ce trou.
+  static Future<void> updateSchoolFormat({
+    required String id,
+    required String currency,
+    required String gradingScale,
+    required String periodSystem,
+  }) async {
+    await _db.from('schools').update({
+      'currency': currency,
+      'grading_scale': gradingScale,
+      'period_system': periodSystem,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
   }

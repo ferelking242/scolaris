@@ -1470,22 +1470,29 @@ class _DateField extends StatelessWidget {
 /// cas normal : deux comptables partagent un rôle), puis les **modèles** du
 /// catalogue adaptés au cycle de l'établissement (Proviseur/Censeur pour un
 /// lycée, Recteur/Doyen pour une université…), qui seront créés à la volée.
-/// En dernier, une échappatoire « Accès personnalisé » pour les cas hors moule.
+///
+/// Pas de « sur-mesure » ici : un rôle taillé à la main se crée dans
+/// « Rôles & permissions » (nommé, partagé, réutilisable), puis apparaît
+/// ci-dessus comme un rôle sélectionnable. Bricoler des droits pour une seule
+/// personne à l'invitation romprait le modèle « le droit suit le rôle ».
 class _RolePicker extends ConsumerWidget {
   final String? selectedRoleId;
   final String? selectedTemplateId;
   final bool custom;
   final ValueChanged<SbStaffRole> onRole;
   final ValueChanged<SbRoleTemplate> onTemplate;
-  final VoidCallback onCustom;
+
+  /// Null → pas d'option « Accès personnalisé » (cas de l'invitation : un rôle
+  /// sur-mesure se crée dans « Rôles & permissions », pas ici).
+  final VoidCallback? onCustom;
 
   const _RolePicker({
     required this.selectedRoleId,
     required this.selectedTemplateId,
-    required this.custom,
+    this.custom = false,
     required this.onRole,
     required this.onTemplate,
-    required this.onCustom,
+    this.onCustom,
   });
 
   @override
@@ -1532,16 +1539,17 @@ class _RolePicker extends ConsumerWidget {
           backgroundColor: context.cCard,
           side: BorderSide(color: context.cBorder),
         ),
-      ChoiceChip(
-        label: const Text('Accès personnalisé', style: TextStyle(fontSize: 12)),
-        avatar: Icon(Icons.tune,
-            size: 15, color: custom ? _terra : context.cMuted),
-        selected: custom,
-        onSelected: (_) => onCustom(),
-        selectedColor: _terra.withValues(alpha: .12),
-        backgroundColor: context.cCard,
-        side: BorderSide(color: context.cBorder),
-      ),
+      if (onCustom != null)
+        ChoiceChip(
+          label: const Text('Accès personnalisé', style: TextStyle(fontSize: 12)),
+          avatar: Icon(Icons.tune,
+              size: 15, color: custom ? _terra : context.cMuted),
+          selected: custom,
+          onSelected: (_) => onCustom!(),
+          selectedColor: _terra.withValues(alpha: .12),
+          backgroundColor: context.cCard,
+          side: BorderSide(color: context.cBorder),
+        ),
     ]);
   }
 }
@@ -1571,10 +1579,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
 
   /// Rôle choisi. Le droit est porté par le RÔLE, pas par la personne : deux
   /// comptables partagent le même rôle, et le modifier plus tard les met à jour
-  /// tous les deux. Null = « Accès personnalisé » (rôle dédié à cette personne).
+  /// tous les deux. Un rôle sur-mesure se crée dans « Rôles & permissions ».
   SbRoleTemplate? _template; // modèle du catalogue (rôle pas encore créé)
   SbStaffRole? _existingRole; // rôle déjà créé dans l'école
-  bool _custom = false;
 
   final _staffInfo = _StaffInfo();
 
@@ -1598,7 +1605,6 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     setState(() {
       _existingRole = role;
       _template = null;
-      _custom = false;
       _perms
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(role.grants,
@@ -1612,39 +1618,12 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     setState(() {
       _template = t;
       _existingRole = null;
-      _custom = false;
       _perms
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(t.grants,
             isAdminRole: t.level == 'Direction'));
       if (_title.text.trim().isEmpty) _title.text = t.name;
     });
-  }
-
-  void _pickCustom() {
-    setState(() {
-      _custom = true;
-      _template = null;
-      _existingRole = null;
-      _perms.clear();
-    });
-  }
-
-  /// Traduit les modules cochés en grants `module.action` (toutes les actions du
-  /// module). La finesse action par action n'est pas exposée tant que les
-  /// policies RLS ne l'appliquent pas — cf. RbacMapping.
-  Set<String> _grantsFromModules(List<SbPermissionModule> catalog) {
-    final grants = <String>{};
-    for (final key in _perms) {
-      final module = RbacMapping.permissionToModule[key];
-      if (module == null) continue; // 'discipline' : dérivé, pas de module
-      final mod = catalog.where((m) => m.key == module).firstOrNull;
-      if (mod == null) continue;
-      for (final sub in mod.subPermissions) {
-        grants.add('$module.${sub.key}');
-      }
-    }
-    return grants;
   }
 
   Future<void> _submit() async {
@@ -1692,25 +1671,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
             template: _template!,
           );
         } else {
-          // Accès personnalisé → rôle dédié, nommé d'après le titre saisi.
-          final catalog = await ref.read(permissionCatalogProvider.future);
-          final grants = _grantsFromModules(catalog);
-          final name = _title.text.trim().isEmpty
-              ? _name.text.trim()
-              : _title.text.trim();
-          final roleId = await StaffRolesSource.createStaffRole(
-            schoolId: schoolId,
-            name: name,
-            description: 'Rôle personnalisé',
-            grants: grants,
-          );
-          role = SbStaffRole(
-            id: roleId,
-            schoolId: schoolId,
-            name: name,
-            isAdminRole: false,
-            grants: grants,
-          );
+          // Aucun rôle choisi : on n'invente plus de rôle « sur-mesure » ici. Un
+          // rôle taillé à la main se crée dans « Rôles & permissions ».
+          throw Exception('Choisissez un rôle pour ce membre.');
         }
 
         staffRoleId = role.id;
@@ -1866,25 +1829,21 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 _RolePicker(
                   selectedRoleId: _existingRole?.id,
                   selectedTemplateId: _template?.id,
-                  custom: _custom,
                   onRole: _pickRole,
                   onTemplate: _pickTemplate,
-                  onCustom: _pickCustom,
                 ),
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                      _custom ? 'Accès accordés' : 'Accès de ce rôle',
+                  child: Text('Accès de ce rôle',
                       style: TextStyle(
                           fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
-                // Hors mode personnalisé, les accès sont ceux du rôle : on les
-                // affiche sans les rendre modifiables ici. Les changer pour une
-                // seule personne casserait le modèle (le droit suit le rôle) ;
-                // ça se fait dans « Rôles & permissions », et ça s'applique à
-                // tous ceux qui portent ce rôle.
+                // Les accès sont ceux du rôle : on les affiche en lecture seule.
+                // Les changer pour une seule personne casserait le modèle (le
+                // droit suit le rôle) ; ça se fait dans « Rôles & permissions »,
+                // et ça s'applique à tous ceux qui portent ce rôle.
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final p in StaffPermissions.all)
                     FilterChip(
@@ -1893,22 +1852,14 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                           size: 15,
                           color: _perms.contains(p.key) ? _terra : context.cMuted),
                       selected: _perms.contains(p.key),
-                      onSelected: _custom
-                          ? (v) => setState(() {
-                                if (v) {
-                                  _perms.add(p.key);
-                                } else {
-                                  _perms.remove(p.key);
-                                }
-                              })
-                          : null,
+                      onSelected: null,
                       selectedColor: _terra.withValues(alpha: .12),
                       checkmarkColor: _terra,
                       backgroundColor: context.cCard,
                       side: BorderSide(color: context.cBorder),
                     ),
                 ]),
-                if (!_custom && _perms.isNotEmpty) ...[
+                if (_perms.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
                     'Pour changer ces accès, modifiez le rôle dans '

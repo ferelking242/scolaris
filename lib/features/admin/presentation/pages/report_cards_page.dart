@@ -48,6 +48,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     ref.invalidate(gradePeriodProvider(_periodKey));
     ref.invalidate(gradesForClassProvider(_classId ?? ''));
     ref.invalidate(classBulletinsProvider(_periodKey));
+    ref.invalidate(periodAuditProvider(_periodKey));
   }
 
   void _toast(String msg, Color color) {
@@ -416,10 +417,13 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     final canValider = ref.watch(canProvider('notes.valider'));
     final canVerrou = ref.watch(canProvider('notes.verrouiller'));
 
-    // Une correction depuis la validation ? On compare la dernière écriture de
-    // note à la date de validation. Si une note est plus récente, le bulletin
-    // figé n'est plus à jour — c'est là, et LÀ SEULEMENT, qu'on propose de
-    // recalculer (l'ex-« Régénérer », qui ne servait à rien).
+    // Une correction depuis la génération ? On compare la dernière écriture de
+    // note à la date où le bulletin officiel a été (re)calculé — PAS à la
+    // validation : « Appliquer les corrections » réécrit le snapshot sans
+    // toucher à validatedAt, donc comparer à validatedAt laisserait le bouton
+    // éternellement actif. Si une note est plus récente que le snapshot, le
+    // bulletin figé n'est plus à jour — c'est là, et LÀ SEULEMENT, qu'on
+    // propose de recalculer (l'ex-« Régénérer », qui ne servait à rien).
     final grades = ref.watch(gradesForClassProvider(_classId ?? '')).valueOrNull
             ?? const <SbGrade>[];
     final lastEdit = grades
@@ -427,10 +431,14 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         .map((g) => g.updatedAt)
         .whereType<DateTime>()
         .fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
+    final snapshotAt = cards
+        .map((c) => c.generatedAt)
+        .whereType<DateTime>()
+        .fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
     final pending = status == 'validated' &&
-        period?.validatedAt != null &&
+        snapshotAt != null &&
         lastEdit != null &&
-        lastEdit.isAfter(period!.validatedAt!);
+        lastEdit.isAfter(snapshotAt);
 
     final (Color color, IconData icon, String text) = switch (status) {
       'validated' => (_green, Icons.verified_rounded,
