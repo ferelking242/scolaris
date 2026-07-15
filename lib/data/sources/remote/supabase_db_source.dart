@@ -361,6 +361,45 @@ class SbReportCard {
       );
 }
 
+/// Une ligne de l'historique des modifications (journal immuable `notes_audit`).
+/// Qui a changé quoi, quand, de quelle valeur à quelle valeur, et pourquoi.
+class SbAuditEntry {
+  final String changeType; // note | appreciation | suppression | statut_periode
+  final String? field;
+  final String? oldValue;
+  final String? newValue;
+  final String? reason;
+  final String? studentId;
+  final String? subjectId;
+  final String actorName;
+  final DateTime createdAt;
+
+  const SbAuditEntry({
+    required this.changeType,
+    this.field,
+    this.oldValue,
+    this.newValue,
+    this.reason,
+    this.studentId,
+    this.subjectId,
+    required this.actorName,
+    required this.createdAt,
+  });
+
+  factory SbAuditEntry.fromJson(Map<String, dynamic> j) => SbAuditEntry(
+        changeType: j['change_type'] as String? ?? '',
+        field: j['field'] as String?,
+        oldValue: j['old_value'] as String?,
+        newValue: j['new_value'] as String?,
+        reason: j['reason'] as String?,
+        studentId: j['student_id'] as String?,
+        subjectId: j['subject_id'] as String?,
+        actorName: j['actor_name'] as String? ?? '—',
+        createdAt:
+            DateTime.tryParse(j['created_at'] as String? ?? '') ?? DateTime(2000),
+      );
+}
+
 /// L'état d'une période de notes (classe × trimestre). Ce qui gèle les notes et
 /// scelle le bulletin. Cf. 20260746.
 class SbGradePeriod {
@@ -2771,6 +2810,22 @@ class SupabaseDbSource {
     return row == null
         ? SbGradePeriod(classId: classId, period: period, status: 'open')
         : SbGradePeriod.fromJson(row);
+  }
+
+  /// L'historique des modifications d'une période (classe × trimestre) :
+  /// corrections de notes, changements d'état, du plus récent au plus ancien.
+  static Future<List<SbAuditEntry>> getPeriodAudit(
+      String classId, String period) async {
+    final data = await _db
+        .from('notes_audit')
+        .select()
+        .eq('class_id', classId)
+        .eq('period', period)
+        .order('created_at', ascending: false)
+        .limit(500);
+    return (data as List)
+        .map((j) => SbAuditEntry.fromJson(j as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<void> validatePeriod(String classId, String period) =>

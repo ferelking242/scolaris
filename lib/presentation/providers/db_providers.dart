@@ -370,6 +370,14 @@ final gradePeriodProvider =
       parts.first, parts.length > 1 ? parts[1] : 'T1');
 });
 
+/// L'historique des modifications d'une période. Clé : `classId|période`.
+final periodAuditProvider =
+    FutureProvider.family<List<SbAuditEntry>, String>((ref, key) async {
+  final parts = key.split('|');
+  return SupabaseDbSource.getPeriodAudit(
+      parts.first, parts.length > 1 ? parts[1] : 'T1');
+});
+
 /// Les bulletins de **toute une classe**, pour une période. Clé : `classId|période`.
 ///
 /// Toute la classe d'un coup, et pas élève par élève : le rang par matière, le

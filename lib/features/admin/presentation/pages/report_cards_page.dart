@@ -10,6 +10,7 @@ import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../widgets/bulletin_view.dart';
+import 'bulletin_pdf.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF16A34A);
@@ -323,11 +324,20 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             title: 'Pas encore clôturé',
             description: 'Validez la période pour figer les bulletins de ce trimestre.')
         else ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 4),
-            child: Text('Touchez un élève pour voir et imprimer son bulletin.',
-                style: TextStyle(fontSize: 12, color: context.cMuted)),
-          ),
+          Row(children: [
+            Expanded(
+              child: Text('Touchez un élève pour voir son bulletin.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+            ),
+            _actionBtn(
+              label: 'Imprimer toute la classe',
+              icon: Icons.print_rounded,
+              color: _terra,
+              filled: false,
+              onTap: _busy ? null : () => _printAll(cards),
+            ),
+          ]),
+          const SizedBox(height: 10),
           for (final c in cards) ...[
             _StudentRow(
               card: c,
@@ -336,8 +346,43 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             const SizedBox(height: 8),
           ],
         ],
+
+        // ── Historique des modifications ────────────────────────────────
+        const SizedBox(height: 16),
+        _AuditPanel(periodKey: _periodKey),
       ],
     );
+  }
+
+  /// Imprime tous les bulletins FIGÉS de la classe en un seul document.
+  Future<void> _printAll(List<SbReportCard> cards) async {
+    final school = ref.read(schoolProvider).valueOrNull;
+    final className =
+        (ref.read(classesProvider).valueOrNull ?? const <SbClass>[])
+            .where((c) => c.id == _classId)
+            .map((c) => c.name)
+            .firstOrNull ??
+            '';
+    final items = [
+      for (final c in cards)
+        BulletinToPrint(
+          student: SbStudent(
+              id: c.studentId, nom: c.studentName ?? '', prenom: '',
+              classe: className),
+          className: className,
+          bulletin: c.toBulletin(),
+        ),
+    ];
+    try {
+      await printClassBulletins(
+        school: school,
+        periodLabel: _fmt.periodLabel(_period),
+        rules: BulletinRules.fromSchool(school),
+        items: items,
+      );
+    } catch (e) {
+      _toast('Impression impossible : $e', _terra);
+    }
   }
 
   /// Ouvre le bulletin **figé** : on le relit tel qu'il a été généré, on ne le
@@ -647,4 +692,98 @@ class _FrozenBulletinPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// L'historique des modifications de la période — la frise de traçabilité.
+///
+/// Chaque correction de note, chaque changement d'état y apparaît : qui, quand,
+/// de quelle valeur à quelle valeur, et le motif. C'est ce qui permet de
+/// justifier un changement en cas de litige. Lecture réservée à `notes.voir` —
+/// la base refuse le reste.
+class _AuditPanel extends ConsumerWidget {
+  final String periodKey;
+  const _AuditPanel({required this.periodKey});
+
+  static const _terra = Color(0xFF8B1A00);
+  static const _gold = Color(0xFFC17F24);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(periodAuditProvider(periodKey));
+    final entries = async.valueOrNull ?? const <SbAuditEntry>[];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.history_rounded, size: 16, color: context.cMuted),
+          const SizedBox(width: 8),
+          Text('Historique des modifications',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: context.cInk)),
+        ]),
+        const SizedBox(height: 10),
+        if (async.isLoading)
+          const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+        else if (entries.isEmpty)
+          Text('Aucune modification enregistrée pour cette période.',
+              style: TextStyle(fontSize: 12, color: context.cMuted))
+        else
+          for (final e in entries) _row(context, e),
+      ]),
+    );
+  }
+
+  Widget _row(BuildContext context, SbAuditEntry e) {
+    // La phrase qui décrit le changement, lisible d'un coup d'œil.
+    final (IconData icon, Color color, String what) = switch (e.changeType) {
+      'note' => (Icons.edit_rounded, _gold,
+          '${e.field ?? 'Note'} : ${e.oldValue ?? '—'} → ${e.newValue ?? '—'}'),
+      'appreciation' => (Icons.notes_rounded, _gold, 'Appréciation modifiée'),
+      'suppression' => (Icons.delete_outline_rounded, _terra,
+          'Note supprimée (${e.oldValue ?? '—'})'),
+      'statut_periode' => (Icons.flag_rounded, context.cMuted,
+          'Période : ${_statusLabel(e.oldValue)} → ${_statusLabel(e.newValue)}'),
+      _ => (Icons.circle, context.cMuted, e.changeType),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(what,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: context.cInk)),
+            const SizedBox(height: 1),
+            Text(
+              '${e.actorName} · ${DateFormat('d MMM yyyy, HH:mm', 'fr').format(e.createdAt)}'
+              '${e.reason != null ? ' · « ${e.reason} »' : ''}',
+              style: TextStyle(fontSize: 11, color: context.cMuted),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  String _statusLabel(String? s) => switch (s) {
+        'open' => 'ouverte',
+        'validated' => 'validée',
+        'locked' => 'verrouillée',
+        _ => s ?? '—',
+      };
 }

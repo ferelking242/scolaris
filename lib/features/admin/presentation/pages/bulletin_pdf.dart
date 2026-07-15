@@ -74,39 +74,91 @@ Future<Uint8List> buildBulletinPdf({
   String? decision,
   String? councilComment,
 }) async {
+  final theme = await _theme();
   final pdf = pw.Document();
+  pdf.addPage(_bulletinPage(
+    theme: theme, school: school, student: student, className: className,
+    periodLabel: periodLabel, bulletin: bulletin, rules: rules,
+    decision: decision, councilComment: councilComment));
+  return pdf.save();
+}
 
-  // Une police qui porte les accents. La police par défaut de `pdf` n'a pas
-  // « é » ni « É » : « Éducation Civique » deviendrait « ducation Civique ».
+/// Un élève à imprimer dans un lot : son bulletin et son identité.
+class BulletinToPrint {
+  final SbStudent student;
+  final String className;
+  final Bulletin bulletin;
+  const BulletinToPrint(
+      {required this.student, required this.className, required this.bulletin});
+}
+
+/// **Tous les bulletins d'une classe en un seul document** — une page par élève.
+///
+/// L'impression groupée : au lieu d'ouvrir trente fois la boîte d'impression, on
+/// bâtit un PDF unique et on l'imprime d'un geste. La police n'est chargée
+/// qu'une fois, partagée par toutes les pages.
+Future<void> printClassBulletins({
+  required SbSchool? school,
+  required String periodLabel,
+  required BulletinRules rules,
+  required List<BulletinToPrint> items,
+}) async {
+  if (items.isEmpty) return;
+  final theme = await _theme();
+  final pdf = pw.Document();
+  for (final it in items) {
+    pdf.addPage(_bulletinPage(
+      theme: theme, school: school, student: it.student,
+      className: it.className, periodLabel: periodLabel,
+      bulletin: it.bulletin, rules: rules));
+  }
+  final bytes = await pdf.save();
+  await Printing.layoutPdf(
+    onLayout: (_) => bytes,
+    name: 'Bulletins ${items.first.className} — $periodLabel',
+  );
+}
+
+/// Une police qui porte les accents. Celle par défaut de `pdf` n'a pas « é » ni
+/// « É » : « Éducation Civique » deviendrait « ducation Civique ».
+Future<pw.ThemeData> _theme() async {
   final font = await PdfGoogleFonts.notoSansRegular();
   final bold = await PdfGoogleFonts.notoSansBold();
+  return pw.ThemeData.withFont(base: font, bold: bold);
+}
 
-  final theme = pw.ThemeData.withFont(base: font, bold: bold);
-
+/// La page d'un bulletin. Le même rendu pour l'impression unique et groupée —
+/// un bulletin doit se ressembler partout.
+pw.Page _bulletinPage({
+  required pw.ThemeData theme,
+  required SbSchool? school,
+  required SbStudent student,
+  required String className,
+  required String periodLabel,
+  required Bulletin bulletin,
+  required BulletinRules rules,
+  String? decision,
+  String? councilComment,
+}) {
   final devoirLabels = rules.devoirLabels;
   final year = school?.academicYear ?? '';
-
-  pdf.addPage(
-    pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      theme: theme,
-      margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 24),
-      build: (ctx) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          _header(school, periodLabel, year),
-          pw.SizedBox(height: 14),
-          _identity(student, className),
-          pw.SizedBox(height: 10),
-          _table(bulletin, devoirLabels),
-          pw.SizedBox(height: 12),
-          _council(bulletin, decision, councilComment, school),
-        ],
-      ),
+  return pw.Page(
+    pageFormat: PdfPageFormat.a4,
+    theme: theme,
+    margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 24),
+    build: (ctx) => pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        _header(school, periodLabel, year),
+        pw.SizedBox(height: 14),
+        _identity(student, className),
+        pw.SizedBox(height: 10),
+        _table(bulletin, devoirLabels),
+        pw.SizedBox(height: 12),
+        _council(bulletin, decision, councilComment, school),
+      ],
     ),
   );
-
-  return pdf.save();
 }
 
 // ── En-tête : l'école à gauche, la République à droite ───────────────────────
