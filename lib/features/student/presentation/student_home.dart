@@ -313,18 +313,17 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               const SizedBox(height: 16),
 
               // ── 2. Stats rapides (tappables) ──────────────────────────
-              Skeletonizer(
-                enabled: loading, effect: shimmer,
-                child: _QuickStats(
-                  loading: loading,
-                  moyenneText: avgText,
-                  moyenneUnit: unit,
-                  absences: absences.length,
-                  notes: grades.length,
-                  onMoyenne: () => _nav('nav.grades'),
-                  onAbsences: () => _nav('nav.attendance'),
-                  onNotes: () => _nav('nav.grades'),
-                ),
+              // Shimmer uniquement sur les valeurs dynamiques (pas les labels/icônes)
+              _QuickStats(
+                loading: loading,
+                shimmer: shimmer,
+                moyenneText: avgText,
+                moyenneUnit: unit,
+                absences: absences.length,
+                notes: grades.length,
+                onMoyenne: () => _nav('nav.grades'),
+                onAbsences: () => _nav('nav.attendance'),
+                onNotes: () => _nav('nav.grades'),
               ),
               const SizedBox(height: 22),
 
@@ -416,15 +415,28 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
       ShimmerEffect shimmer,
       double maxScore,
       double k) {
-    return Skeletonizer(
-      enabled: loading, effect: shimmer,
-      child: _StatsSection(
-        grades: loading ? _skeletonGrades : grades,
-        absences: absences.length,
-        graded: loading ? _skeletonGrades : graded,
-        maxScore: maxScore,
-        k: k,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header statique — jamais shimmerisé
+        _SectionHeader(
+          icon: Icons.bar_chart_rounded,
+          title: 'Statistiques',
+          accentColor: _cyan,
+        ),
+        const SizedBox(height: 10),
+        // Grille dynamique — shimmer uniquement ici
+        Skeletonizer(
+          enabled: loading, effect: shimmer,
+          child: _StatsGrid(
+            grades: loading ? _skeletonGrades : grades,
+            absences: absences.length,
+            graded: loading ? _skeletonGrades : graded,
+            maxScore: maxScore,
+            k: k,
+          ),
+        ),
+      ],
     );
   }
 
@@ -592,17 +604,18 @@ class _HeroBadge extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Stats rapides — tappables, ouvrent leur page respective
+// Stats rapides — tappables, shimmer uniquement sur la valeur dynamique
 // ══════════════════════════════════════════════════════════════════════════
 class _QuickStats extends StatelessWidget {
   final bool loading;
+  final ShimmerEffect shimmer;
   final String? moyenneText;
   final String moyenneUnit;
   final int absences, notes;
   final VoidCallback? onMoyenne, onAbsences, onNotes;
   const _QuickStats({
-    required this.loading, required this.moyenneText,
-    required this.moyenneUnit,
+    required this.loading, required this.shimmer,
+    required this.moyenneText, required this.moyenneUnit,
     required this.absences, required this.notes,
     this.onMoyenne, this.onAbsences, this.onNotes,
   });
@@ -610,19 +623,19 @@ class _QuickStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = [
-      (icon: Icons.star_rounded, label: 'Moyenne',
-       val: loading ? '00.0' : (moyenneText ?? '—'),
-       sub: moyenneUnit, c: _gold, onTap: onMoyenne),
+      (icon: Icons.star_rounded,      label: 'Moyenne',
+       val: moyenneText ?? '—',       sub: moyenneUnit,
+       c: _gold,                      onTap: onMoyenne),
       (icon: Icons.event_busy_rounded, label: 'Absences',
-       val: loading ? '0' : '$absences',
-       sub: absences > 1 ? ' jours' : ' jour',
+       val: '$absences',              sub: absences > 1 ? ' jours' : ' jour',
        c: absences == 0 ? _green : _terra, onTap: onAbsences),
-      (icon: Icons.grading_rounded, label: 'Notes',
-       val: loading ? '0' : '$notes', sub: ' reçues', c: _orange, onTap: onNotes),
+      (icon: Icons.grading_rounded,   label: 'Notes',
+       val: '$notes',                 sub: ' reçues',
+       c: _orange,                    onTap: onNotes),
     ];
     return Row(children: [
       for (int i = 0; i < data.length; i++) ...[
-        Expanded(child: _QuickStatPill(d: data[i])),
+        Expanded(child: _QuickStatPill(d: data[i], loading: loading, shimmer: shimmer)),
         if (i < data.length - 1) const SizedBox(width: 8),
       ],
     ]);
@@ -631,7 +644,9 @@ class _QuickStats extends StatelessWidget {
 
 class _QuickStatPill extends StatelessWidget {
   final ({IconData icon, String label, String val, String sub, Color c, VoidCallback? onTap}) d;
-  const _QuickStatPill({required this.d});
+  final bool loading;
+  final ShimmerEffect shimmer;
+  const _QuickStatPill({required this.d, required this.loading, required this.shimmer});
 
   @override
   Widget build(BuildContext context) {
@@ -650,6 +665,7 @@ class _QuickStatPill extends StatelessWidget {
           )],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Icône + chevron : 100 % statiques, jamais shimmerisés
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Container(
               width: 28, height: 28,
@@ -661,17 +677,22 @@ class _QuickStatPill extends StatelessWidget {
                 size: 14, color: cs.onSurface.withOpacity(.25)),
           ]),
           const SizedBox(height: 6),
+          // Label statique
           Text(d.label, style: TextStyle(
               color: cs.onSurface.withOpacity(.5),
               fontSize: 9.5, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          RichText(text: TextSpan(children: [
-            TextSpan(text: d.val,
-                style: TextStyle(color: cs.onSurface,
-                    fontSize: 17, fontWeight: FontWeight.w900)),
-            TextSpan(text: d.sub,
-                style: TextStyle(color: cs.onSurface.withOpacity(.45), fontSize: 9.5)),
-          ])),
+          // Valeur dynamique : shimmer uniquement ici
+          Skeletonizer(
+            enabled: loading, effect: shimmer,
+            child: RichText(text: TextSpan(children: [
+              TextSpan(text: loading ? '——' : d.val,
+                  style: TextStyle(color: cs.onSurface,
+                      fontSize: 17, fontWeight: FontWeight.w900)),
+              TextSpan(text: d.sub,
+                  style: TextStyle(color: cs.onSurface.withOpacity(.45), fontSize: 9.5)),
+            ])),
+          ),
         ]),
       ),
     );
@@ -976,15 +997,15 @@ class _EdtTimeline extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Statistiques — remplace la courbe incompréhensible
+// Grille statistiques — données dynamiques uniquement (header géré par parent)
 // ══════════════════════════════════════════════════════════════════════════
-class _StatsSection extends StatelessWidget {
+class _StatsGrid extends StatelessWidget {
   final List<SbGrade> grades;
   final List<SbGrade> graded; // trié chronologiquement
   final int absences;
   final double maxScore, k;
 
-  const _StatsSection({
+  const _StatsGrid({
     required this.grades,
     required this.graded,
     required this.absences,
@@ -1101,26 +1122,18 @@ class _StatsSection extends StatelessWidget {
       ),
     ];
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _SectionHeader(
-        icon: Icons.bar_chart_rounded,
-        title: 'Statistiques',
-        accentColor: _cyan,
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.55,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
-      const SizedBox(height: 10),
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.55,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: stats.length,
-        itemBuilder: (_, i) => _StatCard(item: stats[i]),
-      ),
-    ]);
+      itemCount: stats.length,
+      itemBuilder: (_, i) => _StatCard(item: stats[i]),
+    );
   }
 }
 
