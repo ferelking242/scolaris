@@ -1,0 +1,172 @@
+{
+  "app": {
+    "name": "Scolaris",
+    "tagline": "Savoir, Héritage, Avenir"
+  },
+  "sections": {
+    "setup": "CONFIGURATION",
+    "activity": "ACTIVITÉ",
+    "account": "COMPTE",
+    "finance": "SCOLARITÉ",
+    "tools": "OUTILS",
+    "learning": "OUTILS PÉDAGOGIQUES",
+    "university": "UNIVERSITÉ",
+    "primary_tools": "VIE SCOLAIRE"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "search_placeholder": "Rechercher élèves, classes…",
+    "back": "Retour",
+    "loading": "Chargement...",
+    "retry": "Réessayer",
+    "logout": "Se déconnecter",
+    "settings": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "sidebar": {
+    "collapse": "Réduire",
+    "expand": "Étendre"
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "Créer un compte",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgot": "Mot de passe oublié ?",
+    "loginWithQr": "Connexion par QR",
+    "welcome": "Bon retour",
+    "subWelcome": "Connectez-vous à votre école",
+    "errors": {
+      "invalidEmail": "Email invalide",
+      "shortPassword": "Mot de passe trop court",
+      "failed": "Échec de la connexion"
+    }
+  },
+  "roles": {
+    "student": "Élève",
+    "parent": "Parent",
+    "teacher": "Enseignant",
+    "surveillance": "Surveillance",
+    "finance": "Finance",
+    "admin": "Administrateur"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "courses": "Cours",
+    "grades": "Notes",
+    "report_cards": "Bulletins",
+    "attendance": "Présences",
+    "schedule": "Emploi du temps",
+    "messages": "Messages",
+    "children": "Mes Enfants",
+    "payments": "Paiements",
+    "students": "Élèves",
+    "classes": "Classes",
+    "subjects": "Matières",
+    "reports": "Rapports",
+    "users": "Utilisateurs",
+    "billing": "Facturation",
+    "subscription": "Mon abonnement",
+    "library": "Bibliothèque",
+    "qr": "QR Code",
+    "bulletin": "Bulletin",
+    "homework": "Devoirs",
+    "features": "Fonctionnalités",
+    "class_stats": "Statistiques",
+    "timetable": "Horaires",
+    "enrollment": "Inscriptions",
+    "notifications": "Notifications",
+    "receipts": "Reçus",
+    "my_payments": "Ma Scolarité",
+    "documents": "Mes Documents",
+    "settings": "Paramètres",
+    "school": "Mon École",
+    "main": "Principal",
+    "other": "Autre",
+    "cahier_textes": "Cahier de textes",
+    "simulateur": "Simulateur de moyenne",
+    "annales": "Annales & Quiz",
+    "prepa_bac": "Prépa-Bac",
+    "releve_ects": "Relevé ECTS",
+    "inscription_ue": "Inscription aux UE",
+    "carte_etudiante": "Carte étudiante",
+    "cahier_liaison": "Cahier de liaison",
+    "menu_cantine": "Menu Cantine",
+    "recompenses": "Mes récompenses"
+  },
+  "dashboard": {
+    "hello": "Bonjour, {name}",
+    "today": "Aujourd'hui",
+    "upcoming": "À venir",
+    "stats": "Statistiques",
+    "presence": "Taux de présence",
+    "average": "Moyenne",
+    "due": "Paiements dus",
+    "noData": "Aucune donnée"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "view_profile": "Voir profil",
+    "account": "Compte",
+    "account_sub": "Profil, mot de passe, notifications",
+    "school": "Mon École",
+    "school_sub": "Nom, logo, année scolaire",
+    "appearance": "Apparence",
+    "appearance_sub": "Thème, langue, affichage",
+    "accessibility": "Accessibilité",
+    "accessibility_sub": "Police, contraste, animations",
+    "privacy": "Confidentialité & Données",
+    "privacy_sub": "Usage, export, suppression",
+    "support": "Support",
+    "support_sub": "Aide, signalement, à propos",
+    "logout": "Se déconnecter",
+    "logout_confirm": "Êtes-vous sûr de vouloir vous déconnecter ?",
+    "logout_title": "Se déconnecter",
+    "logout_btn": "Déconnecter",
+    "roles": {
+      "admin": "Administration",
+      "teacher": "Enseignant",
+      "student": "Élève",
+      "parent": "Parent"
+    },
+    "section": {
+      "theme": "THÈME",
+      "accent": "COULEUR D'ACCENT",
+      "lang": "LANGUE",
+      "nav": "NAVIGATION",
+      "preview": "APERÇU"
+    },
+    "theme": {
+      "title": "Thème de l'interface",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système",
+      "light_sub": "Interface lumineuse",
+      "dark_sub": "Interface sombre",
+      "system_sub": "Suit l'appareil"
+    },
+    "accent": {
+      "title": "Couleur d'accent",
+      "current": "Couleur actuelle",
+      "presets": "Palettes prédéfinies",
+      "custom": "Personnalisé",
+      "apply": "Appliquer"
+    },
+    "lang": {
+      "title": "Langue de l'interface",
+      "subtitle": "Choisissez la langue de l'interface",
+      "active": "Actif"
+    },
+    "nav_tab": "Barre d'onglets",
+    "nav_tab_sub": "Afficher la barre de navigation par onglets"
+  }
+}

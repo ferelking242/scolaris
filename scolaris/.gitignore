@@ -1,0 +1,67 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/generated_plugin_registrant.dart
+**/GeneratedPluginRegistrant.*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Android
+android/.gradle/
+android/captures/
+android/local.properties
+android/key.properties
+**/android/**/gradle-wrapper.jar
+.gradle/
+
+# iOS / macOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+macos/Pods/
+macos/.symlinks/
+**/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# Replit / agent
+.replit
+replit.nix
+.config/
+.cache/
+.upm/
+.local/
+.agents/
+.akili_agents/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# FVM (on committe .fvmrc pour partager la version ; pas le cache/symlink)
+.fvm/
+hs_err_pid*.log
+replay_pid*.log

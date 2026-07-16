@@ -1,0 +1,255 @@
+Ok voici le plan en va dabord grandement modifie sur login faut ajoute un bouton inscrire son ecole :
+DESIGN + LOGIC PROMPT — PAGE D’INSCRIPTION ÉCOLE (SCOLARIS) — VERSION AVANCÉE
+
+OBJECTIF :
+Créer un onboarding COMPLET, réaliste et flexible pour enregistrer une école avec gestion multi-sites, systèmes éducatifs variés et configuration avancée. UX premium + logique backend solide.
+
+--------------------------------------------------
+
+🎯 STRUCTURE GLOBALE
+
+- Multi-step (Stepper obligatoire)
+- Sauvegarde automatique
+- Validation par étape
+- Responsive (PC prioritaire + mobile)
+
+--------------------------------------------------
+
+🧭 ÉTAPE 1 — INFORMATIONS ÉCOLE (AMÉLIORÉE)
+
+CHAMPS OBLIGATOIRES :
+- Nom de l’école
+- Type :
+  - Primaire
+  - Collège
+  - Lycée
+  - Université
+  - Mixte
+- Pays
+- Ville principale
+- Adresse principale (texte complet)
+
+CHAMPS OPTIONNELS (MAIS RECOMMANDÉS) :
+- Logo (upload + preview)
+- Site web (URL)
+- Email officiel école
+- Téléphone école
+
+MULTI-FILIALES (TRÈS IMPORTANT) :
+- Bouton “Ajouter une filiale”
+Chaque filiale contient :
+  - Ville
+  - Adresse
+  - Nom (optionnel)
+
+UX :
+- Liste dynamique des filiales (add/remove)
+- Preview en temps réel
+- Validation URL site
+
+--------------------------------------------------
+
+👤 ÉTAPE 2 — COMPTE ADMIN (RESTRUCTURÉ)
+
+⚠️ PAS de “super admin” figé
+
+Créer un utilisateur principal avec :
+- Nom complet
+- Email
+- Téléphone
+- Mot de passe
+
+LOGIQUE :
+- Cet utilisateur reçoit automatiquement :
+  - rôle = “Fondateur” (ou “Promoteur”)
+  - accès total initial
+- Le système reste dynamique :
+  - permissions modifiables plus tard
+  - aucun rôle bloqué
+
+NOTE UX :
+- Mention :
+  “Ce compte aura tous les accès initiaux et pourra configurer les autres rôles”
+
+--------------------------------------------------
+
+⚙️ ÉTAPE 3 — SYSTÈME ÉDUCATIF (AMÉLIORÉ)
+
+OPTIONS DISPONIBLES :
+
+- Francophone (France/Afrique francophone)
+- Anglophone (UK / Nigeria / Ghana…)
+- LMD (université)
+- Technique / Professionnel
+- Autre / Personnalisé
+
+SI “PERSONNALISÉ” :
+
+Afficher bloc contact obligatoire :
+
+📧 Email : scolaris.dev@gmail.com  
+📱 WhatsApp : 065702018  
+
+Message UX :
+“Votre système éducatif nécessite une configuration spécifique. Contactez-nous pour intégrer votre structure (ex: système du Niger, etc.)”
+
+Bloquer progression automatique OU permettre continuer en mode limité.
+
+--------------------------------------------------
+
+🏫 ÉTAPE 4 — STRUCTURE & SÉRIES (TRÈS AVANCÉ)
+
+PRÉCHARGEMENT AUTOMATIQUE :
+
+Selon système choisi :
+- Charger niveaux (primaire, collège, lycée…)
+- Charger classes
+- Charger séries connues (depuis DB globale)
+
+EXEMPLES :
+
+Francophone :
+- Séries A, C, D
+
+Anglophone :
+- Science, Arts, Commercial
+
+--------------------------------------------------
+
+PERSONNALISATION :
+
+- Toggle activer/désactiver séries
+- Ajouter nouvelle série custom
+- Supprimer série inutile
+
+STRUCTURE FLEXIBLE :
+
+Chaque série peut contenir :
+- 1 à N classes
+
+Exemple :
+- Série A :
+  - A1
+  - A2
+- Série C :
+  - C1
+
+UI :
+- Tree structure (hiérarchie)
+- Expand / collapse
+- Drag & drop (optionnel)
+
+--------------------------------------------------
+
+🗄️ ÉTAPE 5 — BASE DE DONNÉES
+
+OPTIONS :
+
+1. Base SCOLARIS (recommandé)
+2. Base personnalisée école
+
+SI CUSTOM :
+
+Champs :
+- Type :
+  - Supabase
+  - PostgreSQL
+  - Firebase
+- Endpoint
+- API Key
+- Credentials (secure input)
+
+Bouton :
+- “Tester la connexion”
+
+Feedback :
+- Succès / erreur détaillée
+
+--------------------------------------------------
+
+🎨 ÉTAPE 6 — PERSONNALISATION VISUELLE
+
+- Couleur principale (picker)
+- Couleur secondaire
+- Nom court (slug)
+- Aperçu interface en live
+
+--------------------------------------------------
+
+📦 ÉTAPE 7 — RÉCAPITULATIF
+
+Afficher :
+
+- Infos école
+- Filiales
+- Admin
+- Système éducatif
+- Séries & structure
+- Base de données
+
+Bouton principal :
+👉 “Créer mon école”
+
+--------------------------------------------------
+
+⚡ PROCESSUS BACKEND APRÈS VALIDATION
+
+Le système doit :
+
+1. Créer school_id
+2. Créer utilisateur fondateur
+3. Assigner permissions complètes
+4. Initialiser base :
+   - tables
+   - rôles dynamiques
+   - permissions
+5. Injecter structure scolaire choisie
+6. Créer classes & séries
+7. Connecter DB (central ou custom)
+
+--------------------------------------------------
+
+🎨 UX DESIGN
+
+- Stepper clair + progress bar
+- Animations fluides
+- Validation instantanée
+- Champs larges (desktop)
+- Layout 2 colonnes (PC)
+- Mode wizard moderne (pas formulaire classique)
+
+--------------------------------------------------
+
+⚠️ ERREURS À ÉVITER
+
+- Hardcoder systèmes éducatifs
+- Pas gérer multi-filiales
+- Pas permettre custom séries
+- Pas tester DB
+- Bloquer UX inutilement
+
+--------------------------------------------------
+
+🔥 OBJECTIF FINAL
+
+Créer une expérience d’inscription :
+
+- Flexible (tous pays)
+- Professionnelle (niveau SaaS)
+- Scalable (multi-écoles)
+- Adaptable (systèmes éducatifs variés)
+- Prête pour déploiement réel
+
+END
+
+Pour supabase voici
+Projet url
+https://iaxwvgqusxyhmyansawi.supabase.co
+Direct connection string
+postgresql://postgres:[YOUR-PASSWORD]@db.iaxwvgqusxyhmyansawi.supabase.co:5432/postgres
+Db password
+FerelONDONGO1631@
+Supabase token
+sbp_0bf18929946429268d16998dd4734f1153de08e2
+
+Avec ca cree tout les table (si ca nexiste pas encore)qui manque directement sur supabase toi même

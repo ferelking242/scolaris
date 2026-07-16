@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ce47b526-9f29-4fdc-998e-0e1fcb7284ed",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "PS",
+    "level": "Maternelle",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:17.246066+00:00"
+  },
+  {
+    "id": "b70a69d0-bf66-4678-b415-54e5b7bfdf00",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "MS",
+    "level": "Maternelle",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:17.3796+00:00"
+  },
+  {
+    "id": "5e8f2e0d-60be-4f27-891e-baa8bdbf57d6",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "GS",
+    "level": "Maternelle",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:17.52241+00:00"
+  },
+  {
+    "id": "9cf3a69b-daf1-4e19-a674-f694b6e9d5f4",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "CP",
+    "level": "Primaire",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:17.802999+00:00"
+  },
+  {
+    "id": "efc0eb09-2930-40ae-b379-0d0d6beae1e1",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "CE1",
+    "level": "Primaire",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:17.936448+00:00"
+  },
+  {
+    "id": "05fda091-7054-4f38-a195-9a7589063fa2",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "CE2",
+    "level": "Primaire",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:18.147182+00:00"
+  },
+  {
+    "id": "9272b796-d902-4a06-a3d4-7a0f046dc2bb",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "CM1",
+    "level": "Primaire",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:18.299819+00:00"
+  },
+  {
+    "id": "397e69f6-bc55-43f3-b660-afaa046badd0",
+    "school_id": "4a9a7845-5806-4dc9-881a-812548ec0076",
+    "name": "CM2",
+    "level": "Primaire",
+    "teacher_id": null,
+    "max_students": 35,
+    "academic_year": null,
+    "created_at": "2026-06-17T01:50:18.444683+00:00"
+  }
+]

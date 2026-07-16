@@ -1,0 +1,172 @@
+{
+  "app": {
+    "name": "Scolaris",
+    "tagline": "Bokonzi ya eteyelo na mayele"
+  },
+  "sections": {
+    "setup": "MIBONGISELI",
+    "activity": "MOSALA",
+    "account": "KONTI",
+    "finance": "MBONGO",
+    "tools": "BISALELI",
+    "learning": "BISALELI BYA KOTEYA",
+    "university": "UNIVERSITÉ",
+    "primary_tools": "BOMOI YA SUKULU"
+  },
+  "common": {
+    "ok": "Malamu",
+    "cancel": "Tika",
+    "save": "Bomba",
+    "delete": "Longola",
+    "edit": "Bongisa",
+    "search": "Luka",
+    "search_placeholder": "Luka bayekoli, bakelasi…",
+    "back": "Zongela",
+    "loading": "Ezali kosalema...",
+    "retry": "Meka lisusu",
+    "logout": "Bima",
+    "settings": "Mibongiseli",
+    "language": "Lokota",
+    "theme": "Lolenge",
+    "light": "Polele",
+    "dark": "Molili",
+    "system": "Sistemi"
+  },
+  "sidebar": {
+    "collapse": "Kokota",
+    "expand": "Yebola"
+  },
+  "auth": {
+    "login": "Kota",
+    "register": "Sala konti",
+    "email": "Email",
+    "password": "Mot ya sekele",
+    "forgot": "Obosani mot ya sekele?",
+    "loginWithQr": "Kota na QR",
+    "welcome": "Boyei bolamu",
+    "subWelcome": "Kota mpo na eteyelo na yo",
+    "errors": {
+      "invalidEmail": "Email ezali mabe",
+      "shortPassword": "Mot ya sekele ezali moke",
+      "failed": "Kokota elongi te"
+    }
+  },
+  "roles": {
+    "student": "Moyekoli",
+    "parent": "Moboti",
+    "teacher": "Molakisi",
+    "surveillance": "Mokengeli",
+    "finance": "Mbongo",
+    "admin": "Moyangeli"
+  },
+  "nav": {
+    "dashboard": "Lopango",
+    "courses": "Mateya",
+    "grades": "Bibende",
+    "report_cards": "Bulletins",
+    "attendance": "Bozali",
+    "schedule": "Programe",
+    "messages": "Bansango",
+    "children": "Bana",
+    "payments": "Bofuti",
+    "students": "Bayekoli",
+    "classes": "Bakelasi",
+    "subjects": "Matiere",
+    "reports": "Balapole",
+    "users": "Basaleli",
+    "billing": "Bafakti",
+    "subscription": "Abonema",
+    "library": "Bibliotek",
+    "qr": "QR",
+    "bulletin": "Bulletin",
+    "homework": "Misala ya Ndako",
+    "features": "Bizalisi",
+    "class_stats": "Bituluku",
+    "timetable": "Programe ya Mateya",
+    "enrollment": "Boloko",
+    "notifications": "Bandimisi",
+    "receipts": "Barisiti",
+    "my_payments": "Mbongo na Ngai",
+    "documents": "Mikanda na Ngai",
+    "settings": "Bilanga",
+    "school": "Sukulu na Ngai",
+    "main": "Ya liboso",
+    "other": "Mosusu",
+    "cahier_textes": "Livɛ ya Masɔlɔ",
+    "simulateur": "Simulator ya Manota",
+    "annales": "Mituna ya Kala",
+    "prepa_bac": "Kolɔngɔ ya Examɛn",
+    "releve_ects": "Matokɛ ya ECTS",
+    "inscription_ue": "Kotama na Kozi",
+    "carte_etudiante": "Karti ya Etudiant",
+    "cahier_liaison": "Livɛ ya Boyokani",
+    "menu_cantine": "Bilei ya Cantinɛ",
+    "recompenses": "Bilakisi na Ngai"
+  },
+  "dashboard": {
+    "hello": "Mbote, {name}",
+    "today": "Lelo",
+    "upcoming": "Ekoya",
+    "stats": "Bituluku",
+    "presence": "Bozali na kelasi",
+    "average": "Moyene",
+    "due": "Bofuti ya kosenga",
+    "noData": "Eloko te"
+  },
+  "settings": {
+    "title": "Bilanga",
+    "view_profile": "Tala profil",
+    "account": "Konti",
+    "account_sub": "Profil, mot ya sekele, bandimisi",
+    "school": "Sukulu na Ngai",
+    "school_sub": "Nkombo, logo, mobu ya sukulu",
+    "appearance": "Lolenge ya kotala",
+    "appearance_sub": "Lolenge, lokota, kolakisa",
+    "accessibility": "Bonsomi ya kosalela",
+    "accessibility_sub": "Makomi, kolakisa, animation",
+    "privacy": "Bosekreto & Data",
+    "privacy_sub": "Kosalela, kozwa, kolongola",
+    "support": "Lisalisi",
+    "support_sub": "Lisalisi, kolobela, mitindo",
+    "logout": "Bima",
+    "logout_confirm": "Ozali na ntina ya kobima?",
+    "logout_title": "Bima",
+    "logout_btn": "Bima",
+    "roles": {
+      "admin": "Botamboli",
+      "teacher": "Molakisi",
+      "student": "Moyekoli",
+      "parent": "Moboti"
+    },
+    "section": {
+      "theme": "LOLENGE",
+      "accent": "ROJO YA NTINA",
+      "lang": "LOKOTA",
+      "nav": "KOTAMBOLA",
+      "preview": "KOLAKISA"
+    },
+    "theme": {
+      "title": "Lolenge ya interface",
+      "light": "Polele",
+      "dark": "Molili",
+      "system": "Sistemi",
+      "light_sub": "Interface polele",
+      "dark_sub": "Interface molili",
+      "system_sub": "Elandela aparei"
+    },
+    "accent": {
+      "title": "Rojo ya ntina",
+      "current": "Rojo ya sik",
+      "presets": "Barojo ya liboso",
+      "custom": "Yo moko",
+      "apply": "Tia"
+    },
+    "lang": {
+      "title": "Lokota ya interface",
+      "subtitle": "Pona lokota ya interface",
+      "active": "Ezali kosalema"
+    },
+    "nav_tab": "Barre ya baonglet",
+    "nav_tab_sub": "Lakisa barre ya navigation ya baonglet"
+  }
+}

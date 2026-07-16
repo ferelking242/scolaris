@@ -1,0 +1,172 @@
+{
+  "app": {
+    "name": "Scolaris",
+    "tagline": "Knowledge, Heritage, Future"
+  },
+  "sections": {
+    "setup": "OVERVIEW",
+    "activity": "ACTIVITY",
+    "account": "ACCOUNT",
+    "finance": "FEES",
+    "tools": "TOOLS",
+    "learning": "LEARNING TOOLS",
+    "university": "UNIVERSITY",
+    "primary_tools": "SCHOOL LIFE"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "search_placeholder": "Search students, classes…",
+    "back": "Back",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "logout": "Log out",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "sidebar": {
+    "collapse": "Collapse",
+    "expand": "Expand"
+  },
+  "auth": {
+    "login": "Sign in",
+    "register": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "forgot": "Forgot password?",
+    "loginWithQr": "Sign in with QR",
+    "welcome": "Welcome back",
+    "subWelcome": "Sign in to access your school",
+    "errors": {
+      "invalidEmail": "Invalid email",
+      "shortPassword": "Password too short",
+      "failed": "Login failed"
+    }
+  },
+  "roles": {
+    "student": "Student",
+    "parent": "Parent",
+    "teacher": "Teacher",
+    "surveillance": "Surveillance",
+    "finance": "Finance",
+    "admin": "Administrator"
+  },
+  "nav": {
+    "dashboard": "Home",
+    "courses": "Courses",
+    "grades": "Grades",
+    "report_cards": "Report cards",
+    "attendance": "Attendance",
+    "schedule": "Schedule",
+    "messages": "Messages",
+    "children": "My Children",
+    "payments": "Payments",
+    "students": "Students",
+    "classes": "Classes",
+    "subjects": "Subjects",
+    "reports": "Reports",
+    "users": "Users",
+    "billing": "Billing",
+    "subscription": "Subscription",
+    "library": "Library",
+    "qr": "QR Code",
+    "bulletin": "Report Card",
+    "homework": "Homework",
+    "features": "Features",
+    "class_stats": "Statistics",
+    "timetable": "Timetable",
+    "enrollment": "Enrollment",
+    "notifications": "Notifications",
+    "receipts": "Receipts",
+    "my_payments": "My Fees",
+    "documents": "My Documents",
+    "settings": "Settings",
+    "school": "My School",
+    "main": "Main",
+    "other": "Other",
+    "cahier_textes": "Course Diary",
+    "simulateur": "Grade Simulator",
+    "annales": "Past Papers & Quiz",
+    "prepa_bac": "Exam Prep",
+    "releve_ects": "ECTS Transcript",
+    "inscription_ue": "Course Enrollment",
+    "carte_etudiante": "Student Card",
+    "cahier_liaison": "Home-School Diary",
+    "menu_cantine": "Cafeteria Menu",
+    "recompenses": "My Rewards"
+  },
+  "dashboard": {
+    "hello": "Hello, {name}",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "stats": "Statistics",
+    "presence": "Attendance rate",
+    "average": "Average",
+    "due": "Payments due",
+    "noData": "No data"
+  },
+  "settings": {
+    "title": "Settings",
+    "view_profile": "View profile",
+    "account": "Account",
+    "account_sub": "Profile, password, notifications",
+    "school": "My School",
+    "school_sub": "Name, logo, school year",
+    "appearance": "Appearance",
+    "appearance_sub": "Theme, language, display",
+    "accessibility": "Accessibility",
+    "accessibility_sub": "Font, contrast, animations",
+    "privacy": "Privacy & Data",
+    "privacy_sub": "Usage, export, deletion",
+    "support": "Support",
+    "support_sub": "Help, report, about",
+    "logout": "Log out",
+    "logout_confirm": "Are you sure you want to log out?",
+    "logout_title": "Log out",
+    "logout_btn": "Log out",
+    "roles": {
+      "admin": "Administration",
+      "teacher": "Teacher",
+      "student": "Student",
+      "parent": "Parent"
+    },
+    "section": {
+      "theme": "THEME",
+      "accent": "ACCENT COLOR",
+      "lang": "LANGUAGE",
+      "nav": "NAVIGATION",
+      "preview": "PREVIEW"
+    },
+    "theme": {
+      "title": "Interface theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "light_sub": "Light interface",
+      "dark_sub": "Dark interface",
+      "system_sub": "Follows device"
+    },
+    "accent": {
+      "title": "Accent color",
+      "current": "Current color",
+      "presets": "Preset palettes",
+      "custom": "Custom",
+      "apply": "Apply"
+    },
+    "lang": {
+      "title": "Interface language",
+      "subtitle": "Choose the interface language",
+      "active": "Active"
+    },
+    "nav_tab": "Tab bar",
+    "nav_tab_sub": "Show navigation tab bar"
+  }
+}
