@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -8,9 +7,9 @@ import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
+import '../../../presentation/providers/nav_providers.dart';
 import '../../../shared/data/features_catalog.dart';
 import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
-import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/pages/settings_page.dart';
 import '../../../shared/widgets/plan_gate.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
@@ -18,7 +17,6 @@ import '../../../shared/widgets/surface.dart';
 import 'primary_student_home.dart' show PrimaryDashboard;
 import 'pages/attendance_page.dart';
 import 'pages/cahier_liaison_page.dart';
-import 'pages/cahier_textes_page.dart';
 import 'pages/carnet_recompenses_page.dart';
 import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
@@ -32,12 +30,11 @@ import 'pages/simulateur_moyenne_page.dart';
 import 'pages/student_documents_page.dart';
 import 'pages/student_payments_page.dart';
 
-// Brand colors — toujours utilisés comme accents colorés, jamais comme fond
+// Brand colors
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-const _dark   = ScolarisPalette.darkBrown;
 const _cyan   = Color(0xFF0891B2);
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -58,31 +55,16 @@ class StudentHome extends ConsumerWidget {
     );
   }
 
-  // La nav ne filtre pas par offre : elle montre toujours les entrées, et ce
-  // sont les widgets `PlanGate` (Bibliothèque, Documents) qui remplacent leur
-  // contenu par une bannière « upgrade » si l'offre ne suffit pas. Inutile donc
-  // de passer le plan ici.
-  List<RoleNavGroup> _groups({
-    required SchoolLevel level,
-  }) {
-    // Le BULLETIN n'est nulle part côté famille — ni élève, ni parent. C'est un
-    // document interne à l'établissement : il se produit et se remet, il ne se
-    // consulte pas en libre-service. La base le refuse aussi (report_cards
-    // exige `notes.voir`), donc l'écran n'aurait rien pu charger.
-    //
-    // En primaire, l'élève ne gère en plus rien d'administratif : finance,
-    // documents et messagerie sont eux aussi des actes de parent.
+  List<RoleNavGroup> _groups({required SchoolLevel level}) {
     final isPrimaire = level == SchoolLevel.primaire;
     final isUniv    = level == SchoolLevel.universite ||
                       level == SchoolLevel.master ||
                       level == SchoolLevel.doctorat;
 
-    // Dashboard : variante « enfant » en primaire, sinon le dashboard standard.
     final Widget dashboard =
         isPrimaire ? const PrimaryDashboard() : const _StudentDashboard();
 
     return [
-      // ── Accueil ───────────────────────────────────────────────────────────
       RoleNavGroup(labelKey: 'sections.setup', entries: [
         RoleNavEntry(
           icon: Icons.home_rounded,
@@ -98,7 +80,6 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
-      // ── Scolarité ─────────────────────────────────────────────────────────
       RoleNavGroup(labelKey: 'sections.activity', entries: [
         const RoleNavEntry(
           icon: Icons.grading_outlined,
@@ -131,14 +112,6 @@ class StudentHome extends ConsumerWidget {
         ),
       ]),
 
-      // ── Outils Lycée ──────────────────────────────────────────────────────
-      // « Prépa-Bac » retirée : l'écran était 100 % fictif (annales, fiches et
-      // planning codés en dur, progressions inventées, aucune table derrière).
-      // Les vraies annales du BAC vivent déjà dans la Bibliothèque → onglet
-      // Examens (table `exam_subjects`, filtrée sur le cycle de l'élève). À
-      // réintroduire seulement si un besoin réel avec un backend apparaît.
-
-      // ── Outils primaire ───────────────────────────────────────────────────
       if (isPrimaire)
         const RoleNavGroup(labelKey: 'sections.primary_tools', entries: [
           RoleNavEntry(
@@ -147,7 +120,6 @@ class StudentHome extends ConsumerWidget {
             labelKey: 'nav.cahier_liaison',
             page: CahierLiaisonPage(),
           ),
-          // Cantine retirée : pas un besoin actuel.
           RoleNavEntry(
             icon: Icons.emoji_events_outlined,
             activeIcon: Icons.emoji_events_rounded,
@@ -156,7 +128,6 @@ class StudentHome extends ConsumerWidget {
           ),
         ]),
 
-      // ── Université ────────────────────────────────────────────────────────
       if (isUniv)
         const RoleNavGroup(labelKey: 'sections.university', entries: [
           RoleNavEntry(
@@ -179,7 +150,6 @@ class StudentHome extends ConsumerWidget {
           ),
         ]),
 
-      // ── Finance & Documents ───────────────────────────────────────────────
       if (!isPrimaire)
         const RoleNavGroup(labelKey: 'sections.finance', entries: [
           RoleNavEntry(
@@ -196,7 +166,6 @@ class StudentHome extends ConsumerWidget {
           ),
         ]),
 
-      // ── Compte ────────────────────────────────────────────────────────────
       RoleNavGroup(labelKey: 'sections.account', entries: [
         const RoleNavEntry(
           icon: Icons.notifications_outlined,
@@ -204,9 +173,6 @@ class StudentHome extends ConsumerWidget {
           labelKey: 'nav.notifications',
           page: NotificationsPage(),
         ),
-        // Messagerie retirée : l'écran était 100 % fictif (conversations codées
-        // en dur, aucun accès à la base). À réintroduire quand une vraie
-        // messagerie existera (schéma conversations/participants + RLS).
         const RoleNavEntry(
           icon: Icons.settings_outlined,
           activeIcon: Icons.settings_rounded,
@@ -228,6 +194,8 @@ class _StudentDashboard extends ConsumerStatefulWidget {
 }
 
 class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
+  bool _refreshing = false;
+
   String get _greeting {
     final h = DateTime.now().hour;
     if (h < 12) return 'Bonjour';
@@ -235,8 +203,27 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     return 'Bonsoir';
   }
 
+  /// Navigate within the shell (keeps header + sidebar visible).
+  void _nav(String labelKey) =>
+      ref.read(navIntentProvider.notifier).state = labelKey;
+
+  /// Fallback push for pages without a shell entry (simulateur, etc.)
   void _push(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+
+  Future<void> _onRefresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      ref.invalidate(myGradesProvider);
+      ref.invalidate(myAbsencesProvider);
+      ref.invalidate(myStudentProfileProvider);
+      // Wait for at least one frame so providers reload
+      await Future.delayed(const Duration(milliseconds: 600));
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,14 +248,10 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 
     final loading = gradesAsync.isLoading || scheduleAsync.isLoading;
 
-    // Barème du CYCLE de l'élève (surcharge par cycle si l'école en a une). Tout
-    // est calculé en interne sur /20 (via `outOf20`) puis converti à l'affichage
-    // via `k`, comme les notes et le bulletin.
     final fmt = ref.watch(studentFormatProvider);
     final k = fmt.maxScore / 20;
     final isLetter = fmt.gradingScale == 'letter';
 
-    // Moyenne sur /20 (interne, pour les seuils de couleur), puis convertie.
     final avg20 = grades.isEmpty
         ? null
         : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
@@ -290,17 +273,8 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
             ))
         .toList();
 
-    final graded = [...grades]..sort((a, b) =>
-        (a.gradedAt ?? DateTime(2000)).compareTo(b.gradedAt ?? DateTime(2000)));
-    final running = <double>[];
-    double acc = 0;
-    for (var i = 0; i < graded.length; i++) {
-      acc += graded[i].outOf20;
-      running.add(acc / (i + 1) * k); // moyenne glissante convertie au barème
-    }
-    final progression =
-        running.length > 6 ? running.sublist(running.length - 6) : running;
-    final progLabels = List.generate(progression.length, (i) => '${i + 1}');
+    final graded = ([...grades]..sort((a, b) =>
+        (a.gradedAt ?? DateTime(2000)).compareTo(b.gradedAt ?? DateTime(2000))));
 
     final recent = ([...grades]..sort((a, b) =>
             (b.gradedAt ?? DateTime(2000)).compareTo(a.gradedAt ?? DateTime(2000))))
@@ -314,82 +288,90 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
       duration: const Duration(milliseconds: 1300),
     );
 
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-        child: LayoutBuilder(builder: (_, constraints) {
-          final isWide = constraints.maxWidth > 680;
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: _terra,
+      backgroundColor: cs.surface,
+      displacement: 40,
+      strokeWidth: 2.5,
+      child: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          child: LayoutBuilder(builder: (_, constraints) {
+            final isWide = constraints.maxWidth > 680;
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // ── 1. Hero banner ────────────────────────────────────────
-            _HeroBanner(
-              greeting: _greeting, name: name,
-              initials: initials, loading: loading,
-              classLabel: profile?.classe,
-              levelLabel: level.label,
-              moyenneText: avgText,
-              moyenneUnit: unit,
-              moyenneRatio: avgRatio,
-            ),
-            const SizedBox(height: 16),
-
-            // ── 2. Stats rapides ──────────────────────────────────────
-            Skeletonizer(
-              enabled: loading, effect: shimmer,
-              child: _QuickStats(
-                loading: loading,
-                moyenneText: avgText,
-                moyenneUnit: unit,
-                absences: absences.length,
-                notes: grades.length,
+              // ── 1. Hero banner ────────────────────────────────────────
+              _HeroBanner(
+                greeting: _greeting, name: name,
+                initials: initials, loading: loading,
+                classLabel: profile?.classe,
+                levelLabel: level.label,
               ),
-            ),
-            const SizedBox(height: 22),
+              const SizedBox(height: 16),
 
-            // ── 3. Accès rapide ───────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.apps_rounded,
-              title: 'Accès rapide',
-              accentColor: _terra,
-            ),
-            const SizedBox(height: 10),
-            _PremiumShortcutsGrid(
-              onTap: {
-                'notes':         () => _push(const GradesPage()),
-                'edt':           () => _push(const SchedulePage()),
-                'presences':     () => _push(const AttendancePage()),
-                'cours':         () => _push(const CoursesPage()),
-                'bibliotheque':  () => _push(const PlanGate(
-                      minPlan: 'pro',
-                      featureLabel: 'Bibliothèque',
-                      description: 'Catalogue, manuels et bibliothèque numérique.',
-                      child: LibraryPage(),
-                    )),
-                'notifications': () => _push(const NotificationsPage()),
-                'simulateur':    () => _push(const SimulateurMoyennePage()),
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // ── 4. EDT + Progression (2 cols sur desktop) ─────────────
-            if (isWide)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: _buildEdtSection(edt, loading, shimmer)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildNotesChartSection(progression, progLabels, loading, shimmer, fmt.maxScore)),
-              ])
-            else ...[
-              _buildEdtSection(edt, loading, shimmer),
+              // ── 2. Stats rapides (tappables) ──────────────────────────
+              Skeletonizer(
+                enabled: loading, effect: shimmer,
+                child: _QuickStats(
+                  loading: loading,
+                  moyenneText: avgText,
+                  moyenneUnit: unit,
+                  absences: absences.length,
+                  notes: grades.length,
+                  onMoyenne: () => _nav('nav.grades'),
+                  onAbsences: () => _nav('nav.attendance'),
+                  onNotes: () => _nav('nav.grades'),
+                ),
+              ),
               const SizedBox(height: 22),
-              _buildNotesChartSection(progression, progLabels, loading, shimmer, fmt.maxScore),
-            ],
-            const SizedBox(height: 22),
 
-            // ── 5. Dernières notes ─────────────────────────────────────
-            _buildRecentNotesSection(recent, loading, shimmer),
-          ]);
-        }),
+              // ── 3. Accès rapide (2 lignes max, swipe horizontal) ──────
+              _SectionHeader(
+                icon: Icons.apps_rounded,
+                title: 'Accès rapide',
+                accentColor: _terra,
+              ),
+              const SizedBox(height: 10),
+              _PremiumShortcutsGrid(
+                onTap: {
+                  'notes':         () => _nav('nav.grades'),
+                  'edt':           () => _nav('nav.schedule'),
+                  'presences':     () => _nav('nav.attendance'),
+                  'cours':         () => _nav('nav.courses'),
+                  'bibliotheque':  () => _push(const PlanGate(
+                        minPlan: 'pro',
+                        featureLabel: 'Bibliothèque',
+                        description: 'Catalogue, manuels et bibliothèque numérique.',
+                        child: LibraryPage(),
+                      )),
+                  'notifications': () => _nav('nav.notifications'),
+                  'simulateur':    () => _push(const SimulateurMoyennePage()),
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // ── 4. Bento grid : EDT + Statistiques ────────────────────
+              if (isWide)
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(flex: 3, child: _buildEdtSection(edt, loading, shimmer)),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: _buildStatsSection(grades, absences, graded, loading, shimmer, fmt.maxScore, k)),
+                ])
+              else ...[
+                _buildEdtSection(edt, loading, shimmer),
+                const SizedBox(height: 22),
+                _buildStatsSection(grades, absences, graded, loading, shimmer, fmt.maxScore, k),
+              ],
+              const SizedBox(height: 22),
+
+              // ── 5. Dernières notes ─────────────────────────────────────
+              _buildRecentNotesSection(recent, loading, shimmer),
+            ]);
+          }),
+        ),
       ),
     );
   }
@@ -399,8 +381,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     (h: '10:00', sub: 'Cours', room: 'B2', c: _gold),
     (h: '14:00', sub: 'Cours', room: 'C3', c: _green),
   ];
-  static const _progSkeleton = [12.0, 13.0, 13.5, 14.0, 14.5, 15.0];
-  static const _progSkeletonLabels = ['1', '2', '3', '4', '5', '6'];
 
   Widget _buildEdtSection(
       List<({String h, String sub, String room, Color c})> edt,
@@ -411,14 +391,14 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
       children: [
         _SectionHeader(
           icon: Icons.calendar_today_rounded,
-          title: 'Emploi du temps du jour',
+          title: "Emploi du temps du jour",
           accentColor: _terra,
           action: 'Tout voir',
-          onAction: () => _push(const SchedulePage()),
+          onAction: () => _nav('nav.schedule'),
         ),
         const SizedBox(height: 10),
         if (!loading && edt.isEmpty)
-          _MiniEmpty(icon: Icons.event_available_rounded, label: 'Pas de cours aujourd\'hui')
+          _MiniEmpty(icon: Icons.event_available_rounded, label: "Pas de cours aujourd'hui")
         else
           Skeletonizer(
             enabled: loading, effect: shimmer,
@@ -428,21 +408,22 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
     );
   }
 
-  Widget _buildNotesChartSection(
-      List<double> values, List<String> labels, bool loading,
-      ShimmerEffect shimmer, double maxScore) {
-    if (!loading && values.length < 2) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-        _MiniEmpty(icon: Icons.show_chart_rounded, label: 'Pas assez de notes pour la courbe'),
-      ]);
-    }
-    final k = maxScore / 20;
+  Widget _buildStatsSection(
+      List<SbGrade> grades,
+      List<SbAbsence> absences,
+      List<SbGrade> graded,
+      bool loading,
+      ShimmerEffect shimmer,
+      double maxScore,
+      double k) {
     return Skeletonizer(
       enabled: loading, effect: shimmer,
-      child: _NoteProgressionChart(
-        values: loading ? [for (final v in _progSkeleton) v * k] : values,
-        labels: loading ? _progSkeletonLabels : labels,
+      child: _StatsSection(
+        grades: loading ? _skeletonGrades : grades,
+        absences: absences.length,
+        graded: loading ? _skeletonGrades : graded,
         maxScore: maxScore,
+        k: k,
       ),
     );
   }
@@ -457,11 +438,11 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
           title: 'Dernières notes',
           accentColor: _gold,
           action: 'Toutes',
-          onAction: () => _push(const GradesPage()),
+          onAction: () => _nav('nav.grades'),
         ),
         const SizedBox(height: 10),
         if (!loading && recent.isEmpty)
-          const _MiniEmpty(icon: Icons.grading_rounded, label: 'Aucune note pour l\'instant')
+          const _MiniEmpty(icon: Icons.grading_rounded, label: "Aucune note pour l'instant")
         else
           Skeletonizer(
             enabled: loading, effect: shimmer,
@@ -472,7 +453,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                   note: g.score, max: g.maxScore,
                   date: _fmtShort(g.gradedAt),
                   color: g.outOf20 >= 14 ? _green : g.outOf20 >= 10 ? _gold : _terra,
-                  onTap: () => _push(const GradesPage()),
+                  onTap: () => _nav('nav.grades'),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -503,21 +484,17 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Hero Banner — remplace SlimGreeting
+// Hero Banner — sans la moyenne (elle est déjà dans les stats en dessous)
 // ══════════════════════════════════════════════════════════════════════════
 class _HeroBanner extends StatelessWidget {
   final String greeting, name, initials;
   final bool loading;
   final String? classLabel;
   final String? levelLabel;
-  final String? moyenneText;
-  final String moyenneUnit;
-  final double? moyenneRatio;
   const _HeroBanner({
     required this.greeting, required this.name,
     required this.initials, required this.loading,
     this.classLabel, this.levelLabel,
-    this.moyenneText, this.moyenneUnit = '/20', this.moyenneRatio,
   });
 
   @override
@@ -537,26 +514,16 @@ class _HeroBanner extends StatelessWidget {
         ],
       ),
       child: Stack(children: [
-        // Décoration en fond
+        // Décoration fond
         Positioned(right: -10, top: -20,
-          child: Container(
-            width: 100, height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(.04),
-            ),
-          ),
-        ),
+          child: Container(width: 100, height: 100,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                color: Colors.white.withOpacity(.04)))),
         Positioned(right: 50, bottom: -15,
-          child: Container(
-            width: 60, height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _gold.withOpacity(.08),
-            ),
-          ),
-        ),
-        // Contenu principal
+          child: Container(width: 60, height: 60,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                color: _gold.withOpacity(.08)))),
+        // Contenu
         Row(children: [
           // Avatar
           Container(
@@ -571,7 +538,7 @@ class _HeroBanner extends StatelessWidget {
                     fontSize: 20, fontWeight: FontWeight.w900))),
           ),
           const SizedBox(width: 14),
-          // Nom + classe
+          // Nom + classe + niveau
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(greeting, style: TextStyle(
                 color: Colors.white.withOpacity(.65), fontSize: 12)),
@@ -591,36 +558,16 @@ class _HeroBanner extends StatelessWidget {
               ]),
             ],
           ])),
-          // Moyenne — sur le barème du cycle ; seuils via le ratio 0→1.
-          if (!loading && moyenneText != null)
-            Builder(builder: (_) {
-              final r = moyenneRatio ?? 0;
-              final c = r >= 0.7 ? _green : r >= 0.5 ? _gold : _terra;
-              return Column(children: [
-              Text(moyenneText!,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 26,
-                      fontWeight: FontWeight.w900, letterSpacing: -1)),
-              if (moyenneUnit.isNotEmpty)
-                Text(moyenneUnit, style: TextStyle(
-                    color: Colors.white.withOpacity(.55), fontSize: 11)),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: c.withOpacity(.25),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: c.withOpacity(.5)),
-                ),
-                child: Text(
-                  r >= 0.7 ? '✓ Bien' : r >= 0.5 ? '→ OK' : 'Effort',
-                  style: TextStyle(
-                      color: r >= 0.7 ? _green : r >= 0.5 ? _gold : Colors.white,
-                      fontSize: 9, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ]);
-            }),
+          // Icône décorative (pas de moyenne ici — déjà dans les stats)
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.10),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(.18)),
+            ),
+            child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+          ),
         ]),
       ]),
     );
@@ -645,17 +592,19 @@ class _HeroBadge extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Stats rapides
+// Stats rapides — tappables, ouvrent leur page respective
 // ══════════════════════════════════════════════════════════════════════════
 class _QuickStats extends StatelessWidget {
   final bool loading;
   final String? moyenneText;
   final String moyenneUnit;
   final int absences, notes;
+  final VoidCallback? onMoyenne, onAbsences, onNotes;
   const _QuickStats({
     required this.loading, required this.moyenneText,
     required this.moyenneUnit,
     required this.absences, required this.notes,
+    this.onMoyenne, this.onAbsences, this.onNotes,
   });
 
   @override
@@ -663,13 +612,13 @@ class _QuickStats extends StatelessWidget {
     final data = [
       (icon: Icons.star_rounded, label: 'Moyenne',
        val: loading ? '00.0' : (moyenneText ?? '—'),
-       sub: moyenneUnit, c: _gold),
+       sub: moyenneUnit, c: _gold, onTap: onMoyenne),
       (icon: Icons.event_busy_rounded, label: 'Absences',
        val: loading ? '0' : '$absences',
        sub: absences > 1 ? ' jours' : ' jour',
-       c: absences == 0 ? _green : _terra),
+       c: absences == 0 ? _green : _terra, onTap: onAbsences),
       (icon: Icons.grading_rounded, label: 'Notes',
-       val: loading ? '0' : '$notes', sub: ' reçues', c: _orange),
+       val: loading ? '0' : '$notes', sub: ' reçues', c: _orange, onTap: onNotes),
     ];
     return Row(children: [
       for (int i = 0; i < data.length; i++) ...[
@@ -681,43 +630,50 @@ class _QuickStats extends StatelessWidget {
 }
 
 class _QuickStatPill extends StatelessWidget {
-  final ({IconData icon, String label, String val, String sub, Color c}) d;
+  final ({IconData icon, String label, String val, String sub, Color c, VoidCallback? onTap}) d;
   const _QuickStatPill({required this.d});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withOpacity(.3)),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(.04),
-          blurRadius: 8, offset: const Offset(0, 2),
-        )],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 28, height: 28,
-          decoration: BoxDecoration(
-              color: d.c.withOpacity(.12), borderRadius: BorderRadius.circular(8)),
-          child: Icon(d.icon, color: d.c, size: 14),
+    return GestureDetector(
+      onTap: d.onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outline.withOpacity(.3)),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(.04),
+            blurRadius: 8, offset: const Offset(0, 2),
+          )],
         ),
-        const SizedBox(height: 6),
-        Text(d.label, style: TextStyle(
-            color: cs.onSurface.withOpacity(.5),
-            fontSize: 9.5, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        RichText(text: TextSpan(children: [
-          TextSpan(text: d.val,
-              style: TextStyle(color: cs.onSurface,
-                  fontSize: 17, fontWeight: FontWeight.w900)),
-          TextSpan(text: d.sub,
-              style: TextStyle(color: cs.onSurface.withOpacity(.45), fontSize: 9.5)),
-        ])),
-      ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                  color: d.c.withOpacity(.12), borderRadius: BorderRadius.circular(8)),
+              child: Icon(d.icon, color: d.c, size: 14),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                size: 14, color: cs.onSurface.withOpacity(.25)),
+          ]),
+          const SizedBox(height: 6),
+          Text(d.label, style: TextStyle(
+              color: cs.onSurface.withOpacity(.5),
+              fontSize: 9.5, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          RichText(text: TextSpan(children: [
+            TextSpan(text: d.val,
+                style: TextStyle(color: cs.onSurface,
+                    fontSize: 17, fontWeight: FontWeight.w900)),
+            TextSpan(text: d.sub,
+                style: TextStyle(color: cs.onSurface.withOpacity(.45), fontSize: 9.5)),
+          ])),
+        ]),
+      ),
     );
   }
 }
@@ -806,41 +762,61 @@ class _MiniEmpty extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Raccourcis
+// Accès rapide — 2 lignes max, scroll horizontal si > 2×cols éléments
 // ══════════════════════════════════════════════════════════════════════════
 class _PremiumShortcutsGrid extends StatelessWidget {
   final Map<String, VoidCallback> onTap;
   const _PremiumShortcutsGrid({required this.onTap});
 
-  // Pas de « Bulletin » : c'est un document de la famille, il vit désormais
-  // dans l'espace parent (fiche de l'enfant).
   static const _items = [
-    (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',      c: _gold),
-    (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',     c: _terra),
-    (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',  c: _green),
-    (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',      c: _terra),
-    (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',    c: _green),
-    (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',    c: _orange),
-    (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur', c: _gold),
+    (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',       c: _gold),
+    (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',      c: _terra),
+    (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',   c: _green),
+    (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',       c: _terra),
+    (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',     c: _green),
+    (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',     c: _orange),
+    (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur',  c: _gold),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final items = _items.toList();
-    return LayoutBuilder(builder: (_, c) {
-      final isWide = c.maxWidth > 600;
-      final cols  = isWide ? 5 : 3;
-      final ratio = isWide ? 2.0 : 1.35;
-      return GridView.count(
-        crossAxisCount: cols,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 10, mainAxisSpacing: 10,
-        childAspectRatio: ratio,
-        children: items.map((item) =>
-            _ShortcutCard(item: item, onTap: onTap[item.key])).toList(),
-      );
-    });
+    const itemW = 88.0;
+    const itemH = 82.0;
+    const gap   = 10.0;
+    const rows  = 2;
+
+    // Organise en colonnes de 2
+    final cols = <List<({String key, IconData icon, String label, Color c})>>[];
+    for (var i = 0; i < _items.length; i += rows) {
+      cols.add(_items.sublist(i, (i + rows).clamp(0, _items.length)));
+    }
+
+    return SizedBox(
+      height: itemH * rows + gap * (rows - 1),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        separatorBuilder: (_, __) => const SizedBox(width: gap),
+        itemCount: cols.length,
+        itemBuilder: (_, ci) {
+          final col = cols[ci];
+          return SizedBox(
+            width: itemW,
+            child: Column(
+              children: [
+                for (int ri = 0; ri < col.length; ri++) ...[
+                  if (ri > 0) const SizedBox(height: gap),
+                  SizedBox(
+                    height: itemH,
+                    child: _ShortcutCard(
+                        item: col[ri], onTap: onTap[col[ri].key]),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -854,27 +830,27 @@ class _ShortcutCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Material(
       color: cs.surfaceContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: item.c.withOpacity(.18)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 34, height: 34,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
                   color: item.c.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(item.icon, color: item.c, size: 17),
+                child: Icon(item.icon, color: item.c, size: 18),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 7),
               Text(item.label,
                   style: TextStyle(
                       color: cs.onSurface,
@@ -891,7 +867,7 @@ class _ShortcutCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// EDT du jour
+// EDT du jour — style identique à la page Emploi du temps
 // ══════════════════════════════════════════════════════════════════════════
 class _EdtTimeline extends StatelessWidget {
   final List<({String h, String sub, String room, Color c})> slots;
@@ -899,66 +875,98 @@ class _EdtTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 106,
+      height: 110,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: slots.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final s = slots[i];
-          final first = i == 0;
-          return Container(
-            width: 92,
-            decoration: first
-                ? BoxDecoration(
-                    gradient: LinearGradient(
-                        colors: [s.c, s.c.withOpacity(0.72)],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: s.c.withOpacity(.35),
-                        blurRadius: 12, offset: const Offset(0, 5))],
-                  )
-                : BoxDecoration(
-                    color: cs.surfaceContainer,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: s.c.withOpacity(.35)),
-                  ),
-            padding: const EdgeInsets.all(11),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Container(
-                    width: 28, height: 28,
+          final isFirst = i == 0;
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: 110,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [s.c, s.c.withOpacity(.80)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: s.c.withOpacity(.30),
+                    blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Stack(children: [
+                // Symbole décoratif en fond
+                Positioned(right: -8, top: -8,
+                  child: Container(
+                    width: 52, height: 52,
                     decoration: BoxDecoration(
-                        color: first ? Colors.white.withOpacity(.22) : s.c.withOpacity(.15),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Icon(Icons.school_rounded, size: 14,
-                        color: first ? Colors.white : s.c),
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(.08)),
+                  )),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Heure + badge actif
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(.18),
+                            borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.school_rounded,
+                              size: 14, color: Colors.white),
+                        ),
+                        if (isFirst)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(.22),
+                              borderRadius: BorderRadius.circular(5)),
+                            child: const Text('Actif',
+                                style: TextStyle(color: Colors.white,
+                                    fontSize: 7, fontWeight: FontWeight.w900)),
+                          ),
+                      ]),
+                      // Matière + heure
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(s.sub,
+                            style: const TextStyle(color: Colors.white,
+                                fontSize: 12, fontWeight: FontWeight.w900, height: 1.2),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        Row(children: [
+                          const Icon(Icons.access_time_rounded,
+                              size: 10, color: Color(0xCCFFFFFF)),
+                          const SizedBox(width: 3),
+                          Text(s.h,
+                              style: const TextStyle(color: Color(0xCCFFFFFF),
+                                  fontSize: 10, fontWeight: FontWeight.w700)),
+                        ]),
+                        if (s.room.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(children: [
+                            const Icon(Icons.room_outlined,
+                                size: 10, color: Color(0xAAFFFFFF)),
+                            const SizedBox(width: 3),
+                            Text(s.room,
+                                style: const TextStyle(color: Color(0xAAFFFFFF),
+                                    fontSize: 9)),
+                          ]),
+                        ],
+                      ]),
+                    ],
                   ),
-                  if (first)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.22),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: const Text('Actif', style: TextStyle(
-                          color: Colors.white, fontSize: 7, fontWeight: FontWeight.w800)),
-                    ),
-                ]),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(s.sub, style: TextStyle(
-                      color: first ? Colors.white : cs.onSurface,
-                      fontSize: 11, fontWeight: FontWeight.w800),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(s.h, style: TextStyle(
-                      color: first ? Colors.white.withOpacity(.8) : s.c,
-                      fontSize: 11, fontWeight: FontWeight.w600)),
-                ]),
-              ],
+                ),
+              ]),
             ),
           );
         },
@@ -968,104 +976,210 @@ class _EdtTimeline extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Courbe progression des notes
+// Statistiques — remplace la courbe incompréhensible
 // ══════════════════════════════════════════════════════════════════════════
-class _NoteProgressionChart extends StatelessWidget {
-  final List<double> values;
-  final List<String> labels;
-  final double maxScore;
-  const _NoteProgressionChart({
-    required this.values, required this.labels, this.maxScore = 20});
+class _StatsSection extends StatelessWidget {
+  final List<SbGrade> grades;
+  final List<SbGrade> graded; // trié chronologiquement
+  final int absences;
+  final double maxScore, k;
+
+  const _StatsSection({
+    required this.grades,
+    required this.graded,
+    required this.absences,
+    required this.maxScore,
+    required this.k,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final spots = values.asMap().entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value))
-        .toList();
-    final trend = values.last - values.first;
-    final trendUp = trend >= 0;
-    final trendColor = trendUp ? _green : _terra;
 
+    // ── Calculs ──
+    final isEmpty = grades.isEmpty;
+
+    final best = isEmpty ? null
+        : grades.reduce((a, b) => a.outOf20 > b.outOf20 ? a : b);
+    final worst = isEmpty ? null
+        : grades.reduce((a, b) => a.outOf20 < b.outOf20 ? a : b);
+
+    // Meilleure matière (moyenne par matière)
+    final bySubject = <String, List<double>>{};
+    for (final g in grades) {
+      final s = g.subjectName ?? '—';
+      (bySubject[s] ??= []).add(g.outOf20);
+    }
+    String? bestSubject;
+    double bestSubjectAvg = 0;
+    for (final e in bySubject.entries) {
+      final avg = e.value.reduce((a, b) => a + b) / e.value.length;
+      if (avg > bestSubjectAvg) {
+        bestSubjectAvg = avg;
+        bestSubject = e.key;
+      }
+    }
+
+    // Notes au-dessus de la moyenne générale
+    final avg20 = isEmpty ? 0.0
+        : grades.fold<double>(0, (s, g) => s + g.outOf20) / grades.length;
+    final aboveAvg = grades.where((g) => g.outOf20 > avg20).length;
+
+    // Tendance : compare les 3 dernières aux 3 précédentes
+    String trendLabel = '—';
+    Color trendColor = cs.onSurface.withOpacity(.5);
+    IconData trendIcon = Icons.remove_rounded;
+    if (graded.length >= 4) {
+      final half = graded.length ~/ 2;
+      final recent = graded.sublist(graded.length - half);
+      final older  = graded.sublist(0, half);
+      final rAvg = recent.fold<double>(0, (s, g) => s + g.outOf20) / recent.length;
+      final oAvg = older.fold<double>(0,  (s, g) => s + g.outOf20) / older.length;
+      final diff = rAvg - oAvg;
+      if (diff > 0.3) {
+        trendLabel = '+${diff.toStringAsFixed(1)} pts';
+        trendColor = _green;
+        trendIcon  = Icons.trending_up_rounded;
+      } else if (diff < -0.3) {
+        trendLabel = '${diff.toStringAsFixed(1)} pts';
+        trendColor = _terra;
+        trendIcon  = Icons.trending_down_rounded;
+      } else {
+        trendLabel = 'Stable';
+        trendColor = _gold;
+        trendIcon  = Icons.trending_flat_rounded;
+      }
+    }
+
+    final stats = [
+      _StatItem(
+        icon: Icons.emoji_events_rounded,
+        color: _gold,
+        label: 'Meilleure note',
+        value: isEmpty ? '—'
+            : '${(best!.outOf20 * k).toStringAsFixed(1)}/${maxScore.toStringAsFixed(0)}',
+        sub: best?.subjectName,
+      ),
+      _StatItem(
+        icon: Icons.arrow_downward_rounded,
+        color: _terra,
+        label: 'Note la plus basse',
+        value: isEmpty ? '—'
+            : '${(worst!.outOf20 * k).toStringAsFixed(1)}/${maxScore.toStringAsFixed(0)}',
+        sub: worst?.subjectName,
+      ),
+      _StatItem(
+        icon: Icons.star_half_rounded,
+        color: _green,
+        label: 'Point fort',
+        value: bestSubject ?? '—',
+        sub: bestSubject != null
+            ? 'moy. ${(bestSubjectAvg * k).toStringAsFixed(1)}'
+            : null,
+        compact: true,
+      ),
+      _StatItem(
+        icon: Icons.check_circle_outline_rounded,
+        color: _cyan,
+        label: 'Au-dessus moy.',
+        value: isEmpty ? '—' : '$aboveAvg/${grades.length}',
+        sub: isEmpty ? null : 'notes',
+      ),
+      _StatItem(
+        icon: trendIcon,
+        color: trendColor,
+        label: 'Tendance',
+        value: trendLabel,
+        sub: graded.length < 4 ? 'pas assez de notes' : 'récent vs précédent',
+      ),
+      _StatItem(
+        icon: Icons.event_busy_rounded,
+        color: absences == 0 ? _green : _orange,
+        label: 'Absences',
+        value: '$absences',
+        sub: absences > 1 ? 'jours' : 'jour',
+      ),
+    ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _SectionHeader(
+        icon: Icons.bar_chart_rounded,
+        title: 'Statistiques',
+        accentColor: _cyan,
+      ),
+      const SizedBox(height: 10),
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 1.55,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: stats.length,
+        itemBuilder: (_, i) => _StatCard(item: stats[i]),
+      ),
+    ]);
+  }
+}
+
+class _StatItem {
+  final IconData icon;
+  final Color color;
+  final String label, value;
+  final String? sub;
+  final bool compact;
+  const _StatItem({
+    required this.icon, required this.color,
+    required this.label, required this.value,
+    this.sub, this.compact = false,
+  });
+}
+
+class _StatCard extends StatelessWidget {
+  final _StatItem item;
+  const _StatCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      decoration: ScolarisSurface.themedCard(context, radius: 16),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: item.color.withOpacity(.18)),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withOpacity(.03),
+          blurRadius: 6, offset: const Offset(0, 2))],
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text('Progression des notes', style: TextStyle(
-              color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w800))),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            width: 26, height: 26,
             decoration: BoxDecoration(
-                color: trendColor.withOpacity(.10),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: trendColor.withOpacity(.30))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  color: trendColor, size: 13),
-              const SizedBox(width: 4),
-              Text('${trendUp ? '+' : ''}${trend.toStringAsFixed(1)} pts',
-                  style: TextStyle(color: trendColor,
-                      fontSize: 10, fontWeight: FontWeight.w800)),
-            ]),
+              color: item.color.withOpacity(.12),
+              borderRadius: BorderRadius.circular(7)),
+            child: Icon(item.icon, color: item.color, size: 13),
           ),
+          const SizedBox(width: 6),
+          Expanded(child: Text(item.label, style: TextStyle(
+              color: cs.onSurface.withOpacity(.5),
+              fontSize: 9, fontWeight: FontWeight.w700),
+              maxLines: 1, overflow: TextOverflow.ellipsis)),
         ]),
-        const SizedBox(height: 4),
-        Text('Moyenne sur ${values.length} semaines',
-            style: TextStyle(color: cs.onSurface.withOpacity(.45), fontSize: 10)),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 110,
-          child: LineChart(LineChartData(
-            minY: maxScore * 0.4, maxY: maxScore,
-            gridData: FlGridData(show: true, drawVerticalLine: false,
-              horizontalInterval: maxScore / 5,
-              getDrawingHorizontalLine: (_) => FlLine(
-                  color: cs.outline.withOpacity(.15), strokeWidth: 1.0)),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: AxisTitles(sideTitles: SideTitles(
-                showTitles: true, reservedSize: 28.0,
-                getTitlesWidget: (v, _) => Text('${v.toInt()}',
-                    style: TextStyle(color: cs.onSurface.withOpacity(.45),
-                        fontSize: 9, fontWeight: FontWeight.w600)),
-              )),
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(sideTitles: SideTitles(
-                showTitles: true, reservedSize: 22.0,
-                getTitlesWidget: (v, _) {
-                  final i = v.toInt();
-                  if (i < 0 || i >= labels.length) return const SizedBox();
-                  return Text(labels[i], style: TextStyle(
-                      color: cs.onSurface.withOpacity(.45),
-                      fontSize: 9, fontWeight: FontWeight.w600));
-                },
-              )),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots, isCurved: true, curveSmoothness: 0.35,
-                color: _gold, barWidth: 2.5,
-                dotData: FlDotData(show: true, getDotPainter: (s, _, __, ___) =>
-                    FlDotCirclePainter(radius: 4.0, color: _gold,
-                        strokeWidth: 2.0, strokeColor: cs.surfaceContainer)),
-                belowBarData: BarAreaData(show: true, gradient: LinearGradient(
-                  colors: [_gold.withOpacity(.20), _gold.withOpacity(.0)],
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                )),
-              ),
-            ],
-            lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
-              tooltipRoundedRadius: 8.0,
-              getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
-                '${s.y.toStringAsFixed(1)}/${maxScore.toStringAsFixed(0)}',
-                const TextStyle(color: Colors.white,
-                    fontSize: 11, fontWeight: FontWeight.w700),
-              )).toList(),
-            )),
-          )),
-        ),
+        const Spacer(),
+        Text(item.value,
+            style: TextStyle(
+                color: cs.onSurface, fontSize: item.compact ? 12 : 15,
+                fontWeight: FontWeight.w900, height: 1.1),
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (item.sub != null)
+          Text(item.sub!, style: TextStyle(
+              color: cs.onSurface.withOpacity(.4),
+              fontSize: 9, fontWeight: FontWeight.w600),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
       ]),
     );
   }
@@ -1139,28 +1253,5 @@ class _NoteRow extends StatelessWidget {
         ]),
       ),
     );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Résumé présences (kept for reference, not used in current dashboard)
-// ══════════════════════════════════════════════════════════════════════════
-class _AttPresCell extends StatelessWidget {
-  final IconData icon;
-  final String label, val;
-  final Color color;
-  const _AttPresCell({required this.icon, required this.label,
-      required this.val, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(child: Column(children: [
-      Icon(icon, size: 18, color: color),
-      const SizedBox(height: 4),
-      Text(val, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w900)),
-      Text(label, style: TextStyle(fontSize: 9.5,
-          color: cs.onSurface.withOpacity(.45), fontWeight: FontWeight.w600)),
-    ]));
   }
 }
