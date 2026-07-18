@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -305,6 +306,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   final _s2Email  = TextEditingController();
   final _s2Phone  = TextEditingController();
   final _s2Pass   = TextEditingController();
+  final _s2PassConfirm = TextEditingController();
   final _s2Bio    = TextEditingController();
   // Social
   final _s2Facebook  = TextEditingController();
@@ -313,6 +315,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   final _s2LinkedIn  = TextEditingController();
   String _s2DialCode = '+242', _s2DialFlag = '🇨🇬';
   bool _s2Obscure = true;
+  bool _s2ObscureConfirm = true;
   int _s2BannerIdx = 0, _s2AvatarIdx = 0;
 
   // ── Step 3 ──
@@ -324,12 +327,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   final _newSeriesCodeCtrl = TextEditingController();
   final _newSeriesDescCtrl = TextEditingController();
 
-  // ── Step 5 ──
-  String _s5DbType = 'scolaris';
-
   static const _stepLabels = [
     'École','Administrateur','Système éducatif',
-    'Structure & Séries','Base de données','Récapitulatif',
+    'Structure & Séries','Récapitulatif',
   ];
 
   @override
@@ -340,7 +340,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
     for (final c in [
       _s1Name,_s1Motto,_s1Year,_s1Country,_s1City,_s1Address,_s1MapLink,_s1Email,_s1Website,_s1Phone,
       _s1Facebook,_s1Instagram,_s1WhatsApp,_s1Twitter,_s1LinkedIn,_s1YouTube,
-      _s2Name,_s2Title,_s2Email,_s2Phone,_s2Pass,_s2Bio,
+      _s2Name,_s2Title,_s2Email,_s2Phone,_s2Pass,_s2PassConfirm,_s2Bio,
       _s2Facebook,_s2WhatsApp,_s2Instagram,_s2LinkedIn,
       _newSeriesNameCtrl,_newSeriesCodeCtrl,_newSeriesDescCtrl,
     ]) { c.dispose(); }
@@ -361,7 +361,25 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       }
       return _s1Form.currentState?.validate() ?? false;
     }
-    if (_step == 1) return _s2Form.currentState?.validate() ?? false;
+    if (_step == 1) {
+      if (!(_s2Form.currentState?.validate() ?? false)) return false;
+      if (_s2Pass.text != _s2PassConfirm.text) {
+        setState(() => _globalError = 'Les mots de passe ne correspondent pas.');
+        return false;
+      }
+      return true;
+    }
+    if (_step == 3) {
+      final active = _series.where((s) => s.isActive);
+      if (active.isEmpty) {
+        setState(() => _globalError = 'Activez au moins une série.');
+        return false;
+      }
+      if (active.every((s) => s.classes.isEmpty)) {
+        setState(() => _globalError = 'Ajoutez au moins une classe à une série active.');
+        return false;
+      }
+    }
     return true;
   }
 
@@ -369,22 +387,51 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
     setState(() => _globalError = null);
     if (!_validateStep()) return;
     if (_step == 2) _series = _defaultSeries(_s3System, _types);
-    setState(() => _step = (_step + 1).clamp(0, 5));
+    setState(() => _step = (_step + 1).clamp(0, 4));
   }
 
-  void _prev() => setState(() { _step = (_step - 1).clamp(0, 5); _globalError = null; });
+  void _prev() => setState(() { _step = (_step - 1).clamp(0, 4); _globalError = null; });
+
+  // Remplissage rapide pour les tests manuels (debug uniquement).
+  void _fillTestData() {
+    final n = DateTime.now().millisecondsSinceEpoch % 100000;
+    setState(() {
+      _types = {'lycee'};
+      _s1Name.text    = 'École Test $n';
+      _s1Country.text = 'Congo';
+      _s1City.text    = 'Brazzaville';
+      _s1Address.text = 'Avenue de la Paix, $n';
+      _s1Email.text   = 'contact.test$n@scolaris.dev';
+      _s1Phone.text   = '0600000$n'.substring(0, 9);
+
+      _s2Name.text  = 'Fondateur Test $n';
+      _s2Email.text = 'admin.test$n@scolaris.dev';
+      _s2Phone.text = '0611111$n'.substring(0, 9);
+      _s2Pass.text  = 'Test1234!';
+      _s2PassConfirm.text = 'Test1234!';
+
+      _s3System = 'francophone';
+      _series = _defaultSeries(_s3System, _types);
+    });
+  }
 
   Future<void> _submit() async {
     setState(() { _submitting = true; _globalError = null; });
+    final sb       = Supabase.instance.client;
+    final schoolId = const Uuid().v4();
+    var schoolCreated = false;
     try {
-      final sb       = Supabase.instance.client;
-      final schoolId = const Uuid().v4();
-      final slug     = _s1Name.text.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+      // Le nom seul ne garantit pas l'unicité (plusieurs écoles peuvent
+      // partager le même nom) — on suffixe avec un fragment de l'id pour
+      // éviter toute collision sur schools_code_key / schools_slug_key.
+      final baseSlug = _s1Name.text.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+      final slug     = '$baseSlug-${schoolId.substring(0, 8)}';
 
       await sb.from('schools').insert({
         'id'          : schoolId,
         'name'        : _s1Name.text.trim(),
         'code'        : slug,
+        'slug'        : slug,
         // La base impose un code ISO (schools_country_iso). Le champ propose
         // les NOMS — bonne ergonomie —, on convertit à l'enregistrement.
         'country'     : countryCodeOf(_s1Country.text),
@@ -394,13 +441,14 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'contact_email': _s1Email.text.trim().isEmpty ? null : _s1Email.text.trim(),
         'contact_phone': _s1Phone.text.trim().isEmpty ? null : '$_s1DialCode${_s1Phone.text.trim()}',
         'is_active'   : true,
+        'plan_type'   : 'free', // legacy, non utilisé par l'app (voir subscriptions.plan_code)
+        'db_mode'     : 'central',
         'metadata'    : {
           'types'              : _types.toList(),
           'educational_system' : _s3System,
           'motto'              : _s1Motto.text.trim(),
           'year_founded'       : _s1Year.text.trim(),
           'map_link'           : _s1MapLink.text.trim(),
-          'db_preference'      : _s5DbType,
           'social': {
             if (_s1Facebook.text.trim().isNotEmpty)  'facebook' : _s1Facebook.text.trim(),
             if (_s1Instagram.text.trim().isNotEmpty) 'instagram': _s1Instagram.text.trim(),
@@ -411,17 +459,22 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           },
         },
       });
+      schoolCreated = true;
 
       // Compte de connexion du fondateur (admin de l'école).
       // L'école existe déjà ci-dessus → le trigger handle_new_user peut créer
       // users + profiles (FK school_id satisfaite) à partir des métadonnées.
+      // Le trigger trg_new_school_trial (DB) crée automatiquement la ligne
+      // subscriptions (plan simple, trial 14j) à l'insert de schools ci-dessus.
       await sb.auth.signUp(
         email: _s2Email.text.trim(),
         password: _s2Pass.text,
         data: {
-          'full_name': _s2Name.text.trim(),
-          'role'     : 'admin',
-          'school_id': schoolId,
+          'full_name' : _s2Name.text.trim(),
+          'role'      : 'admin',
+          'school_id' : schoolId,
+          'banner_idx': _s2BannerIdx,
+          'avatar_idx': _s2AvatarIdx,
         },
       );
 
@@ -464,10 +517,44 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
 
       if (mounted) _showSuccess(schoolId);
     } catch (e) {
-      setState(() => _globalError = 'Erreur : ${e.toString()}');
+      if (schoolCreated) {
+        // Étape ultérieure échouée (email déjà utilisé, réseau, RLS…) :
+        // on retire l'école pour ne pas laisser d'enregistrement orphelin
+        // sans compte admin / structure associée.
+        try {
+          await sb.from('schools').delete().eq('id', schoolId);
+        } catch (_) {
+          // best-effort : si le rollback échoue aussi, on laisse l'erreur
+          // d'origine remonter — pas de nouvelle tentative silencieuse.
+        }
+      }
+      setState(() => _globalError = _friendlyError(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  String _friendlyError(Object e) {
+    if (e is AuthException) {
+      final m = e.message.toLowerCase();
+      if (m.contains('already registered') || m.contains('already exists')) {
+        return 'Cet email administrateur est déjà utilisé par un autre compte.';
+      }
+      return 'Erreur de création du compte administrateur : ${e.message}';
+    }
+    if (e is PostgrestException) {
+      if (e.code == '23505') {
+        return 'Une école avec des informations identiques existe déjà. Réessayez.';
+      }
+      if (e.code == '42501' || (e.message.toLowerCase().contains('row-level security'))) {
+        return 'Accès refusé par la base de données (permissions). Contactez le support.';
+      }
+      if (e.code == '23502') {
+        return 'Un champ obligatoire est manquant côté serveur. Contactez le support.';
+      }
+      return 'Erreur serveur (${e.code ?? '?'}) : ${e.message}';
+    }
+    return 'Une erreur est survenue. Vérifiez votre connexion et réessayez.';
   }
 
   void _showSuccess(String id) {
@@ -529,7 +616,22 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: _g0,
-        body: SafeArea(child: isWide ? _buildWide() : _buildNarrow()),
+        body: SafeArea(
+          child: Stack(children: [
+            isWide ? _buildWide() : _buildNarrow(),
+            if (kDebugMode)
+              Positioned(
+                top: 12, right: 12,
+                child: FloatingActionButton.extended(
+                  heroTag: 'fillTestData',
+                  backgroundColor: _gold,
+                  onPressed: _fillTestData,
+                  icon: const Icon(Icons.bolt_rounded, color: Colors.white),
+                  label: const Text('Remplir (test)', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+          ]),
+        ),
       ),
     );
   }
@@ -604,8 +706,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                   _BottomNav(
                     step: _step, total: _stepLabels.length,
                     onPrev: _step > 0 ? _prev : null,
-                    onNext: _step < 5 ? _next : null,
-                    onSubmit: _step == 5 ? _submit : null,
+                    onNext: _step < 4 ? _next : null,
+                    onSubmit: _step == 4 ? _submit : null,
                     submitting: _submitting, error: _globalError,
                   ),
                 ]),
@@ -662,8 +764,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       _BottomNav(
         step: _step, total: _stepLabels.length,
         onPrev: _step > 0 ? _prev : null,
-        onNext: _step < 5 ? _next : null,
-        onSubmit: _step == 5 ? _submit : null,
+        onNext: _step < 4 ? _next : null,
+        onSubmit: _step == 4 ? _submit : null,
         submitting: _submitting, error: _globalError,
       ),
     ]);
@@ -675,8 +777,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       case 1: return _buildStep2();
       case 2: return _buildStep3();
       case 3: return _buildStep4();
-      case 4: return _buildStep5();
-      case 5: return _buildStep6();
+      case 4: return _buildStep6();
       default: return const SizedBox.shrink();
     }
   }
@@ -988,6 +1089,24 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             ),
             const SizedBox(height: 8),
             _PasswordStrength(password: _s2Pass.text),
+            const SizedBox(height: 14),
+            _FieldLabel('Confirmer le mot de passe', required: true),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _s2PassConfirm, obscureText: _s2ObscureConfirm,
+              validator: (v) => (v != _s2Pass.text) ? 'Les mots de passe ne correspondent pas' : null,
+              style: const TextStyle(fontSize: 14, color: _ink),
+              decoration: _inputDeco(
+                hint: '••••••••', icon: Icons.lock_outline_rounded,
+                suffix: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                  icon: Icon(_s2ObscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 18, color: _muted),
+                  onPressed: () => setState(() => _s2ObscureConfirm = !_s2ObscureConfirm),
+                ),
+              ),
+            ),
             const SizedBox(height: 28),
 
             // ── Réseaux sociaux ─────────────────────────────────────────────
@@ -1132,81 +1251,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STEP 5 — Base de données
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildStep5() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _StepHero(
-        lottie: 'assets/lottie/loading.json',
-        icon: Icons.storage_outlined,
-        title: 'Base de données',
-        subtitle: 'Choisissez où stocker les données de votre établissement.',
-        onBack: _prev,
-        step: _step, total: _stepLabels.length,
-      ),
-
-      Padding(
-        padding: const EdgeInsets.fromLTRB(32, 28, 32, 28),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _DbOptionCard(
-            id: 'scolaris', title: 'Base Scolaris (recommandé)',
-            subtitle: 'Hébergée et maintenue par Scolaris — zéro configuration, sauvegardes automatiques.',
-            icon: Icons.cloud_done_outlined, badge: 'RECOMMANDÉ',
-            selected: _s5DbType == 'scolaris',
-            onTap: () => setState(() => _s5DbType = 'scolaris'),
-          ),
-          const SizedBox(height: 12),
-          _DbOptionCard(
-            id: 'custom', title: 'Base personnalisée',
-            subtitle: 'Connectez votre propre base (Supabase, PostgreSQL, Firebase, MongoDB).',
-            icon: Icons.dns_outlined,
-            selected: false,
-            onTap: () {},
-            comingSoon: true,
-          ),
-
-          const SizedBox(height: 32),
-
-          // ── Contact assistance ─────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _ink.withOpacity(.03),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _border),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: _terra.withOpacity(.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.support_agent_outlined, color: _terra, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Besoin d\'assistance pour la configuration ?',
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
-                const SizedBox(height: 4),
-                Text('Notre équipe peut configurer votre base de données à votre place.',
-                    style: TextStyle(fontSize: 12.5, color: _muted, height: 1.4)),
-                const SizedBox(height: 10),
-                Row(children: [
-                  _ContactChip(icon: Icons.mail_outline, label: 'scolaris.dev@gmail.com'),
-                  const SizedBox(width: 8),
-                  _ContactChip(icon: Icons.chat_outlined, label: '+242 065 702 018'),
-                ]),
-              ])),
-            ]),
-          ),
-        ]),
-      ),
-    ]);
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // STEP 6 — Récapitulatif
+  // STEP 5 — Récapitulatif
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildStep6() {
     final sysName = _kSystems.firstWhere((s) => s.id == _s3System).title;
@@ -1238,9 +1283,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             const SizedBox(height: 12),
             _RecapCard(title: 'Système éducatif', icon: Icons.menu_book_outlined, color: _gold,
               items: [('Système', sysName)]),
-            const SizedBox(height: 12),
-            _RecapCard(title: 'Base de données', icon: Icons.storage_outlined, color: _muted,
-              items: [('Type', 'Base Scolaris (hébergée)')]),
           ])),
           const SizedBox(width: 16),
           Expanded(child: Column(children: [
@@ -1294,9 +1336,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             items: _series.where((s) => s.isActive).map((s) =>
               (s.name, '${s.classes.length} classe(s)${s.classes.isNotEmpty ? " : ${s.classes.take(3).join(', ')}${s.classes.length > 3 ? '…' : ''}" : ''}')).toList(),
           ),
-          const SizedBox(height: 10),
-          _RecapCard(title: 'Base de données', icon: Icons.storage_outlined, color: _muted,
-            items: [('Type', 'Base Scolaris (hébergée)')]),
         ]),
     ]);
 
@@ -2484,30 +2523,6 @@ class _MediaOptionBtn extends StatelessWidget {
   }
 }
 
-// Contact chip
-class _ContactChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _ContactChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: _terra.withOpacity(.07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _terra.withOpacity(.15)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 12, color: _terra),
-        const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 11.5, color: _terra, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
 // Phone row
 class _PhoneRow extends StatelessWidget {
   final String flag, dialCode;
@@ -2734,100 +2749,6 @@ class _PasswordStrength extends StatelessWidget {
       const SizedBox(width: 10),
       Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
     ]);
-  }
-}
-
-// DB Option card
-class _DbOptionCard extends StatelessWidget {
-  final String id, title, subtitle;
-  final IconData icon;
-  final bool selected;
-  final String? badge;
-  final VoidCallback onTap;
-  final bool comingSoon;
-  const _DbOptionCard({required this.id, required this.title, required this.subtitle,
-      required this.icon, required this.selected, this.badge, required this.onTap,
-      this.comingSoon = false});
-  @override
-  Widget build(BuildContext context) {
-    if (comingSoon) {
-      return Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F0EB),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _border),
-        ),
-        child: Row(children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: _border.withOpacity(.6),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(icon, color: _muted.withOpacity(.4), size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
-                  color: _muted.withOpacity(.5))),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _muted.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text('Bientôt', style: TextStyle(fontSize: 9.5, color: _muted.withOpacity(.6), fontWeight: FontWeight.w800)),
-              ),
-            ]),
-            const SizedBox(height: 3),
-            Text(subtitle, style: TextStyle(fontSize: 12.5, color: _muted.withOpacity(.45), height: 1.4)),
-          ])),
-        ]),
-      );
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: selected ? _terra.withOpacity(.05) : _white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? _terra : _border, width: selected ? 2 : 1),
-        ),
-        child: Row(children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: selected ? _terra.withOpacity(.12) : _border.withOpacity(.5),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(icon, color: selected ? _terra : _muted, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
-                  color: selected ? _terra : _ink)),
-              if (badge != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(color: _green.withOpacity(.12), borderRadius: BorderRadius.circular(99)),
-                  child: Text(badge!, style: const TextStyle(fontSize: 9.5, color: _green, fontWeight: FontWeight.w800)),
-                ),
-              ],
-            ]),
-            const SizedBox(height: 3),
-            Text(subtitle, style: const TextStyle(fontSize: 12.5, color: _muted, height: 1.4)),
-          ])),
-          if (selected) const Icon(Icons.check_circle_rounded, color: _terra, size: 22),
-        ]),
-      ),
-    );
   }
 }
 
