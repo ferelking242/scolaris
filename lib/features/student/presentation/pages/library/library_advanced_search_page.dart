@@ -275,15 +275,18 @@ class _LibraryAdvancedSearchPageState
                 ),
               )),
               if (_ctrl.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    _ctrl.clear();
-                    _triggerSearch('');
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(Icons.close_rounded,
-                        size: 16, color: _muted),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      _ctrl.clear();
+                      _triggerSearch('');
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.close_rounded,
+                          size: 16, color: _muted),
+                    ),
                   ),
                 ),
             ]),
@@ -644,21 +647,24 @@ class _PillButton extends StatelessWidget {
       {required this.label, required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? _accent : const Color(0xFFF0EBE5),
-        borderRadius: BorderRadius.circular(7),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? _accent : const Color(0xFFF0EBE5),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: selected ? Colors.white : _muted,
+                fontSize: 12,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w500)),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color: selected ? Colors.white : _muted,
-              fontSize: 12,
-              fontWeight:
-                  selected ? FontWeight.w700 : FontWeight.w500)),
     ),
   );
 }
@@ -821,7 +827,9 @@ class _ResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -916,6 +924,7 @@ class _ResultTile extends StatelessWidget {
             ],
           ]),
         ]),
+      ),
       ),
     );
   }

@@ -157,19 +157,22 @@ class _ReleveEctsPageState extends State<ReleveEctsPage> {
             itemBuilder: (_, i) {
               final s = sems[i];
               final sel = s == _sem;
-              return GestureDetector(
-                onTap: () => setState(() => _sem = s),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: sel ? _terra : _white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: sel ? _terra : _border),
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => setState(() => _sem = s),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: sel ? _terra : _white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: sel ? _terra : _border),
+                    ),
+                    child: Text(s,
+                        style: TextStyle(
+                            color: sel ? _white : _muted,
+                            fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
-                  child: Text(s,
-                      style: TextStyle(
-                          color: sel ? _white : _muted,
-                          fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               );
             },

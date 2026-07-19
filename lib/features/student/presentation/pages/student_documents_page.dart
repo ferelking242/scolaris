@@ -293,7 +293,9 @@ class _DocCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRequest = doc.status == DocStatus.onRequest;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: doc.onTap ??
           (isRequest ? () => _toast(context, 'Demande envoyée au secrétariat.') : null),
       child: Container(
@@ -336,6 +338,7 @@ class _DocCard extends StatelessWidget {
                 color: _color, size: 18),
           ),
         ]),
+      ),
       ),
     );
   }

@@ -347,11 +347,14 @@ class _SearchBarWidget extends StatelessWidget {
               ),
             )),
             if (controller.text.isNotEmpty)
-              GestureDetector(
-                onTap: onClear,
-                child: Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onClear,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+                  ),
                 ),
               ),
           ]),
@@ -359,15 +362,18 @@ class _SearchBarWidget extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       // Bouton filtre → Recherche avancée
-      GestureDetector(
-        onTap: onFilterTap,
-        child: Container(
-          height: 44, width: 44,
-          decoration: BoxDecoration(
-            color: _accent,
-            borderRadius: BorderRadius.circular(11),
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onFilterTap,
+          child: Container(
+            height: 44, width: 44,
+            decoration: BoxDecoration(
+              color: _accent,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
           ),
-          child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
         ),
       ),
     ]);
@@ -513,10 +519,13 @@ class _SectionLabel extends StatelessWidget {
           color: cs.onSurface, fontSize: 14,
           fontWeight: FontWeight.w800, letterSpacing: -0.2))),
       if (action != null)
-        GestureDetector(
-          onTap: onAction,
-          child: Text(action!, style: TextStyle(
-              color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onAction,
+            child: Text(action!, style: TextStyle(
+                color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
         ),
     ]);
   }
@@ -538,39 +547,42 @@ class _FilterDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final active = value != options.first;
-    return GestureDetector(
-      onTap: () => showModalBottomSheet(
-        context: context,
-        backgroundColor: cs.surface,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-        builder: (_) => _OptionsSheet(
-            title: label, options: options,
-            value: value, onChanged: onChanged),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? _accent.withOpacity(0.08)
-              : const Color(0xFFF0EBE5),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: active
-                  ? _accent.withOpacity(0.35)
-                  : Colors.transparent),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => showModalBottomSheet(
+          context: context,
+          backgroundColor: cs.surface,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+          builder: (_) => _OptionsSheet(
+              title: label, options: options,
+              value: value, onChanged: onChanged),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(value,
-              style: TextStyle(
-                  color: active ? _accent : cs.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight:
-                      active ? FontWeight.w700 : FontWeight.w500)),
-          SizedBox(width: 4),
-          Icon(Icons.expand_more_rounded,
-              size: 14, color: active ? _accent : cs.onSurfaceVariant),
-        ]),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: active
+                ? _accent.withOpacity(0.08)
+                : const Color(0xFFF0EBE5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: active
+                    ? _accent.withOpacity(0.35)
+                    : Colors.transparent),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(value,
+                style: TextStyle(
+                    color: active ? _accent : cs.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight:
+                        active ? FontWeight.w700 : FontWeight.w500)),
+            SizedBox(width: 4),
+            Icon(Icons.expand_more_rounded,
+                size: 14, color: active ? _accent : cs.onSurfaceVariant),
+          ]),
+        ),
       ),
     );
   }
@@ -633,7 +645,9 @@ class _BookCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: SizedBox(
         width: 112,
@@ -699,6 +713,7 @@ class _BookCover extends StatelessWidget {
               maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
       ),
+      ),
     );
   }
 }
@@ -712,7 +727,9 @@ class _BookListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(12),
@@ -803,6 +820,7 @@ class _BookListTile extends StatelessWidget {
           ]),
         ]),
       ),
+      ),
     );
   }
 }
@@ -816,7 +834,9 @@ class _ExamTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         margin: EdgeInsets.only(bottom: 8),
@@ -868,6 +888,7 @@ class _ExamTile extends StatelessWidget {
               size: 11, color: cs.onSurfaceVariant),
         ]),
       ),
+      ),
     );
   }
 }
@@ -881,7 +902,9 @@ class _MaterialTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         margin: EdgeInsets.only(bottom: 8),
@@ -926,6 +949,7 @@ class _MaterialTile extends StatelessWidget {
             ],
           ]),
         ]),
+      ),
       ),
     );
   }
@@ -1092,7 +1116,9 @@ class _ContinueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         width: 218,
@@ -1138,6 +1164,7 @@ class _ContinueCard extends StatelessWidget {
             ]),
           ])),
         ]),
+      ),
       ),
     );
   }
@@ -1206,41 +1233,44 @@ class _CategoryGrid extends StatelessWidget {
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
         childAspectRatio: c.maxWidth > 420 ? 2.3 : 2.0,
-        children: cats.map((cat) => GestureDetector(
-          onTap: cat.onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outlineVariant),
-            ),
-            child: Row(children: [
-              Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(
-                  color: cat.color.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(cat.icon, size: 17, color: cat.color),
+        children: cats.map((cat) => MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: cat.onTap,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.outlineVariant),
               ),
-              const SizedBox(width: 8),
-              Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(cat.label,
-                    style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 11.5, fontWeight: FontWeight.w700),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                SizedBox(height: 1),
-                Text(cat.count,
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant, fontSize: 10),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ])),
-            ]),
+              child: Row(children: [
+                Container(
+                  width: 34, height: 34,
+                  decoration: BoxDecoration(
+                    color: cat.color.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(cat.icon, size: 17, color: cat.color),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(cat.label,
+                      style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 11.5, fontWeight: FontWeight.w700),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  SizedBox(height: 1),
+                  Text(cat.count,
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant, fontSize: 10),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+              ]),
+            ),
           ),
         )).toList(),
       );
@@ -1382,25 +1412,28 @@ class _ExamsTab extends StatelessWidget {
                     fontSize: 12, fontWeight: FontWeight.w700)),
           ...chips.map((l) => Padding(
             padding: const EdgeInsets.only(right: 7),
-            child: GestureDetector(
-              onTap: () => onLevelChanged(l),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: l == effLevel
-                      ? _accent
-                      : const Color(0xFFF0EBE5),
-                  borderRadius: BorderRadius.circular(8),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onLevelChanged(l),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: l == effLevel
+                        ? _accent
+                        : const Color(0xFFF0EBE5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(l,
+                      style: TextStyle(
+                          color: l == effLevel ? Colors.white : cs.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: l == effLevel
+                              ? FontWeight.w700
+                              : FontWeight.w500)),
                 ),
-                child: Text(l,
-                    style: TextStyle(
-                        color: l == effLevel ? Colors.white : cs.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: l == effLevel
-                            ? FontWeight.w700
-                            : FontWeight.w500)),
               ),
             ),
           )),

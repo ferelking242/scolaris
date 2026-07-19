@@ -142,7 +142,9 @@ class _SearchPageState extends State<SearchPage> {
             const SizedBox(height: 10),
             Wrap(
               spacing: 8, runSpacing: 8,
-              children: _recentSearches.map((s) => GestureDetector(
+              children: _recentSearches.map((s) => MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () {
                   _ctrl.text = s;
                   setState(() => _query = s);
@@ -160,6 +162,7 @@ class _SearchPageState extends State<SearchPage> {
                     Text(s, style: const TextStyle(color: _ink, fontSize: 13)),
                   ]),
                 ),
+                ),
               )).toList(),
             ),
             const SizedBox(height: 24),
@@ -175,7 +178,9 @@ class _SearchPageState extends State<SearchPage> {
             childAspectRatio: 1.1,
             children: _categories.map((c) {
               final sel = _filter == c.type;
-              return GestureDetector(
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => setState(() {
                   _filter = sel ? null : c.type;
                 }),
@@ -196,6 +201,7 @@ class _SearchPageState extends State<SearchPage> {
                             fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
                 ),
+                ),
               );
             }).toList(),
           ),
@@ -207,7 +213,9 @@ class _SearchPageState extends State<SearchPage> {
             'Résultats du trimestre',
             'Emploi du temps semaine',
             'M. Diallo',
-          ].map((s) => GestureDetector(
+          ].map((s) => MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
             onTap: () {
               _ctrl.text = s;
               setState(() => _query = s);
@@ -226,6 +234,7 @@ class _SearchPageState extends State<SearchPage> {
                 Expanded(child: Text(s, style: const TextStyle(color: _ink, fontSize: 13.5))),
                 Icon(Icons.north_west_rounded, size: 14, color: _muted),
               ]),
+            ),
             ),
           )),
         ],
@@ -333,7 +342,9 @@ class _SearchBar extends StatelessWidget {
               ),
             ),
             if (ctrl.text.isNotEmpty)
-              GestureDetector(
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: onClear,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -343,6 +354,7 @@ class _SearchBar extends StatelessWidget {
                         color: _muted.withOpacity(.2), shape: BoxShape.circle),
                     child: const Icon(Icons.close_rounded, size: 12, color: _muted),
                   ),
+                ),
                 ),
               ),
           ]),
@@ -367,7 +379,9 @@ class _FilterRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: _categories.map((c) {
           final sel = selected == c.type;
-          return GestureDetector(
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
             onTap: () => onSelect(c.type),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -387,6 +401,7 @@ class _FilterRow extends StatelessWidget {
                         color: sel ? _white : _ink,
                         fontSize: 12, fontWeight: FontWeight.w600)),
               ]),
+            ),
             ),
           );
         }).toList(),
@@ -533,10 +548,13 @@ class _SectionTitle extends StatelessWidget {
           fontWeight: FontWeight.w700)),
       const Spacer(),
       if (action != null)
-        GestureDetector(
-          onTap: onAction,
-          child: Text(action!, style: const TextStyle(color: _terra, fontSize: 12,
-              fontWeight: FontWeight.w600)),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onAction,
+            child: Text(action!, style: const TextStyle(color: _terra, fontSize: 12,
+                fontWeight: FontWeight.w600)),
+          ),
         ),
     ]);
   }

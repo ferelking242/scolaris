@@ -73,15 +73,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       color: _white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5EEE6),
-              borderRadius: BorderRadius.circular(10),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5EEE6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.arrow_back_rounded, color: _ink, size: 20),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: _ink, size: 20),
           ),
         ),
         const SizedBox(width: 14),
@@ -177,46 +180,52 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ],
 
           const SizedBox(height: 28),
-          GestureDetector(
-            onTap: _loading ? null : _submit,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: 52,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: _loading
-                      ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
-                      : [_terra, _orange],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _loading ? null : _submit,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: _loading
+                        ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
+                        : [_terra, _orange],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: _loading ? [] : [
+                    BoxShadow(color: _terra.withOpacity(.35),
+                        blurRadius: 14, offset: const Offset(0, 5)),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: _loading ? [] : [
-                  BoxShadow(color: _terra.withOpacity(.35),
-                      blurRadius: 14, offset: const Offset(0, 5)),
-                ],
+                child: _loading
+                    ? const SizedBox(width: 22, height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+                    : const Text('Envoyer le lien de réinitialisation',
+                        style: TextStyle(color: _white, fontSize: 15, fontWeight: FontWeight.w700)),
               ),
-              child: _loading
-                  ? const SizedBox(width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
-                  : const Text('Envoyer le lien de réinitialisation',
-                      style: TextStyle(color: _white, fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
 
           const SizedBox(height: 20),
           Center(
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: RichText(
-                text: const TextSpan(
-                  text: 'Vous vous souvenez ? ',
-                  style: TextStyle(color: _muted, fontSize: 13),
-                  children: [
-                    TextSpan(text: 'Retour à la connexion',
-                        style: TextStyle(color: _terra, fontWeight: FontWeight.w700)),
-                  ],
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: RichText(
+                  text: const TextSpan(
+                    text: 'Vous vous souvenez ? ',
+                    style: TextStyle(color: _muted, fontSize: 13),
+                    children: [
+                      TextSpan(text: 'Retour à la connexion',
+                          style: TextStyle(color: _terra, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -276,34 +285,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
 
         const SizedBox(height: 24),
-        GestureDetector(
-          onTap: () => setState(() { _sent = false; _emailCtrl.clear(); }),
-          child: Container(
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border, width: 1.5),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => setState(() { _sent = false; _emailCtrl.clear(); }),
+            child: Container(
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _border, width: 1.5),
+              ),
+              child: const Text('Renvoyer un email',
+                  style: TextStyle(color: _ink, fontSize: 14, fontWeight: FontWeight.w600)),
             ),
-            child: const Text('Renvoyer un email',
-                style: TextStyle(color: _ink, fontSize: 14, fontWeight: FontWeight.w600)),
           ),
         ),
         const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_terra, _orange]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: _terra.withOpacity(.3),
-                  blurRadius: 12, offset: const Offset(0, 4))],
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [_terra, _orange]),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: _terra.withOpacity(.3),
+                    blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: const Text('Retour à la connexion',
+                  style: TextStyle(color: _white, fontSize: 15, fontWeight: FontWeight.w700)),
             ),
-            child: const Text('Retour à la connexion',
-                style: TextStyle(color: _white, fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),
       ],

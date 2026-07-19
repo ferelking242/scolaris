@@ -80,20 +80,23 @@ class _TeacherRewardsPageState extends ConsumerState<TeacherRewardsPage> {
                   itemBuilder: (_, i) {
                     final c = classes[i];
                     final sel = c.id == selected.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _class = c),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: sel ? _terra : context.cCard,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: sel ? _terra : context.cBorder),
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _class = c),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: sel ? _terra : context.cCard,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: sel ? _terra : context.cBorder),
+                          ),
+                          child: Text(c.name, style: TextStyle(
+                              color: sel ? _white : context.cMuted,
+                              fontSize: 12, fontWeight: FontWeight.w600)),
                         ),
-                        child: Text(c.name, style: TextStyle(
-                            color: sel ? _white : context.cMuted,
-                            fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     );
                   },
@@ -361,24 +364,27 @@ class _AwardSheetState extends ConsumerState<_AwardSheet> {
             else
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final b in available)
-                  GestureDetector(
-                    onTap: _saving ? null : () => _awardBadge(b),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: context.cCard,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: context.cBorder),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: _saving ? null : () => _awardBadge(b),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: context.cCard,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: context.cBorder),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(b.emoji ?? '🏅',
+                              style: const TextStyle(fontSize: 18)),
+                          const SizedBox(width: 8),
+                          Text(b.title, style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600,
+                              color: context.cInk)),
+                        ]),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(b.emoji ?? '🏅',
-                            style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 8),
-                        Text(b.title, style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600,
-                            color: context.cInk)),
-                      ]),
                     ),
                   ),
               ]),

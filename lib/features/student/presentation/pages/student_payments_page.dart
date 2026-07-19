@@ -672,33 +672,39 @@ class _TrancheCard extends StatelessWidget {
           ),
           if (onPay != null) ...[
             const SizedBox(height: 6),
-            GestureDetector(
-              onTap: onPay,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _green,
-                  borderRadius: BorderRadius.circular(8),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onPay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _green,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('Payer', style: TextStyle(
+                      color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
-                child: const Text('Payer', style: TextStyle(
-                    color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
           if (onDownload != null) ...[
             const SizedBox(height: 6),
-            GestureDetector(
-              onTap: onDownload,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.download_rounded,
-                    size: 13, color: cs.onSurfaceVariant),
-                const SizedBox(width: 3),
-                Text(invoice.isPaid ? 'Reçu' : 'Facture',
-                    style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700)),
-              ]),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onDownload,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.download_rounded,
+                      size: 13, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 3),
+                  Text(invoice.isPaid ? 'Reçu' : 'Facture',
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ]),
+              ),
             ),
           ],
         ]),

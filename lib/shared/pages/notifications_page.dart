@@ -241,40 +241,43 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? color : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? color : border),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label,
-              style: TextStyle(
-                  color: active ? Colors.white : muted,
-                  fontSize: 12.5,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-          if (count > 0) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: active
-                    ? Colors.white.withValues(alpha: .25)
-                    : color.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(10),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? color : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: active ? color : border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(label,
+                style: TextStyle(
+                    color: active ? Colors.white : muted,
+                    fontSize: 12.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: active
+                      ? Colors.white.withValues(alpha: .25)
+                      : color.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('$count',
+                    style: TextStyle(
+                        color: active ? Colors.white : color,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800)),
               ),
-              child: Text('$count',
-                  style: TextStyle(
-                      color: active ? Colors.white : color,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ]),
+            ],
+          ]),
+        ),
       ),
     );
   }

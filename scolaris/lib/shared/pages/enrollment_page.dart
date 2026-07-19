@@ -1,4 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../data/enrollment_config.dart';
@@ -23,9 +26,14 @@ const _green  = Color(0xFF2D6A4F);
 // ─────────────────────────────────────────────────────────────────────────────
 class EnrollmentPage extends StatefulWidget {
   final EnrollmentConfig? config;
-  final void Function(Map<String, dynamic> data)? onSubmit;
+  final Future<void> Function(Map<String, dynamic> data)? onSubmit;
   final bool isAdminMode;
   final List<SbClass>? adminClasses;
+
+  /// École cible des photos/documents déposés (bucket `enrollment-documents`,
+  /// dossier `{schoolId}/...`). `null` désactive l'upload réel (ex. aperçu de
+  /// configuration admin, où il n'y a pas de dossier à créer).
+  final String? schoolId;
 
   const EnrollmentPage({
     super.key,
@@ -33,6 +41,7 @@ class EnrollmentPage extends StatefulWidget {
     this.onSubmit,
     this.isAdminMode = false,
     this.adminClasses,
+    this.schoolId,
   });
 
   @override
@@ -47,6 +56,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   bool _submitted = false;
   bool _loading = false;
   String? _selectedClassId;
+
+  /// Regroupe tous les fichiers d'une même soumission avant que la demande
+  /// n'existe encore en base (pré-inscription publique, sans compte).
+  final String _uploadSessionId = const Uuid().v4();
 
   @override
   void initState() {
@@ -93,11 +106,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() { _loading = false; _submitted = true; });
-
     final data = <String, dynamic>{};
     for (final f in _config.enabledFields) {
       data[f.id] = _controllers[f.id]?.text ?? _values[f.id];
@@ -105,7 +113,21 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     if (widget.isAdminMode && widget.adminClasses != null) {
       data['class_id'] = _selectedClassId;
     }
-    widget.onSubmit?.call(data);
+
+    setState(() => _loading = true);
+    try {
+      await widget.onSubmit?.call(data);
+      if (!mounted) return;
+      setState(() { _loading = false; _submitted = true; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   @override
@@ -198,6 +220,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                               required: _config.isRequired(f.id),
                               controller: _controllers[f.id],
                               value: _values[f.id],
+                              schoolId: widget.schoolId,
+                              uploadSessionId: _uploadSessionId,
                               onChanged: (v) =>
                                   setState(() => _values[f.id] = v),
                             ),
@@ -341,6 +365,8 @@ class _FieldWidget extends StatelessWidget {
   final bool required;
   final TextEditingController? controller;
   final dynamic value;
+  final String? schoolId;
+  final String uploadSessionId;
   final ValueChanged<dynamic> onChanged;
 
   const _FieldWidget({
@@ -348,6 +374,8 @@ class _FieldWidget extends StatelessWidget {
     required this.required,
     this.controller,
     this.value,
+    required this.schoolId,
+    required this.uploadSessionId,
     required this.onChanged,
   });
 
@@ -355,9 +383,13 @@ class _FieldWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (field.type) {
       case FieldType.photo:
-        return _PhotoField(field: field, required: required, onChanged: onChanged);
+        return _PhotoField(field: field, required: required,
+            schoolId: schoolId, uploadSessionId: uploadSessionId,
+            onChanged: onChanged);
       case FieldType.file:
-        return _FileField(field: field, required: required, onChanged: onChanged);
+        return _FileField(field: field, required: required,
+            schoolId: schoolId, uploadSessionId: uploadSessionId,
+            onChanged: onChanged);
       case FieldType.select:
         return _SelectField(field: field, required: required,
             value: value as String?, onChanged: onChanged);
@@ -690,16 +722,23 @@ class _ToggleField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Photo
+// Photo — sélection réelle (galerie) + upload vers Supabase Storage
+// (bucket privé `enrollment-documents`). `onChanged` reçoit le CHEMIN de
+// stockage (pas une URL publique) : cf. `getEnrollmentDocumentUrl` pour
+// l'afficher plus tard côté admin.
 // ─────────────────────────────────────────────────────────────────────────────
 class _PhotoField extends StatefulWidget {
   final EnrollmentField field;
   final bool required;
+  final String? schoolId;
+  final String uploadSessionId;
   final ValueChanged<dynamic> onChanged;
 
   const _PhotoField({
     required this.field,
     required this.required,
+    required this.schoolId,
+    required this.uploadSessionId,
     required this.onChanged,
   });
 
@@ -708,40 +747,77 @@ class _PhotoField extends StatefulWidget {
 }
 
 class _PhotoFieldState extends State<_PhotoField> {
-  bool _selected = false;
+  bool _uploading = false;
+  String? _fileName; // nom local affiché ; la valeur transmise est le chemin storage
+
+  Future<void> _pick() async {
+    final schoolId = widget.schoolId;
+    if (schoolId == null || _uploading) return;
+    final XFile? picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _uploading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final path = await SupabaseDbSource.uploadEnrollmentDocument(
+        schoolId: schoolId,
+        sessionId: widget.uploadSessionId,
+        fieldId: widget.field.id,
+        filename: picked.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      setState(() { _uploading = false; _fileName = picked.name; });
+      widget.onChanged(path);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi de la photo : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final selected = _fileName != null;
     return _FieldShell(
       field: widget.field,
       required: widget.required,
       child: GestureDetector(
-        onTap: () => setState(() {
-          _selected = true;
-          widget.onChanged('photo_selected');
-        }),
+        onTap: _pick,
         child: Container(
           height: 100,
           decoration: BoxDecoration(
-            color: _selected ? _terra.withValues(alpha: .06) : context.cSubtle,
+            color: selected ? _terra.withValues(alpha: .06) : context.cSubtle,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-                color: _selected ? _terra.withValues(alpha: .3) : context.cBorder),
+                color: selected ? _terra.withValues(alpha: .3) : context.cBorder),
           ),
-          child: _selected
-              ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.check_circle_rounded, color: _green, size: 24),
-                  SizedBox(width: 8),
-                  Text('Photo sélectionnée',
-                      style: TextStyle(color: _green, fontWeight: FontWeight.w700,
-                          fontSize: 13)),
-                ])
-              : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.add_a_photo_rounded, color: context.cMuted, size: 28),
-                  const SizedBox(height: 8),
-                  Text('Cliquez pour ajouter une photo',
-                      style: TextStyle(color: context.cMuted, fontSize: 12)),
-                ]),
+          child: _uploading
+              ? const Center(
+                  child: SizedBox(
+                      height: 22, width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2)))
+              : selected
+                  ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.check_circle_rounded, color: _green, size: 24),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(_fileName!,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: _green,
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                      ),
+                    ])
+                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.add_a_photo_rounded, color: context.cMuted, size: 28),
+                      const SizedBox(height: 8),
+                      Text('Cliquez pour ajouter une photo',
+                          style: TextStyle(color: context.cMuted, fontSize: 12)),
+                    ]),
         ),
       ),
     );
@@ -749,16 +825,20 @@ class _PhotoFieldState extends State<_PhotoField> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fichier
+// Fichier — sélection réelle (PDF/image) + upload vers Supabase Storage.
 // ─────────────────────────────────────────────────────────────────────────────
 class _FileField extends StatefulWidget {
   final EnrollmentField field;
   final bool required;
+  final String? schoolId;
+  final String uploadSessionId;
   final ValueChanged<dynamic> onChanged;
 
   const _FileField({
     required this.field,
     required this.required,
+    required this.schoolId,
+    required this.uploadSessionId,
     required this.onChanged,
   });
 
@@ -767,7 +847,51 @@ class _FileField extends StatefulWidget {
 }
 
 class _FileFieldState extends State<_FileField> {
+  bool _uploading = false;
   String? _fileName;
+
+  Future<void> _pick() async {
+    final schoolId = widget.schoolId;
+    if (schoolId == null || _uploading) return;
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      withData: true,
+    );
+    final picked =
+        (result != null && result.files.isNotEmpty) ? result.files.first : null;
+    if (picked == null || picked.bytes == null) return;
+    if (picked.size > 5 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Fichier trop volumineux (max 5 Mo).'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    setState(() => _uploading = true);
+    try {
+      final path = await SupabaseDbSource.uploadEnrollmentDocument(
+        schoolId: schoolId,
+        sessionId: widget.uploadSessionId,
+        fieldId: widget.field.id,
+        filename: picked.name,
+        bytes: picked.bytes!,
+      );
+      if (!mounted) return;
+      setState(() { _uploading = false; _fileName = picked.name; });
+      widget.onChanged(path);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -775,10 +899,7 @@ class _FileFieldState extends State<_FileField> {
       field: widget.field,
       required: widget.required,
       child: GestureDetector(
-        onTap: () => setState(() {
-          _fileName = 'document_${widget.field.id}.pdf';
-          widget.onChanged(_fileName);
-        }),
+        onTap: _pick,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -791,25 +912,31 @@ class _FileFieldState extends State<_FileField> {
           child: Row(children: [
             Container(
               width: 36, height: 36,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: _fileName != null
                     ? _green.withValues(alpha: .1)
                     : context.cCard,
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(
-                _fileName != null
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.upload_file_rounded,
-                color: _fileName != null ? _green : context.cMuted,
-                size: 18,
-              ),
+              child: _uploading
+                  ? const SizedBox(
+                      height: 16, width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(
+                      _fileName != null
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.upload_file_rounded,
+                      color: _fileName != null ? _green : context.cMuted,
+                      size: 18,
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   _fileName ?? 'Cliquez pour sélectionner un fichier',
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       fontSize: 12.5,
                       color: _fileName != null ? context.cInk : context.cMuted,
@@ -823,7 +950,7 @@ class _FileFieldState extends State<_FileField> {
             ),
             if (_fileName != null)
               GestureDetector(
-                onTap: () => setState(() { _fileName = null; }),
+                onTap: () => setState(() { _fileName = null; widget.onChanged(null); }),
                 child: Icon(Icons.close_rounded, size: 16, color: context.cMuted),
               ),
           ]),

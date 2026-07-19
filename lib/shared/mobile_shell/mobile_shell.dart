@@ -308,16 +308,19 @@ class _FullPage extends StatelessWidget {
             color: cs.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 38, height: 38,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainer,
-                    borderRadius: BorderRadius.circular(10),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.arrow_back_rounded,
+                        color: cs.onSurface, size: 20),
                   ),
-                  child: Icon(Icons.arrow_back_rounded,
-                      color: cs.onSurface, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
@@ -400,7 +403,9 @@ class _SmartHeader extends StatelessWidget {
                           decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
                   ]),
                 ),
-                GestureDetector(
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
                   onTap: onAccount,
                   child: Container(
                     width: 32, height: 32,
@@ -419,6 +424,7 @@ class _SmartHeader extends StatelessWidget {
                     child: Center(child: Text(initials,
                         style: const TextStyle(color: Colors.white, fontSize: 11,
                             fontWeight: FontWeight.w800))),
+                  ),
                   ),
                 ),
               ]),
@@ -440,7 +446,9 @@ class _SmartHeader extends StatelessWidget {
               itemBuilder: (ctx, i) {
                 final e   = entries[i];
                 final sel = i == pageIndex;
-                return GestureDetector(
+                return MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
                   onTap: () => onTabTap(i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -460,6 +468,7 @@ class _SmartHeader extends StatelessWidget {
                               fontSize: 12.5,
                               fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
                     ]),
+                  ),
                   ),
                 );
               },
@@ -497,12 +506,15 @@ class _HeaderBtn extends StatelessWidget {
   const _HeaderBtn({required this.child, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        child: child,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: child,
+        ),
       ),
     );
   }
@@ -622,7 +634,9 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                         // Row: avatar + info + chevron + X
                         Row(children: [
                           // Avatar
-                          GestureDetector(
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
                             onTap: widget.onAccount,
                             child: Container(
                               width: 44, height: 44,
@@ -635,12 +649,15 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                   style: const TextStyle(color: _white,
                                       fontWeight: FontWeight.w800, fontSize: 16))),
                             ),
+                            ),
                           ),
                           const SizedBox(width: 10),
                           // Name + role — largeur fixe pour que chevron+X restent collés
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 138),
-                            child: GestureDetector(
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
                               onTap: () => setState(() => _accountExpanded = !_accountExpanded),
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text(
@@ -655,16 +672,20 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                       fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.1),
                                 ),
                               ]),
+                              ),
                             ),
                           ),
                           // Chevron pour déplier comptes — positionné juste après le nom
-                          GestureDetector(
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
                             onTap: () => setState(() => _accountExpanded = !_accountExpanded),
                             child: AnimatedRotation(
                               turns: _accountExpanded ? 0.5 : 0,
                               duration: const Duration(milliseconds: 220),
                               child: Icon(Icons.expand_more_rounded,
                                   color: _white.withOpacity(.7), size: 20),
+                            ),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -770,7 +791,9 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     children: [
                       for (final group in _groups) ...[
-                        GestureDetector(
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
                           onTap: () => setState(() {
                             if (_collapsedSections.contains(group.labelKey)) {
                               _collapsedSections.remove(group.labelKey);
@@ -805,6 +828,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                     size: 12, color: _gold.withOpacity(.4)),
                               ),
                             ]),
+                          ),
                           ),
                         ),
                         if (!_collapsedSections.contains(group.labelKey))

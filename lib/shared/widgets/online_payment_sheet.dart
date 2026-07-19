@@ -249,28 +249,31 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(right: op.$1 == 'mtn' ? 10 : 0),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _operator = op.$1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: _operator == op.$1
-                            ? op.$3.withValues(alpha: .12)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: _operator == op.$1
-                                ? op.$3
-                                : const Color(0xFFDDD0C4),
-                            width: _operator == op.$1 ? 2 : 1),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _operator = op.$1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _operator == op.$1
+                              ? op.$3.withValues(alpha: .12)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: _operator == op.$1
+                                  ? op.$3
+                                  : const Color(0xFFDDD0C4),
+                              width: _operator == op.$1 ? 2 : 1),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.smartphone_rounded, color: op.$3, size: 22),
+                          const SizedBox(height: 6),
+                          Text(op.$2,
+                              style: const TextStyle(
+                                  fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        ]),
                       ),
-                      child: Column(children: [
-                        Icon(Icons.smartphone_rounded, color: op.$3, size: 22),
-                        const SizedBox(height: 6),
-                        Text(op.$2,
-                            style: const TextStyle(
-                                fontSize: 12.5, fontWeight: FontWeight.w700)),
-                      ]),
                     ),
                   ),
                 ),

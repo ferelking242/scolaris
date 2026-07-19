@@ -77,16 +77,13 @@ class SupabaseAuthSource {
         .maybeSingle();
 
     if (data == null) {
-      final authUser = Supabase.instance.client.auth.currentUser;
-      final email = authUser?.email ?? '';
-      return AppUser(
-        id: authUid,
-        email: email,
-        fullName: email.split('@').first,
-        role: UserRole.student,
-        schoolId: null,
-        schoolAccentArgb: AppConfig.defaultAccentArgb,
-      );
+      // Ne JAMAIS se rabattre silencieusement sur un faux profil élève : ça a
+      // déjà causé un bug (prof invité redirigé vers l'espace élève) quand la
+      // ligne `users` existait mais restait invisible à cause de la RLS
+      // (adhésion `school_members` manquante). Mieux vaut échouer bruyamment.
+      throw StateError(
+          'Profil utilisateur introuvable ou inaccessible pour $authUid — '
+          'vérifier la ligne `users` et son adhésion `school_members`.');
     }
 
     final rawRole = data['role'] as String? ?? 'student';

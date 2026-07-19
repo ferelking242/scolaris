@@ -146,17 +146,20 @@ class _DownloadBanner extends StatelessWidget {
           Text('$total fichier${total > 1 ? 's' : ''} disponibles hors-ligne · ${sizeMb.toStringAsFixed(0)} MB utilisés',
               style: const TextStyle(color: _muted, fontSize: 11.5)),
         ])),
-        GestureDetector(
-          onTap: () => _showDownloadsDialog(context, dlBooks, dlMats, sizeMb),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _cyan.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _cyan.withOpacity(0.30)),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => _showDownloadsDialog(context, dlBooks, dlMats, sizeMb),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _cyan.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _cyan.withOpacity(0.30)),
+              ),
+              child: const Text('Gérer', style: TextStyle(
+                  color: _cyan, fontSize: 11.5, fontWeight: FontWeight.w800)),
             ),
-            child: const Text('Gérer', style: TextStyle(
-                color: _cyan, fontSize: 11.5, fontWeight: FontWeight.w800)),
           ),
         ),
       ]),
@@ -246,7 +249,9 @@ class _FavBooksTab extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final b = books[i];
-        return GestureDetector(
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
               PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages,
                   resourceId: b.id, resourceType: ResourceType.book,
@@ -311,6 +316,7 @@ class _FavBooksTab extends StatelessWidget {
               ),
             ]),
           ),
+          ),
         );
       },
     );
@@ -331,7 +337,9 @@ class _FavExamsTab extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final e = exams[i];
-        return GestureDetector(
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
               PdfReaderPage(title: e.title, color: e.color, totalPages: 12,
                   resourceId: e.id, resourceType: ResourceType.examSubject,
@@ -371,6 +379,7 @@ class _FavExamsTab extends StatelessWidget {
               const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _muted),
             ]),
           ),
+          ),
         );
       },
     );
@@ -391,7 +400,9 @@ class _FavMaterialsTab extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final m = mats[i];
-        return GestureDetector(
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
               PdfReaderPage(title: m.title, color: m.color, totalPages: 24,
                   resourceId: m.id, resourceType: ResourceType.material,
@@ -431,6 +442,7 @@ class _FavMaterialsTab extends StatelessWidget {
               const SizedBox(width: 6),
               const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _muted),
             ]),
+          ),
           ),
         );
       },

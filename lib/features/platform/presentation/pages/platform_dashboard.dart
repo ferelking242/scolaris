@@ -168,30 +168,33 @@ class _SchoolLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(children: [
-        Avatar(name: school.name, size: 34),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(school.name,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: context.cInk, fontSize: 12.5, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 1),
-            Text('${school.city} · ${_ago(school.createdAt)}',
-                style: TextStyle(color: context.cMuted, fontSize: 11)),
-          ]),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(children: [
+          Avatar(name: school.name, size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(school.name,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: context.cInk, fontSize: 12.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 1),
+              Text('${school.city} · ${_ago(school.createdAt)}',
+                  style: TextStyle(color: context.cMuted, fontSize: 11)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          PlanBadge(plan: school.plan),
+          const SizedBox(width: 6),
+          SubStatusBadge(status: school.status),
+        ]),
         ),
-        const SizedBox(width: 8),
-        PlanBadge(plan: school.plan),
-        const SizedBox(width: 6),
-        SubStatusBadge(status: school.status),
-      ]),
       ),
     );
   }

@@ -687,40 +687,43 @@ class _SwatchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? _color.withValues(alpha: .12) : Colors.transparent,
-          border: Border.all(
-            color: selected ? _color : _border,
-            width: selected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: _color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(color: _color.withValues(alpha: .4), blurRadius: 4),
-              ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? _color.withValues(alpha: .12) : Colors.transparent,
+            border: Border.all(
+              color: selected ? _color : _border,
+              width: selected ? 2 : 1,
             ),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight:
-                      selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? _color : _ink)),
-        ]),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(color: _color.withValues(alpha: .4), blurRadius: 4),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? _color : _ink)),
+          ]),
+        ),
       ),
     );
   }

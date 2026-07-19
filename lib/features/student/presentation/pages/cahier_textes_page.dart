@@ -141,7 +141,9 @@ class _CahierTextesPageState extends State<CahierTextesPage> {
             itemBuilder: (_, i) {
               final m = _matieres[i];
               final sel = m == _filtre;
-              return GestureDetector(
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => setState(() => _filtre = m),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -155,6 +157,7 @@ class _CahierTextesPageState extends State<CahierTextesPage> {
                       style: TextStyle(
                           color: sel ? _white : _muted,
                           fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
                 ),
               );
             },

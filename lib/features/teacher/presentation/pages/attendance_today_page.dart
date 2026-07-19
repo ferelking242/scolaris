@@ -362,22 +362,25 @@ class _Btn extends StatelessWidget {
       required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: active ? color : color.withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-                color: active ? color : color.withValues(alpha: .3)),
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: active ? color : color.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: active ? color : color.withValues(alpha: .3)),
+            ),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: active ? Colors.white : color,
+                    fontWeight: FontWeight.w700)),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  color: active ? Colors.white : color,
-                  fontWeight: FontWeight.w700)),
         ),
       );
 }

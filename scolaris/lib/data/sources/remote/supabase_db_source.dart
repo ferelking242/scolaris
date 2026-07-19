@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -66,6 +68,55 @@ class SbStudent {
     if (v is List && v.isNotEmpty) return v.first as Map<String, dynamic>;
     return null;
   }
+}
+
+/// Une demande de pré-inscription publique (`enrollment_requests`). `payload`
+/// suit les clés d'[EnrollmentFields] (`first_name`, `guardian_phone`…) —
+/// jsonb libre côté base, non typé colonne par colonne.
+class SbEnrollmentRequest {
+  final String id;
+  final String schoolId;
+  final String reference;
+  final Map<String, dynamic> payload;
+  final String status; // pending | accepted | rejected
+  final String? studentId;
+  final String? note;
+  final DateTime submittedAt;
+  final DateTime? reviewedAt;
+
+  const SbEnrollmentRequest({
+    required this.id,
+    required this.schoolId,
+    required this.reference,
+    required this.payload,
+    required this.status,
+    this.studentId,
+    this.note,
+    required this.submittedAt,
+    this.reviewedAt,
+  });
+
+  factory SbEnrollmentRequest.fromJson(Map<String, dynamic> j) =>
+      SbEnrollmentRequest(
+        id: j['id'] as String,
+        schoolId: j['school_id'] as String,
+        reference: j['reference'] as String,
+        payload: (j['payload'] as Map?)?.cast<String, dynamic>() ?? const {},
+        status: j['status'] as String? ?? 'pending',
+        studentId: j['student_id'] as String?,
+        note: j['note'] as String?,
+        submittedAt: DateTime.parse(j['submitted_at'] as String),
+        reviewedAt: j['reviewed_at'] != null
+            ? DateTime.parse(j['reviewed_at'] as String)
+            : null,
+      );
+
+  String _str(String key) => (payload[key] as String?)?.trim() ?? '';
+  String get fullName => '${_str('first_name')} ${_str('last_name')}'.trim();
+  String get level => _str('level');
+  String get guardianName => _str('guardian_name');
+  String get guardianPhone => _str('guardian_phone');
+  String get guardianEmail => _str('guardian_email');
 }
 
 class SbBranch {
@@ -2813,6 +2864,14 @@ class SupabaseDbSource {
       if (nationality != null && nationality.isNotEmpty) 'nationality': nationality,
       'academic_year': academicYear,
     });
+    // Sans cette ligne, is_member_of() (donc toute la RLS) ne voit jamais cet
+    // élève dès qu'il obtient un login — cf. 20260750_fix_new_account_school_members.sql.
+    await _db.from('school_members').insert({
+      'user_id': id,
+      'school_id': schoolId,
+      'role': 'student',
+      'status': 'active',
+    });
     return id;
   }
 
@@ -2871,6 +2930,12 @@ class SupabaseDbSource {
         'role': 'parent',
         'status': 'active',
       });
+      await _db.from('school_members').insert({
+        'user_id': id,
+        'school_id': schoolId,
+        'role': 'parent',
+        'status': 'active',
+      });
       parentId = id;
     }
 
@@ -2893,6 +2958,149 @@ class SupabaseDbSource {
       });
     }
     return parentId;
+  }
+
+  // ── Pré-inscription publique (`enrollment_requests`) ────────────────────────
+  // cf. supabase/migrations/20260714_public_enrollment.sql — insert public
+  // anonyme (gardé par `preregistration_open`), lecture/traitement réservés à
+  // l'école via RLS (`is_member_of`).
+
+  /// École publique par slug (annuaire du site) — utilisée par le formulaire
+  /// de pré-inscription, AVANT toute authentification (vue `public_schools`,
+  /// qui ne filtre que les écoles actives + publiques).
+  static Future<Map<String, dynamic>?> getPublicSchoolBySlug(String slug) =>
+      _db.from('public_schools').select().eq('slug', slug).maybeSingle();
+
+  /// Dépose une demande de pré-inscription. Refusée côté RLS si l'école n'a
+  /// pas ouvert sa période (`schools.preregistration_open`). Renvoie la
+  /// référence de suivi (ex. `SCO-4F2K9A`) à remettre à la famille.
+  static Future<String> submitEnrollmentRequest({
+    required String schoolId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final row = await _db
+        .from('enrollment_requests')
+        .insert({'school_id': schoolId, 'payload': payload})
+        .select('reference')
+        .single();
+    return row['reference'] as String;
+  }
+
+  /// Suivi d'une demande par une famille sans compte, via sa référence exacte
+  /// (fonction `security definer`, ne liste jamais les autres demandes).
+  static Future<Map<String, dynamic>?> trackEnrollmentRequest(
+      String reference) async {
+    final res = await _db
+        .rpc('track_enrollment_request', params: {'p_reference': reference});
+    final list = res as List;
+    return list.isEmpty ? null : (list.first as Map<String, dynamic>);
+  }
+
+  static Future<List<SbEnrollmentRequest>> getEnrollmentRequests(
+      String schoolId) async {
+    final data = await _db
+        .from('enrollment_requests')
+        .select()
+        .eq('school_id', schoolId)
+        .order('submitted_at', ascending: false);
+    return (data as List)
+        .map((j) => SbEnrollmentRequest.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> rejectEnrollmentRequest({
+    required String id,
+    String? note,
+  }) async {
+    await _db.from('enrollment_requests').update({
+      'status': 'rejected',
+      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      'reviewed_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
+  /// Accepte une demande : crée la fiche élève (+ tuteur si renseigné) à
+  /// partir du `payload` soumis, affecte la demande à la fiche créée. Les
+  /// clés du payload suivent [EnrollmentFields] (`first_name`, `guardian_name`…).
+  static Future<void> acceptEnrollmentRequest({
+    required SbEnrollmentRequest request,
+    required String schoolId,
+    String? classId,
+  }) async {
+    final p = request.payload;
+    String str(String key) => (p[key] as String?)?.trim() ?? '';
+
+    final studentId = await createStudent(
+      schoolId: schoolId,
+      fullName: '${str('first_name')} ${str('last_name')}'.trim(),
+      email: str('email').isEmpty ? null : str('email'),
+      phone: str('phone').isEmpty ? null : str('phone'),
+      classId: classId,
+      birthDate: _ddmmyyyyToIso(str('birth_date')),
+      gender: str('gender').isEmpty ? null : str('gender'),
+      nationality: str('nationality').isEmpty ? null : str('nationality'),
+    );
+
+    if (str('guardian_name').isNotEmpty) {
+      await createOrLinkGuardian(
+        schoolId: schoolId,
+        studentId: studentId,
+        guardianName: str('guardian_name'),
+        phone: str('guardian_phone').isEmpty ? null : str('guardian_phone'),
+        email: str('guardian_email').isEmpty ? null : str('guardian_email'),
+        relationship: str('guardian_relation').isEmpty
+            ? 'Parent'
+            : str('guardian_relation'),
+      );
+    }
+
+    await _db.from('enrollment_requests').update({
+      'status': 'accepted',
+      'student_id': studentId,
+      'reviewed_at': DateTime.now().toIso8601String(),
+    }).eq('id', request.id);
+  }
+
+  /// Dépose un fichier (photo, acte de naissance, diplôme…) du formulaire de
+  /// pré/inscription dans le bucket privé `enrollment-documents`. Le chemin
+  /// commence par `schoolId/` : c'est ce préfixe que la policy de dépôt
+  /// vérifie contre `schools.preregistration_open` (cf.
+  /// 20260751_enrollment_documents_storage.sql) — comme pour
+  /// `enrollment_requests`, aucune authentification n'est requise pour
+  /// écrire, mais seule une école qui a ouvert sa période peut recevoir des
+  /// fichiers. [sessionId] regroupe les fichiers d'un même formulaire avant
+  /// que la demande n'existe encore en base.
+  static Future<String> uploadEnrollmentDocument({
+    required String schoolId,
+    required String sessionId,
+    required String fieldId,
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final safeName = filename.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path = '$schoolId/$sessionId/$fieldId-$safeName';
+    await _db.storage.from('enrollment-documents').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return path;
+  }
+
+  /// URL signée temporaire (1 h) pour afficher/télécharger un document déposé
+  /// à l'inscription. Le bucket est privé : jamais d'URL publique permanente.
+  static Future<String> getEnrollmentDocumentUrl(String path) =>
+      _db.storage.from('enrollment-documents').createSignedUrl(path, 3600);
+
+  /// Le formulaire pose les dates en `JJ/MM/AAAA` ; `createStudent` attend de
+  /// l'ISO (`AAAA-MM-JJ`). Renvoie `null` si vide/mal formée (mieux qu'une
+  /// fiche avec une date fausse).
+  static String? _ddmmyyyyToIso(String v) {
+    final m = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(v.trim());
+    if (m == null) return null;
+    final d = m.group(1)!.padLeft(2, '0');
+    final mo = m.group(2)!.padLeft(2, '0');
+    return '${m.group(3)}-$mo-$d';
   }
 
   // ── Création de comptes (via Edge Function `create-account`) ────────────────
@@ -3291,8 +3499,14 @@ class SupabaseDbSource {
     await _db.from('classes').delete().eq('id', id);
   }
 
-  static Future<void> deleteUser(String id) async {
-    await _db.from('users').delete().eq('id', id);
+  /// Supprime un compte, motif transporté jusqu'au trigger d'audit des notes
+  /// (la suppression cascade sur `grades` ; une note en période validée exige
+  /// un motif). [reason] optionnel si l'élève n'a aucune note gelée.
+  static Future<void> deleteUser(String id, {String? reason}) async {
+    await _db.rpc('delete_user_account', params: {
+      'p_id': id,
+      if (reason != null) 'p_reason': reason,
+    });
   }
 
   // ── Grades write ─────────────────────────────────────────────────────────────
@@ -3408,6 +3622,25 @@ class SupabaseDbSource {
       };
     }
     await _db.from('schools').update(update).eq('id', id);
+  }
+
+  /// Slug + statut d'ouverture de la pré-inscription — pour le panneau admin
+  /// (lien public + interrupteur). `slug` est posé une fois pour toutes par
+  /// la migration 20260714 ; jamais généré côté client (doit rester unique).
+  static Future<Map<String, dynamic>?> getSchoolEnrollmentStatus(
+      String schoolId) async {
+    return _db
+        .from('schools')
+        .select('slug, preregistration_open')
+        .eq('id', schoolId)
+        .maybeSingle();
+  }
+
+  static Future<void> setSchoolPreregistrationOpen(
+      String schoolId, bool open) async {
+    await _db
+        .from('schools')
+        .update({'preregistration_open': open}).eq('id', schoolId);
   }
 
   static Future<void> updateSchool({

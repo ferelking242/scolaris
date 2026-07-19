@@ -241,16 +241,19 @@ class _QuizCard extends StatelessWidget {
             _Chip(label: '${quiz.dureeMin} min'),
           ]),
         ])),
-        GestureDetector(
-          onTap: onStart,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: quiz.color,
-              borderRadius: BorderRadius.circular(10),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onStart,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: quiz.color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text('Commencer', style: TextStyle(
+                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
             ),
-            child: const Text('Commencer', style: TextStyle(
-                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
           ),
         ),
       ]),
@@ -325,16 +328,19 @@ class _QuizRunnerState extends State<_QuizRunner> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Header
             Row(children: [
-              GestureDetector(
-                onTap: widget.onFinish,
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: cs.outlineVariant),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: widget.onFinish,
+                  child: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: cs.outlineVariant),
+                    ),
+                    child: Icon(Icons.arrow_back_rounded, size: 18, color: cs.onSurface),
                   ),
-                  child: Icon(Icons.arrow_back_rounded, size: 18, color: cs.onSurface),
                 ),
               ),
               const SizedBox(width: 12),
@@ -404,7 +410,9 @@ class _QuizRunnerState extends State<_QuizRunner> {
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
                   onTap: () => _answer(i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -431,6 +439,7 @@ class _QuizRunnerState extends State<_QuizRunner> {
                           fontSize: 13, fontWeight: FontWeight.w600, color: textColor))),
                       if (trailingIcon != null) Icon(trailingIcon, color: border, size: 18),
                     ]),
+                  ),
                   ),
                 ),
               );

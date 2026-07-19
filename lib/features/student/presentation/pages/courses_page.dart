@@ -267,9 +267,12 @@ class _SearchBar extends StatelessWidget {
           ),
         )),
         if (controller.text.isNotEmpty)
-          GestureDetector(
-            onTap: () { controller.clear(); onChanged(''); },
-            child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () { controller.clear(); onChanged(''); },
+              child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+            ),
           ),
       ]),
     );
@@ -286,7 +289,9 @@ class _FilterBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         width: 46, height: 46,
@@ -307,6 +312,7 @@ class _FilterBtn extends StatelessWidget {
               ),
             ),
         ]),
+      ),
       ),
     );
   }
@@ -348,7 +354,9 @@ class _CourseCard extends StatelessWidget {
     final cs    = Theme.of(context).colorScheme;
     final icon  = _iconFor(course.name);
 
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onOpen,
       child: Container(
         decoration: BoxDecoration(
@@ -433,6 +441,7 @@ class _CourseCard extends StatelessWidget {
             ),
           ]),
         ),
+      ),
       ),
     );
   }
@@ -566,23 +575,26 @@ class _FilterSheetState extends State<_FilterSheet> {
         const SizedBox(height: 8),
         ..._sortLabels.entries.map((e) {
           final sel = _sort == e.key;
-          return GestureDetector(
-            onTap: () => setState(() => _sort = e.key),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: sel ? _terra.withValues(alpha: .08) : cs.surfaceContainer,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: sel ? _terra : cs.outlineVariant),
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => setState(() => _sort = e.key),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: sel ? _terra.withValues(alpha: .08) : cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: sel ? _terra : cs.outlineVariant),
+                ),
+                child: Row(children: [
+                  Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                      size: 18, color: sel ? _terra : cs.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Text(e.value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                      color: sel ? _terra : cs.onSurface)),
+                ]),
               ),
-              child: Row(children: [
-                Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                    size: 18, color: sel ? _terra : cs.onSurfaceVariant),
-                const SizedBox(width: 10),
-                Text(e.value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                    color: sel ? _terra : cs.onSurface)),
-              ]),
             ),
           );
         }),
@@ -1149,7 +1161,9 @@ class _ResourceTile extends StatelessWidget {
       _sizeLabel(material.sizeKb),
     ].where((s) => s.isNotEmpty).join(' · ');
 
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: hasFile ? _open : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1184,6 +1198,7 @@ class _ResourceTile extends StatelessWidget {
           Icon(hasFile ? Icons.open_in_new_rounded : Icons.lock_outline_rounded,
               size: 15, color: cs.onSurfaceVariant),
         ]),
+      ),
       ),
     );
   }

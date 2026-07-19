@@ -763,10 +763,13 @@ class _SectionHeader extends StatelessWidget {
       Text(title, style: TextStyle(color: context.cInk, fontSize: 15,
           fontWeight: FontWeight.w800)),
       const Spacer(),
-      GestureDetector(
-        onTap: onAction,
-        child: Text(action, style: const TextStyle(color: _terra,
-            fontSize: 12, fontWeight: FontWeight.w600)),
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onAction,
+          child: Text(action, style: const TextStyle(color: _terra,
+              fontSize: 12, fontWeight: FontWeight.w600)),
+        ),
       ),
     ]);
   }

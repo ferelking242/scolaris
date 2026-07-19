@@ -130,16 +130,19 @@ class _InscriptionUEPageState extends State<InscriptionUEPage>
               ),
             ])),
             if (!_inscriptionSoumise)
-              GestureDetector(
-                onTap: () => _showConfirmation(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _white,
-                    borderRadius: BorderRadius.circular(10),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _showConfirmation(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text('Valider',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _terra)),
                   ),
-                  child: const Text('Valider',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _terra)),
                 ),
               ),
           ]),

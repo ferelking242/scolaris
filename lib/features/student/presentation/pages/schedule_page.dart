@@ -669,25 +669,28 @@ class _MobileDayView extends StatelessWidget {
           final sel   = i == dayIdx;
           final isTod = (i + 1) == today;
           final count = schedules.where((s) => s.dayOfWeek == i + 1).length;
-          return Expanded(child: GestureDetector(
-            onTap: () => onDayChanged(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              decoration: BoxDecoration(
-                color: sel ? _terra : (isTod ? _terra.withValues(alpha: .08) : cs.surfaceContainerHighest),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: sel ? _terra : (isTod ? _terra.withValues(alpha: .3) : cs.outlineVariant)),
+          return Expanded(child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => onDayChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                decoration: BoxDecoration(
+                  color: sel ? _terra : (isTod ? _terra.withValues(alpha: .08) : cs.surfaceContainerHighest),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: sel ? _terra : (isTod ? _terra.withValues(alpha: .3) : cs.outlineVariant)),
+                ),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(jours[i].substring(0, 3).toUpperCase(),
+                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800,
+                          color: sel ? Colors.white : (isTod ? _terra : cs.onSurfaceVariant), letterSpacing: 0.3)),
+                  const SizedBox(height: 2),
+                  Text('$count', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900,
+                      color: sel ? Colors.white : (isTod ? _terra : cs.onSurface))),
+                ]),
               ),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(jours[i].substring(0, 3).toUpperCase(),
-                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800,
-                        color: sel ? Colors.white : (isTod ? _terra : cs.onSurfaceVariant), letterSpacing: 0.3)),
-                const SizedBox(height: 2),
-                Text('$count', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900,
-                    color: sel ? Colors.white : (isTod ? _terra : cs.onSurface))),
-              ]),
             ),
           ));
         })),

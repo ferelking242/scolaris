@@ -114,6 +114,24 @@ final permissionCatalogProvider =
   return StaffRolesSource.fetchPermissionCatalog();
 });
 
+// ── Pré-inscription publique ─────────────────────────────────────────────────
+/// `{slug, preregistration_open}` de l'école active — pour le panneau admin
+/// (lien public + interrupteur d'ouverture).
+final schoolEnrollmentStatusProvider =
+    FutureProvider<Map<String, dynamic>?>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return null;
+  return SupabaseDbSource.getSchoolEnrollmentStatus(schoolId);
+});
+
+/// Demandes de pré-inscription reçues par l'école active (file d'attente admin).
+final enrollmentRequestsProvider =
+    FutureProvider<List<SbEnrollmentRequest>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return SupabaseDbSource.getEnrollmentRequests(schoolId);
+});
+
 // ── Students ──────────────────────────────────────────────────────────────────
 final studentsProvider = FutureProvider<List<SbStudent>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);

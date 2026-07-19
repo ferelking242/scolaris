@@ -314,40 +314,43 @@ class _CatSectionState extends State<_CatSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          GestureDetector(
-            onTap: () => setState(() => _open = !_open),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(
-                    color: _terra.withOpacity(.1),
-                    borderRadius: BorderRadius.circular(8),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => setState(() => _open = !_open),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(children: [
+                  Container(
+                    width: 30, height: 30,
+                    decoration: BoxDecoration(
+                      color: _terra.withOpacity(.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, size: 15, color: _terra),
                   ),
-                  child: Icon(icon, size: 15, color: _terra),
-                ),
-                const SizedBox(width: 10),
-                Text(widget.category,
-                    style: TextStyle(color: context.cInk, fontSize: 13,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _terra.withOpacity(.1),
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 10),
+                  Text(widget.category,
+                      style: TextStyle(color: context.cInk, fontSize: 13,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _terra.withOpacity(.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('$activeCount/${fields.length}',
+                        style: const TextStyle(color: _terra, fontSize: 10,
+                            fontWeight: FontWeight.w800)),
                   ),
-                  child: Text('$activeCount/${fields.length}',
-                      style: const TextStyle(color: _terra, fontSize: 10,
-                          fontWeight: FontWeight.w800)),
-                ),
-                const Spacer(),
-                Icon(
-                  _open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                  size: 18, color: context.cMuted,
-                ),
-              ]),
+                  const Spacer(),
+                  Icon(
+                    _open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 18, color: context.cMuted,
+                  ),
+                ]),
+              ),
             ),
           ),
 
@@ -456,26 +459,29 @@ class _FieldConfigRow extends StatelessWidget {
         if (enabled && !locked)
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => onToggleRequired(field.id, !state.required),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: state.required
-                      ? _terra.withOpacity(.1)
-                      : context.cMuted.withOpacity(.06),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: state.required
-                          ? _terra.withOpacity(.3)
-                          : context.cBorder),
-                ),
-                child: Text(
-                  state.required ? 'Obligatoire' : 'Optionnel',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: state.required ? _terra : context.cMuted,
-                      fontWeight: FontWeight.w700),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onToggleRequired(field.id, !state.required),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: state.required
+                        ? _terra.withOpacity(.1)
+                        : context.cMuted.withOpacity(.06),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: state.required
+                            ? _terra.withOpacity(.3)
+                            : context.cBorder),
+                  ),
+                  child: Text(
+                    state.required ? 'Obligatoire' : 'Optionnel',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: state.required ? _terra : context.cMuted,
+                        fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ),

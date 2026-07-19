@@ -543,19 +543,22 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
 
   Widget _periodChip(String p) {
     final active = _period == p;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPeriod = p),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: active ? _terra : context.cSubtle,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: active ? _terra : context.cBorder),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedPeriod = p),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: active ? _terra : context.cSubtle,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: active ? _terra : context.cBorder),
+          ),
+          child: Text(p,
+              style: TextStyle(
+                  color: active ? Colors.white : context.cMuted,
+                  fontSize: 13, fontWeight: FontWeight.w700)),
         ),
-        child: Text(p,
-            style: TextStyle(
-                color: active ? Colors.white : context.cMuted,
-                fontSize: 13, fontWeight: FontWeight.w700)),
       ),
     );
   }

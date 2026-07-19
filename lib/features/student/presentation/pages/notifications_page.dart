@@ -264,7 +264,9 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -297,6 +299,7 @@ class _Chip extends StatelessWidget {
           ],
         ]),
       ),
+      ),
     );
   }
 }
@@ -312,7 +315,9 @@ class _NotifCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const tappable = true;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: tappable ? onTap : null,
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -377,6 +382,7 @@ class _NotifCard extends StatelessWidget {
                 color: muted.withValues(alpha: .5), size: 20),
           ],
         ]),
+      ),
       ),
     );
   }

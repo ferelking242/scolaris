@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../../core/permissions/rbac_mapping.dart';
 import '../../../../core/permissions/staff_permissions.dart';
@@ -563,14 +564,33 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await SupabaseDbSource.deleteUser(u.id);
-      ref.invalidate(usersProvider);
-      ref.invalidate(studentsProvider);
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('Compte "${u.fullName}" supprimé.'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _terra,
-      ));
+    } on PostgrestException catch (e) {
+      // Notes gelées sur une période validée : le motif est obligatoire.
+      // On le redemande plutôt que d'échouer silencieusement (cf. guard_grade_period).
+      if (e.code == '42501' && e.message.contains('motif')) {
+        if (!mounted) return;
+        final reason = await _askDeleteReason(u.fullName);
+        if (reason == null) return;
+        try {
+          await SupabaseDbSource.deleteUser(u.id, reason: reason);
+        } catch (e2) {
+          if (!mounted) return;
+          messenger.showSnackBar(SnackBar(
+            content: Text('Suppression impossible : $e2'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: _terra,
+          ));
+          return;
+        }
+      } else {
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(
+          content: Text('Suppression impossible : $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: _terra,
+        ));
+        return;
+      }
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
@@ -578,7 +598,67 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         behavior: SnackBarBehavior.floating,
         backgroundColor: _terra,
       ));
+      return;
     }
+    ref.invalidate(usersProvider);
+    ref.invalidate(studentsProvider);
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text('Compte "${u.fullName}" supprimé.'),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: _terra,
+    ));
+  }
+
+  /// Certaines notes de [fullName] appartiennent à une période validée : la
+  /// suppression du compte les efface aussi, ce qui exige un motif tracé.
+  Future<String?> _askDeleteReason(String fullName) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Motif requis',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '"$fullName" a des notes sur une période validée. '
+              'Indiquez pourquoi ce compte est supprimé (ce sera tracé).',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Ex. : doublon créé par erreur',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              Navigator.pop(context, text);
+            },
+            style: FilledButton.styleFrom(backgroundColor: _terra),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    return reason;
   }
 
   Future<void> _toggleActive(SbUser u) async {
@@ -609,6 +689,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       return _InlineEnroll(
         config: _enrollConfig!,
         classes: _enrollClasses,
+        schoolId: _enrollSchoolId!,
         onBack: () => setState(() => _enrolling = false),
         onSubmit: (data) => _saveStudent(_enrollSchoolId!, data),
       );
@@ -746,7 +827,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                               // Élèves ET parents ouvrent une fiche détaillée.
                               final openable =
                                   u.role == 'student' || u.role == 'parent';
-                              return GestureDetector(
+                              return MouseRegion(
+                                cursor: openable
+                                    ? SystemMouseCursors.click
+                                    : SystemMouseCursors.basic,
+                                child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: openable
                                     ? () => setState(() => _viewId = u.id)
@@ -770,6 +855,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                             context.cMuted.withValues(alpha: .5)),
                                   ],
                                 ]),
+                                ),
                               );
                             }),
                             Text(u.email,
@@ -851,11 +937,13 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 class _InlineEnroll extends StatelessWidget {
   final EnrollmentConfig config;
   final List<SbClass> classes;
+  final String schoolId;
   final VoidCallback onBack;
-  final void Function(Map<String, dynamic>) onSubmit;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
   const _InlineEnroll({
     required this.config,
     required this.classes,
+    required this.schoolId,
     required this.onBack,
     required this.onSubmit,
   });
@@ -899,6 +987,7 @@ class _InlineEnroll extends StatelessWidget {
             isAdminMode: true,
             config: config,
             adminClasses: classes,
+            schoolId: schoolId,
             onSubmit: onSubmit,
           ),
         ),
@@ -1296,6 +1385,10 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
       TextEditingController(text: widget.user.email);
   late final TextEditingController _title =
       TextEditingController(text: widget.user.roleTitle ?? '');
+  // Dernier titre posé automatiquement par une sélection de rôle : permet de
+  // distinguer "l'utilisateur a tapé son propre titre" (on ne l'écrase plus)
+  // de "le titre vient encore du rôle précédent" (on peut le remplacer).
+  String? _lastAutoTitle;
   late final Set<String> _perms = _initPerms();
   bool _loading = false;
   String? _error;
@@ -1372,7 +1465,9 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(role.grants,
             isAdminRole: role.isAdminRole));
-      if (_title.text.trim().isEmpty) _title.text = role.name;
+      final text = _title.text.trim();
+      if (text.isEmpty || text == _lastAutoTitle) _title.text = role.name;
+      _lastAutoTitle = role.name;
     });
   }
 
@@ -1385,7 +1480,9 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(t.grants,
             isAdminRole: t.level == 'Direction'));
-      if (_title.text.trim().isEmpty) _title.text = t.name;
+      final text = _title.text.trim();
+      if (text.isEmpty || text == _lastAutoTitle) _title.text = t.name;
+      _lastAutoTitle = t.name;
     });
   }
 
@@ -1925,6 +2022,10 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
       TextEditingController(text: _generatePassword());
 
   bool _isStaff = false; // false = Enseignant, true = Personnel
+  // Dernier titre posé automatiquement par une sélection de rôle : permet de
+  // distinguer "l'utilisateur a tapé son propre titre" (on ne l'écrase plus)
+  // de "le titre vient encore du rôle précédent" (on peut le remplacer).
+  String? _lastAutoTitle;
   final Set<String> _perms = {};
   bool _loading = false;
   String? _error;
@@ -1961,7 +2062,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(role.grants,
             isAdminRole: role.isAdminRole));
-      if (_title.text.trim().isEmpty) _title.text = role.name;
+      final text = _title.text.trim();
+      if (text.isEmpty || text == _lastAutoTitle) _title.text = role.name;
+      _lastAutoTitle = role.name;
     });
   }
 
@@ -1974,7 +2077,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(t.grants,
             isAdminRole: t.level == 'Direction'));
-      if (_title.text.trim().isEmpty) _title.text = t.name;
+      final text = _title.text.trim();
+      if (text.isEmpty || text == _lastAutoTitle) _title.text = t.name;
+      _lastAutoTitle = t.name;
     });
   }
 
@@ -2300,25 +2405,28 @@ class _TypeChoice extends StatelessWidget {
       required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? _terra.withValues(alpha: .08) : context.cCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: selected ? _terra : context.cBorder, width: selected ? 2 : 1),
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: selected ? _terra.withValues(alpha: .08) : context.cCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: selected ? _terra : context.cBorder, width: selected ? 2 : 1),
+            ),
+            child: Column(children: [
+              Icon(icon, size: 20, color: selected ? _terra : context.cMuted),
+              const SizedBox(height: 5),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      color: selected ? _terra : context.cInk,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+            ]),
           ),
-          child: Column(children: [
-            Icon(icon, size: 20, color: selected ? _terra : context.cMuted),
-            const SizedBox(height: 5),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12.5,
-                    color: selected ? _terra : context.cInk,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-          ]),
         ),
       );
 }

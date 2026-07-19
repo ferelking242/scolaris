@@ -157,26 +157,29 @@ class _TabBar extends StatelessWidget {
     Widget tab(_Tab t, String label, IconData icon) {
       final active = t == value;
       return Expanded(
-        child: GestureDetector(
-          onTap: () => onChanged(t),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: active ? _terra : context.cSubtle,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: active ? _terra : context.cBorder),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => onChanged(t),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: active ? _terra : context.cSubtle,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: active ? _terra : context.cBorder),
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon,
+                    size: 16, color: active ? Colors.white : context.cMuted),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: active ? Colors.white : context.cMuted)),
+              ]),
             ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon,
-                  size: 16, color: active ? Colors.white : context.cMuted),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: active ? Colors.white : context.cMuted)),
-            ]),
           ),
         ),
       );

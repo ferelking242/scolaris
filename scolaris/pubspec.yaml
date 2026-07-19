@@ -79,6 +79,8 @@ dependencies:
 
   # URL launcher
   url_launcher: ^6.3.0
+  image_picker: ^1.2.3
+  file_picker: ^11.0.2
 
 dev_dependencies:
   flutter_test:

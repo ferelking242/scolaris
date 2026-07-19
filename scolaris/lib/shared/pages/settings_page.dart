@@ -9,12 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/localization/locales.dart';
-import '../../core/permissions/staff_permissions.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../features/admin/presentation/pages/admin_school_page.dart';
 import '../../presentation/providers/auth_providers.dart';
 import 'account_page.dart';
 
@@ -107,25 +105,6 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: 'settings.account_sub'.tr(),
                 onTap: () => _push(context, _AccountSettingsPage(user: user)),
               ),
-              if (user?.can(StaffPermissions.schoolConfig) ?? false)
-                _SettingsTile(
-                  icon: Icons.apartment_rounded,
-                  color: const Color(0xFF0D47A1),
-                  title: 'settings.school'.tr(),
-                  subtitle: 'settings.school_sub'.tr(),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      backgroundColor: _zinc100,
-                      appBar: AppBar(
-                        backgroundColor: _sh1, foregroundColor: _white,
-                        elevation: 0,
-                        title: Text('settings.school'.tr(),
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                      ),
-                      body: const AdminSchoolPage(),
-                    ),
-                  )),
-                ),
             ]),
             const SizedBox(height: 16),
 

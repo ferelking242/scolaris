@@ -199,7 +199,9 @@ class _Cover extends StatelessWidget {
           Positioned(
             top: 0, left: 0,
             child: SafeArea(
-              child: GestureDetector(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => Navigator.maybePop(context),
                 child: Container(
                   margin: const EdgeInsets.all(12),
@@ -208,13 +210,16 @@ class _Cover extends StatelessWidget {
                       color: Colors.white.withOpacity(.15), shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                 ),
+                ),
               ),
             ),
           ),
           Positioned(
             top: 0, right: 0,
             child: SafeArea(
-              child: GestureDetector(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: onEdit,
                 child: Container(
                   margin: const EdgeInsets.all(12),
@@ -229,6 +234,7 @@ class _Cover extends StatelessWidget {
                     Text('Modifier', style: TextStyle(
                         color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                   ]),
+                ),
                 ),
               ),
             ),
@@ -351,7 +357,9 @@ class _InfoTile extends StatelessWidget {
           ],
         )),
         if (onEdit != null)
-          GestureDetector(
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
             onTap: onEdit,
             child: Container(
               width: 32, height: 32,
@@ -361,6 +369,7 @@ class _InfoTile extends StatelessWidget {
                 border: Border.all(color: _terra.withOpacity(.2)),
               ),
               child: const Icon(Icons.edit_rounded, size: 14, color: _terra),
+            ),
             ),
           ),
       ]),
@@ -451,10 +460,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           Text('Modifier mon profil', style: TextStyle(
               color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
           const Spacer(),
-          GestureDetector(
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Icon(Icons.close_rounded,
                 color: cs.onSurface.withOpacity(.5), size: 20)),
+          ),
         ]),
         const SizedBox(height: 16),
         TextField(

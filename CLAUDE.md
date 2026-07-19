@@ -19,14 +19,53 @@ backend **Supabase** (Auth + Postgres + RLS), offline **Hive**, i18n **easy_loca
   publique uniquement. ⚠️ La clé `service_role` a été **retirée du client** (sécurité) ; la création de
   comptes passe par l'Edge Function `supabase/functions/create-account`. Ne jamais réintroduire de secret ici.
 
-## Base de données (vérifiée en direct — 30 juin 2026)
-Instance Supabase `iaxwvgqusxyhmyansawi`. Schéma vérifié via l'API REST (clé anon) :
-- **25 tables** requêtées par le code existent toutes ✅ ; les tables supprimées (doublons FR `notes`,
-  `cours`, `paiements`, `profiles`, `students`…) sont bien absentes ✅ ; **RLS active** (isolation par école).
+## Base de données (vérifiée en direct — 18 juillet 2026, requête fraîche sur `information_schema.tables`)
+Instance Supabase `iaxwvgqusxyhmyansawi`. **49 tables réelles**, confirmées par requête SQL directe (pas
+un export/snippet en cache — un précédent export "schema_complet" fourni en snippet Supabase s'est avéré
+**périmé** : il listait 10 tables inexistantes — `teacher_profiles`, `filieres`, `teacher_classes`, `exams`,
+`attendance`, `messages`, `announcements`, `announcement_comments`, `announcement_likes`, `resources` — donc
+⚠️ ne jamais se fier à un ancien export/snippet Supabase sans revérifier par `information_schema` en direct).
 - ⚠️ **Le dépôt n'est PAS la source de vérité du schéma** : les migrations appliquées sont archivées dans
-  [backup/migrations_archive/](backup/migrations_archive/), pas dans `supabase/migrations/`. Un `supabase db reset`
-  ne reconstruirait pas l'état réel. La CLI `supabase` n'est pas installée.
+  [backup/migrations_archive/](backup/migrations_archive/), pas dans `supabase/migrations/`. La CLI `supabase`
+  n'est pas installée.
 - Compte de test `admin@ead-bzv.cg` / `demo1234` : **refusé** au dernier test (seed non joué ou mdp changé).
+
+### Liste des 49 tables (vérifiée, `public`, `BASE TABLE`)
+`absences`, `assignments`, `badge_catalog`, `bibliotheque`, `class_levels`, `classes`, `course_materials`,
+`course_teachers`, `courses`, `enrollment_requests`, `exam_subjects`, `fee_structures`, `grade_periods`,
+`grades`, `invoices`, `liaison_acks`, `liaison_entries`, `library_favorites`, `merit_points`, `notes_audit`,
+`parent_student`, `payments`, `permission_catalog`, `plan_prices`, `plans`, `reading_progress`,
+`report_cards`, `role_template_permissions`, `role_templates`, `schedules`, `school_branches`,
+`school_classes`, `school_founders`, `school_members`, `school_series`, `schools`, `staff_profiles`,
+`staff_role_permissions`, `staff_roles`, `student_badges`, `student_profiles`, `sub_permission_catalog`,
+`subject_catalog`, `subjects`, `submissions`, `subscription_payments`, `subscriptions`, `user_settings`,
+`users`.
+
+### Tables NON utilisées par le code Dart (vérifié par grep `.from('...')` sur `lib/`)
+- `enrollment_requests` — jamais appelée ; un commentaire dans [prereg_request.dart](lib/features/enrollment/data/prereg_request.dart)
+  dit "en prod : table `enrollment_requests`" mais ce n'est pas branché. Cohérent avec le fait que la
+  pré-inscription est actuellement une maquette (compte parent jamais créé réellement).
+- `user_settings` — table existe, colonne présente, mais aucun `.from('user_settings')` dans tout `lib/`.
+- Toutes les 47 autres tables sont référencées par au moins un appel dans
+  [supabase_db_source.dart](lib/data/sources/remote/supabase_db_source.dart) ou un fichier feature dédié
+  (`staff_roles_source.dart`, `school_registration_screen.dart`, `mock_library_data.dart`, etc.).
+
+### ⚠️ Piège `updated_at` (source d'un bug réel : `PostgrestException: record "new" has no field "updated_at"`)
+Requête `information_schema.columns` exécutée en direct le 18 juillet 2026 — **15 tables seulement** ont
+une colonne `updated_at` :
+`assignments`, `classes`, `fee_structures`, `grade_periods`, `grades`, `invoices`, `schedules`, `schools`,
+`staff_profiles`, `student_profiles`, `subjects`, `submissions`, `subscriptions`, `user_settings`, `users`.
+
+**Toutes les 34 autres tables de la liste des 49 n'ont PAS `updated_at`** — ne jamais l'envoyer depuis Dart
+pour ces tables, et ne jamais y poser un trigger `set_updated_at`/`moddatetime` sans d'abord ajouter la
+colonne.
+
+⚠️ Point non résolu : `subjects` **a** la colonne `updated_at` d'après cette requête, ce qui contredit
+l'hypothèse initiale (bug `updateSubject` causé par une colonne manquante). Donc soit la colonne a été
+ajoutée entre-temps et le bug initial est déjà corrigé, soit la cause réelle de l'erreur observée était
+différente (ex. trigger appliqué sur une autre table/vue lors de la même opération, contrainte de nommage,
+etc.) — **à retester en conditions réelles** (modifier une matière dans l'app) avant de considérer le bug
+clos.
 
 ## Convention thème (IMPORTANT pour tout nouveau code UI)
 Ne **jamais** coder en dur les couleurs **neutres** (texte/fond/bordure) — elles cassent en mode sombre.

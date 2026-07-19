@@ -305,36 +305,39 @@ class _SidebarState extends State<_Sidebar> {
               for (var g = 0; g < widget.groups.length; g++) ...[
                 // Group header (repliable)
                 if (!widget.collapsed)
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      if (_closedGroups.contains(g)) {
-                        _closedGroups.remove(g);
-                      } else {
-                        _closedGroups.add(g);
-                      }
-                    }),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 14, 8, 6),
-                      child: Row(children: [
-                        Expanded(
-                          child: Text(
-                            widget.groups[g].labelKey.tr().toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 9,
-                              letterSpacing: 1.2,
-                              color: _gold.withOpacity(.65),
-                              fontWeight: FontWeight.w800,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        if (_closedGroups.contains(g)) {
+                          _closedGroups.remove(g);
+                        } else {
+                          _closedGroups.add(g);
+                        }
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 14, 8, 6),
+                        child: Row(children: [
+                          Expanded(
+                            child: Text(
+                              widget.groups[g].labelKey.tr().toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 9,
+                                letterSpacing: 1.2,
+                                color: _gold.withOpacity(.65),
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
-                        ),
-                        Icon(
-                          _closedGroups.contains(g)
-                              ? Icons.expand_more_rounded
-                              : Icons.expand_less_rounded,
-                          size: 13,
-                          color: _gold.withOpacity(.5),
-                        ),
-                      ]),
+                          Icon(
+                            _closedGroups.contains(g)
+                                ? Icons.expand_more_rounded
+                                : Icons.expand_less_rounded,
+                            size: 13,
+                            color: _gold.withOpacity(.5),
+                          ),
+                        ]),
+                      ),
                     ),
                   )
                 else
@@ -497,36 +500,42 @@ class _HeaderState extends ConsumerState<_Header> {
                   ),
                 ),
                 if (!_searchActive)
-                  GestureDetector(
-                    onTap: () {
-                      _searchFocus.requestFocus();
-                      setState(() => _searchActive = true);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _white.withOpacity(.1),
-                        borderRadius: BorderRadius.circular(4),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchFocus.requestFocus();
+                        setState(() => _searchActive = true);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('⌘K',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: _shMuted.withOpacity(.8))),
                       ),
-                      child: Text('⌘K',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: _shMuted.withOpacity(.8))),
                     ),
                   )
                 else
-                  GestureDetector(
-                    onTap: () {
-                      _searchCtrl.clear();
-                      _searchFocus.unfocus();
-                      setState(() => _searchActive = false);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      child: Icon(Icons.close_rounded,
-                          size: 14, color: _shMuted),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        _searchFocus.unfocus();
+                        setState(() => _searchActive = false);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: _shMuted),
+                      ),
                     ),
                   ),
               ],

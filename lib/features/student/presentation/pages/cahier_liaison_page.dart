@@ -258,18 +258,21 @@ class _FilterChip extends StatelessWidget {
       required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? color : context.cCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: selected ? color : context.cBorder),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color : context.cCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? color : context.cBorder),
+        ),
+        child: Text(label, style: TextStyle(
+            color: selected ? _white : context.cMuted,
+            fontSize: 11.5, fontWeight: FontWeight.w600)),
       ),
-      child: Text(label, style: TextStyle(
-          color: selected ? _white : context.cMuted,
-          fontSize: 11.5, fontWeight: FontWeight.w600)),
     ),
   );
 }

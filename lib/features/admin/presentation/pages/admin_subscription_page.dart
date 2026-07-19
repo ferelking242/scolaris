@@ -435,21 +435,24 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
   }
 
   Widget _periodBtn(String label, bool sel, Color c, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: sel ? c.withValues(alpha: .12) : context.cCard,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  color: sel ? c : context.cInk,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
         ),
-        child: Text(label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 11.5,
-                color: sel ? c : context.cInk,
-                fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
       ),
     );
   }

@@ -150,19 +150,22 @@ class _FilterRow extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(width: 6),
       itemBuilder: (_, i) {
         final sel = options[i] == selected;
-        return GestureDetector(
-          onTap: () => onSelect(options[i]),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: sel ? _terra : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: sel ? _terra : _border),
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => onSelect(options[i]),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: sel ? _terra : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: sel ? _terra : _border),
+              ),
+              child: Text(options[i], style: TextStyle(
+                  color: sel ? _white : _muted,
+                  fontSize: 11.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
             ),
-            child: Text(options[i], style: TextStyle(
-                color: sel ? _white : _muted,
-                fontSize: 11.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
           ),
         );
       },
@@ -220,7 +223,9 @@ class _BookCardState extends State<_BookCard> {
   @override
   Widget build(BuildContext context) {
     final b = widget.book;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => PdfReaderPage(
               title: b.title, color: b.coverColor, totalPages: b.pages,
@@ -275,13 +280,16 @@ class _BookCardState extends State<_BookCard> {
           ),
           // Fav button
           Positioned(bottom: 8, right: 8,
-            child: GestureDetector(
-              onTap: () => setState(() => _fav = !_fav),
-              child: Container(width: 28, height: 28,
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.35),
-                    shape: BoxShape.circle),
-                child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    size: 14, color: _fav ? Colors.red : _white)),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => setState(() => _fav = !_fav),
+                child: Container(width: 28, height: 28,
+                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.35),
+                      shape: BoxShape.circle),
+                  child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      size: 14, color: _fav ? Colors.red : _white)),
+              ),
             ),
           ),
         ])),
@@ -298,6 +306,7 @@ class _BookCardState extends State<_BookCard> {
               style: const TextStyle(color: _muted, fontSize: 9)),
         ]),
       ]),
+      ),
     );
   }
 }
@@ -317,7 +326,9 @@ class _BookListTileState extends State<_BookListTile> {
   @override
   Widget build(BuildContext context) {
     final b = widget.book;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
           PdfReaderPage(title: b.title, color: b.coverColor, totalPages: b.pages,
               resourceId: b.id, resourceType: ResourceType.book,
@@ -369,10 +380,13 @@ class _BookListTileState extends State<_BookListTile> {
             Text('${b.pages} pages', style: const TextStyle(color: _muted, fontSize: 10)),
           ])),
           Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            GestureDetector(
-              onTap: () => setState(() => _fav = !_fav),
-              child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  size: 20, color: _fav ? Colors.red.shade400 : _muted),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => setState(() => _fav = !_fav),
+                child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    size: 20, color: _fav ? Colors.red.shade400 : _muted),
+              ),
             ),
             const SizedBox(height: 16),
             Container(width: 36, height: 36,
@@ -383,6 +397,7 @@ class _BookListTileState extends State<_BookListTile> {
               child: const Icon(Icons.play_arrow_rounded, color: _white, size: 20)),
           ]),
         ]),
+      ),
       ),
     );
   }

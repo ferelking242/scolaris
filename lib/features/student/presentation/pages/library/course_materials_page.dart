@@ -232,25 +232,28 @@ class _ChipFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = selected != 'Toutes';
-    return GestureDetector(
-      onTap: () => showModalBottomSheet(context: context,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (_) => _PickerSheet(label: label, options: options,
-            selected: selected, onSelect: onSelect)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? _cyan.withOpacity(0.10) : _white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? _cyan.withOpacity(0.40) : _border),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => showModalBottomSheet(context: context,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (_) => _PickerSheet(label: label, options: options,
+              selected: selected, onSelect: onSelect)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? _cyan.withOpacity(0.10) : _white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: active ? _cyan.withOpacity(0.40) : _border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('$label: $selected', style: TextStyle(
+                color: active ? _cyan : _muted, fontSize: 11.5, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Icon(Icons.expand_more_rounded, size: 14, color: active ? _cyan : _muted),
+          ]),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text('$label: $selected', style: TextStyle(
-              color: active ? _cyan : _muted, fontSize: 11.5, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          Icon(Icons.expand_more_rounded, size: 14, color: active ? _cyan : _muted),
-        ]),
       ),
     );
   }
@@ -262,24 +265,27 @@ class _SortButton extends StatelessWidget {
   final ValueChanged<String> onSelect;
   const _SortButton({required this.current, required this.onSelect});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: () => showModalBottomSheet(context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _PickerSheet(label: 'Trier par',
-          options: const ['Date', 'Nom', 'Taille'],
-          selected: current, onSelect: onSelect)),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: _terra.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _terra.withOpacity(0.30))),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.sort_rounded, size: 14, color: _terra),
-        const SizedBox(width: 4),
-        Text('Tri: $current', style: const TextStyle(
-            color: _terra, fontSize: 11.5, fontWeight: FontWeight.w600)),
-      ]),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: () => showModalBottomSheet(context: context,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => _PickerSheet(label: 'Trier par',
+            options: const ['Date', 'Nom', 'Taille'],
+            selected: current, onSelect: onSelect)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(color: _terra.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _terra.withOpacity(0.30))),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.sort_rounded, size: 14, color: _terra),
+          const SizedBox(width: 4),
+          Text('Tri: $current', style: const TextStyle(
+              color: _terra, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        ]),
+      ),
     ),
   );
 }
@@ -326,7 +332,9 @@ class _MaterialCardState extends State<_MaterialCard> {
   @override
   Widget build(BuildContext context) {
     final m = widget.material;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
           PdfReaderPage(title: m.title, color: m.color, totalPages: 24,
               resourceId: m.id, resourceType: ResourceType.material,
@@ -360,10 +368,13 @@ class _MaterialCardState extends State<_MaterialCard> {
                 Text('Par ${m.teacher}', style: const TextStyle(color: _muted, fontSize: 11.5)),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                GestureDetector(
-                  onTap: () => setState(() => _fav = !_fav),
-                  child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: _fav ? Colors.red.shade400 : _muted, size: 20),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _fav = !_fav),
+                    child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: _fav ? Colors.red.shade400 : _muted, size: 20),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(m.size, style: TextStyle(color: m.color, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -387,17 +398,20 @@ class _MaterialCardState extends State<_MaterialCard> {
               // Actions
               _IconBtn(icon: Icons.share_rounded, color: m.color, onTap: () {}),
               const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () => setState(() => _dl = !_dl),
-                child: Container(
-                  width: 32, height: 32,
-                  decoration: BoxDecoration(
-                    color: _dl ? const Color(0xFF1B5E20).withOpacity(0.10) : m.color.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: _dl ? const Color(0xFF1B5E20).withOpacity(0.30) : m.color.withOpacity(0.25)),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => setState(() => _dl = !_dl),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: _dl ? const Color(0xFF1B5E20).withOpacity(0.10) : m.color.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: _dl ? const Color(0xFF1B5E20).withOpacity(0.30) : m.color.withOpacity(0.25)),
+                    ),
+                    child: Icon(_dl ? Icons.download_done_rounded : Icons.download_rounded,
+                        size: 14, color: _dl ? const Color(0xFF1B5E20) : m.color),
                   ),
-                  child: Icon(_dl ? Icons.download_done_rounded : Icons.download_rounded,
-                      size: 14, color: _dl ? const Color(0xFF1B5E20) : m.color),
                 ),
               ),
               const SizedBox(width: 6),
@@ -413,6 +427,7 @@ class _MaterialCardState extends State<_MaterialCard> {
             ]),
           ),
         ]),
+      ),
       ),
     );
   }
@@ -437,11 +452,14 @@ class _IconBtn extends StatelessWidget {
   final VoidCallback onTap;
   const _IconBtn({required this.icon, required this.color, required this.onTap});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(width: 32, height: 32,
-      decoration: BoxDecoration(color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(9), border: Border.all(color: color.withOpacity(0.20))),
-      child: Icon(icon, size: 14, color: color)),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(width: 32, height: 32,
+        decoration: BoxDecoration(color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(9), border: Border.all(color: color.withOpacity(0.20))),
+        child: Icon(icon, size: 14, color: color)),
+    ),
   );
 }

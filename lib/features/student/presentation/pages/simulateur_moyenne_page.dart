@@ -125,19 +125,22 @@ class _SimulateurMoyennePageState extends ConsumerState<SimulateurMoyennePage> {
         if (_matieres.isNotEmpty)
           Align(
             alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () => setState(() { for (final m in _matieres) m.note = null; }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.cBorder),
-                  borderRadius: BorderRadius.circular(8),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => setState(() { for (final m in _matieres) m.note = null; }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: context.cBorder),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.refresh_rounded, size: 13, color: context.cMuted),
+                    const SizedBox(width: 5),
+                    Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
+                  ]),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.refresh_rounded, size: 13, color: context.cMuted),
-                  const SizedBox(width: 5),
-                  Text('Réinitialiser', style: TextStyle(fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
-                ]),
               ),
             ),
           ),
@@ -264,9 +267,12 @@ class _MatiereRowState extends State<_MatiereRow> {
         ),
         if (widget.onDelete != null) ...[
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: widget.onDelete,
-            child: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onDelete,
+              child: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+            ),
           ),
         ],
       ]),
@@ -340,22 +346,25 @@ class _AddMatiereFormState extends State<_AddMatiereForm> {
             ]),
           ),
           const SizedBox(width: 10),
-          GestureDetector(
-            onTap: () {
-              if (_nomCtrl.text.trim().isNotEmpty) {
-                widget.onAdd(_nomCtrl.text.trim(), _coeff);
-                _nomCtrl.clear();
-                setState(() => _coeff = 1);
-              }
-            },
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: _terra,
-                borderRadius: BorderRadius.circular(10),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () {
+                if (_nomCtrl.text.trim().isNotEmpty) {
+                  widget.onAdd(_nomCtrl.text.trim(), _coeff);
+                  _nomCtrl.clear();
+                  setState(() => _coeff = 1);
+                }
+              },
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _terra,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
               ),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
             ),
           ),
         ]),
@@ -369,11 +378,14 @@ class _StepBtn extends StatelessWidget {
   final VoidCallback onTap;
   const _StepBtn({required this.icon, required this.onTap});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: SizedBox(
-      width: 32, height: 42,
-      child: Icon(icon, size: 16, color: context.cMuted),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 32, height: 42,
+        child: Icon(icon, size: 16, color: context.cMuted),
+      ),
     ),
   );
 }

@@ -173,7 +173,9 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
                   itemBuilder: (_, i) {
                     final cls = classes[i];
                     final sel = cls.id == _selectedClassId;
-                    return GestureDetector(
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
                       onTap: () => setState(() => _selectedClassId = cls.id),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -192,6 +194,7 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
                             fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                           ),
                         ),
+                      ),
                       ),
                     );
                   },
@@ -633,15 +636,18 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
               ),
             ),
             // Close button always visible
-            GestureDetector(
-              onTap: widget.onCancel,
-              child: Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainer,
-                  borderRadius: BorderRadius.circular(10),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: widget.onCancel,
+                child: Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
                 ),
-                child: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
               ),
             ),
           ]),
@@ -730,18 +736,21 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
               final key = _daysKey[i];
               final sel = _days.contains(key);
               return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => sel ? _days.remove(key) : _days.add(key)),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: sel ? selectedColor : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => setState(() => sel ? _days.remove(key) : _days.add(key)),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? selectedColor : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
+                      ),
+                      child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
                     ),
-                    child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
                   ),
                 ),
               );
@@ -828,18 +837,21 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
             children: _courseColors.map((hex) {
               final c = Color(int.parse(hex.replaceFirst('#', '0xFF')));
               final sel = hex == _color;
-              return GestureDetector(
-                onTap: () => setState(() => _color = hex),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 34, height: 34,
-                  decoration: BoxDecoration(
-                    color: c,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: sel ? Colors.white : Colors.transparent, width: 3),
-                    boxShadow: sel ? [BoxShadow(color: c.withValues(alpha: .5), blurRadius: 8)] : [],
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => setState(() => _color = hex),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 34, height: 34,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: sel ? Colors.white : Colors.transparent, width: 3),
+                      boxShadow: sel ? [BoxShadow(color: c.withValues(alpha: .5), blurRadius: 8)] : [],
+                    ),
+                    child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
                   ),
-                  child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
                 ),
               );
             }).toList(),

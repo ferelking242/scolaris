@@ -270,30 +270,33 @@ class _SmallFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final r = await showModalBottomSheet<String>(
-          context: context,
-          shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-          builder: (_) => _FilterSheet(label: label, options: options,
-              selected: selected, color: color, onSelect: onSelect),
-        );
-        if (r != null) onSelect(r);
-      },
-      child: Container(
-        height: 36, padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-            color: selected != 'Toutes' && selected != 'Toutes les années' ? color.withOpacity(0.10) : const Color(0xFFF5EEE6),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected != 'Toutes' ? color.withOpacity(0.40) : _border)),
-        child: Row(children: [
-          Expanded(child: Text('$label: $selected', style: TextStyle(
-              color: selected != 'Toutes' ? color : _muted,
-              fontSize: 11.5, fontWeight: FontWeight.w600),
-              maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Icon(Icons.expand_more_rounded, size: 16, color: selected != 'Toutes' ? color : _muted),
-        ]),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () async {
+          final r = await showModalBottomSheet<String>(
+            context: context,
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+            builder: (_) => _FilterSheet(label: label, options: options,
+                selected: selected, color: color, onSelect: onSelect),
+          );
+          if (r != null) onSelect(r);
+        },
+        child: Container(
+          height: 36, padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+              color: selected != 'Toutes' && selected != 'Toutes les années' ? color.withOpacity(0.10) : const Color(0xFFF5EEE6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: selected != 'Toutes' ? color.withOpacity(0.40) : _border)),
+          child: Row(children: [
+            Expanded(child: Text('$label: $selected', style: TextStyle(
+                color: selected != 'Toutes' ? color : _muted,
+                fontSize: 11.5, fontWeight: FontWeight.w600),
+                maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Icon(Icons.expand_more_rounded, size: 16, color: selected != 'Toutes' ? color : _muted),
+          ]),
+        ),
       ),
     );
   }
@@ -377,7 +380,9 @@ class _ExamCardState extends State<_ExamCard> {
   Widget build(BuildContext context) {
     final e = widget.exam;
     final c = widget.color;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
           PdfReaderPage(title: e.title, color: c, totalPages: 12,
               resourceId: e.id, resourceType: ResourceType.examSubject,
@@ -418,10 +423,13 @@ class _ExamCardState extends State<_ExamCard> {
                   Text('· ${e.session}', style: const TextStyle(color: _muted, fontSize: 12)),
                 ]),
               ])),
-              GestureDetector(
-                onTap: () => setState(() => _fav = !_fav),
-                child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: _fav ? Colors.red.shade400 : _muted, size: 20),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => setState(() => _fav = !_fav),
+                  child: Icon(_fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: _fav ? Colors.red.shade400 : _muted, size: 20),
+                ),
               ),
             ]),
           ),
@@ -469,6 +477,7 @@ class _ExamCardState extends State<_ExamCard> {
           ),
         ]),
       ),
+      ),
     );
   }
 }
@@ -479,14 +488,17 @@ class _ActionBtn extends StatelessWidget {
   final VoidCallback onTap;
   const _ActionBtn({required this.icon, required this.color, required this.onTap});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 32, height: 32,
-      decoration: BoxDecoration(color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.20))),
-      child: Icon(icon, size: 14, color: color),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.20))),
+        child: Icon(icon, size: 14, color: color),
+      ),
     ),
   );
 }

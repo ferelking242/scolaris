@@ -226,26 +226,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 24),
               ],
 
-              GestureDetector(
-                onTap: () => setState(() {
-                  _demoTapCount++;
-                  if (_demoTapCount == 2) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('🔒 Encore une fois…'),
-                      duration: Duration(seconds: 1),
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  } else if (_demoTapCount == 3) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('🔓 Section développeur déverrouillée'),
-                      duration: Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  }
-                }),
-                child: const Text('Connexion', style: TextStyle(
-                  fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
-                )),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _demoTapCount++;
+                    if (_demoTapCount == 2) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('🔒 Encore une fois…'),
+                        duration: Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                    } else if (_demoTapCount == 3) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('🔓 Section développeur déverrouillée'),
+                        duration: Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                    }
+                  }),
+                  child: const Text('Connexion', style: TextStyle(
+                    fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                  )),
+                ),
               ),
               const SizedBox(height: 3),
               Text('Accédez à votre espace Scolaris',
@@ -335,44 +338,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Row(children: [
-        Expanded(child: GestureDetector(
-          onTap: () => setState(() => _showQrTab = false),
-          child: Container(
-            height: 46,
-            decoration: BoxDecoration(
-              color: !_showQrTab ? _white : Colors.transparent,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-              border: !_showQrTab
-                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
-                  : null,
+        Expanded(child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => setState(() => _showQrTab = false),
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: !_showQrTab ? _white : Colors.transparent,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                border: !_showQrTab
+                    ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: Text('Connexion',
+                style: TextStyle(
+                  color: !_showQrTab ? _terra : _muted,
+                  fontWeight: !_showQrTab ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                )),
             ),
-            alignment: Alignment.center,
-            child: Text('Connexion',
-              style: TextStyle(
-                color: !_showQrTab ? _terra : _muted,
-                fontWeight: !_showQrTab ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 14,
-              )),
           ),
         )),
-        Expanded(child: GestureDetector(
-          onTap: () => setState(() => _showQrTab = true),
-          child: Container(
-            height: 46,
-            decoration: BoxDecoration(
-              color: _showQrTab ? _white : Colors.transparent,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-              border: _showQrTab
-                  ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
-                  : null,
+        Expanded(child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => setState(() => _showQrTab = true),
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: _showQrTab ? _white : Colors.transparent,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                border: _showQrTab
+                    ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: Text('Scanner ID',
+                style: TextStyle(
+                  color: _showQrTab ? _terra : _muted,
+                  fontWeight: _showQrTab ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                )),
             ),
-            alignment: Alignment.center,
-            child: Text('Scanner ID',
-              style: TextStyle(
-                color: _showQrTab ? _terra : _muted,
-                fontWeight: _showQrTab ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 14,
-              )),
           ),
         )),
       ]),
@@ -396,12 +405,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Row(children: [
             _fieldLabel('Mot de passe'),
             const Spacer(),
-            GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
-              child: const Text('Mot de passe oublié ?',
-                  style: TextStyle(color: _terra, fontSize: 12,
-                      fontWeight: FontWeight.w600)),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                child: const Text('Mot de passe oublié ?',
+                    style: TextStyle(color: _terra, fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+              ),
             ),
           ]),
           const SizedBox(height: 6),
@@ -455,21 +467,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       runSpacing: 8,
       children: [
         for (final a in accounts)
-          GestureDetector(
-            onTap: _loading ? null : () => _fillAndLogin(a.$2, a.$5),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: a.$4.withOpacity(.07),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: a.$4.withOpacity(.30)),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _loading ? null : () => _fillAndLogin(a.$2, a.$5),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: a.$4.withOpacity(.07),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: a.$4.withOpacity(.30)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(a.$3, size: 15, color: a.$4),
+                  const SizedBox(width: 6),
+                  Text(a.$1, style: TextStyle(
+                      color: a.$4, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ]),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(a.$3, size: 15, color: a.$4),
-                const SizedBox(width: 6),
-                Text(a.$1, style: TextStyle(
-                    color: a.$4, fontSize: 12.5, fontWeight: FontWeight.w700)),
-              ]),
             ),
           ),
       ],
@@ -810,15 +825,18 @@ class _QrScanPanelState extends State<_QrScanPanel> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(children: [
-                  GestureDetector(
-                    onTap: widget.onClose,
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: _white.withOpacity(.15),
-                        shape: BoxShape.circle,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: widget.onClose,
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, color: _white, size: 22),
                       ),
-                      child: const Icon(Icons.close_rounded, color: _white, size: 22),
                     ),
                   ),
                   const Spacer(),
@@ -826,15 +844,18 @@ class _QrScanPanelState extends State<_QrScanPanel> {
                       style: TextStyle(color: _white, fontSize: 15,
                           fontWeight: FontWeight.w700)),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: () => _ctrl.toggleTorch(),
-                    child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: _white.withOpacity(.15),
-                        shape: BoxShape.circle,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => _ctrl.toggleTorch(),
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.flashlight_on_rounded, color: _white, size: 20),
                       ),
-                      child: const Icon(Icons.flashlight_on_rounded, color: _white, size: 20),
                     ),
                   ),
                 ]),
@@ -1055,37 +1076,40 @@ class _PrimaryBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: loading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 54,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: loading
-                ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
-                : [_terra, _orange],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: loading ? null : onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 54,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: loading
+                  ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
+                  : [_terra, _orange],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: loading ? [] : [
+              BoxShadow(color: _terra.withOpacity(.4),
+                  blurRadius: 16, offset: const Offset(0, 6)),
+            ],
           ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: loading ? [] : [
-            BoxShadow(color: _terra.withOpacity(.4),
-                blurRadius: 16, offset: const Offset(0, 6)),
-          ],
+          child: loading
+              ? const SizedBox(width: 22, height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+              : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: _white, size: 18),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(label, style: const TextStyle(color: _white, fontSize: 15,
+                      fontWeight: FontWeight.w700, letterSpacing: .3)),
+                ]),
         ),
-        child: loading
-            ? const SizedBox(width: 22, height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
-            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                if (icon != null) ...[
-                  Icon(icon, color: _white, size: 18),
-                  const SizedBox(width: 8),
-                ],
-                Text(label, style: const TextStyle(color: _white, fontSize: 15,
-                    fontWeight: FontWeight.w700, letterSpacing: .3)),
-              ]),
       ),
     );
   }
@@ -1099,22 +1123,25 @@ class _SecondaryBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _border, width: 1.5),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _border, width: 1.5),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 18, color: _terra),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: _ink, fontSize: 14,
+                fontWeight: FontWeight.w600)),
+          ]),
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 18, color: _terra),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: _ink, fontSize: 14,
-              fontWeight: FontWeight.w600)),
-        ]),
       ),
     );
   }
@@ -1152,54 +1179,57 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? const LinearGradient(
-                  colors: [_terra, _orange],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: selected ? null : _white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? _terra : _border.withOpacity(.8),
-            width: selected ? 0 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(color: _terra.withOpacity(.35),
-                      blurRadius: 14, offset: const Offset(0, 5)),
-                ]
-              : [
-                  BoxShadow(color: _ink.withOpacity(.04),
-                      blurRadius: 4, offset: const Offset(0, 2)),
-                ],
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 22, height: 22,
-            decoration: BoxDecoration(
-              color: selected
-                  ? _white.withOpacity(.2)
-                  : _terra.withOpacity(.08),
-              shape: BoxShape.circle,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            gradient: selected
+                ? const LinearGradient(
+                    colors: [_terra, _orange],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: selected ? null : _white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? _terra : _border.withOpacity(.8),
+              width: selected ? 0 : 1,
             ),
-            child: Center(child: Icon(icon, size: 12,
-                color: selected ? _white : _terra)),
+            boxShadow: selected
+                ? [
+                    BoxShadow(color: _terra.withOpacity(.35),
+                        blurRadius: 14, offset: const Offset(0, 5)),
+                  ]
+                : [
+                    BoxShadow(color: _ink.withOpacity(.04),
+                        blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
           ),
-          const SizedBox(width: 7),
-          Text(label, style: TextStyle(
-              color: selected ? _white : _ink,
-              fontSize: 12.5,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
-        ]),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(
+                color: selected
+                    ? _white.withOpacity(.2)
+                    : _terra.withOpacity(.08),
+                shape: BoxShape.circle,
+              ),
+              child: Center(child: Icon(icon, size: 12,
+                  color: selected ? _white : _terra)),
+            ),
+            const SizedBox(width: 7),
+            Text(label, style: TextStyle(
+                color: selected ? _white : _ink,
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
+          ]),
+        ),
       ),
     );
   }
@@ -1215,26 +1245,29 @@ class _SubTypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3E1A00) : const Color(0xFFF0E8DF),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: selected ? const Color(0xFF3E1A00) : _border),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF3E1A00) : const Color(0xFFF0E8DF),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: selected ? const Color(0xFF3E1A00) : _border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 12,
+                color: selected ? _gold : const Color(0xFFB08060)),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(
+                color: selected ? _gold : _ink,
+                fontSize: 11.5, fontWeight: FontWeight.w600)),
+          ]),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 12,
-              color: selected ? _gold : const Color(0xFFB08060)),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(
-              color: selected ? _gold : _ink,
-              fontSize: 11.5, fontWeight: FontWeight.w600)),
-        ]),
       ),
     );
   }
@@ -1246,39 +1279,42 @@ class _RegisterSchoolBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 54,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
-                blurRadius: 16, offset: const Offset(0, 6)),
-          ],
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 30, height: 30,
-            decoration: BoxDecoration(
-              color: _gold.withOpacity(.15),
-              shape: BoxShape.circle,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 54,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
             ),
-            child: const Icon(Icons.add_business_outlined, size: 16, color: _gold),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
+                  blurRadius: 16, offset: const Offset(0, 6)),
+            ],
           ),
-          const SizedBox(width: 10),
-          const Text('Inscrire mon école',
-              style: TextStyle(
-                color: _white,
-                fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: .3,
-              )),
-        ]),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              width: 30, height: 30,
+              decoration: BoxDecoration(
+                color: _gold.withOpacity(.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add_business_outlined, size: 16, color: _gold),
+            ),
+            const SizedBox(width: 10),
+            const Text('Inscrire mon école',
+                style: TextStyle(
+                  color: _white,
+                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: .3,
+                )),
+          ]),
+        ),
       ),
     );
   }
@@ -1292,32 +1328,35 @@ class _PreRegisterBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _terra.withOpacity(.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _terra.withOpacity(.30)),
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 30, height: 30,
-            decoration: BoxDecoration(
-              color: _terra.withOpacity(.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.how_to_reg_outlined, size: 16, color: _terra),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 50,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _terra.withOpacity(.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _terra.withOpacity(.30)),
           ),
-          const SizedBox(width: 10),
-          const Text('Nouvelle inscription (élève / parent)',
-              style: TextStyle(
-                color: _terra,
-                fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .2,
-              )),
-        ]),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              width: 30, height: 30,
+              decoration: BoxDecoration(
+                color: _terra.withOpacity(.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.how_to_reg_outlined, size: 16, color: _terra),
+            ),
+            const SizedBox(width: 10),
+            const Text('Nouvelle inscription (élève / parent)',
+                style: TextStyle(
+                  color: _terra,
+                  fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .2,
+                )),
+          ]),
+        ),
       ),
     );
   }
@@ -1425,42 +1464,45 @@ class _PreRegisterBtn extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 7),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: user.color.withOpacity(.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: user.color.withOpacity(.25)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(color: user.color.withOpacity(.15), borderRadius: BorderRadius.circular(10)),
-                child: Icon(user.icon, color: user.color, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(user.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _ink)),
-                    const SizedBox(height: 1),
-                    Text(user.subtitle, style: const TextStyle(fontSize: 11, color: _muted)),
-                  ],
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: user.color.withOpacity(.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: user.color.withOpacity(.25)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(color: user.color.withOpacity(.15), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(user.icon, color: user.color, size: 20),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(color: user.color.withOpacity(.12), borderRadius: BorderRadius.circular(6)),
-                child: Text(user.school, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
-              ),
-              const SizedBox(width: 6),
-              Icon(Icons.login_rounded, color: user.color, size: 16),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _ink)),
+                      const SizedBox(height: 1),
+                      Text(user.subtitle, style: const TextStyle(fontSize: 11, color: _muted)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(color: user.color.withOpacity(.12), borderRadius: BorderRadius.circular(6)),
+                  child: Text(user.school, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: user.color)),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.login_rounded, color: user.color, size: 16),
+              ],
+            ),
           ),
         ),
       );

@@ -327,7 +327,10 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               ),
               const SizedBox(height: 22),
 
-              // ── 3. Accès rapide (2 lignes max, swipe horizontal) ──────
+              // ── 3. Alerte paiement (conditionnel) ────────────────────
+              _PaymentBanner(onTap: () => _nav('nav.my_payments')),
+
+              // ── 4. Accès rapide ───────────────────────────────────────
               _SectionHeader(
                 icon: Icons.apps_rounded,
                 title: 'Accès rapide',
@@ -340,6 +343,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                   'edt':           () => _nav('nav.schedule'),
                   'presences':     () => _nav('nav.attendance'),
                   'cours':         () => _nav('nav.courses'),
+                  'paiements':     () => _nav('nav.my_payments'),
                   'bibliotheque':  () => _push(const PlanGate(
                         minPlan: 'pro',
                         featureLabel: 'Bibliothèque',
@@ -348,11 +352,12 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                       )),
                   'notifications': () => _nav('nav.notifications'),
                   'simulateur':    () => _push(const SimulateurMoyennePage()),
+                  'documents':     () => _push(const StudentDocumentsPage()),
                 },
               ),
               const SizedBox(height: 24),
 
-              // ── 4. Bento grid : EDT + Statistiques ────────────────────
+              // ── 5. Bento grid : EDT + Statistiques ────────────────────
               if (isWide)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(flex: 3, child: _buildEdtSection(edt, loading, shimmer)),
@@ -366,7 +371,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
               ],
               const SizedBox(height: 22),
 
-              // ── 5. Dernières notes ─────────────────────────────────────
+              // ── 6. Dernières notes ─────────────────────────────────────
               _buildRecentNotesSection(recent, loading, shimmer),
             ]);
           }),
@@ -651,20 +656,22 @@ class _QuickStatPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: d.onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainer,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outline.withOpacity(.3)),
-          boxShadow: [BoxShadow(
-            color: Colors.black.withOpacity(.04),
-            blurRadius: 8, offset: const Offset(0, 2),
-          )],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: d.onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainer,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outline.withOpacity(.3)),
+            boxShadow: [BoxShadow(
+              color: Colors.black.withOpacity(.04),
+              blurRadius: 8, offset: const Offset(0, 2),
+            )],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Icône + chevron : 100 % statiques, jamais shimmerisés
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Container(
@@ -694,6 +701,7 @@ class _QuickStatPill extends StatelessWidget {
             ])),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -735,16 +743,19 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.w800, letterSpacing: -0.2))),
       if (action != null) ...[
         const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onAction,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(.08),
-              borderRadius: BorderRadius.circular(8),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onAction,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(action!, style: TextStyle(
+                  color: accentColor, fontSize: 11.5, fontWeight: FontWeight.w700)),
             ),
-            child: Text(action!, style: TextStyle(
-                color: accentColor, fontSize: 11.5, fontWeight: FontWeight.w700)),
           ),
         ),
       ],
@@ -790,54 +801,61 @@ class _PremiumShortcutsGrid extends StatelessWidget {
   const _PremiumShortcutsGrid({required this.onTap});
 
   static const _items = [
-    (key: 'notes',        icon: Icons.grading_rounded,          label: 'Notes',       c: _gold),
-    (key: 'edt',          icon: Icons.calendar_month_rounded,   label: 'Emploi',      c: _terra),
-    (key: 'presences',    icon: Icons.fact_check_rounded,       label: 'Présences',   c: _green),
-    (key: 'cours',        icon: Icons.menu_book_rounded,        label: 'Cours',       c: _terra),
-    (key: 'bibliotheque', icon: Icons.local_library_rounded,    label: 'Biblio.',     c: _green),
-    (key: 'notifications',icon: Icons.notifications_rounded,    label: 'Alertes',     c: _orange),
-    (key: 'simulateur',   icon: Icons.calculate_rounded,        label: 'Simulateur',  c: _gold),
+    (key: 'notes',        icon: Icons.grading_rounded,                   label: 'Notes',      c: _gold),
+    (key: 'presences',    icon: Icons.fact_check_rounded,                label: 'Présences',  c: _green),
+    (key: 'edt',          icon: Icons.calendar_month_rounded,            label: 'Emploi',     c: _terra),
+    (key: 'cours',        icon: Icons.menu_book_rounded,                  label: 'Cours',      c: _terra),
+    (key: 'paiements',    icon: Icons.account_balance_wallet_rounded,    label: 'Paiements',  c: _orange),
+    (key: 'bibliotheque', icon: Icons.local_library_rounded,             label: 'Biblio.',    c: _green),
+    (key: 'notifications',icon: Icons.notifications_rounded,             label: 'Alertes',    c: _orange),
+    (key: 'simulateur',   icon: Icons.calculate_rounded,                 label: 'Simulateur', c: _gold),
+    (key: 'documents',    icon: Icons.folder_rounded,                    label: 'Documents',  c: _cyan),
   ];
 
   @override
   Widget build(BuildContext context) {
-    const itemW = 88.0;
-    const itemH = 82.0;
-    const gap   = 10.0;
-    const rows  = 2;
+    const gap  = 10.0;
+    const rows = 2;
 
-    // Organise en colonnes de 2
+    // Colonnes de 2 éléments
     final cols = <List<({String key, IconData icon, String label, Color c})>>[];
     for (var i = 0; i < _items.length; i += rows) {
       cols.add(_items.sublist(i, (i + rows).clamp(0, _items.length)));
     }
 
-    return SizedBox(
-      height: itemH * rows + gap * (rows - 1),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        separatorBuilder: (_, __) => const SizedBox(width: gap),
-        itemCount: cols.length,
-        itemBuilder: (_, ci) {
-          final col = cols[ci];
-          return SizedBox(
-            width: itemW,
-            child: Column(
-              children: [
-                for (int ri = 0; ri < col.length; ri++) ...[
-                  if (ri > 0) const SizedBox(height: gap),
-                  SizedBox(
-                    height: itemH,
-                    child: _ShortcutCard(
-                        item: col[ri], onTap: onTap[col[ri].key]),
-                  ),
+    return LayoutBuilder(builder: (_, constraints) {
+      // 3 cartes pleines + bord de la 4e pour signaler le scroll
+      final cardW = (constraints.maxWidth - gap * 2) / 3.2;
+      final cardH = (cardW * 1.05).clamp(90.0, 112.0);
+      final totalH = cardH * rows + gap * (rows - 1);
+
+      return SizedBox(
+        height: totalH,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          separatorBuilder: (_, __) => const SizedBox(width: gap),
+          itemCount: cols.length,
+          itemBuilder: (_, ci) {
+            final col = cols[ci];
+            return SizedBox(
+              width: cardW,
+              child: Column(
+                children: [
+                  for (int ri = 0; ri < col.length; ri++) ...[
+                    if (ri > 0) const SizedBox(height: gap),
+                    SizedBox(
+                      height: cardH,
+                      child: _ShortcutCard(
+                          item: col[ri], onTap: onTap[col[ri].key]),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          );
-        },
-      ),
-    );
+              ),
+            );
+          },
+        ),
+      );
+    });
   }
 }
 
@@ -896,103 +914,103 @@ class _EdtTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 110,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: slots.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final s = slots[i];
-          final isFirst = i == 0;
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              width: 110,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [s.c, s.c.withOpacity(.80)],
-                ),
-                boxShadow: [
-                  BoxShadow(
+    const gap = 10.0;
+
+    return LayoutBuilder(builder: (_, constraints) {
+      // Exactement 3 cartes visibles (4e peeking pour indiquer le scroll)
+      final cardW = (constraints.maxWidth - gap * 2) / 2.85;
+      const cardH = 150.0;
+
+      return SizedBox(
+        height: cardH,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: slots.length,
+          separatorBuilder: (_, __) => const SizedBox(width: gap),
+          itemBuilder: (_, i) {
+            final s = slots[i];
+            final isFirst = i == 0;
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: cardW,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [s.c, s.c.withOpacity(.78)],
+                  ),
+                  boxShadow: [BoxShadow(
                     color: s.c.withOpacity(.30),
-                    blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Stack(children: [
-                // Symbole décoratif en fond
-                Positioned(right: -8, top: -8,
-                  child: Container(
-                    width: 52, height: 52,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(.08)),
-                  )),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Heure + badge actif
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(.18),
-                            borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.school_rounded,
-                              size: 14, color: Colors.white),
-                        ),
-                        if (isFirst)
+                    blurRadius: 12, offset: const Offset(0, 5))],
+                ),
+                child: Stack(children: [
+                  Positioned(right: -14, top: -14,
+                    child: Container(width: 72, height: 72,
+                      decoration: BoxDecoration(shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(.07)))),
+                  Positioned(left: -8, bottom: -10,
+                    child: Container(width: 44, height: 44,
+                      decoration: BoxDecoration(shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(.04)))),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            width: 34, height: 34,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.22),
-                              borderRadius: BorderRadius.circular(5)),
-                            child: const Text('Actif',
-                                style: TextStyle(color: Colors.white,
-                                    fontSize: 7, fontWeight: FontWeight.w900)),
+                              color: Colors.white.withOpacity(.20),
+                              borderRadius: BorderRadius.circular(10)),
+                            child: const Icon(Icons.school_rounded, size: 17, color: Colors.white),
                           ),
-                      ]),
-                      // Matière + heure
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          if (isFirst)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(.22),
+                                borderRadius: BorderRadius.circular(6)),
+                              child: const Text('Actif',
+                                  style: TextStyle(color: Colors.white,
+                                      fontSize: 8, fontWeight: FontWeight.w900)),
+                            ),
+                        ]),
+                        const Spacer(),
                         Text(s.sub,
                             style: const TextStyle(color: Colors.white,
-                                fontSize: 12, fontWeight: FontWeight.w900, height: 1.2),
+                                fontSize: 15, fontWeight: FontWeight.w900, height: 1.2),
                             maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 6),
                         Row(children: [
                           const Icon(Icons.access_time_rounded,
-                              size: 10, color: Color(0xCCFFFFFF)),
-                          const SizedBox(width: 3),
-                          Text(s.h,
-                              style: const TextStyle(color: Color(0xCCFFFFFF),
-                                  fontSize: 10, fontWeight: FontWeight.w700)),
+                              size: 12, color: Color(0xCCFFFFFF)),
+                          const SizedBox(width: 4),
+                          Text(s.h, style: const TextStyle(
+                              color: Color(0xCCFFFFFF),
+                              fontSize: 11, fontWeight: FontWeight.w700)),
                         ]),
                         if (s.room.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Row(children: [
                             const Icon(Icons.room_outlined,
-                                size: 10, color: Color(0xAAFFFFFF)),
-                            const SizedBox(width: 3),
-                            Text(s.room,
-                                style: const TextStyle(color: Color(0xAAFFFFFF),
-                                    fontSize: 9)),
+                                size: 12, color: Color(0xAAFFFFFF)),
+                            const SizedBox(width: 4),
+                            Text(s.room, style: const TextStyle(
+                                color: Color(0xAAFFFFFF), fontSize: 10)),
                           ]),
                         ],
-                      ]),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
+                ]),
+              ),
+            );
+          },
+        ),
+      );
+    });
   }
 }
 
@@ -1158,42 +1176,132 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: item.color.withOpacity(.18)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [item.color.withOpacity(.14), cs.surfaceContainer],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: item.color.withOpacity(.28)),
         boxShadow: [BoxShadow(
-          color: Colors.black.withOpacity(.03),
-          blurRadius: 6, offset: const Offset(0, 2))],
+          color: item.color.withOpacity(.10),
+          blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
-            width: 26, height: 26,
+            width: 28, height: 28,
             decoration: BoxDecoration(
-              color: item.color.withOpacity(.12),
-              borderRadius: BorderRadius.circular(7)),
-            child: Icon(item.icon, color: item.color, size: 13),
+              color: item.color.withOpacity(.20),
+              borderRadius: BorderRadius.circular(8)),
+            child: Icon(item.icon, color: item.color, size: 14),
           ),
           const SizedBox(width: 6),
           Expanded(child: Text(item.label, style: TextStyle(
-              color: cs.onSurface.withOpacity(.5),
+              color: cs.onSurface.withOpacity(.55),
               fontSize: 9, fontWeight: FontWeight.w700),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
         ]),
         const Spacer(),
         Text(item.value,
             style: TextStyle(
-                color: cs.onSurface, fontSize: item.compact ? 12 : 15,
+                color: item.color,
+                fontSize: item.compact ? 12 : 16,
                 fontWeight: FontWeight.w900, height: 1.1),
             maxLines: 1, overflow: TextOverflow.ellipsis),
         if (item.sub != null)
           Text(item.sub!, style: TextStyle(
-              color: cs.onSurface.withOpacity(.4),
+              color: cs.onSurface.withOpacity(.45),
               fontSize: 9, fontWeight: FontWeight.w600),
               maxLines: 1, overflow: TextOverflow.ellipsis),
       ]),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Bannière paiement (conditionnel — disparaît si tout est réglé)
+// ══════════════════════════════════════════════════════════════════════════
+class _PaymentBanner extends ConsumerWidget {
+  final VoidCallback onTap;
+  const _PaymentBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final invoices = ref.watch(myInvoicesProvider).valueOrNull ?? const <SbInvoice>[];
+    final unpaid   = invoices.where((i) => !i.isPaid).toList();
+    if (unpaid.isEmpty) return const SizedBox.shrink();
+
+    final hasLate  = unpaid.any((i) => i.isLate);
+    final color    = hasLate ? _terra : _orange;
+    final totalDue = unpaid.fold<double>(0, (s, i) => s + i.balance);
+    final currency = unpaid.first.currency;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withOpacity(.78)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(
+              color: color.withOpacity(.28),
+              blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Row(children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(.18),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                hasLate ? Icons.warning_rounded
+                        : Icons.account_balance_wallet_rounded,
+                color: Colors.white, size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasLate ? 'Paiement en retard' : 'Paiement en attente',
+                  style: const TextStyle(
+                    color: Colors.white, fontSize: 12.5,
+                    fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  '${totalDue.toStringAsFixed(0)} $currency à régler',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.80), fontSize: 11),
+                ),
+              ],
+            )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(.22),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Text('Voir',
+                  style: TextStyle(color: Colors.white,
+                      fontSize: 11, fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ),
+        ),
+      ),
     );
   }
 }
@@ -1213,7 +1321,9 @@ class _NoteRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final pct = note / max;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: ScolarisSurface.themedCard(context, radius: 13),
@@ -1264,6 +1374,7 @@ class _NoteRow extends StatelessWidget {
                 color: cs.onSurface.withOpacity(.45), fontSize: 10)),
           ]),
         ]),
+      ),
       ),
     );
   }

@@ -727,24 +727,27 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                           series: _series,
                           onToggleSeriesActive: (i, v) => setState(() => _series[i].isActive = v),
                         )
-                      : GestureDetector(
-                          onTap: () => setState(() => _showRightPanel = true),
-                          child: Container(
-                            width: 28,
-                            decoration: BoxDecoration(
-                              color: _cream,
-                              border: Border(left: BorderSide(color: _border)),
-                            ),
-                            child: Center(
-                              child: RotatedBox(
-                                quarterTurns: 3,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: _terra, borderRadius: BorderRadius.circular(6),
+                      : MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _showRightPanel = true),
+                            child: Container(
+                              width: 28,
+                              decoration: BoxDecoration(
+                                color: _cream,
+                                border: Border(left: BorderSide(color: _border)),
+                              ),
+                              child: Center(
+                                child: RotatedBox(
+                                  quarterTurns: 3,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: _terra, borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text('Actions', style: TextStyle(
+                                        color: _white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
                                   ),
-                                  child: const Text('Actions', style: TextStyle(
-                                      color: _white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
                                 ),
                               ),
                             ),
@@ -961,25 +964,28 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                     Positioned.fill(child: CustomPaint(painter: _HexPatternPainter())),
                     // Banner edit button
                     Positioned(top: 12, right: 12,
-                      child: GestureDetector(
-                        onTap: () => _showMediaSheet(
-                          title: 'Bannière',
-                          onColorSelected: (i) => setState(() => _s2BannerIdx = i),
-                          colorCount: _kBannerThemes.length,
-                          gradients: _kBannerThemes,
-                          selectedIdx: _s2BannerIdx,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(.4),
-                            borderRadius: BorderRadius.circular(8),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => _showMediaSheet(
+                            title: 'Bannière',
+                            onColorSelected: (i) => setState(() => _s2BannerIdx = i),
+                            colorCount: _kBannerThemes.length,
+                            gradients: _kBannerThemes,
+                            selectedIdx: _s2BannerIdx,
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: const [
-                            Icon(Icons.camera_alt_outlined, size: 13, color: _white),
-                            SizedBox(width: 5),
-                            Text('Modifier la bannière', style: TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w600)),
-                          ]),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                              Icon(Icons.camera_alt_outlined, size: 13, color: _white),
+                              SizedBox(width: 5),
+                              Text('Modifier la bannière', style: TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
                         ),
                       ),
                     ),
@@ -988,7 +994,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                 // Profile circle — positioned bottom-left, cuts banner
                 Positioned(
                   left: 24, bottom: -50,
-                  child: GestureDetector(
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
                     onTap: () => _showMediaSheet(
                       title: 'Photo de profil',
                       onColorSelected: (i) => setState(() => _s2AvatarIdx = i),
@@ -1019,6 +1027,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                         ),
                       ),
                     ]),
+                    ),
                   ),
                 ),
               ]),
@@ -1452,23 +1461,26 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             const SizedBox(height: 12),
             Wrap(
               spacing: 10, runSpacing: 10,
-              children: List.generate(colorCount, (i) => GestureDetector(
-                onTap: () {
-                  onColorSelected(i);
-                  setSt(() {});
-                  setState(() {});
-                  Navigator.pop(ctx);
-                },
-                child: Container(
-                  width: 64, height: 64,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: gradients[i], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(14),
-                    border: i == selectedIdx ? Border.all(color: _terra, width: 3) : Border.all(color: _border),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 6)],
+              children: List.generate(colorCount, (i) => MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    onColorSelected(i);
+                    setSt(() {});
+                    setState(() {});
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    width: 64, height: 64,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradients[i], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(14),
+                      border: i == selectedIdx ? Border.all(color: _terra, width: 3) : Border.all(color: _border),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 6)],
+                    ),
+                    child: i == selectedIdx
+                        ? const Icon(Icons.check_rounded, color: _white, size: 26) : null,
                   ),
-                  child: i == selectedIdx
-                      ? const Icon(Icons.check_rounded, color: _white, size: 26) : null,
                 ),
               )),
             ),
@@ -1543,10 +1555,13 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                   Text(sys.title, style: const TextStyle(color: _white, fontSize: 18, fontWeight: FontWeight.w900)),
                   Text('Langue : ${sys.language}', style: TextStyle(color: _white.withOpacity(.6), fontSize: 12)),
                 ])),
-                GestureDetector(onTap: () => Navigator.pop(context),
-                  child: Container(width: 32, height: 32,
-                    decoration: BoxDecoration(color: _white.withOpacity(.15), shape: BoxShape.circle),
-                    child: const Icon(Icons.close_rounded, color: _white, size: 16))),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(onTap: () => Navigator.pop(context),
+                    child: Container(width: 32, height: 32,
+                      decoration: BoxDecoration(color: _white.withOpacity(.15), shape: BoxShape.circle),
+                      child: const Icon(Icons.close_rounded, color: _white, size: 16))),
+                ),
               ]),
             ),
             Expanded(child: SingleChildScrollView(
@@ -1610,16 +1625,19 @@ class _StepHero extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center, children: [
             // Back + progress
             Row(children: [
-              GestureDetector(
-                onTap: onBack,
-                child: Container(
-                  height: 34, width: 34,
-                  decoration: BoxDecoration(
-                    color: _white.withOpacity(.12),
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: _white.withOpacity(.2)),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onBack,
+                  child: Container(
+                    height: 34, width: 34,
+                    decoration: BoxDecoration(
+                      color: _white.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: _white.withOpacity(.2)),
+                    ),
+                    child: const Icon(Icons.arrow_back_rounded, color: _white, size: 17),
                   ),
-                  child: const Icon(Icons.arrow_back_rounded, color: _white, size: 17),
                 ),
               ),
               const Spacer(),
@@ -1683,12 +1701,15 @@ class _RightActionsPanel extends StatelessWidget {
           ),
           child: Row(children: [
             const Expanded(child: Text('Actions', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _ink))),
-            GestureDetector(
-              onTap: onTogglePanel,
-              child: Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(color: _border.withOpacity(.6), borderRadius: BorderRadius.circular(7)),
-                child: const Icon(Icons.chevron_right_rounded, size: 16, color: _muted),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onTogglePanel,
+                child: Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(color: _border.withOpacity(.6), borderRadius: BorderRadius.circular(7)),
+                  child: const Icon(Icons.chevron_right_rounded, size: 16, color: _muted),
+                ),
               ),
             ),
           ]),
@@ -1762,20 +1783,23 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.07),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(.2)),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(.07),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(.2)),
+          ),
+          child: Row(children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color))),
+          ]),
         ),
-        child: Row(children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color))),
-        ]),
       ),
     );
   }
@@ -1826,7 +1850,9 @@ class _SidebarStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = index < current, active = index == current;
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 2),
@@ -1873,6 +1899,7 @@ class _SidebarStep extends StatelessWidget {
               Icon(Icons.edit_outlined, size: 12, color: _gold.withOpacity(.4)),
           ]),
         ),
+      ),
       ),
     );
   }
@@ -1966,7 +1993,9 @@ class _SchoolTypeGrid extends StatelessWidget {
           );
         }
         final sel = selected.contains(t.id);
-        return GestureDetector(
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           onTap: () => onToggle(t.id),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -1995,6 +2024,7 @@ class _SchoolTypeGrid extends StatelessWidget {
               Text(t.sub, style: TextStyle(fontSize: 10, color: sel ? _terra.withOpacity(.7) : _muted),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
+          ),
           ),
         );
       },
@@ -2255,14 +2285,20 @@ class _SeriesCardState extends State<_SeriesCard> {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
-            GestureDetector(
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: _muted, size: 20),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: _muted, size: 20),
+              ),
             ),
             const SizedBox(width: 4),
-            GestureDetector(
-              onTap: widget.onRemove,
-              child: const Icon(Icons.delete_outline_rounded, color: _red, size: 17),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: widget.onRemove,
+                child: const Icon(Icons.delete_outline_rounded, color: _red, size: 17),
+              ),
             ),
           ]),
         ),
@@ -2281,19 +2317,22 @@ class _SeriesCardState extends State<_SeriesCard> {
                     Row(children: [
                       _ClassChip(label: e.value, onRemove: () => widget.onRemoveClass(e.key)),
                       const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => setState(() => _insertAfterIdx = _insertAfterIdx == e.key ? null : e.key),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: _insertAfterIdx == e.key ? _green.withOpacity(.12) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _insertAfterIdx = _insertAfterIdx == e.key ? null : e.key),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _insertAfterIdx == e.key ? _green.withOpacity(.12) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.add_rounded, size: 12, color: _insertAfterIdx == e.key ? _green : _muted),
+                              Text(' après', style: TextStyle(fontSize: 9.5, color: _insertAfterIdx == e.key ? _green : _muted, fontWeight: FontWeight.w600)),
+                            ]),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.add_rounded, size: 12, color: _insertAfterIdx == e.key ? _green : _muted),
-                            Text(' après', style: TextStyle(fontSize: 9.5, color: _insertAfterIdx == e.key ? _green : _muted, fontWeight: FontWeight.w600)),
-                          ]),
                         ),
                       ),
                     ]),
@@ -2310,11 +2349,14 @@ class _SeriesCardState extends State<_SeriesCard> {
                             ),
                           )),
                           const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: _addClass,
-                            child: Container(width: 38, height: 38,
-                              decoration: BoxDecoration(color: _green.withOpacity(.1), borderRadius: BorderRadius.circular(9)),
-                              child: const Icon(Icons.check_rounded, color: _green, size: 18)),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: _addClass,
+                              child: Container(width: 38, height: 38,
+                                decoration: BoxDecoration(color: _green.withOpacity(.1), borderRadius: BorderRadius.circular(9)),
+                                child: const Icon(Icons.check_rounded, color: _green, size: 18)),
+                            ),
                           ),
                         ]),
                       ),
@@ -2334,11 +2376,14 @@ class _SeriesCardState extends State<_SeriesCard> {
                     ),
                   )),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () { if (_classCtrl.text.isNotEmpty) { widget.onAddClass(_classCtrl.text.trim()); _classCtrl.clear(); } },
-                    child: Container(width: 42, height: 42,
-                      decoration: BoxDecoration(color: _terra.withOpacity(.1), borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.add_circle_outline, color: _terra, size: 20)),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () { if (_classCtrl.text.isNotEmpty) { widget.onAddClass(_classCtrl.text.trim()); _classCtrl.clear(); } },
+                      child: Container(width: 42, height: 42,
+                        decoration: BoxDecoration(color: _terra.withOpacity(.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.add_circle_outline, color: _terra, size: 20)),
+                    ),
                   ),
                 ]),
             ]),
@@ -2360,7 +2405,9 @@ class _SystemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -2392,21 +2439,25 @@ class _SystemCard extends StatelessWidget {
             Text('Langue : ${sys.language}', style: TextStyle(fontSize: 11, color: _muted.withOpacity(.8))),
           ])),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: onInfo,
-            child: Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                color: _gold.withOpacity(.1), borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _gold.withOpacity(.2)),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onInfo,
+              child: Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: _gold.withOpacity(.1), borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _gold.withOpacity(.2)),
+                ),
+                child: const Icon(Icons.info_outline_rounded, size: 16, color: _gold),
               ),
-              child: const Icon(Icons.info_outline_rounded, size: 16, color: _gold),
             ),
           ),
           const SizedBox(width: 8),
           if (selected)
             const Icon(Icons.check_circle_rounded, color: _terra, size: 22),
         ]),
+      ),
       ),
     );
   }
@@ -2502,7 +2553,9 @@ class _MediaOptionBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: 72,
@@ -2517,6 +2570,7 @@ class _MediaOptionBtn extends StatelessWidget {
             Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _ink),
                 textAlign: TextAlign.center, maxLines: 2),
           ]),
+        ),
         ),
       ),
     );
@@ -2533,20 +2587,23 @@ class _PhoneRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      GestureDetector(
-        onTap: onDialTap,
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: _subtle, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border),
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onDialTap,
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _subtle, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(flag, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 4),
+              Text(dialCode, style: const TextStyle(fontSize: 12, color: _ink, fontWeight: FontWeight.w600)),
+              const Icon(Icons.expand_more_rounded, size: 14, color: _muted),
+            ]),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(flag, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 4),
-            Text(dialCode, style: const TextStyle(fontSize: 12, color: _ink, fontWeight: FontWeight.w600)),
-            const Icon(Icons.expand_more_rounded, size: 14, color: _muted),
-          ]),
         ),
       ),
       const SizedBox(width: 8),
@@ -2675,7 +2732,9 @@ class _PrimaryBtn extends StatelessWidget {
   const _PrimaryBtn({required this.label, required this.loading, this.onTap, this.icon});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: loading ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -2694,6 +2753,7 @@ class _PrimaryBtn extends StatelessWidget {
           Text(label, style: const TextStyle(color: _white, fontSize: 14, fontWeight: FontWeight.w800)),
         ]),
       ),
+      ),
     );
   }
 }
@@ -2706,7 +2766,9 @@ class _OutlineBtn extends StatelessWidget {
   const _OutlineBtn({required this.label, required this.icon, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         height: 46, padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2719,6 +2781,7 @@ class _OutlineBtn extends StatelessWidget {
           const SizedBox(width: 8),
           Text(label, style: const TextStyle(fontSize: 13.5, color: _terra, fontWeight: FontWeight.w700)),
         ]),
+      ),
       ),
     );
   }
@@ -2809,8 +2872,11 @@ class _ClassChip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(label, style: const TextStyle(fontSize: 12, color: _terra, fontWeight: FontWeight.w600)),
         const SizedBox(width: 5),
-        GestureDetector(onTap: onRemove,
-          child: const Icon(Icons.close_rounded, size: 12, color: _terra)),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(onTap: onRemove,
+            child: const Icon(Icons.close_rounded, size: 12, color: _terra)),
+        ),
       ]),
     );
   }
@@ -2846,10 +2912,13 @@ class _BranchCard extends StatelessWidget {
             const SizedBox(width: 10),
             Text('Filiale ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: _ink)),
             const Spacer(),
-            GestureDetector(onTap: onRemove,
-              child: Container(width: 30, height: 30,
-                decoration: BoxDecoration(color: _red.withOpacity(.08), borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.close_rounded, color: _red, size: 15))),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(onTap: onRemove,
+                child: Container(width: 30, height: 30,
+                  decoration: BoxDecoration(color: _red.withOpacity(.08), borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.close_rounded, color: _red, size: 15))),
+            ),
           ]),
         ),
         Padding(
@@ -2873,15 +2942,18 @@ class _BranchCard extends StatelessWidget {
               onChanged: (v) { branch.address = v; onChange(); }),
             const SizedBox(height: 10),
             Row(children: [
-              GestureDetector(onTap: onPickDial,
-                child: Container(height: 48, padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(color: _subtle, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(branch.countryFlag, style: const TextStyle(fontSize: 15)),
-                    const SizedBox(width: 4),
-                    Text(branch.dialCode, style: const TextStyle(fontSize: 12, color: _ink, fontWeight: FontWeight.w600)),
-                    const Icon(Icons.expand_more_rounded, size: 13, color: _muted),
-                  ]))),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(onTap: onPickDial,
+                  child: Container(height: 48, padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(color: _subtle, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(branch.countryFlag, style: const TextStyle(fontSize: 15)),
+                      const SizedBox(width: 4),
+                      Text(branch.dialCode, style: const TextStyle(fontSize: 12, color: _ink, fontWeight: FontWeight.w600)),
+                      const Icon(Icons.expand_more_rounded, size: 13, color: _muted),
+                    ]))),
+              ),
               const SizedBox(width: 8),
               Expanded(child: TextField(keyboardType: TextInputType.phone,
                 style: const TextStyle(fontSize: 13, color: _ink),

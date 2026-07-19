@@ -1,36 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/enrollment_config.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../enrollment/data/prereg_request.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 
-/// File d'attente des pré-inscriptions reçues (maquette). Master-détail inline :
-/// liste des demandes → fiche → Accepter / Refuser.
-class PreRegQueuePage extends StatefulWidget {
+/// File d'attente des pré-inscriptions reçues (`enrollment_requests`).
+/// Master-détail inline : liste des demandes → fiche → Accepter / Refuser.
+class PreRegQueuePage extends ConsumerStatefulWidget {
   const PreRegQueuePage({super.key});
   @override
-  State<PreRegQueuePage> createState() => _PreRegQueuePageState();
+  ConsumerState<PreRegQueuePage> createState() => _PreRegQueuePageState();
 }
 
-class _PreRegQueuePageState extends State<PreRegQueuePage> {
+class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
   String _filter = 'À traiter';
   PreRegRequest? _selected;
+  bool _busy = false;
 
   static const _filters = ['À traiter', 'Acceptées', 'Refusées', 'Toutes'];
 
-  List<PreRegRequest> get _filtered {
-    Iterable<PreRegRequest> list = PreRegRequests.items;
+  List<PreRegRequest> _filtered(List<PreRegRequest> items) {
+    Iterable<PreRegRequest> list = items;
     switch (_filter) {
       case 'À traiter':
-        list = list.where((r) => r.status == PreRegStatus.pending);
+        list = list.where((r) => preRegStatusOf(r) == PreRegStatus.pending);
         break;
       case 'Acceptées':
-        list = list.where((r) => r.status == PreRegStatus.accepted);
+        list = list.where((r) => preRegStatusOf(r) == PreRegStatus.accepted);
         break;
       case 'Refusées':
-        list = list.where((r) => r.status == PreRegStatus.rejected);
+        list = list.where((r) => preRegStatusOf(r) == PreRegStatus.rejected);
         break;
     }
     return list.toList()
@@ -50,16 +56,27 @@ class _PreRegQueuePageState extends State<PreRegQueuePage> {
     final ok = await _confirm(
       title: 'Accepter la demande ?',
       message:
-          'La fiche élève de « ${r.fullName} » sera créée et affectée à une '
-          'classe, et les comptes parent/élève seront générés.',
+          'La fiche élève de « ${r.fullName} » sera créée et rattachée à '
+          'cette école. Vous pourrez l\'affecter à une classe ensuite.',
       confirmLabel: 'Accepter',
     );
     if (ok != true) return;
-    setState(() {
-      PreRegRequests.accept(r.id);
-      _selected = null;
-    });
-    _snack('Demande acceptée — fiche & comptes créés (démo).');
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    setState(() => _busy = true);
+    try {
+      await SupabaseDbSource.acceptEnrollmentRequest(
+          request: r, schoolId: schoolId);
+      ref.invalidate(enrollmentRequestsProvider);
+      ref.invalidate(studentsProvider);
+      if (!mounted) return;
+      setState(() { _selected = null; _busy = false; });
+      _snack('Demande acceptée — fiche élève créée.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack('Échec : $e', color: _terra);
+    }
   }
 
   Future<void> _reject(PreRegRequest r) async {
@@ -72,11 +89,18 @@ class _PreRegQueuePageState extends State<PreRegQueuePage> {
       danger: true,
     );
     if (ok != true) return;
-    setState(() {
-      PreRegRequests.reject(r.id);
-      _selected = null;
-    });
-    _snack('Demande refusée.', color: _terra);
+    setState(() => _busy = true);
+    try {
+      await SupabaseDbSource.rejectEnrollmentRequest(id: r.id);
+      ref.invalidate(enrollmentRequestsProvider);
+      if (!mounted) return;
+      setState(() { _selected = null; _busy = false; });
+      _snack('Demande refusée.', color: _terra);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack('Échec : $e', color: _terra);
+    }
   }
 
   Future<bool?> _confirm({
@@ -109,111 +133,138 @@ class _PreRegQueuePageState extends State<PreRegQueuePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selected != null) {
-      return _DetailView(
-        request: _selected!,
-        onBack: () => setState(() => _selected = null),
-        onAccept: () => _accept(_selected!),
-        onReject: () => _reject(_selected!),
-      );
-    }
+    final requestsAsync = ref.watch(enrollmentRequestsProvider);
 
-    final rows = _filtered;
-    return PageScaffold(
-      title: 'Pré-inscriptions',
-      subtitle: '${PreRegRequests.pendingCount} demande(s) à traiter',
-      child: Column(children: [
-        // Filtres.
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final f in _filters)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(f),
-                  selected: _filter == f,
-                  onSelected: (_) => setState(() => _filter = f),
-                  selectedColor: _terra.withValues(alpha: .12),
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    color: _filter == f ? _terra : context.cMuted,
-                    fontWeight: _filter == f ? FontWeight.w700 : FontWeight.w500,
+    return requestsAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Pré-inscriptions',
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => PageScaffold(
+        title: 'Pré-inscriptions',
+        child: EmptyState(
+          icon: Icons.error_outline_rounded,
+          title: 'Erreur de chargement',
+          description: '$e',
+        ),
+      ),
+      data: (items) {
+        if (_selected != null) {
+          final r = items.where((x) => x.id == _selected!.id).firstOrNull ??
+              _selected!;
+          return _DetailView(
+            request: r,
+            busy: _busy,
+            onBack: () => setState(() => _selected = null),
+            onAccept: () => _accept(r),
+            onReject: () => _reject(r),
+          );
+        }
+
+        final rows = _filtered(items);
+        final pendingCount = items
+            .where((r) => preRegStatusOf(r) == PreRegStatus.pending)
+            .length;
+        return PageScaffold(
+          title: 'Pré-inscriptions',
+          subtitle: '$pendingCount demande(s) à traiter',
+          child: Column(children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                for (final f in _filters)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(f),
+                      selected: _filter == f,
+                      onSelected: (_) => setState(() => _filter = f),
+                      selectedColor: _terra.withValues(alpha: .12),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        color: _filter == f ? _terra : context.cMuted,
+                        fontWeight:
+                            _filter == f ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        DataPanel(
-          title: 'Demandes reçues',
-          child: rows.isEmpty
-              ? const EmptyState(
-                  icon: Icons.inbox_rounded,
-                  title: 'Aucune demande',
-                  description: 'Aucune pré-inscription pour ce filtre.')
-              : DataTablePanel(
-                  columns: const [
-                    'Élève', 'Niveau', 'Tuteur', 'Paiement', 'Reçue', ''
-                  ],
-                  flex: const [3, 2, 3, 2, 2, 1],
-                  rows: [
-                    for (final r in rows)
-                      [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() => _selected = r),
-                          child: Row(children: [
-                            Avatar(name: r.fullName, size: 26),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(r.fullName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      color: context.cInk,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ]),
-                        ),
-                        Text(r.level,
-                            style:
-                                TextStyle(fontSize: 11.5, color: context.cMuted)),
-                        Text('${r.guardianName}\n${r.guardianPhone}',
-                            style:
-                                TextStyle(fontSize: 11, color: context.cMuted)),
-                        Align(
-                            alignment: Alignment.centerLeft,
-                            child: _PayPill(pay: r.pay)),
-                        Text(_ago(r.submittedAt),
-                            style:
-                                TextStyle(fontSize: 11, color: context.cMuted)),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: r.status == PreRegStatus.pending
-                              ? IconButton(
-                                  onPressed: () =>
-                                      setState(() => _selected = r),
-                                  icon: const Icon(
-                                      Icons.chevron_right_rounded, size: 18),
-                                  color: context.cMuted.withValues(alpha: .6),
-                                  tooltip: 'Ouvrir',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                      width: 32, height: 32),
-                                )
-                              : _StatusPill(status: r.status),
-                        ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            DataPanel(
+              title: 'Demandes reçues',
+              child: rows.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.inbox_rounded,
+                      title: 'Aucune demande',
+                      description: 'Aucune pré-inscription pour ce filtre.')
+                  : DataTablePanel(
+                      columns: const [
+                        'Élève', 'Niveau', 'Tuteur', 'Reçue', ''
                       ],
-                  ],
-                ),
-        ),
-      ]),
+                      flex: const [3, 2, 3, 2, 1],
+                      rows: [
+                        for (final r in rows)
+                          [
+                            MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => setState(() => _selected = r),
+                                child: Row(children: [
+                                  Avatar(name: r.fullName, size: 26),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                        r.fullName.isEmpty ? '—' : r.fullName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            color: context.cInk,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ]),
+                              ),
+                            ),
+                            Text(r.level.isEmpty ? '—' : r.level,
+                                style: TextStyle(
+                                    fontSize: 11.5, color: context.cMuted)),
+                            Text('${r.guardianName}\n${r.guardianPhone}',
+                                style: TextStyle(
+                                    fontSize: 11, color: context.cMuted)),
+                            Text(_ago(r.submittedAt),
+                                style: TextStyle(
+                                    fontSize: 11, color: context.cMuted)),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: preRegStatusOf(r) == PreRegStatus.pending
+                                  ? IconButton(
+                                      onPressed: () =>
+                                          setState(() => _selected = r),
+                                      icon: const Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18),
+                                      color:
+                                          context.cMuted.withValues(alpha: .6),
+                                      tooltip: 'Ouvrir',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints.tightFor(
+                                          width: 32, height: 32),
+                                    )
+                                  : _StatusPill(status: preRegStatusOf(r)),
+                            ),
+                          ],
+                      ],
+                    ),
+            ),
+          ]),
+        );
+      },
     );
   }
 
   static String _ago(DateTime d) {
-    final diff = DateTime(2026, 6, 30).difference(d);
+    final diff = DateTime.now().difference(d);
     if (diff.inHours < 1) return 'à l\'instant';
     if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
     if (diff.inDays == 1) return 'hier';
@@ -224,11 +275,13 @@ class _PreRegQueuePageState extends State<PreRegQueuePage> {
 // ── Fiche détail ──────────────────────────────────────────────────────────────
 class _DetailView extends StatelessWidget {
   final PreRegRequest request;
+  final bool busy;
   final VoidCallback onBack;
   final VoidCallback onAccept;
   final VoidCallback onReject;
   const _DetailView({
     required this.request,
+    required this.busy,
     required this.onBack,
     required this.onAccept,
     required this.onReject,
@@ -237,12 +290,12 @@ class _DetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = request;
-    final pending = r.status == PreRegStatus.pending;
+    final status = preRegStatusOf(r);
+    final pending = status == PreRegStatus.pending;
     return PageScaffold(
-      title: r.fullName,
-      subtitle: '${r.level} · ${r.city}',
+      title: r.fullName.isEmpty ? 'Demande' : r.fullName,
+      subtitle: '${r.level} · réf. ${r.reference}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Retour.
         Align(
           alignment: Alignment.centerLeft,
           child: Material(
@@ -269,13 +322,10 @@ class _DetailView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // Statut / paiement.
         Row(children: [
-          _StatusPill(status: r.status),
-          const SizedBox(width: 8),
-          _PayPill(pay: r.pay),
+          _StatusPill(status: status),
           const Spacer(),
-          Text('${_group(r.feeAmount)} F de frais',
+          Text(r.reference,
               style: TextStyle(
                   fontSize: 12,
                   color: context.cInk,
@@ -283,21 +333,27 @@ class _DetailView extends StatelessWidget {
         ]),
         const SizedBox(height: 14),
 
-        // Actions (seulement si à traiter).
         if (pending) ...[
           Wrap(spacing: 8, runSpacing: 8, children: [
             ActionButton(
-                label: 'Refuser', icon: Icons.close_rounded, onTap: onReject),
+                label: 'Refuser',
+                icon: Icons.close_rounded,
+                onTap: busy ? null : onReject),
             ActionButton(
                 label: 'Accepter',
                 icon: Icons.check_rounded,
                 primary: true,
-                onTap: onAccept),
+                onTap: busy ? null : onAccept),
           ]),
+          const SizedBox(height: 14),
+        ] else if (status == PreRegStatus.rejected && (r.note ?? '').isNotEmpty) ...[
+          DataPanel(
+            title: 'Motif du refus',
+            child: Text(r.note!, style: TextStyle(fontSize: 12.5, color: context.cInk)),
+          ),
           const SizedBox(height: 14),
         ],
 
-        // Tuteur / contact.
         DataPanel(
           title: 'Tuteur / contact',
           child: Column(children: [
@@ -308,28 +364,95 @@ class _DetailView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // Informations soumises.
         DataPanel(
           title: 'Informations soumises',
           child: Column(children: [
-            _Row(label: 'Niveau souhaité', value: r.level),
-            _Row(label: 'Ville', value: r.city),
-            for (final e in r.data.entries)
-              _Row(label: e.key, value: e.value),
+            for (final f in EnrollmentFields.all)
+              if ((r.payload[f.id] as String?)?.trim().isNotEmpty ?? false)
+                (f.type == FieldType.photo || f.type == FieldType.file)
+                    ? _DocumentRow(
+                        label: f.label, storagePath: r.payload[f.id] as String)
+                    : _Row(label: f.label, value: r.payload[f.id] as String),
           ]),
         ),
       ]),
     );
   }
+}
 
-  static String _group(int n) {
-    final s = n.toString();
-    final b = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) b.write(' ');
-      b.write(s[i]);
+/// Ligne "pièce jointe" : le payload ne contient qu'un chemin de stockage
+/// (bucket privé `enrollment-documents`) — on génère une URL signée à la
+/// demande plutôt que d'en garder une en cache (elle expire au bout d'1 h).
+class _DocumentRow extends StatefulWidget {
+  final String label;
+  final String storagePath;
+  const _DocumentRow({required this.label, required this.storagePath});
+
+  @override
+  State<_DocumentRow> createState() => _DocumentRowState();
+}
+
+class _DocumentRowState extends State<_DocumentRow> {
+  bool _loading = false;
+
+  Future<void> _open(BuildContext context) async {
+    setState(() => _loading = true);
+    try {
+      final url =
+          await SupabaseDbSource.getEnrollmentDocumentUrl(widget.storagePath);
+      if (!mounted) return;
+      final ok = await launchUrl(Uri.parse(url),
+          mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d\'ouvrir le document.'),
+          backgroundColor: _terra,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    return b.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 150,
+          child: Text(widget.label,
+              style: TextStyle(fontSize: 12, color: context.cMuted)),
+        ),
+        Expanded(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _loading ? null : () => _open(context),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _loading
+                    ? const SizedBox(
+                        height: 13, width: 13,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.attach_file_rounded, size: 15, color: _terra),
+                const SizedBox(width: 6),
+                const Text('Voir la pièce jointe',
+                    style: TextStyle(
+                        fontSize: 12.5, color: _terra, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }
 
@@ -369,19 +492,6 @@ class _StatusPill extends StatelessWidget {
       PreRegStatus.pending => StatusPill.info('À traiter'),
       PreRegStatus.accepted => StatusPill.success('Acceptée'),
       PreRegStatus.rejected => StatusPill.danger('Refusée'),
-    };
-  }
-}
-
-class _PayPill extends StatelessWidget {
-  final PreRegPay pay;
-  const _PayPill({required this.pay});
-  @override
-  Widget build(BuildContext context) {
-    return switch (pay) {
-      PreRegPay.online => StatusPill.success('Payé en ligne'),
-      PreRegPay.cash => StatusPill.success('Payé (espèces)'),
-      PreRegPay.unpaid => StatusPill.warning('À régler à l\'école'),
     };
   }
 }

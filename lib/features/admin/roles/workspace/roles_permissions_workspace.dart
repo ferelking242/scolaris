@@ -1076,20 +1076,23 @@ class _MasterCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        width: 19, height: 19,
-        decoration: BoxDecoration(
-          color: checked ? _terra : (indeterminate ? context.cSubtle : Colors.transparent),
-          border: Border.all(color: checked ? _terra : context.cBorder, width: 1.5),
-          borderRadius: BorderRadius.circular(5),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: disabled ? null : onTap,
+        child: Container(
+          width: 19, height: 19,
+          decoration: BoxDecoration(
+            color: checked ? _terra : (indeterminate ? context.cSubtle : Colors.transparent),
+            border: Border.all(color: checked ? _terra : context.cBorder, width: 1.5),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: checked
+              ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+              : (indeterminate
+                  ? const Center(child: SizedBox(width: 9, height: 2, child: ColoredBox(color: Color(0xFF9E9E9E))))
+                  : null),
         ),
-        child: checked
-            ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
-            : (indeterminate
-                ? const Center(child: SizedBox(width: 9, height: 2, child: ColoredBox(color: Color(0xFF9E9E9E))))
-                : null),
       ),
     );
   }
@@ -1219,21 +1222,24 @@ class _SummaryPanel extends StatelessWidget {
       _FieldLabel('Icône'),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final entry in kRoleIcons.entries)
-          GestureDetector(
-            onTap: () => onMutate((r) => r.iconKey = entry.key),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: role.iconKey == entry.key ? roleColor.withOpacity(.16) : context.cSubtle,
-                border: Border.all(
-                  color: role.iconKey == entry.key ? roleColor : context.cBorder,
-                  width: role.iconKey == entry.key ? 1.5 : 1,
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => onMutate((r) => r.iconKey = entry.key),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: role.iconKey == entry.key ? roleColor.withOpacity(.16) : context.cSubtle,
+                  border: Border.all(
+                    color: role.iconKey == entry.key ? roleColor : context.cBorder,
+                    width: role.iconKey == entry.key ? 1.5 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(9),
                 ),
-                borderRadius: BorderRadius.circular(9),
+                child: Icon(entry.value, size: 17,
+                    color: role.iconKey == entry.key ? roleColor : context.cMuted),
               ),
-              child: Icon(entry.value, size: 17,
-                  color: role.iconKey == entry.key ? roleColor : context.cMuted),
             ),
           ),
       ]),
@@ -1242,22 +1248,25 @@ class _SummaryPanel extends StatelessWidget {
       _FieldLabel('Couleur'),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (var i = 0; i < ScolarisAccents.all.length; i++)
-          GestureDetector(
-            onTap: () => onMutate((r) => r.color = colorToHex(ScolarisAccents.all[i])),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 26, height: 26,
-              decoration: BoxDecoration(
-                color: ScolarisAccents.all[i],
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorToHex(ScolarisAccents.all[i]) == role.color
-                      ? context.cInk : Colors.transparent,
-                  width: 2.5,
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => onMutate((r) => r.color = colorToHex(ScolarisAccents.all[i])),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 26, height: 26,
+                decoration: BoxDecoration(
+                  color: ScolarisAccents.all[i],
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorToHex(ScolarisAccents.all[i]) == role.color
+                        ? context.cInk : Colors.transparent,
+                    width: 2.5,
+                  ),
+                  boxShadow: colorToHex(ScolarisAccents.all[i]) == role.color
+                      ? [BoxShadow(color: ScolarisAccents.all[i].withOpacity(.4), blurRadius: 6)]
+                      : null,
                 ),
-                boxShadow: colorToHex(ScolarisAccents.all[i]) == role.color
-                    ? [BoxShadow(color: ScolarisAccents.all[i].withOpacity(.4), blurRadius: 6)]
-                    : null,
               ),
             ),
           ),
@@ -1267,20 +1276,23 @@ class _SummaryPanel extends StatelessWidget {
       _FieldLabel('Niveau hiérarchique'),
       Wrap(spacing: 6, runSpacing: 6, children: [
         for (final l in kRoleLevels)
-          GestureDetector(
-            onTap: () => onMutate((r) => r.level = l),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-              decoration: BoxDecoration(
-                color: role.level == l ? roleColor.withOpacity(.14) : Colors.transparent,
-                border: Border.all(color: role.level == l ? roleColor : context.cBorder),
-                borderRadius: BorderRadius.circular(20),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => onMutate((r) => r.level = l),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: role.level == l ? roleColor.withOpacity(.14) : Colors.transparent,
+                  border: Border.all(color: role.level == l ? roleColor : context.cBorder),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(l, style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: role.level == l ? roleColor : context.cMuted,
+                )),
               ),
-              child: Text(l, style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w600,
-                color: role.level == l ? roleColor : context.cMuted,
-              )),
             ),
           ),
       ]),

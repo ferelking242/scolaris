@@ -138,21 +138,24 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
                   rows: [
                     for (final s in schools)
                       [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _open(s),
-                          child: Row(children: [
-                            Avatar(name: s.name, size: 26),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(s.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      color: context.cInk,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ]),
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _open(s),
+                            child: Row(children: [
+                              Avatar(name: s.name, size: 26),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(s.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: context.cInk,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ]),
+                          ),
                         ),
                         Text('${s.city}\n${s.country}',
                             style: TextStyle(fontSize: 11.5, color: context.cMuted)),

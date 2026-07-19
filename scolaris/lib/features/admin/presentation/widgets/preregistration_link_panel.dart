@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../enrollment/data/prereg_store.dart';
@@ -97,15 +98,21 @@ class _PreRegistrationLinkPanelState
     );
   }
 
+  Future<void> _setOpen(String schoolId, bool value) async {
+    await SupabaseDbSource.setSchoolPreregistrationOpen(schoolId, value);
+    ref.invalidate(schoolEnrollmentStatusProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final schoolId = ref.watch(currentSchoolIdProvider);
     final schoolAsync = ref.watch(schoolProvider);
     final schoolName = schoolAsync.asData?.value?.name ?? 'Votre école';
-    final code = PreRegStore.slugFor(
-        schoolAsync.asData?.value?.name, schoolId ?? 'demo');
-    final link = PreRegStore.linkFor(code);
-    final open = schoolId == null ? true : PreRegStore.isOpen(schoolId);
+    final statusAsync = ref.watch(schoolEnrollmentStatusProvider);
+    final status = statusAsync.asData?.value;
+    final slug = status?['slug'] as String?;
+    final open = status?['preregistration_open'] == true;
+    final link = slug == null ? null : PreRegStore.linkFor(slug);
 
     return DataPanel(
       title: 'Lien de pré-inscription',
@@ -158,56 +165,66 @@ class _PreRegistrationLinkPanelState
             Switch(
               value: open,
               activeColor: _green,
-              onChanged: schoolId == null
+              onChanged: (schoolId == null || link == null)
                   ? null
-                  : (v) => setState(() => PreRegStore.setOpen(schoolId, v)),
+                  : (v) => _setOpen(schoolId, v),
             ),
           ]),
         ),
         const SizedBox(height: 12),
 
-        // Lien + copier.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: context.cSubtle,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: context.cBorder),
-          ),
-          child: Row(children: [
-            Icon(Icons.link_rounded, size: 16, color: context.cMuted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(link,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      color: context.cInk,
-                      fontWeight: FontWeight.w600)),
+        if (link == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+                child: SizedBox(
+                    height: 18, width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+          )
+        else ...[
+          // Lien + copier.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: context.cSubtle,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: context.cBorder),
             ),
-            const SizedBox(width: 8),
-            _IconChip(
-                icon: Icons.copy_rounded, tooltip: 'Copier',
-                onTap: () => _copy(link)),
-          ]),
-        ),
-        const SizedBox(height: 12),
+            child: Row(children: [
+              Icon(Icons.link_rounded, size: 16, color: context.cMuted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(link,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        color: context.cInk,
+                        fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 8),
+              _IconChip(
+                  icon: Icons.copy_rounded, tooltip: 'Copier',
+                  onTap: () => _copy(link)),
+            ]),
+          ),
+          const SizedBox(height: 12),
 
-        // Actions : QR + partager.
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          ActionButton(
-            label: 'Afficher le QR',
-            icon: Icons.qr_code_2_rounded,
-            onTap: () => _showQr(link, schoolName),
-          ),
-          ActionButton(
-            label: 'Partager (WhatsApp)',
-            icon: Icons.share_rounded,
-            primary: true,
-            onTap: () => _shareWhatsApp(link),
-          ),
-        ]),
+          // Actions : QR + partager.
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            ActionButton(
+              label: 'Afficher le QR',
+              icon: Icons.qr_code_2_rounded,
+              onTap: () => _showQr(link, schoolName),
+            ),
+            ActionButton(
+              label: 'Partager (WhatsApp)',
+              icon: Icons.share_rounded,
+              primary: true,
+              onTap: () => _shareWhatsApp(link),
+            ),
+          ]),
+        ],
       ]),
     );
   }

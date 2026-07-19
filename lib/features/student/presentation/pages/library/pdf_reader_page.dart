@@ -833,7 +833,9 @@ class _GlassDock extends StatelessWidget {
                       onTap: onPrev),
 
                   // Center page pill
-                  GestureDetector(
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
                     onTap: onJump,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -869,6 +871,7 @@ class _GlassDock extends StatelessWidget {
                               fontWeight: FontWeight.w600),
                         ),
                       ]),
+                    ),
                     ),
                   ),
 
@@ -967,15 +970,18 @@ class _SettingsPanel extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF1A0A00))),
               const Spacer(),
-              GestureDetector(
-                onTap: onClose,
-                child: Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.06),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.close_rounded,
-                      size: 16, color: Color(0xFF7A5C44)),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onClose,
+                  child: Container(
+                    width: 30, height: 30,
+                    decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.06),
+                        shape: BoxShape.circle),
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: Color(0xFF7A5C44)),
+                  ),
                 ),
               ),
             ]),
@@ -987,7 +993,9 @@ class _SettingsPanel extends StatelessWidget {
             _SettingsLabel(icon: Icons.palette_rounded, label: 'Thème de lecture', color: color),
             const SizedBox(height: 10),
             Row(children: _Theme.values.map((t) => Expanded(
-              child: GestureDetector(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => onThemeChange(t),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -1017,6 +1025,7 @@ class _SettingsPanel extends StatelessWidget {
                                 ? color
                                 : const Color(0xFF9A8A7A))),
                   ]),
+                ),
                 ),
               ),
             )).toList()),
@@ -1103,16 +1112,19 @@ class _GlassIconBtn extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 40, height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.25)),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Icon(icon, color: color, size: 20),
       ),
-      child: Icon(icon, color: color, size: 20),
     ),
   );
 }
@@ -1129,33 +1141,36 @@ class _DockBtn extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: enabled ? onTap : null,
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(
-          color: enabled
-              ? color.withOpacity(0.12)
-              : Colors.black.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: enabled
-                  ? color.withOpacity(0.25)
-                  : Colors.transparent),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+    child: GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: enabled
+                ? color.withOpacity(0.12)
+                : Colors.black.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: enabled
+                    ? color.withOpacity(0.25)
+                    : Colors.transparent),
+          ),
+          child: Icon(icon,
+              size: 22,
+              color: enabled ? color : color.withOpacity(0.20)),
         ),
-        child: Icon(icon,
-            size: 22,
-            color: enabled ? color : color.withOpacity(0.20)),
-      ),
-      const SizedBox(height: 3),
-      Text(label,
-          style: TextStyle(
-              color: enabled ? color.withOpacity(0.75) : color.withOpacity(0.22),
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2)),
-    ]),
+        const SizedBox(height: 3),
+        Text(label,
+            style: TextStyle(
+                color: enabled ? color.withOpacity(0.75) : color.withOpacity(0.22),
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2)),
+      ]),
+    ),
   );
 }
 
@@ -1192,26 +1207,29 @@ class _BookmarkTile extends StatelessWidget {
   const _BookmarkTile({required this.page, required this.color, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.25)),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.bookmark_rounded, color: Color(0xFFFFD700), size: 18),
+          const SizedBox(width: 10),
+          Text('Page $page',
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+          const Spacer(),
+          const Icon(Icons.arrow_forward_ios_rounded,
+              size: 11, color: Colors.white54),
+        ]),
       ),
-      child: Row(children: [
-        const Icon(Icons.bookmark_rounded, color: Color(0xFFFFD700), size: 18),
-        const SizedBox(width: 10),
-        Text('Page $page',
-            style: const TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-        const Spacer(),
-        const Icon(Icons.arrow_forward_ios_rounded,
-            size: 11, color: Colors.white54),
-      ]),
     ),
   );
 }
@@ -1242,18 +1260,21 @@ class _PillBtn extends StatelessWidget {
   const _PillBtn({required this.label, required this.color, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.25)),
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: color, fontSize: 13, fontWeight: FontWeight.w800)),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 13, fontWeight: FontWeight.w800)),
     ),
   );
 }
@@ -1271,7 +1292,9 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: GestureDetector(
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1307,6 +1330,7 @@ class _ActionCard extends StatelessWidget {
               ),
             ),
         ]),
+      ),
       ),
     ),
   );

@@ -9,12 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/localization/locales.dart';
-import '../../core/permissions/staff_permissions.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../features/admin/presentation/pages/admin_school_page.dart';
 import '../../presentation/providers/auth_providers.dart';
 import 'account_page.dart';
 
@@ -107,25 +105,6 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: 'settings.account_sub'.tr(),
                 onTap: () => _push(context, _AccountSettingsPage(user: user)),
               ),
-              if (user?.can(StaffPermissions.schoolConfig) ?? false)
-                _SettingsTile(
-                  icon: Icons.apartment_rounded,
-                  color: const Color(0xFF0D47A1),
-                  title: 'settings.school'.tr(),
-                  subtitle: 'settings.school_sub'.tr(),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      backgroundColor: _zinc100,
-                      appBar: AppBar(
-                        backgroundColor: _sh1, foregroundColor: _white,
-                        elevation: 0,
-                        title: Text('settings.school'.tr(),
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                      ),
-                      body: const AdminSchoolPage(),
-                    ),
-                  )),
-                ),
             ]),
             const SizedBox(height: 16),
 
@@ -323,7 +302,9 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -405,6 +386,7 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
         ]),
+      ),
       ),
     );
   }
@@ -937,7 +919,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
             childAspectRatio: 2.6,
             children: _langs.map((l) {
               final selected = locale == l.$3;
-              return GestureDetector(
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => context.setLocale(l.$3),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -976,6 +960,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                       Icon(Icons.check_circle_rounded, color: accent, size: 16),
                   ]),
                 ),
+                ),
               );
             }).toList(),
           ),
@@ -999,7 +984,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
               itemBuilder: (ctx, i) {
                 final (name, color, icon) = _featured[i];
                 final sel = color.value == accent.value;
-                return GestureDetector(
+                return MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
                   onTap: () => ref.read(themeControllerProvider.notifier).setAccent(color),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
@@ -1034,6 +1021,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                               fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
                               color: sel ? color : Theme.of(context).colorScheme.onSurface.withOpacity(.6))),
                     ]),
+                  ),
                   ),
                 );
               },
@@ -1082,7 +1070,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                 ])),
                 const SizedBox(width: 8),
                 // Bouton picker custom
-                GestureDetector(
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
                   onTap: () => _openPicker(context, accent),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1098,6 +1088,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                           style: TextStyle(
                               color: accent, fontSize: 12, fontWeight: FontWeight.w700)),
                     ]),
+                  ),
                   ),
                 ),
               ]),
@@ -1122,7 +1113,9 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                     'Saphir','Nuit','Amethyste','Rubis',
                     'Rose Gold','Émeraude','Ardoise','Sombre',
                   ];
-                  return GestureDetector(
+                  return MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
                     onTap: () => ref.read(themeControllerProvider.notifier).setAccent(c),
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       AnimatedContainer(
@@ -1155,6 +1148,7 @@ class _AppearancePageState extends ConsumerState<_AppearancePage> {
                                   ? accent
                                   : Theme.of(context).colorScheme.onSurface.withOpacity(.45))),
                     ]),
+                    ),
                   );
                 }).toList(),
               ),
@@ -1424,8 +1418,10 @@ class _HsvPickerSheetState extends State<_HsvPickerSheet> {
           const Text('Couleur d\'accent',
               style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w800)),
           const Spacer(),
-          GestureDetector(onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.close_rounded, color: _muted, size: 20)),
+          MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close_rounded, color: _muted, size: 20))),
         ]),
         const SizedBox(height: 16),
 
@@ -2573,7 +2569,9 @@ class _LanguagePicker extends ConsumerWidget {
           const SizedBox(height: 16),
           ...AppLocales.supported.map((l) {
             final selected = context.locale == l;
-            return GestureDetector(
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
               onTap: () { context.setLocale(l); Navigator.pop(context); },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -2596,6 +2594,7 @@ class _LanguagePicker extends ConsumerWidget {
                     const Icon(Icons.check_circle_rounded,
                         color: _terra, size: 20),
                 ]),
+              ),
               ),
             );
           }),
@@ -3045,7 +3044,9 @@ class _ReportSheetState extends State<_ReportSheet> {
             spacing: 8, runSpacing: 8,
             children: _types.map((t) {
               final selected = _type == t;
-              return GestureDetector(
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
                 onTap: () => setState(() => _type = t),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -3060,6 +3061,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                           color: selected ? _terra : _muted,
                           fontSize: 12,
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+                ),
                 ),
               );
             }).toList(),

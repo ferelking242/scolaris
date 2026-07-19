@@ -107,20 +107,23 @@ class _TeacherLiaisonPageState extends ConsumerState<TeacherLiaisonPage> {
                   itemBuilder: (_, i) {
                     final c = classes[i];
                     final sel = c.id == selected.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _class = c),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: sel ? _terra : context.cCard,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: sel ? _terra : context.cBorder),
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _class = c),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: sel ? _terra : context.cCard,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: sel ? _terra : context.cBorder),
+                          ),
+                          child: Text(c.name, style: TextStyle(
+                              color: sel ? _white : context.cMuted,
+                              fontSize: 12, fontWeight: FontWeight.w600)),
                         ),
-                        child: Text(c.name, style: TextStyle(
-                            color: sel ? _white : context.cMuted,
-                            fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     );
                   },
@@ -364,26 +367,29 @@ class _ComposeSheetState extends State<_ComposeSheet> {
               scrollDirection: Axis.horizontal,
               children: [
                 for (final e in _categories.entries) ...[
-                  GestureDetector(
-                    onTap: () => setState(() => _category = e.key),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _category == e.key
-                            ? e.value.color
-                            : context.cCard,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: _category == e.key
-                                ? e.value.color
-                                : context.cBorder),
-                      ),
-                      child: Text(e.value.label, style: TextStyle(
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _category = e.key),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
                           color: _category == e.key
-                              ? _white
-                              : context.cMuted,
-                          fontSize: 11.5, fontWeight: FontWeight.w600)),
+                              ? e.value.color
+                              : context.cCard,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: _category == e.key
+                                  ? e.value.color
+                                  : context.cBorder),
+                        ),
+                        child: Text(e.value.label, style: TextStyle(
+                            color: _category == e.key
+                                ? _white
+                                : context.cMuted,
+                            fontSize: 11.5, fontWeight: FontWeight.w600)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),

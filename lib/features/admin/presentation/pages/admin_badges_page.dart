@@ -244,21 +244,24 @@ class _BadgeDialogState extends State<_BadgeDialog> {
             const SizedBox(height: 8),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final e in _emojis)
-                GestureDetector(
-                  onTap: () => setState(() => _emoji = e),
-                  child: Container(
-                    width: 42, height: 42,
-                    decoration: BoxDecoration(
-                      color: _emoji == e
-                          ? _gold.withOpacity(.18)
-                          : context.cSubtle,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: _emoji == e ? _gold : context.cBorder,
-                          width: _emoji == e ? 1.5 : 1),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _emoji = e),
+                    child: Container(
+                      width: 42, height: 42,
+                      decoration: BoxDecoration(
+                        color: _emoji == e
+                            ? _gold.withOpacity(.18)
+                            : context.cSubtle,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: _emoji == e ? _gold : context.cBorder,
+                            width: _emoji == e ? 1.5 : 1),
+                      ),
+                      child: Center(
+                          child: Text(e, style: const TextStyle(fontSize: 20))),
                     ),
-                    child: Center(
-                        child: Text(e, style: const TextStyle(fontSize: 20))),
                   ),
                 ),
             ]),

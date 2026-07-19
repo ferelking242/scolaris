@@ -352,7 +352,9 @@ class _HeroHeader extends StatelessWidget {
                     child: Row(
                       children: availableLevels.map((l) {
                         final sel = l == level;
-                        return GestureDetector(
+                        return MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
                           onTap: () => onLevelChange!(l),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
@@ -389,6 +391,7 @@ class _HeroHeader extends StatelessWidget {
                                         fontSize: 9)),
                               ],
                             ),
+                          ),
                           ),
                         );
                       }).toList(),
@@ -528,30 +531,33 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? color : _white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: active ? color : _border),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                      color: color.withOpacity(.2),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2))
-                ]
-              : [],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? color : _white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: active ? color : _border),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                        color: color.withOpacity(.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2))
+                  ]
+                : [],
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  color: active ? _white : _muted,
+                  fontSize: 12,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: active ? _white : _muted,
-                fontSize: 12,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
       ),
     );
   }
@@ -598,45 +604,48 @@ class _CatHeader extends StatelessWidget {
     final color = _catColors[cat] ?? _terra;
     final icon  = _catIcons[cat] ?? Icons.apps_rounded;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-        child: Row(children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(
-              color: color.withOpacity(.12),
-              borderRadius: BorderRadius.circular(9),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 17, color: color),
             ),
-            child: Icon(icon, size: 17, color: color),
-          ),
-          const SizedBox(width: 10),
-          Text(cat.label.toUpperCase(),
-              style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8)),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withOpacity(.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text('$count',
+            const SizedBox(width: 10),
+            Text(cat.label.toUpperCase(),
                 style: TextStyle(
                     color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800)),
-          ),
-          const Spacer(),
-          Icon(
-            closed ? Icons.expand_more_rounded : Icons.expand_less_rounded,
-            size: 18, color: _muted.withOpacity(.5),
-          ),
-        ]),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withOpacity(.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$count',
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800)),
+            ),
+            const Spacer(),
+            Icon(
+              closed ? Icons.expand_more_rounded : Icons.expand_less_rounded,
+              size: 18, color: _muted.withOpacity(.5),
+            ),
+          ]),
+        ),
       ),
     );
   }

@@ -101,32 +101,35 @@ class _PeriodChipsState extends State<_PeriodChips> {
       scrollDirection: Axis.horizontal,
       child: Row(children: [
         for (int i = 0; i < _chips.length; i++) ...[
-          GestureDetector(
-            onTap: () => setState(() => _sel = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              height: 33,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _sel == i ? cs.onSurface : cs.surface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _sel == i ? cs.onSurface : cs.outline.withOpacity(.4),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => setState(() => _sel = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                height: 33,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _sel == i ? cs.onSurface : cs.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _sel == i ? cs.onSurface : cs.outline.withOpacity(.4),
+                  ),
+                  boxShadow: _sel == i
+                      ? [BoxShadow(
+                          color: Colors.black.withOpacity(.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3))]
+                      : [],
                 ),
-                boxShadow: _sel == i
-                    ? [BoxShadow(
-                        color: Colors.black.withOpacity(.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3))]
-                    : [],
+                child: Text(_chips[i],
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        color: _sel == i ? cs.surface : cs.onSurface,
+                        fontWeight: _sel == i ? FontWeight.w700 : FontWeight.w500)),
               ),
-              child: Text(_chips[i],
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      color: _sel == i ? cs.surface : cs.onSurface,
-                      fontWeight: _sel == i ? FontWeight.w700 : FontWeight.w500)),
             ),
           ),
           if (i < _chips.length - 1) const SizedBox(width: 6),
@@ -392,19 +395,22 @@ class _ActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: cs.onSurface,
-          borderRadius: BorderRadius.circular(8),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.onSurface,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  color: cs.surface, fontSize: 11.5, fontWeight: FontWeight.w700)),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: cs.surface, fontSize: 11.5, fontWeight: FontWeight.w700)),
       ),
     );
   }
