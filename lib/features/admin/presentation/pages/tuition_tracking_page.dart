@@ -24,10 +24,13 @@ String _periodShort(String p) {
   return (m != null && m >= 1 && m <= 12) ? _moisAbbr[m - 1] : p;
 }
 
-enum _Cell { paid, late, pending, none }
+enum _Cell { paid, partial, late, upcoming, none }
 
-/// Suivi de la scolarité : matrice élève × période (qui a payé). Design system :
-/// `PageScaffold` + `DataPanel`.
+/// Suivi de la scolarité : matrice élève × mois, dérivée du COMPTE annuel de
+/// chaque élève (même source que « Comptes scolarité » et l'espace élève/
+/// parent) — pas de facture par mois : le versé se déduit en cascade sur les
+/// mois via `SbTuitionAccount.periodsCovered`. Design system : `PageScaffold`
+/// + `DataPanel`.
 class TuitionTrackingPage extends ConsumerWidget {
   /// Si fourni, la barre de retour appelle ce callback (mode inline) au lieu de
   /// `Navigator.maybePop` (mode route).
@@ -36,79 +39,120 @@ class TuitionTrackingPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final invoicesAsync = ref.watch(invoicesProvider);
+    final studentsAsync = ref.watch(studentsProvider);
+    final accountsAsync = ref.watch(tuitionAccountsProvider);
+    final loading = studentsAsync.isLoading || accountsAsync.isLoading;
+    final error = accountsAsync.hasError ? accountsAsync.error : null;
 
     String? subtitle;
-    final inv = invoicesAsync.valueOrNull;
-    if (inv != null) {
-      final tuition = inv.where((i) => i.isTuition && i.period != null).toList();
-      if (tuition.isNotEmpty) {
-        final periods = tuition.map((i) => i.period!).toSet();
-        final students = tuition.map((i) => i.studentId ?? '—').toSet();
-        final pct = (tuition.where((i) => i.isPaid).length / tuition.length * 100).round();
-        subtitle =
-            '${students.length} élève(s) · ${periods.length} périodes · $pct % réglé';
+    final students = studentsAsync.valueOrNull;
+    final accounts = accountsAsync.valueOrNull;
+    if (students != null && accounts != null) {
+      if (accounts.isEmpty) {
+        subtitle = 'Aucune grille de frais configurée';
       } else {
-        subtitle = 'Aucune échéance générée';
+        var total = 0, paid = 0;
+        for (final acc in accounts.values) {
+          total += acc.periods.length;
+          paid += acc.periodsCovered.floor().clamp(0, acc.periods.length);
+        }
+        final pct = total == 0 ? 0 : (paid / total * 100).round();
+        subtitle = '${accounts.length} élève(s) · $pct % réglé';
       }
     }
 
     return PageScaffold(
       title: 'Suivi scolarité',
-      subtitle: invoicesAsync.isLoading ? 'Chargement…' : subtitle,
+      subtitle: loading ? 'Chargement…' : subtitle,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
         const SizedBox(height: 14),
-        invoicesAsync.when(
-          loading: () => const Padding(
+        if (loading)
+          const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(child: CircularProgressIndicator(color: _terra)),
-          ),
-          error: (e, _) => Padding(
+          )
+        else if (error != null)
+          Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
-          ),
-          data: (invoices) => _body(context, invoices),
-        ),
+            child: Text('Erreur : $error', style: TextStyle(color: context.cMuted)),
+          )
+        else
+          _body(context, students ?? const [], accounts ?? const {}),
       ]),
     );
   }
 
-  Widget _body(BuildContext context, List<SbInvoice> invoices) {
-    final tuition =
-        invoices.where((i) => i.isTuition && i.period != null).toList();
+  Widget _body(BuildContext context, List<SbStudent> students,
+      Map<String, SbTuitionAccount> accounts) {
+    final withAccount = students.where((s) => accounts.containsKey(s.id)).toList()
+      ..sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
 
-    if (tuition.isEmpty) {
+    if (withAccount.isEmpty) {
       return const EmptyState(
         icon: Icons.event_busy_rounded,
-        title: 'Aucune échéance',
+        title: 'Aucune grille de frais',
         description:
-            'Génère d\'abord l\'échéancier depuis « Frais de scolarité ».',
+            'Configure d\'abord les frais de scolarité par classe depuis « Frais de scolarité ».',
       );
     }
 
-    final periods = tuition.map((i) => i.period!).toSet().toList()..sort();
-
-    final byStudent = <String, ({String name, Map<String, SbInvoice> byPeriod})>{};
-    for (final inv in tuition) {
-      final sid = inv.studentId ?? '—';
-      final entry = byStudent.putIfAbsent(
-          sid, () => (name: inv.studentName ?? '—', byPeriod: {}));
-      entry.byPeriod[inv.period!] = inv;
+    // Union des codes de période (classes différentes = grilles différentes).
+    final periodSet = <String>{};
+    for (final s in withAccount) {
+      for (final p in accounts[s.id]!.periods) {
+        periodSet.add(p.code);
+      }
     }
-    final students = byStudent.entries.toList()
-      ..sort((a, b) => a.value.name.toLowerCase().compareTo(b.value.name.toLowerCase()));
+    final periods = periodSet.toList()..sort();
 
-    final paidCount = tuition.where((i) => i.isPaid).length;
-    final lateCount = tuition.where((i) => i.isLate).length;
-    final pendingCount = tuition.length - paidCount - lateCount;
-    final pct = (paidCount / tuition.length * 100).round();
+    final byStudentPeriod = <String, Map<String, _Cell>>{};
+    for (final s in withAccount) {
+      final acc = accounts[s.id]!;
+      final today = DateTime.now();
+      final covered = acc.periodsCovered;
+      final map = <String, _Cell>{};
+      for (int i = 0; i < acc.periods.length; i++) {
+        final period = acc.periods[i];
+        final fullyCovered = covered >= i + 1 - 0.001;
+        final partlyCovered = !fullyCovered && covered > i + 0.001;
+        final due = !period.due.isAfter(today);
+        map[period.code] = fullyCovered
+            ? _Cell.paid
+            : partlyCovered
+                ? _Cell.partial
+                : due
+                    ? _Cell.late
+                    : _Cell.upcoming;
+      }
+      byStudentPeriod[s.id] = map;
+    }
+
+    int paidCount = 0, lateCount = 0, partialCount = 0, upcomingCount = 0;
+    for (final map in byStudentPeriod.values) {
+      for (final c in map.values) {
+        switch (c) {
+          case _Cell.paid: paidCount++; break;
+          case _Cell.late: lateCount++; break;
+          case _Cell.partial: partialCount++; break;
+          case _Cell.upcoming: upcomingCount++; break;
+          case _Cell.none: break;
+        }
+      }
+    }
+    final total = paidCount + lateCount + partialCount + upcomingCount;
+    final pct = total == 0 ? 0 : (paidCount / total * 100).round();
 
     final periodPct = <String, int>{
       for (final p in periods)
         p: () {
-          final tot = tuition.where((i) => i.period == p).length;
-          final pd = tuition.where((i) => i.period == p && i.isPaid).length;
+          var tot = 0, pd = 0;
+          for (final map in byStudentPeriod.values) {
+            final c = map[p];
+            if (c == null || c == _Cell.none) continue;
+            tot++;
+            if (c == _Cell.paid) pd++;
+          }
           return tot == 0 ? 0 : (pd / tot * 100).round();
         }()
     };
@@ -119,19 +163,20 @@ class TuitionTrackingPage extends ConsumerWidget {
         title: 'Vue d\'ensemble',
         child: Column(children: [
           Wrap(spacing: 10, runSpacing: 10, children: [
-            _Stat(label: 'Échéances', value: '${tuition.length}', color: const Color(0xFF6D28D9)),
+            _Stat(label: 'Échéances', value: '$total', color: const Color(0xFF6D28D9)),
             _Stat(label: 'Réglées', value: '$paidCount', color: _green),
+            _Stat(label: 'Partielles', value: '$partialCount', color: _gold),
             _Stat(label: 'En retard', value: '$lateCount', color: _terra),
             _Stat(label: 'Taux réglé', value: '$pct %', color: _gold),
           ]),
           const SizedBox(height: 14),
-          _ProgressBar(paid: paidCount, late: lateCount, pending: pendingCount),
+          _ProgressBar(paid: paidCount, partial: partialCount, late: lateCount, upcoming: upcomingCount),
           const SizedBox(height: 12),
           const Wrap(spacing: 14, runSpacing: 8, children: [
-            _LegendDot(color: _green, label: 'Payé'),
-            _LegendDot(color: _gold, label: 'En attente'),
+            _LegendDot(color: _green, label: 'Réglé'),
+            _LegendDot(color: _gold, label: 'Partiel'),
             _LegendDot(color: _terra, label: 'En retard'),
-            _LegendDot(color: Color(0xFFB8A892), label: 'Aucune'),
+            _LegendDot(color: Color(0xFFB8A892), label: 'À venir'),
           ]),
         ]),
       ),
@@ -151,8 +196,8 @@ class TuitionTrackingPage extends ConsumerWidget {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _corner(context),
-                for (int i = 0; i < students.length; i++)
-                  _nameCell(context, students[i].value.name, i),
+                for (int i = 0; i < withAccount.length; i++)
+                  _nameCell(context, withAccount[i].fullName, i),
               ]),
               Container(width: 1, color: context.cBorder),
               Expanded(child: SingleChildScrollView(
@@ -161,10 +206,10 @@ class TuitionTrackingPage extends ConsumerWidget {
                   Row(children: [
                     for (final p in periods) _periodHeader(context, p, periodPct[p] ?? 0),
                   ]),
-                  for (int i = 0; i < students.length; i++)
+                  for (int i = 0; i < withAccount.length; i++)
                     Row(children: [
                       for (final p in periods)
-                        _chip(context, _cellOf(students[i].value.byPeriod[p]), i),
+                        _chip(context, byStudentPeriod[withAccount[i].id]?[p] ?? _Cell.none, i),
                     ]),
                 ]),
               )),
@@ -182,13 +227,6 @@ class TuitionTrackingPage extends ConsumerWidget {
 
   Color _zebra(BuildContext context, int i) =>
       i.isEven ? context.cCard : context.cSubtle;
-
-  _Cell _cellOf(SbInvoice? inv) {
-    if (inv == null) return _Cell.none;
-    if (inv.isPaid) return _Cell.paid;
-    if (inv.isLate) return _Cell.late;
-    return _Cell.pending;
-  }
 
   Widget _corner(BuildContext context) => Container(
         width: _nameW, height: _headH,
@@ -226,10 +264,11 @@ class TuitionTrackingPage extends ConsumerWidget {
 
   Widget _chip(BuildContext context, _Cell cell, int i) {
     final (color, icon) = switch (cell) {
-      _Cell.paid    => (_green, Icons.check_rounded),
-      _Cell.late    => (_terra, Icons.priority_high_rounded),
-      _Cell.pending => (_gold, Icons.schedule_rounded),
-      _Cell.none    => (const Color(0xFFB8A892), Icons.remove_rounded),
+      _Cell.paid     => (_green, Icons.check_rounded),
+      _Cell.partial  => (_gold, Icons.adjust_rounded),
+      _Cell.late     => (_terra, Icons.priority_high_rounded),
+      _Cell.upcoming => (const Color(0xFFB8A892), Icons.schedule_rounded),
+      _Cell.none     => (const Color(0xFFB8A892), Icons.remove_rounded),
     };
     return Container(
       width: _cellW, height: _rowH,
@@ -268,18 +307,19 @@ class _Stat extends StatelessWidget {
       );
 }
 
-/// Barre de progression empilée : payé / en attente / en retard.
+/// Barre de progression empilée : réglé / partiel / à venir / en retard.
 class _ProgressBar extends StatelessWidget {
-  final int paid, late, pending;
-  const _ProgressBar({required this.paid, required this.late, required this.pending});
+  final int paid, partial, late, upcoming;
+  const _ProgressBar({required this.paid, required this.partial, required this.late, required this.upcoming});
   @override
   Widget build(BuildContext context) {
-    final hasData = paid + late + pending > 0;
+    final hasData = paid + partial + late + upcoming > 0;
     return ClipRRect(
       borderRadius: BorderRadius.circular(99),
       child: Row(children: [
         if (paid > 0) Expanded(flex: paid, child: Container(height: 10, color: _green)),
-        if (pending > 0) Expanded(flex: pending, child: Container(height: 10, color: _gold)),
+        if (partial > 0) Expanded(flex: partial, child: Container(height: 10, color: _gold)),
+        if (upcoming > 0) Expanded(flex: upcoming, child: Container(height: 10, color: const Color(0xFFB8A892))),
         if (late > 0) Expanded(flex: late, child: Container(height: 10, color: _terra)),
         if (!hasData) Expanded(child: Container(height: 10, color: context.cBorder)),
       ]),

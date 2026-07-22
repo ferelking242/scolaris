@@ -171,6 +171,17 @@ class Bulletin {
   final int absences;
   final int lates;
 
+  /// Vrai si cette période est la DERNIÈRE de l'année scolaire — seul moment
+  /// où une décision de passage a un sens. Un bulletin mensuel de septembre,
+  /// ou un T1/T2, ne doit jamais afficher qu'un élève redouble : cf. la
+  /// discussion bulletin primaire (mensuel) du 2026-07-21.
+  final bool isFinalPeriod;
+
+  /// La décision telle qu'archivée (bulletin figé, cf. [fromFrozen]). `null` →
+  /// on la calcule depuis [average]/[isFinalPeriod] (bulletin fraîchement
+  /// généré, pas encore relu depuis la base).
+  final String? frozenDecision;
+
   const Bulletin({
     required this.lines,
     required this.totalPoints,
@@ -183,12 +194,17 @@ class Bulletin {
     this.worstAverage,
     this.absences = 0,
     this.lates = 0,
+    this.isFinalPeriod = true,
+    this.frozenDecision,
   });
 
   String get mention => mentionOf(average);
 
   /// La décision proposée — l'administration reste libre de la corriger.
-  String get decision => average >= 10 ? 'ADMIS(E)' : 'REDOUBLE';
+  /// Vide hors dernière période : voir [isFinalPeriod].
+  String get decision =>
+      frozenDecision ??
+      (isFinalPeriod ? (average >= 10 ? 'ADMIS(E)' : 'REDOUBLE') : '');
 
   bool get isEmpty => lines.isEmpty;
 
@@ -206,6 +222,7 @@ class Bulletin {
     double? worstAverage,
     int absences = 0,
     int lates = 0,
+    String? decision,
   }) {
     final parsed = [for (final l in lines) BulletinLine.fromJson(l)];
     return Bulletin(
@@ -220,6 +237,9 @@ class Bulletin {
       worstAverage: worstAverage,
       absences: absences,
       lates: lates,
+      // La décision d'archive est du texte figé (peut être vide si la
+      // période n'était pas terminale) — jamais recalculée.
+      frozenDecision: decision ?? '',
     );
   }
 }
@@ -314,6 +334,7 @@ Map<String, Bulletin> buildBulletins({
   required List<SbGrade> grades,
   required BulletinRules rules,
   Map<String, ({int absences, int lates})> attendance = const {},
+  bool isFinalPeriod = true,
 }) {
   final byStudent = <String, List<SbGrade>>{};
   for (final g in grades) {
@@ -405,6 +426,7 @@ Map<String, Bulletin> buildBulletins({
         worstAverage: avgs.isEmpty ? null : avgs.last,
         absences: attendance[sid]?.absences ?? 0,
         lates: attendance[sid]?.lates ?? 0,
+        isFinalPeriod: isFinalPeriod,
       ),
   };
 }

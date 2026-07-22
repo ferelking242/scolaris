@@ -456,7 +456,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _demoQuickRow() {
     // (label, email, icône, couleur, mot de passe)
     const accounts = <(String, String, IconData, Color, String)>[
-      ('Super-Admin', 'kenganiboveldy@gmail.com',   Icons.shield_moon_outlined,          Color(0xFF0D3B1E), '12345678'),
+      ('Super-Admin', 'kenganiboveldy@gmail.com',   Icons.shield_moon_outlined,          Color(0xFF0D3B1E), 'demo1234'),
       ('Admin·LSB',   'serge.bouya@lsb.cg',        Icons.admin_panel_settings_outlined, _terra,            'demo1234'),
       ('Prof·ELC',    'jean.ngoubili@elc.cg',       Icons.menu_book_outlined,            Color(0xFF0277BD), 'demo1234'),
       ('Élève·CSFS',  'ferel.ondongo@csfs.cg',      Icons.school_outlined,               _green,            'demo1234'),

@@ -175,8 +175,10 @@ class PlatformSchool {
   /// Compte-t-elle dans le revenu récurrent (payante et à jour) ?
   bool get isPaying => status == SubStatus.active || status == SubStatus.pastDue;
 
-  /// Jours restants avant la fin de période/essai (négatif = dépassé).
-  int get daysLeft => periodEnd.difference(PlatformMock.now).inDays;
+  /// Jours restants avant la fin de période/essai (négatif = dépassé). La
+  /// vraie date du jour — PAS `PlatformMock.now` (figée pour la maquette) —
+  /// sinon une vraie école aurait un compte à rebours faux.
+  int get daysLeft => periodEnd.difference(DateTime.now()).inDays;
 
   String get typesLabel {
     const fr = {

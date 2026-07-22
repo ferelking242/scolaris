@@ -76,6 +76,11 @@ class AppUser {
   /// connexion »). Mise à jour à chaque connexion.
   final DateTime? lastSeenAt;
 
+  /// Super-admin PLATEFORME (au-dessus de toutes les écoles) — vient de la
+  /// table `platform_admins`, résolu une fois au login (cf. `_fetchProfile`).
+  /// Remplace l'ancienne allowlist d'emails codée en dur.
+  final bool isPlatformAdmin;
+
   const AppUser({
     required this.id,
     required this.email,
@@ -89,6 +94,7 @@ class AppUser {
     this.phone,
     this.createdAt,
     this.lastSeenAt,
+    this.isPlatformAdmin = false,
   });
 
   AppUser copyWith({
@@ -104,6 +110,7 @@ class AppUser {
     String? phone,
     DateTime? createdAt,
     DateTime? lastSeenAt,
+    bool? isPlatformAdmin,
   }) =>
       AppUser(
         id: id ?? this.id,
@@ -118,6 +125,7 @@ class AppUser {
         phone: phone ?? this.phone,
         createdAt: createdAt ?? this.createdAt,
         lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+        isPlatformAdmin: isPlatformAdmin ?? this.isPlatformAdmin,
       );
 
   String get displayRole => roleTitle ?? role.label;

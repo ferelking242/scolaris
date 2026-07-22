@@ -6,8 +6,90 @@ import 'package:uuid/uuid.dart';
 import '../../../core/bulletin/bulletin_math.dart';
 import '../../../core/config/school_format.dart';
 import '../../../core/config/school_taxonomy.dart';
+import '../../../shared/data/features_catalog.dart' show SchoolLevel;
 
 // ── Entity models ─────────────────────────────────────────────────────────────
+
+/// Une décision de fin d'année pour UN élève, à appliquer via
+/// [SupabaseDbSource.applyClassPromotion]. `toClassId` n'a de sens que pour
+/// 'promoted'/'repeated' ; `reason` surtout pour 'transferred'/'withdrawn'.
+class PromotionDecision {
+  final String studentId;
+  final String? fromClassId;
+  final String? fromAcademicYear;
+  final String decision; // 'promoted' | 'repeated' | 'transferred' | 'graduated' | 'withdrawn'
+  final String? toClassId;
+  final double? average;
+  final String? reason;
+
+  const PromotionDecision({
+    required this.studentId,
+    this.fromClassId,
+    this.fromAcademicYear,
+    required this.decision,
+    this.toClassId,
+    this.average,
+    this.reason,
+  });
+}
+
+/// Une décision de fin d'année archivée (`student_progressions`) — telle que
+/// vue depuis la file d'attente de ré-inscription. `status` gouverne tout :
+/// 'proposed' = pas encore appliquée, 'confirmed'/'cancelled' = tranchée.
+class SbProgression {
+  final String id;
+  final String studentId;
+  final String studentName;
+  final String? fromClassId;
+  final String? toClassId;
+  final String? fromAcademicYear;
+  final String? toAcademicYear;
+  final String decision;
+  final double? average;
+  final String? reason;
+  final String status;
+  final DateTime decidedAt;
+
+  const SbProgression({
+    required this.id,
+    required this.studentId,
+    required this.studentName,
+    this.fromClassId,
+    this.toClassId,
+    this.fromAcademicYear,
+    this.toAcademicYear,
+    required this.decision,
+    this.average,
+    this.reason,
+    this.status = 'proposed',
+    required this.decidedAt,
+  });
+
+  bool get isExit =>
+      decision == 'transferred' || decision == 'graduated' || decision == 'withdrawn';
+
+  factory SbProgression.fromJson(Map<String, dynamic> j) {
+    final u = j['users'];
+    final uMap = u is Map<String, dynamic>
+        ? u
+        : (u is List && u.isNotEmpty ? u.first as Map<String, dynamic> : null);
+    return SbProgression(
+      id: j['id'] as String,
+      studentId: j['student_id'] as String,
+      studentName: uMap?['full_name'] as String? ?? '—',
+      fromClassId: j['from_class_id'] as String?,
+      toClassId: j['to_class_id'] as String?,
+      fromAcademicYear: j['from_academic_year'] as String?,
+      toAcademicYear: j['to_academic_year'] as String?,
+      decision: j['decision'] as String? ?? 'promoted',
+      average: (j['average'] as num?)?.toDouble(),
+      reason: j['reason'] as String?,
+      status: j['status'] as String? ?? 'proposed',
+      decidedAt:
+          DateTime.tryParse(j['decided_at'] as String? ?? '') ?? DateTime(2000),
+    );
+  }
+}
 
 /// Une demande de pré-inscription publique (`enrollment_requests`). `payload`
 /// suit les clés d'[EnrollmentFields] (`first_name`, `guardian_phone`…) —
@@ -70,6 +152,13 @@ class SbStudent {
   final String? avatarUrl;
   final bool actif;
 
+  /// Statut de scolarité DANS CETTE ÉCOLE (`student_profiles.enrollment_status`)
+  /// — distinct de [actif] (`users.status`, le compte/login). 'active' = élève
+  /// courant ; les 3 autres = sorti (garde son dossier, hors effectifs actifs).
+  final String enrollmentStatus;
+  final String? exitReason;
+  final DateTime? exitDate;
+
   const SbStudent({
     required this.id,
     required this.nom,
@@ -81,11 +170,15 @@ class SbStudent {
     this.matricule,
     this.avatarUrl,
     this.actif = true,
+    this.enrollmentStatus = 'active',
+    this.exitReason,
+    this.exitDate,
   });
 
   String get fullName => '$prenom $nom';
   String get classGroup => classe ?? '';
   String get id_ => matricule ?? id.substring(0, 8).toUpperCase();
+  bool get hasExited => enrollmentStatus != 'active';
 
   // Modèle identité unifié (passe 3) : un élève = une ligne `users` (role=student)
   // + sa fiche `student_profiles` (matricule, classe). On dérive prenom/nom du
@@ -108,6 +201,11 @@ class SbStudent {
       matricule: sp?['matricule'] as String?,
       avatarUrl: j['avatar_url'] as String?,
       actif: (j['status'] as String? ?? 'active') == 'active',
+      enrollmentStatus: sp?['enrollment_status'] as String? ?? 'active',
+      exitReason: sp?['exit_reason'] as String?,
+      exitDate: sp?['exit_date'] != null
+          ? DateTime.tryParse(sp!['exit_date'] as String)
+          : null,
     );
   }
 
@@ -417,6 +515,7 @@ class SbReportCard {
         worstAverage: worstAverage,
         absences: absencesCount,
         lates: lateCount,
+        decision: decision,
       );
 }
 
@@ -911,6 +1010,13 @@ class SbUser {
   /// n'était simplement jamais lue ni demandée pour le personnel.
   final String? phone;
 
+  /// Statut de scolarité (`student_profiles.enrollment_status`) — SEULEMENT
+  /// pour role='student' ; `null` pour le personnel/parents (pas de fiche
+  /// élève). Distinct de [status] (compte suspendu/actif, sans rapport).
+  final String? enrollmentStatus;
+  final String? exitReason;
+  final DateTime? exitDate;
+
   const SbUser({
     required this.id,
     this.schoolId,
@@ -925,11 +1031,20 @@ class SbUser {
     this.roleTitle,
     this.staffRoleId,
     this.phone,
+    this.enrollmentStatus,
+    this.exitReason,
+    this.exitDate,
   });
 
   bool get isActive => status == 'active';
+  bool get hasExited => enrollmentStatus != null && enrollmentStatus != 'active';
 
-  factory SbUser.fromJson(Map<String, dynamic> j) => SbUser(
+  factory SbUser.fromJson(Map<String, dynamic> j) {
+    final sp = j['student_profiles'];
+    final spMap = sp is Map<String, dynamic>
+        ? sp
+        : (sp is List && sp.isNotEmpty ? sp.first as Map<String, dynamic> : null);
+    return SbUser(
         id: j['id'] as String,
         schoolId: j['school_id'] as String?,
         authUid: j['auth_uid'] as String?,
@@ -945,7 +1060,13 @@ class SbUser {
         roleTitle: j['role_title'] as String?,
         staffRoleId: j['staff_role_id'] as String?,
         phone: j['phone'] as String?,
+        enrollmentStatus: spMap?['enrollment_status'] as String?,
+        exitReason: spMap?['exit_reason'] as String?,
+        exitDate: spMap?['exit_date'] != null
+            ? DateTime.tryParse(spMap!['exit_date'] as String)
+            : null,
       );
+  }
 }
 
 /// Lien parent↔élève enrichi du contact du parent (`parent_student` + `users`).
@@ -1042,8 +1163,15 @@ class SbSchool {
   /// Vide = tous les cycles suivent `gradingScale` (le défaut de l'école).
   final Map<String, String> gradingByCycle;
 
-  /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
+  /// Découpage de l'année : `trimester` (T1/T2/T3), `semester` (S1/S2) ou
+  /// `monthly`. Défaut de l'école.
   final String periodSystem;
+
+  /// Surcharges de périodicité PAR CYCLE (metadata.period_system_by_cycle).
+  /// Mêmes clés que [gradingByCycle] (`primaire`, `college`…). Vide = tous les
+  /// cycles suivent [periodSystem]. Sert au primaire noté chaque mois quand le
+  /// reste de l'école est en trimestres.
+  final Map<String, String> periodSystemByCycle;
 
   /// La formule du bulletin — elle appartient à l'école, pas au code.
   ///
@@ -1069,6 +1197,7 @@ class SbSchool {
     this.gradingScale = 'numeric_20',
     this.gradingByCycle = const {},
     this.periodSystem = 'trimester',
+    this.periodSystemByCycle = const {},
     this.bulletinDevoirs = 3,
     this.bulletinCompoWeight = 0.5,
   });
@@ -1077,6 +1206,7 @@ class SbSchool {
         currency: currency,
         gradingScale: gradingScale,
         periodSystem: periodSystem,
+        academicYear: academicYear ?? '',
       );
 
   /// Barème applicable à un [cycle] donné (clé SchoolLevel : `primaire`…).
@@ -1084,12 +1214,19 @@ class SbSchool {
   String gradingScaleForCycle(String? cycle) =>
       (cycle != null ? gradingByCycle[cycle] : null) ?? gradingScale;
 
-  /// [SchoolFormat] résolu pour un cycle : même devise/périodes que l'école,
-  /// mais le barème du cycle. `null` → le format par défaut de l'école.
+  /// Périodicité applicable à un [cycle] donné. Surcharge du cycle si
+  /// définie, sinon le défaut de l'école.
+  String periodSystemForCycle(String? cycle) =>
+      (cycle != null ? periodSystemByCycle[cycle] : null) ?? periodSystem;
+
+  /// [SchoolFormat] résolu pour un cycle : même devise que l'école, mais le
+  /// barème ET la périodicité du cycle. `null` → le format par défaut de
+  /// l'école.
   SchoolFormat formatForCycle(String? cycle) => SchoolFormat(
         currency: currency,
         gradingScale: gradingScaleForCycle(cycle),
-        periodSystem: periodSystem,
+        periodSystem: periodSystemForCycle(cycle),
+        academicYear: academicYear ?? '',
       );
 
   /// Cycles du catalogue des niveaux correspondant aux types de l'école.
@@ -1123,6 +1260,10 @@ class SbSchool {
               (k, v) => MapEntry(k.toString(), v.toString()))
           : const {},
       periodSystem: j['period_system'] as String? ?? 'trimester',
+      periodSystemByCycle: meta is Map && meta['period_system_by_cycle'] is Map
+          ? (meta['period_system_by_cycle'] as Map).map(
+              (k, v) => MapEntry(k.toString(), v.toString()))
+          : const {},
       bulletinDevoirs: (j['bulletin_devoirs'] as num?)?.toInt() ?? 3,
       bulletinCompoWeight:
           (j['bulletin_compo_weight'] as num?)?.toDouble() ?? 0.5,
@@ -1674,17 +1815,228 @@ class SupabaseDbSource {
   // ── Students ──────────────────────────────────────────────────────────────
   static const String _studentSelect =
       'id, full_name, email, avatar_url, status, '
-      'student_profiles(matricule, class_id, classes(name, level))';
+      'student_profiles(matricule, class_id, enrollment_status, exit_reason, '
+      'exit_date, classes(name, level))';
 
-  static Future<List<SbStudent>> getStudents({String? classe, String? schoolId}) async {
+  /// [includeExited] : par défaut, seuls les élèves ACTIFS (`enrollment_status
+  /// = 'active'`) — un transféré/diplômé/radié ne doit pas polluer les listes
+  /// de classe, le carnet de notes, etc. `true` pour l'archive dédiée.
+  static Future<List<SbStudent>> getStudents({
+    String? classe,
+    String? schoolId,
+    bool includeExited = false,
+  }) async {
     var q = _db.from('users').select(_studentSelect).eq('role', 'student');
     if (schoolId != null) q = q.eq('school_id', schoolId);
     final data = await q.order('full_name');
     var list = (data as List)
         .map((j) => SbStudent.fromUserRow(j as Map<String, dynamic>))
         .toList();
+    if (!includeExited) list = list.where((s) => !s.hasExited).toList();
     if (classe != null) list = list.where((s) => s.classe == classe).toList();
     return list;
+  }
+
+  /// Les élèves sortis (transféré/diplômé/radié) — l'archive, avec leur motif
+  /// et leur date de sortie. Dossier conservé intact, juste hors effectifs actifs.
+  static Future<List<SbStudent>> getExitedStudents(String schoolId) async {
+    final all = await getStudents(schoolId: schoolId, includeExited: true);
+    return all.where((s) => s.hasExited).toList();
+  }
+
+  /// Marque un élève comme SORTI de l'école — jamais une suppression. Son
+  /// dossier (notes, bulletins) reste intact ; il quitte juste sa classe et
+  /// les effectifs actifs. Trace la décision dans `student_progressions`.
+  static Future<void> withdrawStudent({
+    required String schoolId,
+    required String studentId,
+    required String decision, // 'transferred' | 'graduated' | 'withdrawn'
+    String? reason,
+    String? academicYear,
+  }) async {
+    final profile = await _db
+        .from('student_profiles')
+        .select('class_id')
+        .eq('user_id', studentId)
+        .maybeSingle();
+    final fromClassId = profile?['class_id'] as String?;
+    final actorId = _db.auth.currentUser?.id;
+
+    await _db.from('student_profiles').update({
+      'enrollment_status': decision,
+      'exit_reason': reason,
+      'exit_date': DateTime.now().toIso8601String().substring(0, 10),
+      'class_id': null,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('user_id', studentId);
+
+    await _db.from('student_progressions').insert({
+      'school_id': schoolId,
+      'student_id': studentId,
+      'from_class_id': fromClassId,
+      'to_class_id': null,
+      'from_academic_year': academicYear,
+      'to_academic_year': null,
+      'decision': decision,
+      'reason': reason,
+      'decided_by': actorId,
+      'decided_by_name': actorId == null ? null : await _actorName(actorId),
+    });
+  }
+
+  /// Annule une sortie décidée par erreur : redevient actif dans la classe
+  /// donnée. Ne modifie pas l'historique déjà écrit dans `student_progressions`
+  /// (une décision se corrige par une nouvelle ligne, pas en place).
+  static Future<void> reactivateStudent({
+    required String studentId,
+    String? classId,
+  }) async {
+    await _db.from('student_profiles').update({
+      'enrollment_status': 'active',
+      'exit_reason': null,
+      'exit_date': null,
+      if (classId != null) 'class_id': classId,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('user_id', studentId);
+  }
+
+  static Future<String?> _actorName(String userId) async {
+    final row = await _db
+        .from('users')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+    return row?['full_name'] as String?;
+  }
+
+  /// Nom du niveau suivant dans la taxonomie de l'école (ex. "CM2" → "6e"),
+  /// via `class_levels.order_num` (cf. SchoolTaxonomy). `null` si [currentLevelName]
+  /// est le dernier niveau du système (fin de cycle/école) ou introuvable.
+  static Future<String?> getNextLevelName({
+    required String systemType,
+    required String currentLevelName,
+  }) async {
+    final rows = await _db
+        .from('class_levels')
+        .select('name, order_num')
+        .eq('system_type', systemType)
+        .order('order_num');
+    final list = (rows as List).cast<Map<String, dynamic>>();
+    final idx = list.indexWhere((r) => r['name'] == currentLevelName);
+    if (idx == -1 || idx + 1 >= list.length) return null;
+    return list[idx + 1]['name'] as String;
+  }
+
+  /// PROPOSE en bloc les décisions de fin d'année d'une classe : passage
+  /// (classe supérieure ou redouble) ou sortie (transfert/diplôme/radiation).
+  /// N'APPLIQUE RIEN sur `student_profiles` — écrit chaque décision en
+  /// `student_progressions` (statut `proposed`) et s'arrête là. L'élève reste
+  /// dans sa classe actuelle tant que la ré-inscription n'est pas confirmée
+  /// (cf. [getPendingReRegistrations]/[confirmReRegistration]) : une décision
+  /// de l'admin ne suffit pas à faire « passer » un élève qui ne reviendra
+  /// peut-être pas — il faut le palier de la ré-inscription.
+  static Future<void> proposeYearEndDecisions({
+    required String schoolId,
+    required String toAcademicYear,
+    required List<PromotionDecision> decisions,
+  }) async {
+    final actorId = _db.auth.currentUser?.id;
+    final actorName = actorId == null ? null : await _actorName(actorId);
+
+    for (final d in decisions) {
+      final isExit = d.decision == 'transferred' ||
+          d.decision == 'graduated' ||
+          d.decision == 'withdrawn';
+
+      await _db.from('student_progressions').insert({
+        'school_id': schoolId,
+        'student_id': d.studentId,
+        'from_class_id': d.fromClassId,
+        'to_class_id': isExit ? null : d.toClassId,
+        'from_academic_year': d.fromAcademicYear,
+        'to_academic_year': isExit ? null : toAcademicYear,
+        'decision': d.decision,
+        'average': d.average,
+        'reason': d.reason,
+        'decided_by': actorId,
+        'decided_by_name': actorName,
+        'status': 'proposed',
+      });
+    }
+  }
+
+  /// Les décisions de fin d'année en attente de ré-inscription (statut
+  /// `proposed`) — la file d'attente admin, universelle (marche sans compte
+  /// famille : Simple, Pro, Max).
+  static Future<List<SbProgression>> getPendingReRegistrations(
+      String schoolId) async {
+    final data = await _db
+        .from('student_progressions')
+        .select('*, users!student_id(full_name)')
+        .eq('school_id', schoolId)
+        .eq('status', 'proposed')
+        .order('decided_at', ascending: false);
+    return (data as List)
+        .map((j) => SbProgression.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Confirme la ré-inscription : c'est CE geste, et lui seul, qui applique
+  /// enfin le changement sur `student_profiles` (classe/année, ou statut de
+  /// sortie). [newToClassId] permet de corriger la classe de destination au
+  /// dernier moment (ex. la classe suggérée n'existait pas encore).
+  static Future<void> confirmReRegistration(
+    String progressionId, {
+    String? newToClassId,
+  }) async {
+    final row = await _db
+        .from('student_progressions')
+        .select()
+        .eq('id', progressionId)
+        .single();
+    final decision = row['decision'] as String;
+    final isExit = decision == 'transferred' ||
+        decision == 'graduated' ||
+        decision == 'withdrawn';
+    final studentId = row['student_id'] as String;
+    final now = DateTime.now();
+
+    if (isExit) {
+      await _db.from('student_profiles').update({
+        'enrollment_status': decision,
+        'exit_reason': row['reason'],
+        'exit_date': now.toIso8601String().substring(0, 10),
+        'class_id': null,
+        'updated_at': now.toIso8601String(),
+      }).eq('user_id', studentId);
+    } else {
+      final toClassId = newToClassId ?? row['to_class_id'] as String?;
+      await _db.from('student_profiles').update({
+        'class_id': toClassId,
+        'academic_year': row['to_academic_year'],
+        'updated_at': now.toIso8601String(),
+      }).eq('user_id', studentId);
+    }
+
+    await _db
+        .from('student_progressions')
+        .update({
+          'status': 'confirmed',
+          if (newToClassId != null) 'to_class_id': newToClassId,
+        })
+        .eq('id', progressionId)
+        .eq('status', 'proposed');
+  }
+
+  /// Annule une décision proposée — rien n'a été appliqué, la ligne devient
+  /// juste immuable (traçabilité : on sait qu'une décision a été prise puis
+  /// annulée, plutôt que de la faire disparaître).
+  static Future<void> cancelReRegistration(String progressionId) async {
+    await _db
+        .from('student_progressions')
+        .update({'status': 'cancelled'})
+        .eq('id', progressionId)
+        .eq('status', 'proposed');
   }
 
   static Future<SbStudent?> getStudentById(String userId) async {
@@ -2503,6 +2855,17 @@ class SupabaseDbSource {
           'Aucune note saisie pour cette période dans cette classe.');
     }
 
+    // La décision de passage n'a de sens qu'à la DERNIÈRE période de l'année
+    // du cycle de CETTE classe (un mois de primaire ≠ un trimestre de lycée).
+    final classRow = await _db
+        .from('classes')
+        .select('level')
+        .eq('id', classId)
+        .maybeSingle();
+    final cycle = SchoolLevel.fromClassName(classRow?['level'] as String?)?.name;
+    final isFinalPeriod =
+        school?.formatForCycle(cycle).isFinalPeriod(period) ?? true;
+
     final absences = await getAbsencesForClass(classId);
     final attendance = <String, ({int absences, int lates})>{};
     for (final a in absences) {
@@ -2518,6 +2881,7 @@ class SupabaseDbSource {
       grades: grades,
       rules: BulletinRules.fromSchool(school),
       attendance: attendance,
+      isFinalPeriod: isFinalPeriod,
     );
 
     final rows = <Map<String, dynamic>>[];
@@ -2656,7 +3020,11 @@ class SupabaseDbSource {
 
   // ── Users ─────────────────────────────────────────────────────────────────
   static Future<List<SbUser>> getUsers({String? schoolId}) async {
-    var q = _db.from('users').select();
+    // L'embed `student_profiles` revient vide pour le personnel/parents (pas
+    // de fiche élève) — sans effet pour eux, juste utilisé pour les élèves.
+    var q = _db
+        .from('users')
+        .select('*, student_profiles(enrollment_status, exit_reason, exit_date)');
     if (schoolId != null) q = q.eq('school_id', schoolId);
     final data = await q.order('full_name');
     return (data as List).map((j) => SbUser.fromJson(j as Map<String, dynamic>)).toList();
@@ -2971,19 +3339,39 @@ class SupabaseDbSource {
   static Future<Map<String, dynamic>?> getPublicSchoolBySlug(String slug) =>
       _db.from('public_schools').select().eq('slug', slug).maybeSingle();
 
-  /// Dépose une demande de pré-inscription. Refusée côté RLS si l'école n'a
-  /// pas ouvert sa période (`schools.preregistration_open`). Renvoie la
-  /// référence de suivi (ex. `SCO-4F2K9A`) à remettre à la famille.
+  /// Dépose une demande de pré-inscription. [apiKey] = `schools.enrollment_api_key`
+  /// (vient de `getPublicSchoolBySlug`/`public_schools`, la même clé qu'un site
+  /// tiers utiliserait). Refusée côté serveur (trigger `enrollment_requests_guard`,
+  /// cf. 20260753_enrollment_api.sql) si l'école n'a pas ouvert sa période, si
+  /// la clé ne correspond pas, ou si un champ obligatoire manque — pas
+  /// seulement côté RLS, pour renvoyer un message exploitable par l'appelant.
+  /// Renvoie la référence de suivi (ex. `SCO-4F2K9A`) à remettre à la famille.
   static Future<String> submitEnrollmentRequest({
     required String schoolId,
+    required String apiKey,
     required Map<String, dynamic> payload,
   }) async {
     final row = await _db
         .from('enrollment_requests')
-        .insert({'school_id': schoolId, 'payload': payload})
+        .insert({'school_id': schoolId, 'api_key': apiKey, 'payload': payload})
         .select('reference')
         .single();
     return row['reference'] as String;
+  }
+
+  /// Régénère la clé API de pré-inscription de l'école — invalide l'ancienne
+  /// immédiatement (tout appelant, app ou site tiers, qui l'utilisait encore
+  /// se fera refuser par `enrollment_requests_guard`). Générée côté client
+  /// avec le même schéma que le défaut posé en base (`sch_live_<64 hex>`).
+  static Future<String> regenerateEnrollmentApiKey(String schoolId) async {
+    const uuid = Uuid();
+    final key = 'sch_live_'
+        '${uuid.v4().replaceAll('-', '')}${uuid.v4().replaceAll('-', '')}';
+    await _db
+        .from('schools')
+        .update({'enrollment_api_key': key})
+        .eq('id', schoolId);
+    return key;
   }
 
   /// Suivi d'une demande par une famille sans compte, via sa référence exacte
@@ -3601,6 +3989,7 @@ class SupabaseDbSource {
     required String gradingScale,
     required String periodSystem,
     Map<String, String>? gradingByCycle,
+    Map<String, String>? periodSystemByCycle,
   }) async {
     final update = <String, dynamic>{
       'currency': currency,
@@ -3610,7 +3999,7 @@ class SupabaseDbSource {
     };
     // Surcharges par cycle : fusionnées dans `metadata` (lecture-fusion-écriture)
     // pour ne pas écraser `types` / `educational_system` déjà présents.
-    if (gradingByCycle != null) {
+    if (gradingByCycle != null || periodSystemByCycle != null) {
       final row = await _db
           .from('schools')
           .select('metadata')
@@ -3618,7 +4007,9 @@ class SupabaseDbSource {
           .maybeSingle();
       update['metadata'] = <String, dynamic>{
         ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
-        'grading_by_cycle': gradingByCycle,
+        if (gradingByCycle != null) 'grading_by_cycle': gradingByCycle,
+        if (periodSystemByCycle != null)
+          'period_system_by_cycle': periodSystemByCycle,
       };
     }
     await _db.from('schools').update(update).eq('id', id);
@@ -3631,7 +4022,7 @@ class SupabaseDbSource {
       String schoolId) async {
     return _db
         .from('schools')
-        .select('slug, preregistration_open')
+        .select('slug, preregistration_open, enrollment_api_key')
         .eq('id', schoolId)
         .maybeSingle();
   }

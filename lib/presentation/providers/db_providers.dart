@@ -61,6 +61,15 @@ final schoolFormatForLevelProvider =
   return school?.formatForCycle(level?.name) ?? const SchoolFormat();
 });
 
+/// Niveau suivant dans la taxonomie (ex. "CM2" → "6e"), pour suggérer la
+/// classe de destination au passage de fin d'année. Clé : "systemType|levelName".
+final nextLevelNameProvider = FutureProvider.family<String?, String>((ref, key) async {
+  final parts = key.split('|');
+  if (parts.length != 2 || parts[1].isEmpty) return null;
+  return SupabaseDbSource.getNextLevelName(
+      systemType: parts[0], currentLevelName: parts[1]);
+});
+
 /// Format (barème) de l'élève connecté : le barème de SON cycle. C'est CE
 /// provider — pas `schoolFormatProvider` — que doivent lire les écrans élèves,
 /// pour qu'un primaire noté /10 et un lycéen noté /20 coexistent dans la même
@@ -115,13 +124,22 @@ final permissionCatalogProvider =
 });
 
 // ── Pré-inscription publique ─────────────────────────────────────────────────
-/// `{slug, preregistration_open}` de l'école active — pour le panneau admin
-/// (lien public + interrupteur d'ouverture).
+/// `{slug, preregistration_open, enrollment_api_key}` de l'école active —
+/// pour le panneau admin (lien public + interrupteur d'ouverture + API).
 final schoolEnrollmentStatusProvider =
     FutureProvider<Map<String, dynamic>?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return null;
   return SupabaseDbSource.getSchoolEnrollmentStatus(schoolId);
+});
+
+/// Décisions de fin d'année en attente de ré-inscription (statut `proposed`) —
+/// la file admin universelle (Simple/Pro/Max), à côté des pré-inscriptions.
+final pendingReRegistrationsProvider =
+    FutureProvider<List<SbProgression>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return const [];
+  return SupabaseDbSource.getPendingReRegistrations(schoolId);
 });
 
 /// Demandes de pré-inscription reçues par l'école active (file d'attente admin).

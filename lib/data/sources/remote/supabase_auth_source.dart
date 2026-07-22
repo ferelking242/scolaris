@@ -110,6 +110,22 @@ class SupabaseAuthSource {
         ? title
         : (r == 'admin' || r == 'direction' ? 'Direction' : null);
 
+    // Super-admin PLATEFORME : remplace l'ancienne allowlist d'emails codée
+    // en dur (cf. platform_admin.dart) par une vraie table, vérifiable côté
+    // base. Un échec ici ne doit jamais faire échouer tout le login — un
+    // simple staff d'école n'a pas à être bloqué par un souci sur cette table.
+    var isPlatformAdmin = false;
+    try {
+      final pa = await Supabase.instance.client
+          .from('platform_admins')
+          .select('user_id')
+          .eq('user_id', data['id'] as String)
+          .maybeSingle();
+      isPlatformAdmin = pa != null;
+    } catch (_) {
+      /* pas de statut plateforme accordé — comportement par défaut */
+    }
+
     final user = AppUser(
       id: data['id'] as String,
       email: data['email'] as String? ?? '',
@@ -128,6 +144,7 @@ class SupabaseAuthSource {
       lastSeenAt: data['last_seen_at'] != null
           ? DateTime.tryParse(data['last_seen_at'] as String)
           : null,
+      isPlatformAdmin: isPlatformAdmin,
     );
 
     // Marque l'activité courante (pour la prochaine « dernière connexion » et

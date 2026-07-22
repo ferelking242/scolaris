@@ -19,6 +19,7 @@ import 'pages/admin_billing_page.dart';
 import 'pages/admin_school_page.dart';
 import 'pages/admin_subscription_page.dart';
 import 'pages/admin_classes_page.dart';
+import 'pages/class_promotion_page.dart';
 import 'pages/admin_subjects_page.dart';
 import 'pages/admin_courses_page.dart';
 import 'pages/admin_grades_page.dart';
@@ -98,6 +99,12 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.fact_check_outlined, activeIcon: Icons.fact_check_rounded,
           labelKey: 'Pré-inscriptions',
           page: PermissionGuard(permission: StaffPermissions.students, child: PreRegQueuePage()),
+          permission: StaffPermissions.students),
+      // Fin d'année : passage de classe ET sortie d'élève (transfert/diplôme/
+      // radiation) — la même décision annuelle, cf. class_promotion_page.dart.
+      RoleNavEntry(icon: Icons.move_up_outlined, activeIcon: Icons.move_up_rounded,
+          labelKey: 'Passage de classe',
+          page: PermissionGuard(permission: StaffPermissions.students, child: ClassPromotionPage()),
           permission: StaffPermissions.students),
     ]),
     RoleNavGroup(labelKey: 'sections.activity', entries: [

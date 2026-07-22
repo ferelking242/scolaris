@@ -10,83 +10,170 @@ import '../widgets/platform_charts.dart';
 import '../widgets/platform_search.dart';
 import '../widgets/platform_widgets.dart';
 
-/// Vue d'ensemble de la plateforme (KPIs, écoles récentes, alertes).
-class PlatformDashboard extends StatelessWidget {
+/// Agrégats calculés depuis la vraie liste d'écoles — même logique que les
+/// getters de [PlatformMock], mais sur des données réelles au lieu d'une
+/// liste figée.
+extension _PlatformSchoolsAggregates on List<PlatformSchool> {
+  int get total => length;
+  int get paying => where((s) => s.isPaying).length;
+  int get trials => where((s) => s.status == SubStatus.trial).length;
+  int get churned => where((s) =>
+      s.status == SubStatus.expired || s.status == SubStatus.canceled).length;
+
+  int get mrr => where((s) => s.isPaying)
+      .fold(0, (sum, s) => sum + s.plan.monthlyPrice);
+
+  // Pas de total d'élèves ici : studentCount par école n'est pas encore
+  // branché (cf. PlatformRepository.getSchools) — le total réel vient de
+  // platformTotalStudentsProvider (RPC dédiée), pas d'une somme locale à 0.
+
+  Map<PlatformPlan, int> get planBreakdown {
+    final m = {for (final p in PlatformPlan.values) p: 0};
+    for (final s in this) {
+      m[s.plan] = (m[s.plan] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  List<PlatformSchool> get recent =>
+      [...this]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  List<PlatformSchool> get needsAttention => where((s) =>
+      s.status == SubStatus.pastDue ||
+      s.status == SubStatus.expired ||
+      (s.status == SubStatus.trial && s.daysLeft <= 20)).toList();
+
+  static const _monthsFr = [
+    'jan.', 'fév.', 'mar.', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.',
+  ];
+
+  /// Écoles cumulées, mois par mois, sur les 6 derniers mois — dérivé de
+  /// `createdAt`, pas d'une série figée.
+  List<double> schoolsTrend(DateTime now) {
+    final months = List.generate(6, (i) {
+      final m = DateTime(now.year, now.month - (5 - i));
+      return m;
+    });
+    return [
+      for (final m in months)
+        where((s) =>
+                s.createdAt.year < m.year ||
+                (s.createdAt.year == m.year && s.createdAt.month <= m.month))
+            .length
+            .toDouble(),
+    ];
+  }
+
+  List<String> trendMonths(DateTime now) => List.generate(6, (i) {
+        final m = DateTime(now.year, now.month - (5 - i));
+        return _monthsFr[m.month - 1];
+      });
+}
+
+/// Vue d'ensemble de la plateforme (KPIs, écoles récentes, alertes) — sur les
+/// VRAIES écoles (cf. [PlatformRepository]), plus depuis [PlatformMock].
+class PlatformDashboard extends ConsumerWidget {
   const PlatformDashboard({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final mrr = PlatformMock.mrr;
-    return PageScaffold(
-      title: 'Vue plateforme',
-      subtitle:
-          '${PlatformMock.total} écoles · ${groupThousands(PlatformMock.totalStudents)} élèves suivis',
-      actions: const [PlatformSearchLauncher()],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── KPIs ────────────────────────────────────────────────────────
-          _KpiRow(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final schoolsAsync = ref.watch(platformSchoolsProvider);
+    final totalStudentsAsync = ref.watch(platformTotalStudentsProvider);
+
+    return schoolsAsync.when(
+      loading: () => const PageScaffold(
+        title: 'Vue plateforme',
+        child: Padding(
+          padding: EdgeInsets.only(top: 40),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (e, _) => PageScaffold(
+        title: 'Vue plateforme',
+        child: EmptyState(
+          icon: Icons.error_outline_rounded,
+          title: 'Erreur de chargement',
+          description: '$e',
+        ),
+      ),
+      data: (schools) {
+        final mrr = schools.mrr;
+        final totalStudents = totalStudentsAsync.valueOrNull ?? 0;
+        final now = DateTime.now();
+
+        return PageScaffold(
+          title: 'Vue plateforme',
+          subtitle:
+              '${schools.total} écoles · ${groupThousands(totalStudents)} élèves suivis',
+          actions: const [PlatformSearchLauncher()],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PlatformKpiCard(
-                icon: Icons.apartment_rounded,
-                label: 'Écoles',
-                value: '${PlatformMock.total}',
-                sub: '${PlatformMock.trials} en essai',
-                accent: ScolarisPalette.terracotta,
+              // ── KPIs ────────────────────────────────────────────────────
+              _KpiRow(
+                children: [
+                  PlatformKpiCard(
+                    icon: Icons.apartment_rounded,
+                    label: 'Écoles',
+                    value: '${schools.total}',
+                    sub: '${schools.trials} en essai',
+                    accent: ScolarisPalette.terracotta,
+                  ),
+                  PlatformKpiCard(
+                    icon: Icons.verified_rounded,
+                    label: 'Écoles payantes',
+                    value: '${schools.paying}',
+                    sub: 'sur ${schools.total}',
+                    accent: ScolarisPalette.forestGreen,
+                  ),
+                  PlatformKpiCard(
+                    icon: Icons.savings_rounded,
+                    label: 'MRR estimé',
+                    value: '${groupThousands(mrr)} F',
+                    sub: '${groupThousands(mrr * 12)} F / an',
+                    accent: ScolarisPalette.gold,
+                  ),
+                  PlatformKpiCard(
+                    icon: Icons.warning_amber_rounded,
+                    label: 'À surveiller',
+                    value: '${schools.needsAttention.length}',
+                    sub: '${schools.churned} perdues',
+                    accent: ScolarisPalette.orange,
+                  ),
+                ],
               ),
-              PlatformKpiCard(
-                icon: Icons.verified_rounded,
-                label: 'Écoles payantes',
-                value: '${PlatformMock.paying}',
-                sub: 'sur ${PlatformMock.total}',
-                accent: ScolarisPalette.forestGreen,
-              ),
-              PlatformKpiCard(
-                icon: Icons.savings_rounded,
-                label: 'MRR estimé',
-                value: '${groupThousands(mrr)} F',
-                sub: '${groupThousands(mrr * 12)} F / an',
-                accent: ScolarisPalette.gold,
-              ),
-              PlatformKpiCard(
-                icon: Icons.warning_amber_rounded,
-                label: 'À surveiller',
-                value: '${PlatformMock.needsAttention.length}',
-                sub: '${PlatformMock.churned} perdues',
-                accent: ScolarisPalette.orange,
-              ),
+              const SizedBox(height: 16),
+              _GrowthPanel(schools: schools, now: now),
+              const SizedBox(height: 16),
+
+              LayoutBuilder(builder: (_, c) {
+                final recent = _RecentSchools(schools: schools.recent);
+                final side = Column(children: [
+                  _PlanBreakdown(schools: schools),
+                  const SizedBox(height: 16),
+                  _AttentionList(items: schools.needsAttention),
+                ]);
+                if (c.maxWidth < 720) {
+                  return Column(children: [
+                    recent,
+                    const SizedBox(height: 16),
+                    side,
+                  ]);
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: recent),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 2, child: side),
+                  ],
+                );
+              }),
             ],
           ),
-          const SizedBox(height: 16),
-          const _GrowthPanel(),
-          const SizedBox(height: 16),
-
-          LayoutBuilder(builder: (_, c) {
-            const recent = _RecentSchools();
-            const side = Column(children: [
-              _PlanBreakdown(),
-              SizedBox(height: 16),
-              _AttentionList(),
-            ]);
-            if (c.maxWidth < 720) {
-              return const Column(children: [
-                recent,
-                SizedBox(height: 16),
-                side,
-              ]);
-            }
-            return const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: recent),
-                SizedBox(width: 16),
-                Expanded(flex: 2, child: side),
-              ],
-            );
-          }),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -128,10 +215,11 @@ class _KpiRow extends StatelessWidget {
 
 // ── Écoles récentes ──────────────────────────────────────────────────────────
 class _RecentSchools extends ConsumerWidget {
-  const _RecentSchools();
+  final List<PlatformSchool> schools;
+  const _RecentSchools({required this.schools});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final schools = PlatformMock.recent.take(6).toList();
+    final schools = this.schools.take(6).toList();
     void open(PlatformSchool s) {
       // Ouvre la fiche inline sur l'onglet « Écoles » (pas de route à part).
       ref.read(selectedPlatformSchoolProvider.notifier).state = s;
@@ -158,7 +246,7 @@ class _SchoolLine extends StatelessWidget {
   const _SchoolLine({required this.school, required this.onTap});
 
   static String _ago(DateTime d) {
-    final diff = DateTime(2026, 6, 30).difference(d);
+    final diff = DateTime.now().difference(d);
     if (diff.inDays == 0) return "aujourd'hui";
     if (diff.inDays == 1) return 'hier';
     if (diff.inDays < 30) return 'il y a ${diff.inDays} j';
@@ -202,10 +290,12 @@ class _SchoolLine extends StatelessWidget {
 
 // ── Croissance (courbe) ───────────────────────────────────────────────────────
 class _GrowthPanel extends StatelessWidget {
-  const _GrowthPanel();
+  final List<PlatformSchool> schools;
+  final DateTime now;
+  const _GrowthPanel({required this.schools, required this.now});
   @override
   Widget build(BuildContext context) {
-    const t = PlatformMock.schoolsTrend;
+    final t = schools.schoolsTrend(now);
     final delta = t.length >= 2 ? (t.last - t[t.length - 2]).toInt() : 0;
     return DataPanel(
       title: 'Croissance de la plateforme',
@@ -217,8 +307,8 @@ class _GrowthPanel extends StatelessWidget {
                 fontWeight: FontWeight.w700)),
       ],
       child: PlatformTrendChart(
-        values: PlatformMock.schoolsTrend,
-        labels: PlatformMock.trendMonths,
+        values: t,
+        labels: schools.trendMonths(now),
         color: ScolarisPalette.terracotta,
         leftLabel: (v) => '${v.toInt()}',
       ),
@@ -228,11 +318,12 @@ class _GrowthPanel extends StatelessWidget {
 
 // ── Répartition par offre ────────────────────────────────────────────────────
 class _PlanBreakdown extends StatelessWidget {
-  const _PlanBreakdown();
+  final List<PlatformSchool> schools;
+  const _PlanBreakdown({required this.schools});
   @override
   Widget build(BuildContext context) {
-    final breakdown = PlatformMock.planBreakdown;
-    final total = PlatformMock.total;
+    final breakdown = schools.planBreakdown;
+    final total = schools.total;
     return DataPanel(
       title: 'Répartition par offre',
       child: Column(children: [
@@ -277,10 +368,10 @@ class _PlanRow extends StatelessWidget {
 
 // ── À surveiller ─────────────────────────────────────────────────────────────
 class _AttentionList extends StatelessWidget {
-  const _AttentionList();
+  final List<PlatformSchool> items;
+  const _AttentionList({required this.items});
   @override
   Widget build(BuildContext context) {
-    final items = PlatformMock.needsAttention;
     return DataPanel(
       title: 'À surveiller',
       child: items.isEmpty

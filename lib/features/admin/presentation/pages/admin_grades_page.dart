@@ -7,6 +7,7 @@ import '../widgets/bulletin_view.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart' show SchoolLevel;
 import '../../../../shared/widgets/page_scaffold.dart';
 import 'report_cards_page.dart';
 
@@ -56,8 +57,6 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = ref.watch(schoolFormatProvider);
-    final period = _selectedPeriod ?? fmt.periods.first;
     final classesAsync = ref.watch(classesProvider);
 
     return classesAsync.when(
@@ -74,6 +73,12 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
             : classes.firstWhere((c) => c.id == _classId,
                 orElse: () => classes.first);
 
+        // La périodicité (mensuelle au primaire, trimestrielle ailleurs) suit
+        // le CYCLE de la classe consultée, pas un réglage unique d'école.
+        final cycle = SchoolLevel.fromClassName(selected?.level);
+        final fmt = ref.watch(schoolFormatForLevelProvider(cycle));
+        final period = _selectedPeriod ?? fmt.periods.first;
+
         // Bulletin inline : remplace tout par la fiche de l'élève.
         if (_bulletinStudent != null) {
           return _StudentBulletinPage(
@@ -81,6 +86,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
             className: selected?.name ?? '',
             classId: selected?.id ?? '',
             period: period,
+            cycle: cycle,
             onBack: () => setState(() => _bulletinStudent = null),
           );
         }
@@ -115,7 +121,12 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
               _ClassChips(
                 classes: classes,
                 selectedId: _classId,
-                onChanged: (id) => setState(() => _classId = id),
+                onChanged: (id) => setState(() {
+                  _classId = id;
+                  // Une autre classe peut être d'un autre cycle (mois vs
+                  // trimestre) : l'ancienne période sélectionnée ne vaut plus.
+                  _selectedPeriod = null;
+                }),
               ),
               const SizedBox(height: 12),
               _PeriodChips(
@@ -758,18 +769,21 @@ class _StudentBulletinPage extends ConsumerWidget {
   final String className;
   final String classId;
   final String period;
+  final SchoolLevel? cycle;
   final VoidCallback onBack;
   const _StudentBulletinPage({
     required this.student,
     required this.className,
     required this.classId,
     required this.period,
+    this.cycle,
     required this.onBack,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final periodLabel = ref.watch(schoolFormatProvider).periodLabel(period);
+    final periodLabel =
+        ref.watch(schoolFormatForLevelProvider(cycle)).periodLabel(period);
     final school = ref.watch(schoolProvider).valueOrNull;
     final rules = BulletinRules.fromSchool(school);
     // Les bulletins de TOUTE la classe : sans les autres, cet élève n'a ni rang,
@@ -885,20 +899,19 @@ class _PeriodChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
+    // Wrap plutôt que Row : un découpage mensuel (10 périodes) déborderait
+    // d'une ligne fixe, contrairement aux 2-3 trimestres/semestres.
+    return Wrap(spacing: 8, runSpacing: 8, children: [
       for (final p in periods)
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(
-            label: Text(labelOf(p)),
-            selected: value == p,
-            onSelected: (_) => onChanged(p),
-            selectedColor: _green.withValues(alpha: .12),
-            labelStyle: TextStyle(
-              fontSize: 12,
-              color: value == p ? _green : muted,
-              fontWeight: value == p ? FontWeight.w700 : FontWeight.w500,
-            ),
+        ChoiceChip(
+          label: Text(labelOf(p)),
+          selected: value == p,
+          onSelected: (_) => onChanged(p),
+          selectedColor: _green.withValues(alpha: .12),
+          labelStyle: TextStyle(
+            fontSize: 12,
+            color: value == p ? _green : muted,
+            fontWeight: value == p ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
     ]);

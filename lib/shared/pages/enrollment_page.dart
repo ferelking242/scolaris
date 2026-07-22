@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/sources/remote/supabase_db_source.dart';
@@ -122,8 +123,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
+      // Le trigger serveur (enrollment_requests_guard) renvoie un message
+      // clair (« Champs obligatoires manquants : ... », clé invalide…) dans
+      // PostgrestException.message — on l'affiche tel quel plutôt que le
+      // texte brut de l'exception (illisible pour un visiteur du formulaire).
+      final message = e is PostgrestException ? e.message : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec de l\'envoi : $e'),
+        content: Text('Échec de l\'envoi : $message'),
         backgroundColor: _terra,
         behavior: SnackBarBehavior.floating,
       ));

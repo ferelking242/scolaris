@@ -31,8 +31,6 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = ref.watch(schoolFormatProvider);
-    final period = _selectedPeriod ?? fmt.periods.first;
     final schoolId  = ref.watch(currentSchoolIdProvider);
     final teacherId = ref.watch(authSessionProvider)?.id;
     final classesAsync  = ref.watch(classesProvider);
@@ -92,6 +90,12 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
         final selectedClass = classes.firstWhere((c) => c.id == _selectedClassId,
             orElse: () => classes.first);
 
+        // La périodicité (mensuelle au primaire, trimestrielle ailleurs) suit
+        // le CYCLE de la classe sélectionnée, pas un réglage unique d'école.
+        final cycle = SchoolLevel.fromClassName(selectedClass.level);
+        final fmt = ref.watch(schoolFormatForLevelProvider(cycle));
+        final period = _selectedPeriod ?? fmt.periods.first;
+
         return PageScaffold(
           title: 'Carnet de notes',
           subtitle: 'Saisir et consulter les notes de vos classes',
@@ -105,6 +109,7 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
                 onChanged: (id) => setState(() {
                   _selectedClassId = id;
                   _selectedSubjectId = null;
+                  _selectedPeriod = null;
                 }),
               ),
               const SizedBox(height: 12),

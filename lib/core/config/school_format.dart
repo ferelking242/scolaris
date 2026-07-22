@@ -39,34 +39,89 @@ class SchoolFormat {
   final String currency;
   final String gradingScale;
 
-  /// Découpage de l'année : `trimester` (T1/T2/T3) ou `semester` (S1/S2).
+  /// Découpage de l'année : `trimester` (T1/T2/T3), `semester` (S1/S2) ou
+  /// `monthly` (un bulletin par mois — cf. le primaire, qui note chaque mois
+  /// plutôt que chaque trimestre).
   /// Un lycée congolais est en trimestres, une université en semestres.
   final String periodSystem;
+
+  /// Année scolaire (`"2025-2026"`) — ne sert qu'à générer les codes de mois
+  /// quand [periodSystem] vaut `monthly` (ex. `"2025-09"`..`"2026-06"`).
+  final String academicYear;
 
   const SchoolFormat({
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
     this.periodSystem = 'trimester',
+    this.academicYear = '',
   });
+
+  /// Les mois de l'année scolaire, de septembre à juin (10 périodes), au
+  /// format `"YYYY-MM"`. Dérivés de [academicYear] ("2025-2026" → 2025-09 …
+  /// 2026-06). Si l'année scolaire est absente ou mal formée, on retombe sur
+  /// des codes relatifs (`"M1"`..`"M10"`) plutôt que de planter.
+  List<String> get _monthlyPeriods {
+    final parts = academicYear.split('-');
+    final y1 = parts.length == 2 ? int.tryParse(parts[0]) : null;
+    if (y1 == null) return const ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10'];
+    return [
+      for (var i = 0; i < 10; i++)
+        // Septembre (mois 9) → juin (mois 6) : bascule d'année en janvier.
+        () {
+          final m = 9 + i;
+          final month = m > 12 ? m - 12 : m;
+          final year = m > 12 ? y1 + 1 : y1;
+          return '$year-${month.toString().padLeft(2, '0')}';
+        }(),
+    ];
+  }
 
   /// Codes des périodes de l'année, dans l'ordre. C'est la SEULE source :
   /// la saisie des notes et le bulletin doivent lire la même liste, sinon on
   /// écrit les notes dans une période que le bulletin ne relit jamais.
-  List<String> get periods =>
-      periodSystem == 'semester' ? const ['S1', 'S2'] : const ['T1', 'T2', 'T3'];
+  List<String> get periods => switch (periodSystem) {
+        'semester' => const ['S1', 'S2'],
+        'monthly' => _monthlyPeriods,
+        _ => const ['T1', 'T2', 'T3'],
+      };
 
-  /// « 1er trimestre », « Semestre 2 ».
+  static const _kMonthNames = [
+    '', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  ];
+
+  /// « 1er trimestre », « Semestre 2 », « Septembre 2025 ».
   String periodLabel(String code) => switch (code) {
         'T1' => '1er trimestre',
         'T2' => '2e trimestre',
         'T3' => '3e trimestre',
         'S1' => 'Semestre 1',
         'S2' => 'Semestre 2',
-        _ => code,
+        _ => _monthLabel(code) ?? code,
       };
 
-  /// Libellé court, pour les puces et les en-têtes serrés : « T1 », « S2 ».
-  String periodShort(String code) => code;
+  /// `"2025-09"` → `"Septembre 2025"`. `null` si [code] n'a pas cette forme
+  /// (laisse [periodLabel] retomber sur le code brut, ex. `"M1"`).
+  String? _monthLabel(String code) {
+    final parts = code.split('-');
+    if (parts.length != 2) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    if (year == null || month == null || month < 1 || month > 12) return null;
+    return '${_kMonthNames[month]} $year';
+  }
+
+  /// Libellé court, pour les puces et les en-têtes serrés : « T1 », « S2 »,
+  /// « Sept. » pour un mois.
+  String periodShort(String code) {
+    final label = _monthLabel(code);
+    return label == null ? code : label.substring(0, 4).replaceAll(' ', '');
+  }
+
+  /// Vrai si [code] est la dernière période de l'année scolaire — seul moment
+  /// où la décision de passage (« ADMIS(E) »/« REDOUBLE ») a un sens. Un
+  /// bulletin de septembre ne doit jamais afficher qu'un enfant redouble.
+  bool isFinalPeriod(String code) => periods.isNotEmpty && periods.last == code;
 
   String get currencySymbol => _kCurrencySymbols[currency] ?? currency;
 

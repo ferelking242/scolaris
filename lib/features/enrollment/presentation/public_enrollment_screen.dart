@@ -68,6 +68,7 @@ class _PublicEnrollmentScreenState extends State<PublicEnrollmentScreen> {
               onSubmit: (data) async {
                 final reference = await SupabaseDbSource.submitEnrollmentRequest(
                   schoolId: schoolId,
+                  apiKey: school['enrollment_api_key'] as String,
                   payload: data,
                 );
                 if (context.mounted) {

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
-import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
@@ -17,63 +16,15 @@ const _moisFr = [
   'Juillet','Août','Septembre','Octobre','Novembre','Décembre'
 ];
 
-/// Écran admin : grille des frais de scolarité (par classe) + génération de
-/// l'échéancier annuel de tous les élèves en un clic. Design system :
-/// `PageScaffold` + un `DataPanel` par classe.
+/// Écran admin : grille des frais de scolarité (par classe). Le compte de
+/// chaque élève (payé / dû / à jour) se déduit directement de cette grille —
+/// pas d'échéances à générer. Design system : `PageScaffold` + un `DataPanel`
+/// par classe.
 class TuitionFeesPage extends ConsumerWidget {
   /// Si fourni, la barre de retour appelle ce callback (mode inline) au lieu de
   /// `Navigator.maybePop` (mode route).
   final VoidCallback? onBack;
   const TuitionFeesPage({super.key, this.onBack});
-
-  Future<void> _generate(BuildContext context, WidgetRef ref, String year) async {
-    final schoolId = ref.read(currentSchoolIdProvider);
-    if (schoolId == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Générer l\'échéancier'),
-        content: Text(
-            'Créer les échéances de scolarité $year pour tous les élèves des '
-            'classes ayant une grille.\n\nLes échéances déjà créées sont '
-            'conservées (aucun doublon). Tu peux relancer sans risque.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: _green),
-            child: const Text('Générer'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      final created = await SupabaseDbSource.generateTuitionSchedule(
-        schoolId: schoolId,
-        academicYear: year,
-        createdBy: ref.read(authSessionProvider)?.id,
-      );
-      ref.invalidate(invoicesProvider);
-      messenger.showSnackBar(SnackBar(
-        content: Text(created == 0
-            ? 'Échéancier déjà à jour — aucune nouvelle échéance.'
-            : '$created échéance(s) créée(s).'),
-        backgroundColor: _green,
-        behavior: SnackBarBehavior.floating,
-      ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,14 +45,6 @@ class TuitionFeesPage extends ConsumerWidget {
       subtitle: classesAsync.isLoading
           ? 'Chargement…'
           : 'Année $year · $configured/${classes.length} classe(s) configurée(s)',
-      actions: [
-        ActionButton(
-          label: 'Générer l\'échéancier',
-          icon: Icons.event_repeat_rounded,
-          primary: true,
-          onTap: configured == 0 ? () {} : () => _generate(context, ref, year),
-        ),
-      ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
         const SizedBox(height: 14),
@@ -118,9 +61,9 @@ class TuitionFeesPage extends ConsumerWidget {
             const Icon(Icons.info_outline_rounded, color: _gold, size: 18),
             const SizedBox(width: 10),
             Expanded(child: Text(
-              'Définis le tarif de chaque classe (une fois par an), puis clique '
-              '« Générer l\'échéancier » : chaque élève reçoit ses échéances. '
-              'Re-générable à tout moment (rattrape les nouveaux élèves).',
+              'Définis le tarif de chaque classe (une fois par an) : le compte de '
+              'chaque élève (payé / dû / à jour) est recalculé automatiquement, '
+              'sans échéance à générer.',
               style: TextStyle(color: context.cMuted, fontSize: 12, height: 1.5),
             )),
           ]),

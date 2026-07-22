@@ -68,10 +68,11 @@ const _kGradingScales = <String, String>{
   'letter': 'Lettres (A–F)',
 };
 
-/// Découpage de l'année (`schools.period_system` — contrainte : ces deux clés).
+/// Découpage de l'année (`schools.period_system` — contrainte : ces trois clés).
 const _kPeriodSystems = <String, String>{
   'trimester': 'Trimestres (T1 · T2 · T3)',
   'semester': 'Semestres (S1 · S2)',
+  'monthly': 'Mensuel (un bulletin par mois)',
 };
 
 class AdminSchoolPage extends ConsumerStatefulWidget {
@@ -101,6 +102,9 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   /// Surcharges de barème par cycle (clé = SchoolLevel.name). Vide = tous les
   /// cycles suivent `_gradingScale`. N'a de sens que pour un complexe scolaire.
   Map<String, String> _gradingByCycle = {};
+  /// Surcharges de périodicité par cycle — même mécanique, pour le primaire
+  /// noté chaque mois quand le secondaire reste au trimestre.
+  Map<String, String> _periodSystemByCycle = {};
 
   bool _loading  = true;
   bool _saving   = false;
@@ -146,6 +150,7 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _gradingScale      = school.gradingScale;
           _gradingByCycle    = Map.of(school.gradingByCycle);
           _periodSystem      = school.periodSystem;
+          _periodSystemByCycle = Map.of(school.periodSystemByCycle);
           _types
             ..clear()
             ..addAll(school.types);
@@ -195,6 +200,11 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         gradingByCycle: {
           for (final l in _offeredLevels)
             if (_gradingByCycle[l.name] != null) l.name: _gradingByCycle[l.name]!,
+        },
+        periodSystemByCycle: {
+          for (final l in _offeredLevels)
+            if (_periodSystemByCycle[l.name] != null)
+              l.name: _periodSystemByCycle[l.name]!,
         },
       );
       ref.invalidate(schoolProvider);
@@ -384,12 +394,48 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       const SizedBox(height: 12),
                       _Picker<String>(
                         value: _periodSystem,
-                        label: 'Découpage de l\'année',
+                        label: _offeredLevels.length > 1
+                            ? 'Découpage de l\'année (par défaut)'
+                            : 'Découpage de l\'année',
                         icon: Icons.calendar_view_month_outlined,
                         items: _kPeriodSystems,
                         onChanged: (v) =>
                             setState(() => _periodSystem = v ?? 'trimester'),
                       ),
+                      // Périodicité PAR CYCLE — même logique que le barème par
+                      // cycle : le primaire note chaque mois, le secondaire
+                      // chaque trimestre, dans le même complexe scolaire.
+                      if (_offeredLevels.length > 1) ...[
+                        const SizedBox(height: 14),
+                        Text('Découpage par cycle',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: context.cMuted)),
+                        const SizedBox(height: 4),
+                        Text(
+                            'Laissez « Par défaut » pour suivre le réglage '
+                            'ci-dessus. Ex. primaire mensuel, secondaire '
+                            'trimestriel.',
+                            style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                        const SizedBox(height: 10),
+                        for (final lvl in _offeredLevels) ...[
+                          _Picker<String>(
+                            value: _periodSystemByCycle[lvl.name] ?? '',
+                            label: 'Découpage — ${lvl.label}',
+                            icon: Icons.calendar_view_month_outlined,
+                            items: {'': 'Par défaut', ..._kPeriodSystems},
+                            onChanged: (v) => setState(() {
+                              if (v == null || v.isEmpty) {
+                                _periodSystemByCycle.remove(lvl.name);
+                              } else {
+                                _periodSystemByCycle[lvl.name] = v;
+                              }
+                            }),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
                     ],
                   ),
                 ),

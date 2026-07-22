@@ -1,4 +1,4 @@
-# Chantier : curseur pointeur sur GestureDetector (en cours — à reprendre)
+# Chantier : curseur pointeur sur GestureDetector (✅ TERMINÉ — les 50 fichiers traités)
 
 ## Objectif
 Faire apparaître le curseur main/pointeur (`SystemMouseCursors.click`) sur tous les éléments
@@ -77,10 +77,14 @@ délégué à des agents en parallèle par lots de 10 fichiers ("batch 1" à "ba
 - `lib/features/student/presentation/pages/library/library_page.dart` — 10 wrap / 1 skip (unfocus clavier)
 - `lib/features/student/presentation/pages/library/pdf_reader_page.dart` — 8 wrap / 2 skip (toggle plein écran sur texte sélectionnable, scrim fermeture panneau)
 
-### ⏳ Batch 2 — statut incertain
-Un premier message de cet agent n'a montré qu'un message de lancement ("tâche lancée, je
-rapporte plus tard") sans détail de fichiers modifiés. À vérifier/relancer à la reprise —
-peut-être resté bloqué ou a délégué à son tour sans que le résultat final soit remonté.
+### ✅ Batch 2 — confirmé complet (vérifié après coup)
+Le premier message n'avait montré qu'un message de lancement sans détail. Vérification faite sur
+les 4 fichiers concernés : tous les `GestureDetector` étaient déjà enveloppés (batch 2 avait bien
+fait le travail, juste pas rapporté). Aucune modification nécessaire.
+- `lib/features/student/presentation/primary_student_home.dart` — 1/1 déjà wrap
+- `lib/shared/pages/notifications_page.dart` — 1/1 déjà wrap
+- `lib/shared/pages/features_hub_page.dart` — 3/3 déjà wrap
+- `lib/features/platform/presentation/pages/platform_dashboard.dart` — 1/1 déjà wrap
 
 ### ✅ Batch 4 — terminé (10 fichiers, 44 wrap / 4 skip déjà couverts)
 - `lib/features/school_registration/school_registration_screen.dart` — 24 wrap
@@ -115,10 +119,10 @@ consigné ici.
 - `lib/features/platform/presentation/pages/platform_dashboard.dart`
 
 ## À faire à la reprise
-1. Vérifier le statut du batch 4 (`TaskOutput` avec l'id ci-dessus, ou lire les notifications reçues entre-temps).
-2. Relancer un agent dédié pour le batch 2 (statut incertain) et pour la liste des fichiers non
-   confirmés ci-dessus si toujours non modifiés.
-3. Une fois les 50 fichiers traités : lancer `flutter analyze` global sur `d:/scolaris` (pas
-   `d:/scolaris/scolaris`) pour confirmer zéro erreur introduite.
-4. Ne rien committer avant validation explicite de l'utilisateur (aucun commit n'a été fait sur ce
+1. Lancer `flutter analyze` global sur `d:/scolaris` (pas `d:/scolaris/scolaris`) pour confirmer
+   zéro erreur introduite sur l'ensemble (chaque lot a été vérifié fichier par fichier, mais pas
+   en un seul passage global).
+2. Tester visuellement quelques écrans (survol souris en mode desktop/web) pour confirmer le
+   comportement.
+3. Ne rien committer avant validation explicite de l'utilisateur (aucun commit n'a été fait sur ce
    chantier à ce stade).

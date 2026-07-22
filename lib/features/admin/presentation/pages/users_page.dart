@@ -19,6 +19,7 @@ import '../widgets/tuition_account.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
+const _gold  = Color(0xFFC17F24);
 
 /// Deux populations, deux métiers, deux écrans.
 ///
@@ -45,6 +46,9 @@ class UsersPage extends ConsumerStatefulWidget {
 class _UsersPageState extends ConsumerState<UsersPage> {
   String _filter = 'all';
   String _search = '';
+  // Un élève sorti (transféré/diplômé/radié) reste dans la base — juste hors
+  // de la vue par défaut, comme une classe active ne montre pas ses anciens.
+  bool _showExited = false;
 
   bool get _isFamilies => widget.scope == UsersScope.families;
 
@@ -661,6 +665,81 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     return reason;
   }
 
+  /// Sortie d'élève : transfert, diplôme, ou radiation/abandon — au choix de
+  /// l'admin, avec un motif libre. Garde le dossier intact (cf. [SbStudent]).
+  Future<void> _withdrawStudent(SbUser u) async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    final result = await showDialog<({String decision, String reason})>(
+      context: context,
+      builder: (_) => _WithdrawDialog(studentName: u.fullName),
+    );
+    if (result == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.withdrawStudent(
+        schoolId: schoolId,
+        studentId: u.id,
+        decision: result.decision,
+        reason: result.reason.isEmpty ? null : result.reason,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+      return;
+    }
+    ref.invalidate(usersProvider);
+    ref.invalidate(studentsProvider);
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text('"${u.fullName}" marqué(e) comme sorti(e).'),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: _green,
+    ));
+  }
+
+  /// Annule une sortie décidée par erreur — redevient un élève actif, sans
+  /// classe (l'admin doit lui en réaffecter une).
+  Future<void> _reactivateStudent(SbUser u) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Réactiver cet élève ?'),
+        content: Text(
+            '"${u.fullName}" redeviendra actif. Il faudra lui réaffecter une '
+            'classe depuis sa fiche.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: _green),
+              child: const Text('Réactiver')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.reactivateStudent(studentId: u.id);
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+      return;
+    }
+    ref.invalidate(usersProvider);
+    ref.invalidate(studentsProvider);
+  }
+
   Future<void> _toggleActive(SbUser u) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -761,7 +840,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           if (q.isEmpty) return true;
           return u.fullName.toLowerCase().contains(q) ||
               u.email.toLowerCase().contains(q);
-        }).toList();
+        }).where((u) => _showExited || !u.hasExited).toList();
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
         return PageScaffold(
@@ -795,6 +874,16 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             DataPanel(
               title: 'Comptes',
               headerActions: [
+                if (_isFamilies) ...[
+                  FilterChip(
+                    label: const Text('Élèves sortis'),
+                    selected: _showExited,
+                    onSelected: (v) => setState(() => _showExited = v),
+                    labelStyle: const TextStyle(fontSize: 12),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 SearchInput(
                   hint: 'Rechercher un utilisateur…',
                   onChanged: (v) => setState(() => _search = v),
@@ -863,7 +952,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                 style:
                                     TextStyle(fontSize: 12, color: context.cMuted)),
                             _RoleCell(user: u),
-                            _StatusDot(active: u.isActive),
+                            u.hasExited
+                                ? _ExitedPill(reason: u.exitReason)
+                                : _StatusDot(active: u.isActive),
                             Text(
                               u.lastSeenAt != null
                                   ? _relativeTime(u.lastSeenAt!)
@@ -905,6 +996,22 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                         ? Icons.block_rounded
                                         : Icons.check_circle_outline_rounded,
                                     onTap: () => _toggleActive(u)),
+                              ],
+                              // Sortie d'élève : PAS une suppression — l'élève
+                              // garde son dossier (notes, bulletins), juste
+                              // hors effectifs actifs. C'est le chemin normal
+                              // pour un transfert, un diplôme ou un abandon.
+                              if (u.role == 'student' &&
+                                  ref.watch(canProvider('utilisateurs.modifier'))) ...[
+                                const SizedBox(width: 6),
+                                _IconBtn(
+                                    icon: u.hasExited
+                                        ? Icons.replay_rounded
+                                        : Icons.logout_rounded,
+                                    color: u.hasExited ? _green : _gold,
+                                    onTap: () => u.hasExited
+                                        ? _reactivateStudent(u)
+                                        : _withdrawStudent(u)),
                               ],
                               if (ref.watch(canProvider('utilisateurs.supprimer'))) ...[
                                 const SizedBox(width: 6),
@@ -1350,6 +1457,106 @@ class _StatusDot extends StatelessWidget {
                 fontSize: 12,
                 color: active ? const Color(0xFF16A34A) : context.cMuted)),
       ]);
+}
+
+/// Pastille « Sorti » à la place du statut actif/inactif habituel — le motif
+/// (transfert, diplôme…) en tooltip plutôt que d'allonger la colonne.
+class _ExitedPill extends StatelessWidget {
+  final String? reason;
+  const _ExitedPill({this.reason});
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: reason?.isNotEmpty == true ? reason! : 'Sans motif renseigné',
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.logout_rounded, size: 13, color: _gold),
+          const SizedBox(width: 5),
+          const Text('Sorti', style: TextStyle(fontSize: 12, color: _gold)),
+        ]),
+      );
+}
+
+/// Choix du motif de sortie d'un élève : transfert (vers une autre école),
+/// diplôme/fin de scolarité, ou radiation/abandon — avec un motif libre.
+class _WithdrawDialog extends StatefulWidget {
+  final String studentName;
+  const _WithdrawDialog({required this.studentName});
+  @override
+  State<_WithdrawDialog> createState() => _WithdrawDialogState();
+}
+
+class _WithdrawDialogState extends State<_WithdrawDialog> {
+  String _decision = 'transferred';
+  final _reasonCtrl = TextEditingController();
+
+  static const _options = [
+    ('transferred', 'Transféré(e)', Icons.moving_rounded),
+    ('graduated', 'Diplômé(e) / fin de scolarité', Icons.school_rounded),
+    ('withdrawn', 'Radiation / abandon', Icons.person_off_rounded),
+  ];
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('${widget.studentName} quitte l\'école',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Son dossier (notes, bulletins) est conservé — il n\'est '
+                'jamais supprimé, juste retiré des effectifs actifs.',
+                style: TextStyle(fontSize: 12.5)),
+            const SizedBox(height: 14),
+            for (final (value, label, icon) in _options)
+              RadioListTile<String>(
+                value: value,
+                groupValue: _decision,
+                onChanged: (v) => setState(() => _decision = v!),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Row(children: [
+                  Icon(icon, size: 17, color: _terra),
+                  const SizedBox(width: 8),
+                  Text(label, style: const TextStyle(fontSize: 13)),
+                ]),
+              ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reasonCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'Motif (optionnel)',
+                hintText: 'Ex. : déménagement à Pointe-Noire',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+              context, (decision: _decision, reason: _reasonCtrl.text.trim())),
+          style: FilledButton.styleFrom(backgroundColor: _terra),
+          child: const Text('Confirmer la sortie'),
+        ),
+      ],
+    );
+  }
 }
 
 class _IconBtn extends StatelessWidget {

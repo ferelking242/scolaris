@@ -8,6 +8,7 @@ import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart' show SchoolLevel;
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../widgets/bulletin_view.dart';
 import 'bulletin_pdf.dart';
@@ -36,7 +37,15 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
   String? _selectedPeriod;
   bool _busy = false;
 
-  SchoolFormat get _fmt => ref.read(schoolFormatProvider);
+  /// Cycle de la classe sélectionnée (primaire/collège/lycée…) — la
+  /// périodicité (mensuelle au primaire, trimestrielle ailleurs) en dépend.
+  SchoolLevel? get _cycle {
+    final classes = ref.read(classesProvider).valueOrNull ?? const <SbClass>[];
+    final level = classes.where((c) => c.id == _classId).map((c) => c.level).firstOrNull;
+    return SchoolLevel.fromClassName(level);
+  }
+
+  SchoolFormat get _fmt => ref.read(schoolFormatForLevelProvider(_cycle));
   String get _period => _selectedPeriod ?? _fmt.periods.first;
   String get _year => ref.read(schoolProvider).valueOrNull?.academicYear ?? '';
   String get _key => '${_classId ?? ''}|$_year|$_period';
@@ -296,16 +305,22 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
               value: _classId,
               items: [for (final c in classes)
                 DropdownMenuItem(value: c.id, child: Text(c.name))],
-              onChanged: (v) => setState(() => _classId = v),
+              onChanged: (v) => setState(() {
+                _classId = v;
+                // Une classe d'un autre cycle a sa propre liste de périodes
+                // (mois vs trimestre) : l'ancienne sélection n'a plus de sens.
+                _selectedPeriod = null;
+              }),
             ),
             const SizedBox(height: 14),
-            _label(_fmt.periodSystem == 'semester' ? 'SEMESTRE' : 'TRIMESTRE'),
+            _label(switch (_fmt.periodSystem) {
+              'semester' => 'SEMESTRE',
+              'monthly' => 'MOIS',
+              _ => 'TRIMESTRE',
+            }),
             const SizedBox(height: 6),
-            Row(children: [
-              for (final p in _fmt.periods) ...[
-                _periodChip(p),
-                const SizedBox(width: 8),
-              ],
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final p in _fmt.periods) _periodChip(p),
             ]),
           ]),
         ),
@@ -554,7 +569,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: active ? _terra : context.cBorder),
           ),
-          child: Text(p,
+          child: Text(_fmt.periodShort(p),
               style: TextStyle(
                   color: active ? Colors.white : context.cMuted,
                   fontSize: 13, fontWeight: FontWeight.w700)),
