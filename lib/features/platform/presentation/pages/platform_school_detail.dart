@@ -1,11 +1,107 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:collection/collection.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
+import '../../data/platform_repository.dart';
 import '../platform_providers.dart';
 import '../widgets/platform_widgets.dart';
+
+// ── Événements réels (`platform_events`) → widgets d'affichage ──────────────
+// Le trigger DB écrit le type + les données brutes (metadata) ; c'est ici,
+// côté client, qu'on décide du libellé, de l'icône et de la couleur — plus
+// simple à ajuster que de coder du français dans des triggers SQL.
+
+String _planLabel(dynamic code) => switch (code) {
+      'simple' => 'Simple',
+      'pro' => 'Pro',
+      'max' => 'Max',
+      _ => code?.toString() ?? '—',
+    };
+
+String _statusChangeTitle(String? oldStatus, String? newStatus) {
+  if (newStatus == 'active' && oldStatus == 'canceled') return 'École réactivée';
+  if (newStatus == 'active') return 'Abonnement activé';
+  if (newStatus == 'canceled') return 'École suspendue';
+  if (newStatus == 'expired') return 'Abonnement expiré — accès en lecture seule';
+  if (newStatus == 'past_due') return 'Paiement en retard détecté';
+  return 'Statut changé : ${oldStatus ?? '—'} → ${newStatus ?? '—'}';
+}
+
+String _eventTitle(PlatformEvent e) {
+  final m = e.metadata;
+  switch (e.type) {
+    case 'school_created':
+      return 'École inscrite sur Scolaris';
+    case 'subscription_started':
+      return 'Essai gratuit démarré (offre ${_planLabel(m['plan_code'])})';
+    case 'status_changed':
+      return _statusChangeTitle(m['old_status'] as String?, m['new_status'] as String?);
+    case 'plan_changed':
+      return 'Offre changée : ${_planLabel(m['old_plan'])} → ${_planLabel(m['new_plan'])}';
+    case 'trial_extended':
+      final days = m['days'];
+      return 'Essai prolongé de ${days ?? '?'} jour${(days is int && days > 1) ? 's' : ''}';
+    case 'payment_received':
+      final method = m['method'];
+      return 'Paiement de ${groupThousands((m['amount'] as num?)?.toInt() ?? 0)} '
+          '${m['currency'] ?? 'XAF'} encaissé${method != null ? ' ($method)' : ''}';
+    case 'payment_failed':
+      return 'Échec de paiement (${groupThousands((m['amount'] as num?)?.toInt() ?? 0)} '
+          '${m['currency'] ?? 'XAF'})';
+    default:
+      return e.type;
+  }
+}
+
+(IconData, Color) _eventVisual(PlatformEvent e) {
+  switch (e.type) {
+    case 'school_created':
+      return (Icons.rocket_launch_rounded, ScolarisPalette.terracotta);
+    case 'subscription_started':
+      return (Icons.hourglass_top_rounded, ScolarisPalette.gold);
+    case 'status_changed':
+      final ns = e.metadata['new_status'];
+      if (ns == 'active') return (Icons.play_arrow_rounded, ScolarisPalette.forestGreen);
+      if (ns == 'canceled') return (Icons.pause_rounded, ScolarisPalette.terracotta);
+      if (ns == 'expired') return (Icons.block_rounded, ScolarisPalette.terracotta);
+      return (Icons.sync_alt_rounded, ScolarisAccents.slate);
+    case 'plan_changed':
+      return (Icons.workspace_premium_rounded, ScolarisPalette.gold);
+    case 'trial_extended':
+      return (Icons.hourglass_bottom_rounded, ScolarisPalette.gold);
+    case 'payment_received':
+      return (Icons.payments_rounded, ScolarisPalette.forestGreen);
+    case 'payment_failed':
+      return (Icons.error_outline_rounded, ScolarisPalette.orange);
+    default:
+      return (Icons.info_outline_rounded, ScolarisAccents.slate);
+  }
+}
+
+String _eventAgo(DateTime d) {
+  final diff = DateTime.now().difference(d);
+  if (diff.inMinutes < 1) return 'à l\'instant';
+  if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
+  if (diff.inDays == 1) return 'hier';
+  if (diff.inDays < 30) return 'il y a ${diff.inDays} j';
+  final m = (diff.inDays / 30).floor();
+  return 'il y a $m mois';
+}
+
+ActivityItem _toActivityItem(PlatformEvent e) {
+  final (icon, color) = _eventVisual(e);
+  return ActivityItem(icon, color, _eventTitle(e), _eventAgo(e.createdAt));
+}
+
+SubEvent _toSubEvent(PlatformEvent e) {
+  final (icon, color) = _eventVisual(e);
+  return SubEvent(date: e.createdAt, title: _eventTitle(e), icon: icon, color: color);
+}
 
 /// Fiche détaillée d'une école — affichée **inline** dans la console (la
 /// sidebar reste, le contenu change), pas comme une route à part. Suit le
@@ -45,9 +141,22 @@ class _PlatformSchoolDetailViewState
     ));
   }
 
-  /// Répercute une mutation (mock) sur la liste ET sur la fiche ouverte.
-  void _apply(PlatformSchool updated) {
-    ref.read(selectedPlatformSchoolProvider.notifier).state = updated;
+  /// Vrai pour les écoles de démonstration (maquette Dashboard v0) — ne
+  /// devrait plus arriver en usage normal (la liste « Écoles » ne montre plus
+  /// que de vraies écoles), gardé en filet de sécurité : `PlatformMock.byId`
+  /// planterait sur un id absent de la liste figée.
+  bool get _isMockSchool =>
+      PlatformMock.schools.any((x) => x.id == widget.school.id);
+
+  /// Recharge l'école depuis la base après une mutation et la répercute sur
+  /// la liste ET sur la fiche ouverte.
+  Future<void> _refresh() async {
+    ref.invalidate(platformSchoolsProvider);
+    final all = await ref.read(platformSchoolsProvider.future);
+    final updated = all.firstWhereOrNull((s) => s.id == widget.school.id);
+    if (updated != null && mounted) {
+      ref.read(selectedPlatformSchoolProvider.notifier).state = updated;
+    }
   }
 
   Future<void> _toggleSuspend() async {
@@ -63,10 +172,20 @@ class _PlatformSchoolDetailViewState
       danger: !suspended,
     );
     if (ok != true) return;
-    _apply(PlatformMock.setStatus(
-        s.id, suspended ? SubStatus.active : SubStatus.canceled));
-    _snack(suspended ? 'École réactivée.' : 'École suspendue.',
-        color: suspended ? ScolarisPalette.forestGreen : ScolarisPalette.terracotta);
+    try {
+      if (_isMockSchool) {
+        ref.read(selectedPlatformSchoolProvider.notifier).state =
+            PlatformMock.setStatus(
+                s.id, suspended ? SubStatus.active : SubStatus.canceled);
+      } else {
+        await PlatformRepository.setSchoolSuspended(s.id, !suspended);
+        await _refresh();
+      }
+      _snack(suspended ? 'École réactivée.' : 'École suspendue.',
+          color: suspended ? ScolarisPalette.forestGreen : ScolarisPalette.terracotta);
+    } catch (e) {
+      _snack('Échec : $e', color: ScolarisPalette.terracotta);
+    }
   }
 
   Future<void> _extendTrial() async {
@@ -77,8 +196,18 @@ class _PlatformSchoolDetailViewState
       confirmLabel: 'Prolonger de 30 j',
     );
     if (ok != true) return;
-    _apply(PlatformMock.extendTrial(s.id, 30));
-    _snack('Essai prolongé de 30 jours.');
+    try {
+      if (_isMockSchool) {
+        ref.read(selectedPlatformSchoolProvider.notifier).state =
+            PlatformMock.extendTrial(s.id, 30);
+      } else {
+        await PlatformRepository.extendSchoolTrial(s.id, 30);
+        await _refresh();
+      }
+      _snack('Essai prolongé de 30 jours.');
+    } catch (e) {
+      _snack('Échec : $e', color: ScolarisPalette.terracotta);
+    }
   }
 
   Future<void> _changePlan() async {
@@ -88,8 +217,18 @@ class _PlatformSchoolDetailViewState
       builder: (_) => _ChangePlanDialog(current: s.plan),
     );
     if (picked == null || picked == s.plan) return;
-    _apply(PlatformMock.setPlan(s.id, picked));
-    _snack('Offre changée en ${picked.label}.', color: picked.color);
+    try {
+      if (_isMockSchool) {
+        ref.read(selectedPlatformSchoolProvider.notifier).state =
+            PlatformMock.setPlan(s.id, picked);
+      } else {
+        await PlatformRepository.setSchoolPlan(s.id, picked);
+        await _refresh();
+      }
+      _snack('Offre changée en ${picked.label}.', color: picked.color);
+    } catch (e) {
+      _snack('Échec : $e', color: ScolarisPalette.terracotta);
+    }
   }
 
   Future<bool?> _confirm({
@@ -134,13 +273,14 @@ class _PlatformSchoolDetailViewState
         _BackLink(onBack: widget.onBack),
         const SizedBox(height: 14),
         // Barre d'actions de contrôle (s'enroule sur petit écran).
+        //
+        // Pas de bouton « Ouvrir l'espace » : ça demanderait une vraie
+        // impersonation (se connecter EN TANT QUE l'admin de cette école) —
+        // aucun système de ce genre n'existe aujourd'hui (nouvelle Edge
+        // Function sécurisée + traçabilité de qui a impersonné qui/quand).
+        // Retiré plutôt que de laisser un bouton qui n'affichait qu'un
+        // message factice.
         Wrap(spacing: 8, runSpacing: 8, children: [
-          ActionButton(
-            label: 'Ouvrir l\'espace',
-            icon: Icons.open_in_new_rounded,
-            onTap: () => _snack('Ouverture de l\'espace — démonstration',
-                color: ScolarisPalette.terracotta),
-          ),
           ActionButton(
             label: 'Changer d\'offre',
             icon: Icons.workspace_premium_outlined,
@@ -351,26 +491,33 @@ class _OverviewTab extends StatelessWidget {
 }
 
 // ── Onglet ÉLÈVES ─────────────────────────────────────────────────────────────
-class _StudentsTab extends StatelessWidget {
+class _StudentsTab extends ConsumerWidget {
   final PlatformSchool school;
   const _StudentsTab({required this.school});
   @override
-  Widget build(BuildContext context) {
-    final students = PlatformMock.studentsFor(school);
-    final more = school.studentCount - students.length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final studentsAsync = ref.watch(platformSchoolStudentsProvider(school.id));
     return DataPanel(
       title: 'Élèves',
       headerActions: [
         Text('${groupThousands(school.studentCount)} au total',
             style: TextStyle(fontSize: 11.5, color: context.cMuted)),
       ],
-      child: students.isEmpty
-          ? const EmptyState(
-              icon: Icons.people_outline_rounded,
-              title: 'Aucun élève',
-              description: 'Cette école n\'a pas encore inscrit d\'élèves.')
-          : Column(children: [
-              DataTablePanel(
+      child: studentsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        ),
+        data: (students) => students.isEmpty
+            ? const EmptyState(
+                icon: Icons.people_outline_rounded,
+                title: 'Aucun élève',
+                description: 'Cette école n\'a pas encore inscrit d\'élèves.')
+            : DataTablePanel(
                 columns: const ['Élève', 'Classe', 'Matricule', 'Statut'],
                 flex: const [3, 2, 3, 2],
                 rows: [
@@ -401,32 +548,49 @@ class _StudentsTab extends StatelessWidget {
                     ],
                 ],
               ),
-              if (more > 0) ...[
-                const SizedBox(height: 10),
-                Text('+ ${groupThousands(more)} autres élèves (échantillon de démonstration)',
-                    style: TextStyle(fontSize: 11, color: context.cMuted)),
-              ],
-            ]),
+      ),
     );
   }
 }
 
 // ── Onglet ACTIVITÉ ───────────────────────────────────────────────────────────
-class _ActivityTab extends StatelessWidget {
+// Alimenté par `platform_events` (triggers DB, cf. 20260764_platform_events.sql)
+// — les 8 événements les plus récents.
+class _ActivityTab extends ConsumerWidget {
   final PlatformSchool school;
   const _ActivityTab({required this.school});
   @override
-  Widget build(BuildContext context) {
-    final items = PlatformMock.activityFor(school);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(platformSchoolEventsProvider(school.id));
     return DataPanel(
       title: 'Activité récente',
-      child: Column(children: [
-        for (var i = 0; i < items.length; i++) ...[
-          _ActivityLine(item: items[i]),
-          if (i < items.length - 1)
-            Divider(height: 1, color: context.cBorder.withValues(alpha: .5)),
-        ],
-      ]),
+      child: eventsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        ),
+        data: (events) {
+          final items = events.take(8).map(_toActivityItem).toList();
+          if (items.isEmpty) {
+            return const EmptyState(
+              icon: Icons.history_rounded,
+              title: 'Aucune activité',
+              description: 'Rien d\'enregistré pour cette école pour l\'instant.',
+            );
+          }
+          return Column(children: [
+            for (var i = 0; i < items.length; i++) ...[
+              _ActivityLine(item: items[i]),
+              if (i < items.length - 1)
+                Divider(height: 1, color: context.cBorder.withValues(alpha: .5)),
+            ],
+          ]);
+        },
+      ),
     );
   }
 }
@@ -464,88 +628,114 @@ class _ActivityLine extends StatelessWidget {
 
 // ── Onglet JOURNAL ────────────────────────────────────────────────────────────
 /// Journal de bord de l'école : historique horodaté du cycle de vie du compte
-/// (création, souscription, changements d'offre, paiements, incidents…).
-class _JournalTab extends StatelessWidget {
+/// (création, souscription, changements d'offre, paiements, incidents…) —
+/// vrai, alimenté par `platform_events` (triggers DB).
+class _JournalTab extends ConsumerWidget {
   final PlatformSchool school;
   const _JournalTab({required this.school});
   @override
-  Widget build(BuildContext context) {
-    final events = PlatformMock.timelineFor(school);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(platformSchoolEventsProvider(school.id));
     return DataPanel(
       title: 'Journal de bord',
-      headerActions: [
-        Text('${events.length} événement${events.length > 1 ? 's' : ''}',
-            style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-      ],
-      child: events.isEmpty
-          ? const EmptyState(
-              icon: Icons.menu_book_outlined,
-              title: 'Journal vide',
-              description: 'Aucun événement enregistré pour cette école.')
-          : Column(children: [
-              for (var i = 0; i < events.length; i++)
-                _TimelineTile(event: events[i], last: i == events.length - 1),
-            ]),
+      child: eventsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        ),
+        data: (raw) {
+          final events = raw.map(_toSubEvent).toList();
+          return events.isEmpty
+              ? const EmptyState(
+                  icon: Icons.menu_book_outlined,
+                  title: 'Journal vide',
+                  description: 'Aucun événement enregistré pour cette école.')
+              : Column(children: [
+                  for (var i = 0; i < events.length; i++)
+                    _TimelineTile(event: events[i], last: i == events.length - 1),
+                ]);
+        },
+      ),
     );
   }
 }
 
 // ── Onglet FACTURATION ────────────────────────────────────────────────────────
-class _BillingTab extends StatelessWidget {
+class _BillingTab extends ConsumerWidget {
   final PlatformSchool school;
   const _BillingTab({required this.school});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = school;
-    final payments = PlatformMock.paymentsFor(s);
-    final collected =
-        payments.where((p) => p.success).fold(0, (sum, p) => sum + p.amount);
+    final paymentsAsync = ref.watch(platformSchoolPaymentsProvider(s.id));
     return Column(children: [
       _SubscriptionPanel(school: s),
       const SizedBox(height: 14),
-      DataPanel(
-        title: 'Historique de paiements',
-        headerActions: payments.isEmpty
-            ? const []
-            : [
-                Text('${groupThousands(collected)} F encaissés',
-                    style: const TextStyle(
-                        fontSize: 11.5,
-                        color: ScolarisPalette.forestGreen,
-                        fontWeight: FontWeight.w700)),
-              ],
-        child: payments.isEmpty
-            ? const EmptyState(
-                icon: Icons.receipt_long_outlined,
-                title: 'Aucun paiement',
-                description: 'Cette école est encore en période d\'essai.')
-            : DataTablePanel(
-                columns: const ['Période', 'Méthode', 'Montant', 'Statut'],
-                flex: const [3, 3, 2, 2],
-                rows: [
-                  for (final p in payments)
-                    [
-                      Text(p.period,
-                          style: TextStyle(
-                              color: context.cInk,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600)),
-                      Text(p.method,
-                          style: TextStyle(fontSize: 12, color: context.cMuted)),
-                      Text('${groupThousands(p.amount)} F',
-                          style: TextStyle(
-                              color: context.cInk,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700)),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: p.success
-                            ? StatusPill.success('Payé')
-                            : StatusPill.danger('Échoué'),
-                      ),
+      paymentsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 30),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => DataPanel(
+          title: 'Historique de paiements',
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+          ),
+        ),
+        data: (payments) {
+          final collected = payments
+              .where((p) => p.success)
+              .fold(0, (sum, p) => sum + p.amount);
+          return DataPanel(
+            title: 'Historique de paiements',
+            headerActions: payments.isEmpty
+                ? const []
+                : [
+                    Text('${groupThousands(collected)} F encaissés',
+                        style: const TextStyle(
+                            fontSize: 11.5,
+                            color: ScolarisPalette.forestGreen,
+                            fontWeight: FontWeight.w700)),
+                  ],
+            child: payments.isEmpty
+                ? const EmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Aucun paiement',
+                    description: 'Cette école est encore en période d\'essai.')
+                : DataTablePanel(
+                    columns: const ['Période', 'Méthode', 'Montant', 'Statut'],
+                    flex: const [3, 3, 2, 2],
+                    rows: [
+                      for (final p in payments)
+                        [
+                          Text(p.period,
+                              style: TextStyle(
+                                  color: context.cInk,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600)),
+                          Text(p.method,
+                              style: TextStyle(fontSize: 12, color: context.cMuted)),
+                          Text('${groupThousands(p.amount)} F',
+                              style: TextStyle(
+                                  color: context.cInk,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700)),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: p.success
+                                ? StatusPill.success('Payé')
+                                : StatusPill.danger('Échoué'),
+                          ),
+                        ],
                     ],
-                ],
-              ),
+                  ),
+          );
+        },
       ),
     ]);
   }
@@ -817,18 +1007,33 @@ class _ContactRow extends StatelessWidget {
 }
 
 // ── Timeline (cycle de vie) ────────────────────────────────────────────────────
-class _TimelinePanel extends StatelessWidget {
+class _TimelinePanel extends ConsumerWidget {
   final PlatformSchool school;
   const _TimelinePanel({required this.school});
   @override
-  Widget build(BuildContext context) {
-    final events = PlatformMock.timelineFor(school);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(platformSchoolEventsProvider(school.id));
     return DataPanel(
       title: 'Cycle de vie',
-      child: Column(children: [
-        for (var i = 0; i < events.length; i++)
-          _TimelineTile(event: events[i], last: i == events.length - 1),
-      ]),
+      child: eventsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        ),
+        data: (raw) {
+          // Aperçu compact : les 6 événements les plus récents seulement
+          // (le détail complet est dans l'onglet Journal).
+          final events = raw.take(6).map(_toSubEvent).toList();
+          return Column(children: [
+            for (var i = 0; i < events.length; i++)
+              _TimelineTile(event: events[i], last: i == events.length - 1),
+          ]);
+        },
+      ),
     );
   }
 }

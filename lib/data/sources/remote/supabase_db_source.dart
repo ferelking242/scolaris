@@ -10,6 +10,23 @@ import '../../../shared/data/features_catalog.dart' show SchoolLevel;
 
 // ── Entity models ─────────────────────────────────────────────────────────────
 
+/// Une annonce plateforme (Scolaris → écoles) reçue par l'école courante —
+/// cf. `SupabaseDbSource.getMyPlatformAnnouncements` / `my_platform_announcements()`.
+class SbPlatformAnnouncement {
+  final String id;
+  final String title;
+  final String body;
+  final String kind; // 'info' | 'maintenance' | 'feature'
+  final DateTime createdAt;
+  const SbPlatformAnnouncement({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.kind,
+    required this.createdAt,
+  });
+}
+
 /// Une décision de fin d'année pour UN élève, à appliquer via
 /// [SupabaseDbSource.applyClassPromotion]. `toClassId` n'a de sens que pour
 /// 'promoted'/'repeated' ; `reason` surtout pour 'transferred'/'withdrawn'.
@@ -3016,6 +3033,24 @@ class SupabaseDbSource {
     return (perms as List)
         .map((p) => '${p['permission_key']}.${p['sub_permission_key']}')
         .toSet();
+  }
+
+  /// Annonces de la plateforme (Scolaris → écoles) concernant l'école
+  /// courante — maintenance, nouveautés, rappels d'essai/impayé. Filtrage
+  /// par audience fait côté base (`my_platform_announcements()`), jamais côté
+  /// client : on ne reçoit que ce qui nous concerne.
+  static Future<List<SbPlatformAnnouncement>> getMyPlatformAnnouncements() async {
+    final data = await _db.rpc('my_platform_announcements');
+    return (data as List).map((j) {
+      final row = j as Map<String, dynamic>;
+      return SbPlatformAnnouncement(
+        id: row['id'] as String,
+        title: row['title'] as String? ?? '',
+        body: row['body'] as String? ?? '',
+        kind: row['kind'] as String? ?? 'info',
+        createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? DateTime.now(),
+      );
+    }).toList();
   }
 
   // ── Users ─────────────────────────────────────────────────────────────────

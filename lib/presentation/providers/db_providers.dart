@@ -570,6 +570,21 @@ final mySubmissionsProvider = FutureProvider<List<SbSubmission>>((ref) async {
   return SupabaseDbSource.getSubmissionsForStudent(session.id);
 });
 
+// ── Annonces plateforme (Scolaris → écoles) ──────────────────────────────────
+/// Annonces concernant l'école courante (maintenance, nouveautés, rappels).
+final myPlatformAnnouncementsProvider =
+    FutureProvider<List<SbPlatformAnnouncement>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return [];
+  return SupabaseDbSource.getMyPlatformAnnouncements();
+});
+
+/// Ids d'annonces masquées par l'utilisateur — SESSION seulement (pas
+/// persisté) : elles réapparaîtront à la prochaine connexion. Suffisant pour
+/// ne pas répéter une bannière déjà lue dans la même session ; une vraie
+/// table `read` par utilisateur serait nécessaire pour une persistance durable.
+final dismissedAnnouncementIdsProvider = StateProvider<Set<String>>((ref) => {});
+
 // ── Invoices ──────────────────────────────────────────────────────────────────
 final invoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);

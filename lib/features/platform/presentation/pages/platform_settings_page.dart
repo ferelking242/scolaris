@@ -1,156 +1,141 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
-import '../../data/platform_settings.dart';
+import '../../data/platform_repository.dart';
+import '../platform_providers.dart';
 import '../widgets/platform_search.dart';
 import '../widgets/platform_widgets.dart';
 
-/// Réglages de la plateforme : offres & tarifs + équipe super-admin.
-/// Maquette — les modifications restent en mémoire (cf. [PlatformSettings]).
-class PlatformSettingsPage extends StatefulWidget {
+/// Réglages de la plateforme : offres & tarifs (réels) + équipe super-admin
+/// (lecture seule — l'ajout/retrait se fait par SQL direct, volontairement :
+/// cf. le commentaire sur `platform_admins`, pas de policy insert/update côté
+/// client pour éviter l'auto-attribution de ce statut).
+class PlatformSettingsPage extends ConsumerWidget {
   const PlatformSettingsPage({super.key});
-  @override
-  State<PlatformSettingsPage> createState() => _PlatformSettingsPageState();
-}
 
-class _PlatformSettingsPageState extends State<PlatformSettingsPage> {
-  void _snack(String msg, {Color? color}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: color ?? ScolarisPalette.forestGreen,
-      duration: const Duration(seconds: 2),
-    ));
-  }
-
-  Future<void> _editPlan(PlatformPlan p) async {
+  Future<void> _editPlan(BuildContext context, WidgetRef ref, PlatformPlan p,
+      ({int price, int? limit}) current) async {
+    final messenger = ScaffoldMessenger.of(context);
     final res = await showDialog<(int, int?)>(
       context: context,
       builder: (_) => _EditPlanDialog(
         plan: p,
-        price: PlatformSettings.price[p]!,
-        limit: PlatformSettings.limit[p],
+        price: current.price,
+        limit: current.limit,
       ),
     );
     if (res == null) return;
-    setState(() => PlatformSettings.setPlan(p, price: res.$1, limit: res.$2));
-    _snack('Offre ${p.label} mise à jour.', color: p.color);
-  }
-
-  Future<void> _addAdmin() async {
-    final email = await showDialog<String>(
-      context: context,
-      builder: (_) => const _AddAdminDialog(),
-    );
-    if (email == null) return;
-    final ok = PlatformSettings.addAdmin(email);
-    if (!ok) {
-      _snack('Email invalide ou déjà présent.',
-          color: ScolarisPalette.terracotta);
-      return;
+    try {
+      await PlatformRepository.setPlanSettings(p, price: res.$1, limit: res.$2);
+      ref.invalidate(platformPlanSettingsProvider);
+      messenger.showSnackBar(SnackBar(
+        content: Text('Offre ${p.label} mise à jour.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: p.color,
+        duration: const Duration(seconds: 2),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.terracotta,
+      ));
     }
-    setState(() {});
-    _snack('Super-admin ajouté.');
-  }
-
-  Future<void> _removeAdmin(String email) async {
-    if (PlatformSettings.admins.length <= 1) {
-      _snack('Impossible de retirer le dernier super-admin.',
-          color: ScolarisPalette.terracotta);
-      return;
-    }
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Retirer ce super-admin ?',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-        content: Text('« $email » perdra l\'accès à la console plateforme.',
-            style: const TextStyle(fontSize: 13)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: ScolarisPalette.terracotta),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Retirer'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => PlatformSettings.removeAdmin(email));
-    _snack('Super-admin retiré.', color: ScolarisPalette.terracotta);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planSettingsAsync = ref.watch(platformPlanSettingsProvider);
+    final adminsAsync = ref.watch(platformAdminsProvider);
+
     return PageScaffold(
       title: 'Réglages',
       subtitle: 'Offres, tarifs & équipe de la plateforme',
       actions: const [PlatformSearchLauncher()],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Rappel maquette.
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: ScolarisPalette.gold.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: ScolarisPalette.gold.withValues(alpha: .35)),
-          ),
-          child: Row(children: [
-            const Icon(Icons.info_outline_rounded,
-                size: 16, color: ScolarisPalette.gold),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Maquette — les changements restent en mémoire. À terme, ces '
-                'réglages piloteront réellement les tarifs et les accès.',
-                style: TextStyle(fontSize: 11.5, color: context.cMuted),
-              ),
-            ),
-          ]),
-        ),
-
         // ── Offres & tarifs ──────────────────────────────────────────────
         DataPanel(
           title: 'Offres & tarifs',
-          child: Column(children: [
-            for (final p in PlatformPlan.values) ...[
-              _PlanRow(plan: p, onEdit: () => _editPlan(p)),
-              if (p != PlatformPlan.values.last)
-                Divider(height: 18, color: context.cBorder.withValues(alpha: .6)),
-            ],
-          ]),
+          child: planSettingsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+            ),
+            data: (settings) => Column(children: [
+              for (final p in PlatformPlan.values) ...[
+                _PlanRow(
+                  plan: p,
+                  price: settings[p]?.price ?? p.monthlyPrice,
+                  limit: settings[p]?.limit ?? p.studentLimit,
+                  onEdit: () => _editPlan(context, ref, p,
+                      settings[p] ?? (price: p.monthlyPrice, limit: p.studentLimit)),
+                ),
+                if (p != PlatformPlan.values.last)
+                  Divider(height: 18, color: context.cBorder.withValues(alpha: .6)),
+              ],
+            ]),
+          ),
         ),
         const SizedBox(height: 14),
 
         // ── Équipe super-admin ───────────────────────────────────────────
         DataPanel(
           title: 'Équipe super-admin',
-          headerActions: [
-            ActionButton(
-              label: 'Ajouter',
-              icon: Icons.person_add_alt_rounded,
-              primary: true,
-              onTap: _addAdmin,
-            ),
-          ],
-          child: Column(children: [
-            for (var i = 0; i < PlatformSettings.admins.length; i++) ...[
-              _AdminRow(
-                email: PlatformSettings.admins[i],
-                onRemove: () => _removeAdmin(PlatformSettings.admins[i]),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: ScolarisPalette.gold.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ScolarisPalette.gold.withValues(alpha: .35)),
               ),
-              if (i < PlatformSettings.admins.length - 1)
-                Divider(height: 14, color: context.cBorder.withValues(alpha: .5)),
-            ],
+              child: Row(children: [
+                const Icon(Icons.info_outline_rounded,
+                    size: 16, color: ScolarisPalette.gold),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Lecture seule — l\'ajout ou le retrait d\'un super-admin se '
+                    'fait par SQL direct sur `platform_admins`, pour éviter '
+                    'qu\'un admin puisse s\'accorder ce statut ou le retirer à '
+                    'quelqu\'un d\'autre depuis l\'app.',
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted),
+                  ),
+                ),
+              ]),
+            ),
+            adminsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+              ),
+              data: (admins) => admins.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text('Aucun super-admin trouvé.',
+                          style: TextStyle(color: context.cMuted, fontSize: 12.5)),
+                    )
+                  : Column(children: [
+                      for (var i = 0; i < admins.length; i++) ...[
+                        _AdminRow(email: admins[i].email, fullName: admins[i].fullName),
+                        if (i < admins.length - 1)
+                          Divider(height: 14, color: context.cBorder.withValues(alpha: .5)),
+                      ],
+                    ]),
+            ),
           ]),
         ),
       ]),
@@ -161,12 +146,17 @@ class _PlatformSettingsPageState extends State<PlatformSettingsPage> {
 // ── Ligne d'offre ─────────────────────────────────────────────────────────────
 class _PlanRow extends StatelessWidget {
   final PlatformPlan plan;
+  final int price;
+  final int? limit;
   final VoidCallback onEdit;
-  const _PlanRow({required this.plan, required this.onEdit});
+  const _PlanRow({
+    required this.plan,
+    required this.price,
+    required this.limit,
+    required this.onEdit,
+  });
   @override
   Widget build(BuildContext context) {
-    final price = PlatformSettings.price[plan]!;
-    final limit = PlatformSettings.limit[plan];
     return Row(children: [
       PlanBadge(plan: plan),
       const SizedBox(width: 14),
@@ -181,7 +171,7 @@ class _PlanRow extends StatelessWidget {
           Text(
               limit == null
                   ? 'Élèves illimités'
-                  : 'Jusqu\'à ${groupThousands(limit)} élèves',
+                  : 'Jusqu\'à ${groupThousands(limit!)} élèves',
               style: TextStyle(fontSize: 11.5, color: context.cMuted)),
         ]),
       ),
@@ -191,34 +181,32 @@ class _PlanRow extends StatelessWidget {
   }
 }
 
-// ── Ligne de super-admin ──────────────────────────────────────────────────────
+// ── Ligne de super-admin (lecture seule) ──────────────────────────────────────
 class _AdminRow extends StatelessWidget {
   final String email;
-  final VoidCallback onRemove;
-  const _AdminRow({required this.email, required this.onRemove});
+  final String fullName;
+  const _AdminRow({required this.email, required this.fullName});
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
-        Avatar(name: email, size: 32),
+        Avatar(name: fullName, size: 32),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(email,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: context.cInk,
-                  fontWeight: FontWeight.w600)),
-        ),
-        IconButton(
-          onPressed: onRemove,
-          icon: const Icon(Icons.delete_outline_rounded, size: 18),
-          color: ScolarisPalette.terracotta,
-          tooltip: 'Retirer',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(fullName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    color: context.cInk,
+                    fontWeight: FontWeight.w600)),
+            Text(email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: context.cMuted)),
+          ]),
         ),
       ]),
     );
@@ -313,76 +301,16 @@ class _EditPlanDialogState extends State<_EditPlanDialog> {
   }
 }
 
-// ── Dialogue : ajouter un super-admin ─────────────────────────────────────────
-class _AddAdminDialog extends StatefulWidget {
-  const _AddAdminDialog();
-  @override
-  State<_AddAdminDialog> createState() => _AddAdminDialogState();
-}
-
-class _AddAdminDialogState extends State<_AddAdminDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-
-  @override
-  void dispose() {
-    _email.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.pop(context, _email.text.trim().toLowerCase());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Ajouter un super-admin',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-      content: Form(
-        key: _formKey,
-        child: _DialogField(
-          controller: _email,
-          label: 'Email',
-          hint: 'nom@exemple.com',
-          keyboardType: TextInputType.emailAddress,
-          validator: (v) {
-            final t = (v ?? '').trim();
-            if (t.isEmpty) return 'Requis';
-            if (!t.contains('@') || !t.contains('.')) return 'Email invalide';
-            return null;
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler')),
-        FilledButton(
-          style: FilledButton.styleFrom(
-              backgroundColor: ScolarisPalette.forestGreen),
-          onPressed: _save,
-          child: const Text('Ajouter'),
-        ),
-      ],
-    );
-  }
-}
-
 /// Champ texte theme-aware réutilisé par les dialogues de réglages.
 class _DialogField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String? hint;
-  final TextInputType? keyboardType;
   final String? Function(String?)? validator;
   const _DialogField({
     required this.controller,
     required this.label,
     this.hint,
-    this.keyboardType,
     this.validator,
   });
   @override
@@ -399,7 +327,6 @@ class _DialogField extends StatelessWidget {
         width: 320,
         child: TextFormField(
           controller: controller,
-          keyboardType: keyboardType,
           validator: validator,
           style: TextStyle(fontSize: 13, color: context.cInk),
           decoration: InputDecoration(

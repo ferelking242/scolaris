@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_announcement.dart';
+import '../../data/platform_mock_data.dart';
+import '../../data/platform_repository.dart';
+import '../platform_providers.dart';
 import '../widgets/platform_search.dart';
 
-/// Diffusion d'annonces aux écoles (maintenance, nouveautés, rappels).
-/// Maquette — les annonces restent en mémoire (cf. [PlatformAnnouncements]).
-class PlatformAnnouncementsPage extends StatefulWidget {
+/// Diffusion d'annonces aux écoles (maintenance, nouveautés, rappels) — vraie
+/// table `platform_announcements`, lue par chaque école via
+/// `my_platform_announcements()` (bannière dans son tableau de bord).
+class PlatformAnnouncementsPage extends ConsumerStatefulWidget {
   const PlatformAnnouncementsPage({super.key});
   @override
-  State<PlatformAnnouncementsPage> createState() =>
+  ConsumerState<PlatformAnnouncementsPage> createState() =>
       _PlatformAnnouncementsPageState();
 }
 
-class _PlatformAnnouncementsPageState extends State<PlatformAnnouncementsPage> {
+class _PlatformAnnouncementsPageState
+    extends ConsumerState<PlatformAnnouncementsPage> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _body = TextEditingController();
   AnnouncementAudience _audience = AnnouncementAudience.all;
   AnnouncementKind _kind = AnnouncementKind.info;
+  bool _publishing = false;
 
   @override
   void dispose() {
@@ -28,31 +36,49 @@ class _PlatformAnnouncementsPageState extends State<PlatformAnnouncementsPage> {
     super.dispose();
   }
 
-  void _publish() {
+  Future<void> _publish(List<PlatformSchool> schools) async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final a = PlatformAnnouncements.publish(
-      title: _title.text,
-      body: _body.text,
-      audience: _audience,
-      kind: _kind,
-    );
-    setState(() {
-      _title.clear();
-      _body.clear();
-      _audience = AnnouncementAudience.all;
-      _kind = AnnouncementKind.info;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Annonce diffusée à ${a.reach} école${a.reach > 1 ? 's' : ''}.'),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: ScolarisPalette.forestGreen,
-      duration: const Duration(seconds: 2),
-    ));
+    final reach = _audience.reachAmong(schools);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _publishing = true);
+    try {
+      await PlatformRepository.publishAnnouncement(
+        title: _title.text,
+        body: _body.text,
+        kind: _kind,
+        audience: _audience,
+        reach: reach,
+      );
+      ref.invalidate(platformAnnouncementsProvider);
+      setState(() {
+        _title.clear();
+        _body.clear();
+        _audience = AnnouncementAudience.all;
+        _kind = AnnouncementKind.info;
+      });
+      messenger.showSnackBar(SnackBar(
+        content: Text('Annonce diffusée à $reach école${reach > 1 ? 's' : ''}.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.forestGreen,
+        duration: const Duration(seconds: 2),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.terracotta,
+      ));
+    } finally {
+      if (mounted) setState(() => _publishing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final history = PlatformAnnouncements.items;
+    final schoolsAsync = ref.watch(platformSchoolsProvider);
+    final historyAsync = ref.watch(platformAnnouncementsProvider);
+    final schools = schoolsAsync.valueOrNull ?? const <PlatformSchool>[];
+
     return PageScaffold(
       title: 'Annonces',
       subtitle: 'Diffuser un message aux écoles de la plateforme',
@@ -98,7 +124,7 @@ class _PlatformAnnouncementsPageState extends State<PlatformAnnouncementsPage> {
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final a in AnnouncementAudience.values)
                   _ChoicePill(
-                    label: '${a.label} · ${a.reach}',
+                    label: '${a.label} · ${a.reachAmong(schools)}',
                     icon: Icons.groups_rounded,
                     color: ScolarisPalette.terracotta,
                     selected: _audience == a,
@@ -109,10 +135,13 @@ class _PlatformAnnouncementsPageState extends State<PlatformAnnouncementsPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: ActionButton(
-                  label: 'Diffuser à ${_audience.reach} école${_audience.reach > 1 ? 's' : ''}',
+                  label: _publishing
+                      ? 'Diffusion…'
+                      : 'Diffuser à ${_audience.reachAmong(schools)} '
+                          'école${_audience.reachAmong(schools) > 1 ? 's' : ''}',
                   icon: Icons.send_rounded,
                   primary: true,
-                  onTap: _publish,
+                  onTap: _publishing ? () {} : () => _publish(schools),
                 ),
               ),
             ]),
@@ -123,24 +152,37 @@ class _PlatformAnnouncementsPageState extends State<PlatformAnnouncementsPage> {
         // ── Historique ───────────────────────────────────────────────────
         DataPanel(
           title: 'Annonces diffusées',
-          headerActions: [
-            Text('${history.length} au total',
-                style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-          ],
-          child: history.isEmpty
-              ? const EmptyState(
-                  icon: Icons.campaign_outlined,
-                  title: 'Aucune annonce',
-                  description: 'Diffuse ta première annonce ci-dessus.')
-              : Column(children: [
-                  for (var i = 0; i < history.length; i++) ...[
-                    _AnnouncementTile(item: history[i]),
-                    if (i < history.length - 1)
-                      Divider(
-                          height: 20,
-                          color: context.cBorder.withValues(alpha: .5)),
-                  ],
-                ]),
+          headerActions: historyAsync.maybeWhen(
+            data: (history) => [
+              Text('${history.length} au total',
+                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ],
+            orElse: () => const [],
+          ),
+          child: historyAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+            ),
+            data: (history) => history.isEmpty
+                ? const EmptyState(
+                    icon: Icons.campaign_outlined,
+                    title: 'Aucune annonce',
+                    description: 'Diffuse ta première annonce ci-dessus.')
+                : Column(children: [
+                    for (var i = 0; i < history.length; i++) ...[
+                      _AnnouncementTile(item: history[i]),
+                      if (i < history.length - 1)
+                        Divider(
+                            height: 20,
+                            color: context.cBorder.withValues(alpha: .5)),
+                    ],
+                  ]),
+          ),
         ),
       ]),
     );

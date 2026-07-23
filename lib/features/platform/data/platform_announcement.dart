@@ -14,16 +14,32 @@ extension AnnouncementAudienceX on AnnouncementAudience {
         AnnouncementAudience.pastDue => 'Écoles en impayé',
       };
 
-  /// Nombre d'écoles ciblées (calculé sur les données actuelles).
-  int get reach => switch (this) {
-        AnnouncementAudience.all => PlatformMock.total,
-        AnnouncementAudience.paying => PlatformMock.paying,
-        AnnouncementAudience.trials => PlatformMock.trials,
-        AnnouncementAudience.pastDue => PlatformMock.schools
-            .where((s) => s.status == SubStatus.pastDue)
-            .length,
+  /// Clé stockée en base (colonne `audience`).
+  String get code => switch (this) {
+        AnnouncementAudience.all => 'all',
+        AnnouncementAudience.paying => 'paying',
+        AnnouncementAudience.trials => 'trials',
+        AnnouncementAudience.pastDue => 'past_due',
+      };
+
+  /// Nombre d'écoles ciblées par cette audience, sur la liste RÉELLE fournie
+  /// (cf. `platformSchoolsProvider`) — plus de dépendance à `PlatformMock`.
+  int reachAmong(List<PlatformSchool> schools) => switch (this) {
+        AnnouncementAudience.all => schools.length,
+        AnnouncementAudience.paying => schools.where((s) => s.isPaying).length,
+        AnnouncementAudience.trials =>
+          schools.where((s) => s.status == SubStatus.trial).length,
+        AnnouncementAudience.pastDue =>
+          schools.where((s) => s.status == SubStatus.pastDue).length,
       };
 }
+
+AnnouncementAudience audienceFromCode(String? code) => switch (code) {
+      'paying' => AnnouncementAudience.paying,
+      'trials' => AnnouncementAudience.trials,
+      'past_due' => AnnouncementAudience.pastDue,
+      _ => AnnouncementAudience.all,
+    };
 
 /// Nature de l'annonce (change l'icône / la couleur).
 enum AnnouncementKind { info, maintenance, feature }
@@ -46,7 +62,20 @@ extension AnnouncementKindX on AnnouncementKind {
         AnnouncementKind.maintenance => ScolarisPalette.orange,
         AnnouncementKind.feature => ScolarisPalette.forestGreen,
       };
+
+  /// Clé stockée en base (colonne `kind`).
+  String get code => switch (this) {
+        AnnouncementKind.info => 'info',
+        AnnouncementKind.maintenance => 'maintenance',
+        AnnouncementKind.feature => 'feature',
+      };
 }
+
+AnnouncementKind kindFromCode(String? code) => switch (code) {
+      'maintenance' => AnnouncementKind.maintenance,
+      'feature' => AnnouncementKind.feature,
+      _ => AnnouncementKind.info,
+    };
 
 /// Une annonce diffusée aux écoles (mock — futur `platform_announcements`).
 class PlatformAnnouncement {
@@ -69,56 +98,3 @@ class PlatformAnnouncement {
   });
 }
 
-/// Magasin d'annonces — **maquette** (état en mémoire). En prod, diffusion via
-/// une Edge Function `broadcast` (notifications + bannière in-app par école).
-class PlatformAnnouncements {
-  PlatformAnnouncements._();
-
-  static final List<PlatformAnnouncement> items = [
-    PlatformAnnouncement(
-      title: 'Nouveau : bulletins PDF personnalisables',
-      body: 'Vous pouvez désormais adapter l\'en-tête et le pied de page de vos '
-          'bulletins depuis Réglages › Bulletins.',
-      audience: AnnouncementAudience.all,
-      kind: AnnouncementKind.feature,
-      date: PlatformMock.now.subtract(const Duration(days: 4)),
-      reach: 7,
-    ),
-    PlatformAnnouncement(
-      title: 'Maintenance planifiée samedi 04:00–05:00',
-      body: 'Scolaris sera momentanément indisponible pour une mise à jour. '
-          'Aucune donnée ne sera perdue.',
-      audience: AnnouncementAudience.all,
-      kind: AnnouncementKind.maintenance,
-      date: PlatformMock.now.subtract(const Duration(days: 12)),
-      reach: 6,
-    ),
-    PlatformAnnouncement(
-      title: 'Votre période d\'essai se termine bientôt',
-      body: 'Passez à une offre payante pour continuer à profiter de toutes les '
-          'fonctionnalités sans interruption.',
-      audience: AnnouncementAudience.trials,
-      kind: AnnouncementKind.info,
-      date: PlatformMock.now.subtract(const Duration(days: 20)),
-      reach: 2,
-    ),
-  ];
-
-  static PlatformAnnouncement publish({
-    required String title,
-    required String body,
-    required AnnouncementAudience audience,
-    required AnnouncementKind kind,
-  }) {
-    final a = PlatformAnnouncement(
-      title: title.trim(),
-      body: body.trim(),
-      audience: audience,
-      kind: kind,
-      date: PlatformMock.now,
-      reach: audience.reach,
-    );
-    items.insert(0, a); // plus récente en haut
-    return a;
-  }
-}

@@ -104,8 +104,8 @@ class AdminHome extends ConsumerWidget {
       // radiation) — la même décision annuelle, cf. class_promotion_page.dart.
       RoleNavEntry(icon: Icons.move_up_outlined, activeIcon: Icons.move_up_rounded,
           labelKey: 'Passage de classe',
-          page: PermissionGuard(permission: StaffPermissions.students, child: ClassPromotionPage()),
-          permission: StaffPermissions.students),
+          page: PermissionGuard(permission: StaffPermissions.promotion, child: ClassPromotionPage()),
+          permission: StaffPermissions.promotion),
     ]),
     RoleNavGroup(labelKey: 'sections.activity', entries: [
       RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
@@ -221,7 +221,9 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _DashGreeting(greet: _greet, name: firstName, date: _todayStr),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+            const _PlatformAnnouncementBanner(),
+            const SizedBox(height: 6),
             const _DashKpiRow(),
             const SizedBox(height: 20),
             LayoutBuilder(builder: (_, c) {
@@ -249,6 +251,74 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
             }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Annonce plateforme (Scolaris → écoles) concernant l'école courante —
+/// maintenance, nouveauté, rappel d'essai/impayé. Masquage SESSION seulement
+/// (cf. `dismissedAnnouncementIdsProvider`) : réapparaît à la reconnexion.
+class _PlatformAnnouncementBanner extends ConsumerWidget {
+  const _PlatformAnnouncementBanner();
+
+  Color _colorOf(String kind) => switch (kind) {
+        'maintenance' => _orange,
+        'feature' => _green,
+        _ => ScolarisAccents.sapphire,
+      };
+
+  IconData _iconOf(String kind) => switch (kind) {
+        'maintenance' => Icons.build_rounded,
+        'feature' => Icons.auto_awesome_rounded,
+        _ => Icons.campaign_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final announcementsAsync = ref.watch(myPlatformAnnouncementsProvider);
+    final dismissed = ref.watch(dismissedAnnouncementIdsProvider);
+    final items = announcementsAsync.valueOrNull ?? const [];
+    final visible = items.where((a) => !dismissed.contains(a.id)).toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+
+    final a = visible.first;
+    final color = _colorOf(a.kind);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: .25)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(_iconOf(a.kind), size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(a.title,
+                  style: TextStyle(
+                      color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(a.body,
+                  style: TextStyle(
+                      color: _DashColors.of(context).muted, fontSize: 12, height: 1.35)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () => ref
+                .read(dismissedAnnouncementIdsProvider.notifier)
+                .update((s) => {...s, a.id}),
+            icon: const Icon(Icons.close_rounded, size: 16),
+            color: _DashColors.of(context).muted,
+            tooltip: 'Masquer',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+          ),
+        ]),
       ),
     );
   }

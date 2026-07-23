@@ -33,6 +33,7 @@ class StaffPermissions {
 
   // ── Clés canoniques ────────────────────────────────────────────────────────
   static const students = 'students';
+  static const promotion = 'promotion';
   static const classes = 'classes';
   static const grades = 'grades';
   static const attendance = 'attendance';
@@ -53,6 +54,12 @@ class StaffPermissions {
       label: 'Élèves & inscriptions',
       description: 'Créer/modifier les élèves, gérer les inscriptions',
       icon: Icons.group_outlined,
+    ),
+    StaffPermission(
+      key: promotion,
+      label: 'Passage de classe & sortie',
+      description: 'Décider fin d\'année : classe supérieure, redoublement, sortie',
+      icon: Icons.move_up_outlined,
     ),
     StaffPermission(
       key: classes,
@@ -122,7 +129,7 @@ class StaffPermissions {
   /// Modèles de départ (presets). L'admin part de l'un d'eux puis ajuste les
   /// cases librement. « Co-Directeur » = accès total via [kAllPermission].
   static const Map<String, List<String>> presets = {
-    'Secrétaire': [students, classes, timetable],
+    'Secrétaire': [students, promotion, classes, timetable],
     'Comptable': [finance, reports],
     'Surveillant': [attendance, discipline],
     'Co-Directeur': [kAllPermission],

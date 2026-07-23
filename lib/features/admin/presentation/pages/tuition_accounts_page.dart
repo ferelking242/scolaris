@@ -24,6 +24,7 @@ class TuitionAccountsPage extends ConsumerStatefulWidget {
 class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
   String _filter = 'all'; // all | uptodate | late
   String _search = '';
+  String? _classId; // null = toutes les classes
 
   String _money(num v, String currency) =>
       '${NumberFormat.decimalPattern('fr').format(v)} $currency';
@@ -32,6 +33,7 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsProvider);
     final accountsAsync = ref.watch(tuitionAccountsProvider);
+    final classesAsync = ref.watch(classesProvider);
     final canCollect = ref.watch(canProvider('comptabilite.creer_facture'));
 
     return PageScaffold(
@@ -56,6 +58,7 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
             context,
             students: studentsAsync.valueOrNull ?? const [],
             accounts: accountsAsync.valueOrNull ?? const {},
+            classes: classesAsync.valueOrNull ?? const [],
             canCollect: canCollect,
           ),
       ]),
@@ -66,6 +69,7 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
     BuildContext context, {
     required List<SbStudent> students,
     required Map<String, SbTuitionAccount> accounts,
+    required List<SbClass> classes,
     required bool canCollect,
   }) {
     // Élèves ayant un compte (donc une grille). Ceux sans grille sont comptés à
@@ -76,6 +80,14 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
       if (a != null) withAccount.add((s: s, a: a));
     }
     final noGrid = students.length - withAccount.length;
+
+    // Classes ayant au moins un élève avec compte — pas la peine de proposer
+    // un filtre pour une classe vide de comptes.
+    final classIdsWithAccount = withAccount.map((e) => e.s.classId).toSet();
+    final filterableClasses = classes
+        .where((c) => classIdsWithAccount.contains(c.id))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     final lateCount = withAccount.where((e) => !e.a.isUpToDate).length;
     final owedTotal =
@@ -88,6 +100,7 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
     final rows = withAccount.where((e) {
       if (_filter == 'late' && e.a.isUpToDate) return false;
       if (_filter == 'uptodate' && !e.a.isUpToDate) return false;
+      if (_classId != null && e.s.classId != _classId) return false;
       if (q.isNotEmpty && !e.s.fullName.toLowerCase().contains(q)) return false;
       return true;
     }).toList()
@@ -128,27 +141,54 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
       const SizedBox(height: 14),
 
       // ── Filtres ─────────────────────────────────────────────────────────
-      Row(children: [
+      Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
         for (final f in const [
           ('all', 'Tous'),
           ('late', 'En retard'),
           ('uptodate', 'À jour'),
         ])
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(f.$2),
-              selected: _filter == f.$1,
-              onSelected: (_) => setState(() => _filter = f.$1),
-              selectedColor: _terra.withValues(alpha: .12),
-              labelStyle: TextStyle(
-                fontSize: 12,
-                color: _filter == f.$1 ? _terra : context.cMuted,
-                fontWeight:
-                    _filter == f.$1 ? FontWeight.w700 : FontWeight.w500,
+          ChoiceChip(
+            label: Text(f.$2),
+            selected: _filter == f.$1,
+            onSelected: (_) => setState(() => _filter = f.$1),
+            selectedColor: _terra.withValues(alpha: .12),
+            labelStyle: TextStyle(
+              fontSize: 12,
+              color: _filter == f.$1 ? _terra : context.cMuted,
+              fontWeight:
+                  _filter == f.$1 ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        if (filterableClasses.length > 1) ...[
+          Container(width: 1, height: 20, color: context.cBorder),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: context.cSubtle,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: context.cBorder),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _classId,
+                isDense: true,
+                dropdownColor: context.cCard,
+                style: TextStyle(fontSize: 12, color: context.cInk),
+                hint: Text('Toutes les classes',
+                    style: TextStyle(fontSize: 12, color: context.cMuted)),
+                items: [
+                  DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Toutes les classes',
+                          style: TextStyle(fontSize: 12, color: context.cMuted))),
+                  for (final c in filterableClasses)
+                    DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                ],
+                onChanged: (v) => setState(() => _classId = v),
               ),
             ),
           ),
+        ],
       ]),
       const SizedBox(height: 12),
 

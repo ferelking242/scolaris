@@ -110,11 +110,11 @@ class PlatformTrendChart extends StatelessWidget {
 
 /// Donut de répartition des écoles par offre + légende.
 class PlatformPlanDonut extends StatelessWidget {
-  const PlatformPlanDonut({super.key});
+  final Map<PlatformPlan, int> breakdown;
+  const PlatformPlanDonut({super.key, required this.breakdown});
 
   @override
   Widget build(BuildContext context) {
-    final breakdown = PlatformMock.planBreakdown;
     return Row(children: [
       SizedBox(
         width: 130,

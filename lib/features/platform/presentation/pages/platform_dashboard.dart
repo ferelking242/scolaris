@@ -5,71 +5,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../presentation/providers/nav_providers.dart';
 import '../../data/platform_mock_data.dart';
+import '../../data/platform_school_aggregates.dart';
 import '../platform_providers.dart';
 import '../widgets/platform_charts.dart';
 import '../widgets/platform_search.dart';
 import '../widgets/platform_widgets.dart';
-
-/// Agrégats calculés depuis la vraie liste d'écoles — même logique que les
-/// getters de [PlatformMock], mais sur des données réelles au lieu d'une
-/// liste figée.
-extension _PlatformSchoolsAggregates on List<PlatformSchool> {
-  int get total => length;
-  int get paying => where((s) => s.isPaying).length;
-  int get trials => where((s) => s.status == SubStatus.trial).length;
-  int get churned => where((s) =>
-      s.status == SubStatus.expired || s.status == SubStatus.canceled).length;
-
-  int get mrr => where((s) => s.isPaying)
-      .fold(0, (sum, s) => sum + s.plan.monthlyPrice);
-
-  // Pas de total d'élèves ici : studentCount par école n'est pas encore
-  // branché (cf. PlatformRepository.getSchools) — le total réel vient de
-  // platformTotalStudentsProvider (RPC dédiée), pas d'une somme locale à 0.
-
-  Map<PlatformPlan, int> get planBreakdown {
-    final m = {for (final p in PlatformPlan.values) p: 0};
-    for (final s in this) {
-      m[s.plan] = (m[s.plan] ?? 0) + 1;
-    }
-    return m;
-  }
-
-  List<PlatformSchool> get recent =>
-      [...this]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-  List<PlatformSchool> get needsAttention => where((s) =>
-      s.status == SubStatus.pastDue ||
-      s.status == SubStatus.expired ||
-      (s.status == SubStatus.trial && s.daysLeft <= 20)).toList();
-
-  static const _monthsFr = [
-    'jan.', 'fév.', 'mar.', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.',
-  ];
-
-  /// Écoles cumulées, mois par mois, sur les 6 derniers mois — dérivé de
-  /// `createdAt`, pas d'une série figée.
-  List<double> schoolsTrend(DateTime now) {
-    final months = List.generate(6, (i) {
-      final m = DateTime(now.year, now.month - (5 - i));
-      return m;
-    });
-    return [
-      for (final m in months)
-        where((s) =>
-                s.createdAt.year < m.year ||
-                (s.createdAt.year == m.year && s.createdAt.month <= m.month))
-            .length
-            .toDouble(),
-    ];
-  }
-
-  List<String> trendMonths(DateTime now) => List.generate(6, (i) {
-        final m = DateTime(now.year, now.month - (5 - i));
-        return _monthsFr[m.month - 1];
-      });
-}
 
 /// Vue d'ensemble de la plateforme (KPIs, écoles récentes, alertes) — sur les
 /// VRAIES écoles (cf. [PlatformRepository]), plus depuis [PlatformMock].

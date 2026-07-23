@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../presentation/providers/nav_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
+import '../../data/platform_school_aggregates.dart';
 import '../platform_providers.dart';
 import 'platform_widgets.dart';
 
@@ -66,14 +67,15 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// Palette de recherche (modale) — champ + résultats filtrés en direct.
-class _SearchPalette extends StatefulWidget {
+/// Palette de recherche (modale) — champ + résultats filtrés en direct, sur
+/// les VRAIES écoles (`platformSchoolsProvider`).
+class _SearchPalette extends ConsumerStatefulWidget {
   const _SearchPalette();
   @override
-  State<_SearchPalette> createState() => _SearchPaletteState();
+  ConsumerState<_SearchPalette> createState() => _SearchPaletteState();
 }
 
-class _SearchPaletteState extends State<_SearchPalette> {
+class _SearchPaletteState extends ConsumerState<_SearchPalette> {
   final _controller = TextEditingController();
   String _q = '';
 
@@ -83,13 +85,13 @@ class _SearchPaletteState extends State<_SearchPalette> {
     super.dispose();
   }
 
-  List<PlatformSchool> get _results {
+  List<PlatformSchool> _results(List<PlatformSchool> all) {
     final q = _q.trim().toLowerCase();
     if (q.isEmpty) {
       // Sans requête : les plus récentes, pour un point de départ utile.
-      return PlatformMock.recent.take(6).toList();
+      return all.recent.take(6).toList();
     }
-    return PlatformMock.schools
+    return all
         .where((s) =>
             s.name.toLowerCase().contains(q) ||
             s.city.toLowerCase().contains(q) ||
@@ -102,7 +104,8 @@ class _SearchPaletteState extends State<_SearchPalette> {
 
   @override
   Widget build(BuildContext context) {
-    final results = _results;
+    final schoolsAsync = ref.watch(platformSchoolsProvider);
+    final results = _results(schoolsAsync.valueOrNull ?? const []);
     return Dialog(
       backgroundColor: context.cCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -170,7 +173,12 @@ class _SearchPaletteState extends State<_SearchPalette> {
           ),
           // Résultats.
           Flexible(
-            child: results.isEmpty
+            child: schoolsAsync.isLoading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 30),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : results.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: EmptyState(

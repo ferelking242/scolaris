@@ -1,9 +1,12 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
+import '../../data/platform_repository.dart';
+import '../../data/platform_school_aggregates.dart';
 import '../platform_providers.dart';
 import '../widgets/platform_search.dart';
 import '../widgets/platform_widgets.dart';
@@ -24,8 +27,8 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
 
   static const _filters = ['Toutes', 'Payantes', 'Essai', 'À surveiller'];
 
-  List<PlatformSchool> get _filtered {
-    Iterable<PlatformSchool> list = PlatformMock.schools;
+  List<PlatformSchool> _filtered(List<PlatformSchool> all) {
+    Iterable<PlatformSchool> list = all;
     switch (_filter) {
       case 'Payantes':
         list = list.where((s) => s.isPaying);
@@ -34,7 +37,7 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
         list = list.where((s) => s.status == SubStatus.trial);
         break;
       case 'À surveiller':
-        final ids = PlatformMock.needsAttention.map((s) => s.id).toSet();
+        final ids = all.needsAttention.map((s) => s.id).toSet();
         list = list.where((s) => ids.contains(s.id));
         break;
     }
@@ -44,6 +47,25 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
           s.name.toLowerCase().contains(q) || s.city.toLowerCase().contains(q));
     }
     return list.toList()..sort((a, b) => b.studentCount.compareTo(a.studentCount));
+  }
+
+  Future<void> _openCreated(String schoolId) async {
+    ref.invalidate(platformSchoolsProvider);
+    final all = await ref.read(platformSchoolsProvider.future);
+    final school = all.where((s) => s.id == schoolId).firstOrNull;
+    setState(() => _creating = false);
+    if (!mounted) return;
+    if (school != null) {
+      ref.read(selectedPlatformSchoolProvider.notifier).state = school;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(school != null
+          ? 'École « ${school.name} » créée (essai 30 j).'
+          : 'École créée (essai 30 j).'),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: ScolarisPalette.forestGreen,
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   @override
@@ -63,27 +85,37 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
         subtitle: 'Créer un établissement sur la plateforme',
         child: _CreateSchoolForm(
           onCancel: () => setState(() => _creating = false),
-          onCreated: (school) {
-            setState(() => _creating = false);
-            // Ouvre directement la fiche de l'école créée.
-            ref.read(selectedPlatformSchoolProvider.notifier).state = school;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('École « ${school.name} » créée (essai 30 j).'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: ScolarisPalette.forestGreen,
-              duration: const Duration(seconds: 2),
-            ));
-          },
+          onCreated: _openCreated,
         ),
       );
     }
 
-    final schools = _filtered;
+    final schoolsAsync = ref.watch(platformSchoolsProvider);
     return PageScaffold(
       title: 'Écoles',
-      subtitle: '${PlatformMock.total} établissements sur la plateforme',
+      subtitle: schoolsAsync.when(
+        data: (all) => '${all.length} établissements sur la plateforme',
+        loading: () => 'Chargement…',
+        error: (e, _) => 'Erreur de chargement',
+      ),
       actions: const [PlatformSearchLauncher()],
-      child: Column(children: [
+      child: schoolsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 60),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        ),
+        data: (all) => _body(context, all),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, List<PlatformSchool> all) {
+    final schools = _filtered(all);
+    return Column(children: [
         // Bouton de création (aligné à droite).
         Align(
           alignment: Alignment.centerRight,
@@ -179,8 +211,7 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
                   ],
                 ),
         ),
-      ]),
-    );
+      ]);
   }
 
   void _open(PlatformSchool s) =>
@@ -188,11 +219,12 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
 }
 
 /// Formulaire de création d'école — affiché **inline** (pas de route à part).
-/// Maquette : ajoute l'école en mémoire via `PlatformMock.add`. En prod, ce
-/// formulaire appellera l'Edge Function `create-account`.
+/// Crée une VRAIE école via l'Edge Function `platform-create-school`
+/// (service_role — `onCreated` reçoit l'id, la fiche est ouverte après
+/// rafraîchissement de la liste par l'appelant).
 class _CreateSchoolForm extends StatefulWidget {
   final VoidCallback onCancel;
-  final ValueChanged<PlatformSchool> onCreated;
+  final Future<void> Function(String schoolId) onCreated;
   const _CreateSchoolForm({required this.onCancel, required this.onCreated});
   @override
   State<_CreateSchoolForm> createState() => _CreateSchoolFormState();
@@ -206,9 +238,12 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
   final _director = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
+  final _password = TextEditingController();
 
   final Set<String> _types = {'primaire'};
   PlatformPlan _plan = PlatformPlan.simple;
+  bool _submitting = false;
+  String? _error;
 
   static const _typeOptions = {
     'primaire': 'Primaire',
@@ -219,13 +254,13 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _city, _country, _director, _email, _phone]) {
+    for (final c in [_name, _city, _country, _director, _email, _phone, _password]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_types.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -234,17 +269,28 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
       ));
       return;
     }
-    final school = PlatformMock.add(
-      name: _name.text,
-      city: _city.text,
-      country: _country.text,
-      types: _types.toList(),
-      plan: _plan,
-      director: _director.text,
-      email: _email.text,
-      phone: _phone.text,
-    );
-    widget.onCreated(school);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final schoolId = await PlatformRepository.createSchool(
+        name: _name.text,
+        city: _city.text,
+        country: _country.text,
+        types: _types.toList(),
+        plan: _plan,
+        directorName: _director.text,
+        email: _email.text,
+        phone: _phone.text,
+        password: _password.text,
+      );
+      await widget.onCreated(schoolId);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -379,17 +425,49 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
                     hint: '+242 06 000 00 00',
                     keyboardType: TextInputType.phone),
               ),
+              _Field(
+                controller: _password,
+                label: 'Mot de passe (compte du responsable)',
+                hint: 'Min. 6 caractères',
+                required: true,
+                validator: (v) => (v == null || v.length < 6)
+                    ? 'Min. 6 caractères'
+                    : null,
+              ),
             ]),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ScolarisPalette.terracotta.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: ScolarisPalette.terracotta.withValues(alpha: .25)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: ScolarisPalette.terracotta, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(_error!,
+                        style: const TextStyle(
+                            color: ScolarisPalette.terracotta, fontSize: 12))),
+              ]),
+            ),
+          ],
           const SizedBox(height: 18),
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            ActionButton(label: 'Annuler', onTap: widget.onCancel),
+            ActionButton(
+                label: 'Annuler',
+                onTap: _submitting ? () {} : widget.onCancel),
             const SizedBox(width: 10),
             ActionButton(
-              label: 'Créer l\'école',
+              label: _submitting ? 'Création…' : 'Créer l\'école',
               icon: Icons.check_rounded,
               primary: true,
-              onTap: _submit,
+              onTap: _submitting ? () {} : _submit,
             ),
           ]),
         ]),
