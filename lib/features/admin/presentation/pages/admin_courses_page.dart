@@ -371,16 +371,10 @@ class _CourseAdminCard extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(course.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface)),
               const SizedBox(height: 2),
-              Row(children: [
-                if (course.code != null) ...[
-                  _Chip(course.code!, c),
-                  const SizedBox(width: 6),
-                ],
+              Wrap(spacing: 6, runSpacing: 4, children: [
+                if (course.code != null) _Chip(course.code!, c),
                 _Chip('Coef. ${course.coefficient}', _gold),
-                if (course.hoursWeek != null) ...[
-                  const SizedBox(width: 6),
-                  _Chip('${course.hoursWeek}h/sem', _green),
-                ],
+                if (course.hoursWeek != null) _Chip('${course.hoursWeek}h/sem', _green),
               ]),
               // Un cours sans enseignant, personne ne peut le noter : on le dit.
               const SizedBox(height: 4),
@@ -400,11 +394,10 @@ class _CourseAdminCard extends StatelessWidget {
               ],
               if (course.daysOfWeek.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Row(children: course.daysOfWeek.map((d) {
+                Wrap(spacing: 4, runSpacing: 4, children: course.daysOfWeek.map((d) {
                   final idx = _daysKey.indexOf(d);
                   final label = idx >= 0 ? _daysFr[idx] : d.substring(0, 3);
                   return Container(
-                    margin: const EdgeInsets.only(right: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: c.withValues(alpha: .08), borderRadius: BorderRadius.circular(4)),
                     child: Text(label, style: TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.w700)),

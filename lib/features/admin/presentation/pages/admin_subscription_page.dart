@@ -310,7 +310,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
       title: Text('Souscrire — ${widget.plan.name}',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 380,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           // Bandeau démo
           Container(
@@ -633,41 +633,57 @@ class _BillingHistory extends ConsumerWidget {
   Widget _row(BuildContext context, SbSubscriptionPayment p, SbSchool? school) {
     final planName = planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase();
     final periodLabel = p.isYearly ? 'annuel' : 'mensuel';
-    return Row(children: [
-      Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF15803D).withValues(alpha: .12),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF15803D)),
+    final icon = Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15803D).withValues(alpha: .12),
+        shape: BoxShape.circle,
       ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Offre $planName · $periodLabel',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
-          const SizedBox(height: 2),
-          Text('${_fmtDate(p.date)} · Réf. ${p.reference ?? p.id.substring(0, 8).toUpperCase()}',
-              style: TextStyle(fontSize: 11, color: context.cMuted)),
-        ]),
-      ),
-      const SizedBox(width: 8),
-      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text('${fmt.format(p.amount)} ${p.currency}',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
-        if (p.creditApplied > 0.01)
-          Text('crédit − ${fmt.format(p.creditApplied)}',
-              style: const TextStyle(fontSize: 10, color: Color(0xFF15803D))),
-      ]),
-      IconButton(
-        tooltip: 'Télécharger le reçu',
-        icon: const Icon(Icons.download_rounded, size: 20),
-        color: const Color(0xFF8B1A00),
-        onPressed: () => printSubscriptionReceipt(
-            school: school, payment: p, planName: planName),
-      ),
+      child: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF15803D)),
+    );
+    final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Offre $planName · $periodLabel',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+      const SizedBox(height: 2),
+      Text('${_fmtDate(p.date)} · Réf. ${p.reference ?? p.id.substring(0, 8).toUpperCase()}',
+          style: TextStyle(fontSize: 11, color: context.cMuted)),
     ]);
+    final amount = Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+      Text('${fmt.format(p.amount)} ${p.currency}',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
+      if (p.creditApplied > 0.01)
+        Text('crédit − ${fmt.format(p.creditApplied)}',
+            style: const TextStyle(fontSize: 10, color: Color(0xFF15803D))),
+    ]);
+    final downloadBtn = IconButton(
+      tooltip: 'Télécharger le reçu',
+      icon: const Icon(Icons.download_rounded, size: 20),
+      color: const Color(0xFF8B1A00),
+      onPressed: () => printSubscriptionReceipt(
+          school: school, payment: p, planName: planName),
+    );
+
+    return LayoutBuilder(builder: (_, constraints) {
+      if (constraints.maxWidth < 380) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [icon, const SizedBox(width: 12), Expanded(child: info)]),
+          const SizedBox(height: 8),
+          Row(children: [
+            const SizedBox(width: 44),
+            Expanded(child: Align(alignment: Alignment.centerLeft, child: amount)),
+            downloadBtn,
+          ]),
+        ]);
+      }
+      return Row(children: [
+        icon,
+        const SizedBox(width: 12),
+        Expanded(child: info),
+        const SizedBox(width: 8),
+        amount,
+        downloadBtn,
+      ]);
+    });
   }
 }
 

@@ -59,47 +59,66 @@ class PageScaffold extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (canPop) ...[
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      color: Theme.of(context).colorScheme.onSurface,
-                      tooltip: 'Retour',
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title,
-                            style: TextStyle(
-                                fontSize: 18,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3)),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 2),
-                          Text(subtitle!,
+              LayoutBuilder(builder: (_, constraints) {
+                final titleRow = Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (canPop) ...[
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        color: Theme.of(context).colorScheme.onSurface,
+                        tooltip: 'Retour',
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title,
                               style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(.55))),
+                                  fontSize: 18,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3)),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(subtitle!,
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withOpacity(.55))),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  ...actions,
-                ],
-              ),
+                    // Sur assez de largeur, les actions restent sur la ligne du
+                    // titre (comportement d'origine).
+                    if (actions.isNotEmpty && constraints.maxWidth >= 520)
+                      ...actions,
+                  ],
+                );
+                if (actions.isEmpty || constraints.maxWidth >= 520) {
+                  return titleRow;
+                }
+                // Sous 520px, 2+ ActionButton à côté du titre débordaient
+                // (ex. « Charger les matières types » + « Nouvelle matière »).
+                // On les repousse sous le titre, dans un Wrap.
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleRow,
+                    const SizedBox(height: 10),
+                    Wrap(spacing: 8, runSpacing: 8, children: actions),
+                  ],
+                );
+              }),
               const SizedBox(height: 4),
               Container(
                   height: 2,
@@ -355,8 +374,8 @@ class DataPanel extends StatelessWidget {
             if (title != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
+                child: LayoutBuilder(builder: (_, constraints) {
+                  final titleRow = Row(mainAxisSize: MainAxisSize.min, children: [
                     Container(
                       width: 3,
                       height: 16,
@@ -372,10 +391,27 @@ class DataPanel extends StatelessWidget {
                             color: cs.onSurface,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.2)),
+                  ]);
+                  if (headerActions.isEmpty) return titleRow;
+                  // Sous ~520px, titre + actions (recherche, filtres…) sur un
+                  // seul Row débordait (ex. « Élèves sortis » + recherche 220px
+                  // fixe). On empile plutôt que de faire tenir de force.
+                  if (constraints.maxWidth < 520) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        titleRow,
+                        const SizedBox(height: 10),
+                        Wrap(spacing: 8, runSpacing: 8, children: headerActions),
+                      ],
+                    );
+                  }
+                  return Row(children: [
+                    titleRow,
                     const Spacer(),
-                    ...headerActions,
-                  ],
-                ),
+                    Wrap(spacing: 8, runSpacing: 8, children: headerActions),
+                  ]);
+                }),
               ),
             child,
           ],

@@ -10,6 +10,7 @@ import '../../core/services/settings_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
+import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
 import '../pages/notifications_page.dart';
@@ -566,6 +567,12 @@ class _SidebarPanel extends StatefulWidget {
   State<_SidebarPanel> createState() => _SidebarPanelState();
 }
 
+String _schoolInitials(String? name) {
+  if (name == null || name.trim().isEmpty) return '?';
+  final words = name.trim().split(RegExp(r'\s+'));
+  return words.map((w) => w[0]).take(2).join().toUpperCase();
+}
+
 class _SidebarPanelState extends State<_SidebarPanel> {
   String _activeKey = '';
   bool   _accountExpanded = false;
@@ -658,7 +665,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                             child: MouseRegion(
                               cursor: SystemMouseCursors.click,
                               child: GestureDetector(
-                              onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                              onTap: widget.onAccount,
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text(
                                   user?.fullName ?? 'Utilisateur',
@@ -675,20 +682,29 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               ),
                             ),
                           ),
-                          // Chevron pour déplier comptes — positionné juste après le nom
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                            onTap: () => setState(() => _accountExpanded = !_accountExpanded),
-                            child: AnimatedRotation(
-                              turns: _accountExpanded ? 0.5 : 0,
-                              duration: const Duration(milliseconds: 220),
-                              child: Icon(Icons.expand_more_rounded,
-                                  color: _white.withOpacity(.7), size: 20),
-                            ),
-                            ),
-                          ),
                           const SizedBox(width: 4),
+                          // Chevron « écoles » — réservé aux profs rattachés à ≥ 2 écoles.
+                          if (widget.role == UserRole.teacher)
+                            Consumer(builder: (context, ref, _) {
+                              final memberships =
+                                  ref.watch(myMembershipsProvider).valueOrNull ?? const [];
+                              if (memberships.length < 2) return const SizedBox.shrink();
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _accountExpanded = !_accountExpanded),
+                                    child: AnimatedRotation(
+                                      turns: _accountExpanded ? 0.5 : 0,
+                                      duration: const Duration(milliseconds: 220),
+                                      child: Icon(Icons.apartment_rounded,
+                                          color: _gold.withOpacity(.85), size: 19),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
                           const SizedBox(width: 6),
                           // X close
                           Material(
@@ -705,75 +721,46 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                           ),
                         ]),
 
-                        // ── Compte switcher expandable ──────────────────
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                          child: _accountExpanded
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: _white.withOpacity(.06),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: _white.withOpacity(.08)),
-                                    ),
-                                    child: Column(children: [
-                                      _AccountTile(
-                                        initials: 'AD',
-                                        name: 'Admin École',
-                                        role: 'admin',
-                                        isActive: false,
-                                        onTap: () {},
-                                      ),
-                                      Container(height: .5, color: _white.withOpacity(.08)),
-                                      _AccountTile(
-                                        initials: 'PR',
-                                        name: 'Prof. Martin',
-                                        role: 'teacher',
-                                        isActive: false,
-                                        onTap: () {},
-                                      ),
-                                      Container(height: .5, color: _white.withOpacity(.08)),
-                                      // Ajouter un compte
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: const BorderRadius.vertical(
-                                              bottom: Radius.circular(14)),
-                                          onTap: () {},
-                                          splashColor: _gold.withOpacity(.1),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 14, vertical: 12),
-                                            child: Row(children: [
-                                              Container(
-                                                width: 34, height: 34,
-                                                decoration: BoxDecoration(
-                                                  color: _gold.withOpacity(.15),
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  border: Border.all(
-                                                      color: _gold.withOpacity(.3),
-                                                      style: BorderStyle.solid),
-                                                ),
-                                                child: const Icon(Icons.add_rounded,
-                                                    color: _gold, size: 18),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              const Text('Ajouter un compte',
-                                                  style: TextStyle(
-                                                      color: _gold,
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w600)),
-                                            ]),
-                                          ),
+                        // ── Sélecteur d'école expandable — profs multi-écoles ──
+                        if (widget.role == UserRole.teacher)
+                          Consumer(builder: (context, ref, _) {
+                            final memberships =
+                                ref.watch(myMembershipsProvider).valueOrNull ?? const [];
+                            final activeId = ref.watch(currentSchoolIdProvider);
+                            return AnimatedSize(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                              child: _accountExpanded && memberships.length >= 2
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 12),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: _white.withOpacity(.06),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: _white.withOpacity(.08)),
                                         ),
+                                        child: Column(children: [
+                                          for (int i = 0; i < memberships.length; i++) ...[
+                                            if (i > 0)
+                                              Container(height: .5, color: _white.withOpacity(.08)),
+                                            _AccountTile(
+                                              initials: _schoolInitials(memberships[i].schoolName),
+                                              name: memberships[i].schoolName ?? 'École',
+                                              role: 'école',
+                                              isActive: memberships[i].schoolId == activeId,
+                                              onTap: () {
+                                                ref.read(activeSchoolIdProvider.notifier).state =
+                                                    memberships[i].schoolId;
+                                                setState(() => _accountExpanded = false);
+                                              },
+                                            ),
+                                          ],
+                                        ]),
                                       ),
-                                    ]),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            );
+                          }),
                         const SizedBox(height: 16),
                       ],
                     ),

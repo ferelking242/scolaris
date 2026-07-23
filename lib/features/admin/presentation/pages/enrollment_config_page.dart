@@ -230,28 +230,44 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
           const SizedBox(height: 16),
 
           // ── Stats row ───────────────────────────────────────────────────
-          Row(children: [
-            _MiniStat(
-              icon: Icons.toggle_on_rounded,
-              label: 'Champs actifs',
-              value: '$enabledCount',
-              color: _green,
-            ),
-            const SizedBox(width: 10),
-            _MiniStat(
-              icon: Icons.star_rounded,
-              label: 'Obligatoires',
-              value: '$requiredCount',
-              color: _terra,
-            ),
-            const SizedBox(width: 10),
-            _MiniStat(
-              icon: Icons.list_alt_rounded,
-              label: 'Total champs',
-              value: '${EnrollmentFields.all.length}',
-              color: context.cMuted,
-            ),
-          ]),
+          // Sous ~500px, 3 colonnes égales laissent trop peu de place au
+          // texte (icône + libellé + valeur) : grille 2 colonnes à la place.
+          LayoutBuilder(builder: (_, constraints) {
+            final stats = [
+              _MiniStat(
+                icon: Icons.toggle_on_rounded,
+                label: 'Champs actifs',
+                value: '$enabledCount',
+                color: _green,
+              ),
+              _MiniStat(
+                icon: Icons.star_rounded,
+                label: 'Obligatoires',
+                value: '$requiredCount',
+                color: _terra,
+              ),
+              _MiniStat(
+                icon: Icons.list_alt_rounded,
+                label: 'Total champs',
+                value: '${EnrollmentFields.all.length}',
+                color: context.cMuted,
+              ),
+            ];
+            if (constraints.maxWidth < 500) {
+              final w = (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [for (final s in stats) SizedBox(width: w, child: s)],
+              );
+            }
+            return Row(children: [
+              for (var i = 0; i < stats.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: stats[i]),
+              ],
+            ]);
+          }),
           const SizedBox(height: 16),
 
           // ── Field config by category ─────────────────────────────────
@@ -452,40 +468,39 @@ class _FieldConfigRow extends StatelessWidget {
               Text(field.hint!,
                   style: TextStyle(fontSize: 10,
                       color: enabled ? context.cMuted : context.cMuted.withOpacity(.4))),
-          ]),
-        ),
-
-        // Required toggle
-        if (enabled && !locked)
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () => onToggleRequired(field.id, !state.required),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: state.required
-                        ? _terra.withOpacity(.1)
-                        : context.cMuted.withOpacity(.06),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: state.required
-                            ? _terra.withOpacity(.3)
-                            : context.cBorder),
-                  ),
-                  child: Text(
-                    state.required ? 'Obligatoire' : 'Optionnel',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: state.required ? _terra : context.cMuted,
-                        fontWeight: FontWeight.w700),
+            // Bascule Obligatoire/Optionnel — sous le libellé plutôt qu'à
+            // côté du Switch, pour ne pas serrer deux zones tactiles.
+            if (enabled && !locked) ...[
+              const SizedBox(height: 4),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => onToggleRequired(field.id, !state.required),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: state.required
+                          ? _terra.withOpacity(.1)
+                          : context.cMuted.withOpacity(.06),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: state.required
+                              ? _terra.withOpacity(.3)
+                              : context.cBorder),
+                    ),
+                    child: Text(
+                      state.required ? 'Obligatoire' : 'Optionnel',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: state.required ? _terra : context.cMuted,
+                          fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            ],
+          ]),
+        ),
 
         // Enable toggle
         Transform.scale(
@@ -517,33 +532,34 @@ class _MiniStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: context.cCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.cBorder),
-        ),
-        child: Row(children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(
-              color: color.withOpacity(.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 16),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: color.withOpacity(.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 8),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 10, color: context.cMuted)),
             Text(value,
                 style: TextStyle(fontSize: 18, color: color,
                     fontWeight: FontWeight.w900)),
           ]),
-        ]),
-      ),
+        ),
+      ]),
     );
   }
 }

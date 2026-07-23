@@ -153,7 +153,13 @@ class AdminReportsPage extends ConsumerWidget {
                       child: Text('Aucune classe.',
                           style: TextStyle(color: context.cMuted))),
                 )
-              : DataTablePanel(
+              : LayoutBuilder(builder: (_, constraints) {
+                  if (constraints.maxWidth < 640) {
+                    return Column(children: [
+                      for (final r in classRows) _ClassRow(row: r),
+                    ]);
+                  }
+                  return DataTablePanel(
                   columns: const ['Classe', 'Niveau', 'Effectif', 'Remplissage'],
                   flex: const [3, 2, 2, 3],
                   rows: [
@@ -175,7 +181,8 @@ class AdminReportsPage extends ConsumerWidget {
                         _FillBar(count: r.count, capacity: r.capacity),
                       ],
                   ],
-                ),
+                  );
+                }),
         ),
         const SizedBox(height: 14),
         const PlanGateBanner(
@@ -210,7 +217,7 @@ class AdminReportsPage extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text('Export CSV — Effectifs'),
         content: SizedBox(
-          width: 460,
+          width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 460),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Align(
               alignment: Alignment.centerLeft,
@@ -255,6 +262,43 @@ class AdminReportsPage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Carte compacte pour une classe — remplace la ligne du tableau sous 640px.
+class _ClassRow extends StatelessWidget {
+  final ({String name, String level, int count, int capacity}) row;
+  const _ClassRow({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = row;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(r.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+          ),
+          Text(r.level, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+          const SizedBox(width: 8),
+          Text('${r.count} / ${r.capacity}',
+              style: TextStyle(
+                  fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 8),
+        _FillBar(count: r.count, capacity: r.capacity),
+      ]),
     );
   }
 }

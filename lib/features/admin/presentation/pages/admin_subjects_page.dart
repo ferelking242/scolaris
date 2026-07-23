@@ -151,7 +151,22 @@ class AdminSubjectsPage extends ConsumerWidget {
                       child: Text('Aucun résultat pour « $rawSearch ».',
                           style: TextStyle(color: context.cMuted))),
                 )
-              : DataTablePanel(
+              : LayoutBuilder(builder: (_, constraints) {
+                  if (constraints.maxWidth < 640) {
+                    return Column(children: [
+                      for (final s in filtered)
+                        _SubjectCard(
+                          subject: s,
+                          onEdit: ref.watch(canProvider('classes.modifier'))
+                              ? () => _openSubjectDialog(context, ref, s)
+                              : null,
+                          onDelete: ref.watch(canProvider('classes.supprimer'))
+                              ? () => _confirmDelete(context, ref, s)
+                              : null,
+                        ),
+                    ]);
+                  }
+                  return DataTablePanel(
                   columns: const ['Matière', 'Code', 'Coefficient', ''],
                   flex: const [4, 2, 2, 2],
                   rows: [
@@ -186,7 +201,8 @@ class AdminSubjectsPage extends ConsumerWidget {
                         ),
                       ],
                   ],
-                ),
+                  );
+                }),
         ),
       );
       },
@@ -266,7 +282,7 @@ class _SubjectDialogState extends State<_SubjectDialog> {
       title: Text(_isEdit ? 'Modifier la matière' : 'Nouvelle matière',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 400,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 400),
         child: Form(
           key: _formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -441,7 +457,7 @@ class _LoadCatalogDialogState extends ConsumerState<_LoadCatalogDialog> {
       title: const Text('Charger les matières types',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 420,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 420),
         child: cyclesAsync.isLoading
             ? const Padding(
                 padding: EdgeInsets.all(24),
@@ -600,6 +616,67 @@ class _LoadCatalogDialogState extends ConsumerState<_LoadCatalogDialog> {
               : const Text('Charger'),
         ),
       ],
+    );
+  }
+}
+
+/// Carte compacte pour une matière — remplace la ligne du tableau sous 640px.
+class _SubjectCard extends StatelessWidget {
+  final SbSubject subject;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  const _SubjectCard({required this.subject, required this.onEdit, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = subject;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(s.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(
+              [
+                if ((s.code ?? '').isNotEmpty) s.code!,
+                'Coefficient ${s.coefficient}',
+              ].join(' · '),
+              style: TextStyle(fontSize: 11.5, color: context.cMuted),
+            ),
+          ]),
+        ),
+        if (onEdit != null || onDelete != null)
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert_rounded, size: 18, color: context.cMuted),
+            padding: EdgeInsets.zero,
+            itemBuilder: (_) => [
+              if (onEdit != null)
+                const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+              if (onDelete != null)
+                const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+            ],
+            onSelected: (v) {
+              switch (v) {
+                case 'edit':
+                  onEdit?.call();
+                  break;
+                case 'delete':
+                  onDelete?.call();
+                  break;
+              }
+            },
+          ),
+      ]),
     );
   }
 }

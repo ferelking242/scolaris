@@ -224,30 +224,34 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
             const SizedBox(height: 14),
             const _PlatformAnnouncementBanner(),
             const SizedBox(height: 6),
-            const _DashKpiRow(),
-            const SizedBox(height: 20),
             LayoutBuilder(builder: (_, c) {
               if (c.maxWidth < 580) {
                 return Column(children: [
                   _DashQuickActions(),
                   const SizedBox(height: 16),
-                  const _DashActivity(),
+                  const _DashKpiRow(),
                   const SizedBox(height: 16),
                   _DashToday(),
+                  const SizedBox(height: 16),
+                  const _DashActivity(),
                 ]);
               }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(flex: 3, child: _DashActivity()),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 2, child: Column(children: [
-                    _DashQuickActions(),
-                    const SizedBox(height: 16),
-                    _DashToday(),
-                  ])),
-                ],
-              );
+              return Column(children: [
+                const _DashKpiRow(),
+                const SizedBox(height: 20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(flex: 3, child: _DashActivity()),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 2, child: Column(children: [
+                      _DashQuickActions(),
+                      const SizedBox(height: 16),
+                      _DashToday(),
+                    ])),
+                  ],
+                ),
+              ]);
             }),
           ],
         ),
@@ -403,19 +407,17 @@ class _DashKpiRow extends ConsumerWidget {
 
     return LayoutBuilder(builder: (_, c) {
       if (c.maxWidth < 500) {
-        return Column(children: [
-          Row(children: [
-            Expanded(child: card(0)),
-            const SizedBox(width: 10),
-            Expanded(child: card(1)),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: card(2)),
-            const SizedBox(width: 10),
-            Expanded(child: card(3)),
-          ]),
-        ]);
+        // Bande horizontale scrollable : libère la hauteur verticale sur
+        // mobile plutôt qu'une grille 2×2 qui repousse le contenu utile.
+        return SizedBox(
+          height: 92,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: kpis.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) => SizedBox(width: 132, child: card(i)),
+          ),
+        );
       }
       return Row(children: [
         for (var i = 0; i < kpis.length; i++)

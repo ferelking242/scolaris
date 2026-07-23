@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/routing/app_router.dart';
@@ -23,7 +22,6 @@ const _ink    = Color(0xFF1A0A00);
 const _muted  = Color(0xFF7A5C44);
 const _border = Color(0xFFDDCCBB);
 const _white  = Colors.white;
-const _dark   = Color(0xFF0D1117);
 const _bg0    = Color(0xFF0A2010);
 const _bg1    = Color(0xFF1B5E20);
 
@@ -41,8 +39,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
   String _selectedRole    = 'student';
   String? _selectedSubtype = 'lycee';
-  bool _showQrScanner  = false;
-  bool _showQrTab      = false;
   int  _demoTapCount  = 0;
 
   static const _roles = [
@@ -150,22 +146,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _handleQrDetected(String rawValue) async {
-    setState(() { _showQrScanner = false; _loading = true; _error = null; });
-    try {
-      await ref.read(signInWithQrUseCaseProvider)(rawValue);
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'QR invalide ou carte non reconnue. Veuillez réessayer.';
-          _loading = false;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -209,15 +189,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildFormPanel(BuildContext context, {bool showBrand = true}) {
-    if (_showQrScanner) return _QrScanPanel(onDetected: _handleQrDetected,
-        onClose: () => setState(() => _showQrScanner = false));
-
     return Container(
       color: const Color(0xFFFDFAF7),
       child: LayoutBuilder(builder: (ctx, constraints) {
         final hPad = constraints.maxWidth > 480 ? 32.0 : 22.0;
+        final vPad = showBrand ? 28.0 : 16.0;
         return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 28),
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -245,15 +223,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ));
                     }
                   }),
-                  child: const Text('Connexion', style: TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                  child: Text('Connexion', style: TextStyle(
+                    fontSize: showBrand ? 28 : 22,
+                    fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
                   )),
                 ),
               ),
-              const SizedBox(height: 3),
-              Text('Accédez à votre espace Scolaris',
-                  style: TextStyle(color: _muted, fontSize: 13)),
-              const SizedBox(height: 20),
+              if (showBrand) ...[
+                const SizedBox(height: 3),
+                Text('Accédez à votre espace Scolaris',
+                    style: TextStyle(color: _muted, fontSize: 13)),
+              ],
+              SizedBox(height: showBrand ? 20 : 14),
 
               Container(
                 width: double.infinity,
@@ -263,13 +244,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   border: Border.all(color: _border.withOpacity(.5)),
                   boxShadow: [BoxShadow(color: _ink.withOpacity(.05), blurRadius: 24, offset: const Offset(0, 6))],
                 ),
-                child: Column(children: [
-                  _customTabBar(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                    child: _showQrTab ? _buildQrTab() : _buildEmailForm(),
-                  ),
-                ]),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                  child: _buildEmailForm(),
+                ),
               ),
 
               if (_demoTapCount >= 3) ...[
@@ -331,63 +309,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _customTabBar() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF5F0EC),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Row(children: [
-        Expanded(child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => setState(() => _showQrTab = false),
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: !_showQrTab ? _white : Colors.transparent,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                border: !_showQrTab
-                    ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
-                    : null,
-              ),
-              alignment: Alignment.center,
-              child: Text('Connexion',
-                style: TextStyle(
-                  color: !_showQrTab ? _terra : _muted,
-                  fontWeight: !_showQrTab ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 14,
-                )),
-            ),
-          ),
-        )),
-        Expanded(child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => setState(() => _showQrTab = true),
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: _showQrTab ? _white : Colors.transparent,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                border: _showQrTab
-                    ? const Border(bottom: BorderSide(color: _terra, width: 2.5))
-                    : null,
-              ),
-              alignment: Alignment.center,
-              child: Text('Scanner ID',
-                style: TextStyle(
-                  color: _showQrTab ? _terra : _muted,
-                  fontWeight: _showQrTab ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 14,
-                )),
-            ),
-          ),
-        )),
-      ]),
-    );
-  }
-
   Widget _buildEmailForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -442,8 +363,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _dividerSmall('ou'),
           const SizedBox(height: 16),
           _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
-          const SizedBox(height: 10),
-          _PreRegisterBtn(onTap: () => context.go(AppRoutes.preRegister)),
           const SizedBox(height: 18),
           _divider('Connexion rapide (démo · demo1234)'),
           const SizedBox(height: 10),
@@ -487,65 +406,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildQrTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [const Color(0xFF0D3B1E).withOpacity(.06), _gold.withOpacity(.06)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _terra.withOpacity(.12)),
-          ),
-          child: Column(children: [
-            SizedBox(
-              height: 140,
-              child: Lottie.asset(
-                'assets/lottie/qr_scan.json',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Icon(Icons.qr_code_rounded, size: 80, color: _terra.withOpacity(.4)),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text('Connectez-vous avec votre\ncarte étudiante',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _ink, fontSize: 15,
-                    fontWeight: FontWeight.w700, height: 1.4)),
-            const SizedBox(height: 6),
-            Text(
-              'Scannez le QR code de votre carte étudiante pour vous connecter instantanément.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        if (_error != null) ...[
-          _ErrorBanner(message: _error!),
-          const SizedBox(height: 12),
-        ],
-        _PrimaryBtn(
-          label: 'Scanner ma carte étudiante',
-          loading: _loading,
-          icon: Icons.qr_code_scanner_rounded,
-          onTap: () => setState(() { _showQrScanner = true; _error = null; }),
-        ),
-        const SizedBox(height: 12),
-        _SecondaryBtn(
-          label: 'Saisir mon code manuellement',
-          icon: Icons.keyboard_outlined,
-          onTap: () => setState(() => _showQrTab = false),
-        ),
       ],
     );
   }
@@ -723,36 +583,19 @@ class _MobileHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-      child: Column(
-        children: [
-          Row(children: [
-            _LogoImg(size: 40),
-            const SizedBox(width: 10),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Scolaris',
-                  style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: .5)),
-              Text(AppConfig.appTagline,
-                  style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
-            ]),
-          ]),
-          const SizedBox(height: 16),
-          const Text('Bienvenue sur Scolaris',
-              style: TextStyle(color: _white, fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 5),
-          Text('Plateforme scolaire africaine de nouvelle génération',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _white.withOpacity(.68), fontSize: 12, height: 1.5)),
-          const SizedBox(height: 14),
-          Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: const [
-            _FeaturePill(icon: Icons.people_rounded, label: '6 rôles'),
-            _FeaturePill(icon: Icons.wifi_off_rounded, label: 'Hors-ligne'),
-            _FeaturePill(icon: Icons.translate_rounded, label: '4 langues'),
-          ]),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      child: Row(children: [
+        _LogoImg(size: 34),
+        const SizedBox(width: 10),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          const Text('Scolaris',
+              style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: .5)),
+          Text(AppConfig.appTagline,
+              style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
+        ]),
+      ]),
     );
   }
 }
@@ -773,171 +616,6 @@ class _BrandMark extends StatelessWidget {
       ]),
     ]);
   }
-}
-
-// ── QR Scanner Panel ──────────────────────────────────────────────────────
-class _QrScanPanel extends StatefulWidget {
-  final void Function(String) onDetected;
-  final VoidCallback onClose;
-  const _QrScanPanel({required this.onDetected, required this.onClose});
-
-  @override
-  State<_QrScanPanel> createState() => _QrScanPanelState();
-}
-
-class _QrScanPanelState extends State<_QrScanPanel> {
-  final _ctrl = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
-    returnImage: false,
-  );
-  bool _scanned = false;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _dark,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          MobileScanner(
-            controller: _ctrl,
-            onDetect: (capture) {
-              if (_scanned) return;
-              final raw = capture.barcodes.firstOrNull?.rawValue;
-              if (raw != null && raw.isNotEmpty) {
-                _scanned = true;
-                widget.onDetected(raw);
-              }
-            },
-          ),
-
-          CustomPaint(painter: _ScanFramePainter()),
-
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(children: [
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: widget.onClose,
-                      child: Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: _white.withOpacity(.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded, color: _white, size: 22),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text('Scanner carte étudiante',
-                      style: TextStyle(color: _white, fontSize: 15,
-                          fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () => _ctrl.toggleTorch(),
-                      child: Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          color: _white.withOpacity(.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.flashlight_on_rounded, color: _white, size: 20),
-                      ),
-                    ),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _white.withOpacity(.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _white.withOpacity(.15)),
-                ),
-                child: Column(children: [
-                  const Icon(Icons.credit_card_rounded, color: _gold, size: 28),
-                  const SizedBox(height: 10),
-                  const Text('Pointez votre caméra vers le QR code\nde votre carte étudiante',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: _white, fontSize: 13,
-                          fontWeight: FontWeight.w600, height: 1.5)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Le QR code contient votre identifiant étudiant (ID, établissement, promo)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _white.withOpacity(.6), fontSize: 11, height: 1.4),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScanFramePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dim = size.width * 0.65;
-    final left = (size.width - dim) / 2;
-    final top  = (size.height - dim) / 2 - 40;
-
-    final overlay = Paint()..color = Colors.black.withOpacity(.55);
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, top), overlay);
-    canvas.drawRect(Rect.fromLTWH(0, top + dim, size.width, size.height - top - dim), overlay);
-    canvas.drawRect(Rect.fromLTWH(0, top, left, dim), overlay);
-    canvas.drawRect(Rect.fromLTWH(left + dim, top, size.width - left - dim, dim), overlay);
-
-    final corner = Paint()
-      ..color = ScolarisPalette.gold
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    const r = 12.0;
-    final pts = [
-      [Offset(left, top + r), Offset(left, top), Offset(left + r, top)],
-      [Offset(left + dim - r, top), Offset(left + dim, top), Offset(left + dim, top + r)],
-      [Offset(left + dim, top + dim - r), Offset(left + dim, top + dim), Offset(left + dim - r, top + dim)],
-      [Offset(left, top + dim - r), Offset(left, top + dim), Offset(left + r, top + dim)],
-    ];
-    for (final p in pts) {
-      final path = Path()
-        ..moveTo(p[0].dx, p[0].dy)
-        ..lineTo(p[1].dx, p[1].dy)
-        ..lineTo(p[2].dx, p[2].dy);
-      canvas.drawPath(path, corner);
-    }
-
-    final line = Paint()
-      ..color = ScolarisPalette.gold.withOpacity(.7)
-      ..strokeWidth = 2;
-    canvas.drawLine(Offset(left + 12, top + dim / 2), Offset(left + dim - 12, top + dim / 2), line);
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
 }
 
 // ── African Pattern Painter ────────────────────────────────────────────────
@@ -987,30 +665,6 @@ class _AfricanPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_) => false;
-}
-
-// ── Feature Pill ──────────────────────────────────────────────────────────
-class _FeaturePill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _FeaturePill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: _white.withOpacity(.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _white.withOpacity(.18)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 12, color: _gold),
-        const SizedBox(width: 5),
-        Text(label, style: const TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
 }
 
 // ── Form Widgets ──────────────────────────────────────────────────────────
@@ -1076,71 +730,42 @@ class _PrimaryBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: loading ? null : onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 54,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: loading
-                  ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
-                  : [_terra, _orange],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: loading ? [] : [
-              BoxShadow(color: _terra.withOpacity(.4),
-                  blurRadius: 16, offset: const Offset(0, 6)),
-            ],
-          ),
-          child: loading
-              ? const SizedBox(width: 22, height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
-              : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  if (icon != null) ...[
-                    Icon(icon, color: _white, size: 18),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(label, style: const TextStyle(color: _white, fontSize: 15,
-                      fontWeight: FontWeight.w700, letterSpacing: .3)),
-                ]),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: loading
+              ? [_terra.withOpacity(.6), _orange.withOpacity(.6)]
+              : [_terra, _orange],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: loading ? [] : [
+          BoxShadow(color: _terra.withOpacity(.4),
+              blurRadius: 16, offset: const Offset(0, 6)),
+        ],
       ),
-    );
-  }
-}
-
-class _SecondaryBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback? onTap;
-  const _SecondaryBtn({required this.label, required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _border, width: 1.5),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: loading ? null : onTap,
+          child: Center(
+            child: loading
+                ? const SizedBox(width: 22, height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+                : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: _white, size: 18),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(label, style: const TextStyle(color: _white, fontSize: 15,
+                        fontWeight: FontWeight.w700, letterSpacing: .3)),
+                  ]),
           ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 18, color: _terra),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: _ink, fontSize: 14,
-                fontWeight: FontWeight.w600)),
-          ]),
         ),
       ),
     );
@@ -1279,25 +904,26 @@ class _RegisterSchoolBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 54,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
-                  blurRadius: 16, offset: const Offset(0, 6)),
-            ],
-          ),
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
+              blurRadius: 16, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Container(
               width: 30, height: 30,
@@ -1320,47 +946,6 @@ class _RegisterSchoolBtn extends StatelessWidget {
   }
 }
 
-/// Bouton « Nouvelle inscription » — pré-inscription publique (élève/parent),
-/// sans compte, via le code de l'école (lien/QR).
-class _PreRegisterBtn extends StatelessWidget {
-  final VoidCallback onTap;
-  const _PreRegisterBtn({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 50,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _terra.withOpacity(.06),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _terra.withOpacity(.30)),
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(
-              width: 30, height: 30,
-              decoration: BoxDecoration(
-                color: _terra.withOpacity(.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.how_to_reg_outlined, size: 16, color: _terra),
-            ),
-            const SizedBox(width: 10),
-            const Text('Nouvelle inscription (élève / parent)',
-                style: TextStyle(
-                  color: _terra,
-                  fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: .2,
-                )),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // Écoles — Quick Login Widgets (Primaire · Collège · Lycée · Université)

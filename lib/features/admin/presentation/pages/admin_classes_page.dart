@@ -153,7 +153,32 @@ class AdminClassesPage extends ConsumerWidget {
                       child: Text('Aucun résultat pour « $rawSearch ».',
                           style: TextStyle(color: context.cMuted))),
                 )
-              : DataTablePanel(
+              : LayoutBuilder(builder: (_, constraints) {
+                  // 5 colonnes fixes illisibles sous 640px (Niveau/Section
+                  // tronqués) : cartes empilées à la place, comme Personnel.
+                  if (constraints.maxWidth < 640) {
+                    return Column(children: [
+                      for (final cl in filtered)
+                        _ClassCard(
+                          klass: cl,
+                          onEdit: ref.watch(canProvider('classes.modifier'))
+                              ? () => _openClassDialog(context, ref, cl)
+                              : null,
+                          onRoster: () => showDialog(
+                                context: context,
+                                builder: (_) => _ClassRosterDialog(
+                                  klass: cl,
+                                  onChanged: () =>
+                                      ref.invalidate(studentsProvider),
+                                ),
+                              ),
+                          onDelete: ref.watch(canProvider('classes.supprimer'))
+                              ? () => _deleteClass(context, ref, cl)
+                              : null,
+                        ),
+                    ]);
+                  }
+                  return DataTablePanel(
                   columns: const ['Classe', 'Niveau', 'Section', 'Capacité', ''],
                   flex: const [2, 3, 3, 2, 2],
                   rows: [
@@ -199,7 +224,8 @@ class AdminClassesPage extends ConsumerWidget {
                         ),
                       ],
                   ],
-                ),
+                  );
+                }),
         ),
       );
       },
@@ -328,7 +354,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
       title: Text(_isEdit ? 'Modifier la classe' : 'Nouvelle classe',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 400,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 400),
         child: Form(
           key: _formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -516,8 +542,8 @@ class _ClassRosterDialogState extends ConsumerState<_ClassRosterDialog> {
       title: Text('Effectif — ${widget.klass.name}',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 460,
-        height: 520,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 460),
+        height: (MediaQuery.sizeOf(context).height * 0.75).clamp(0, 520),
         child: studentsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Erreur : $e')),
@@ -702,6 +728,77 @@ class _ImportBanner extends StatelessWidget {
           ),
         ]),
       );
+}
+
+/// Carte compacte pour une classe — remplace la ligne du tableau sous 640px.
+class _ClassCard extends StatelessWidget {
+  final SbClass klass;
+  final VoidCallback? onEdit;
+  final VoidCallback onRoster;
+  final VoidCallback? onDelete;
+  const _ClassCard({
+    required this.klass,
+    required this.onEdit,
+    required this.onRoster,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cl = klass;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(cl.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(
+              [
+                if ((cl.level ?? '').isNotEmpty) cl.level!,
+                if ((cl.section ?? '').isNotEmpty) 'Section ${cl.section}',
+                '${cl.maxStudents} places',
+              ].join(' · '),
+              style: TextStyle(fontSize: 11.5, color: context.cMuted),
+            ),
+          ]),
+        ),
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert_rounded, size: 18, color: context.cMuted),
+          padding: EdgeInsets.zero,
+          itemBuilder: (_) => [
+            if (onEdit != null)
+              const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+            const PopupMenuItem(value: 'roster', child: Text('Effectif')),
+            if (onDelete != null)
+              const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+          ],
+          onSelected: (v) {
+            switch (v) {
+              case 'edit':
+                onEdit?.call();
+                break;
+              case 'roster':
+                onRoster();
+                break;
+              case 'delete':
+                onDelete?.call();
+                break;
+            }
+          },
+        ),
+      ]),
+    );
+  }
 }
 
 class _CapacityBar extends StatelessWidget {

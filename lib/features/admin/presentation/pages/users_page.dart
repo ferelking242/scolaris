@@ -899,7 +899,28 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                   : 'Aucun résultat pour « ${_search.trim()} ».',
                               style: TextStyle(color: context.cMuted))),
                     )
-                  : DataTablePanel(
+                  : LayoutBuilder(builder: (_, constraints) {
+                      // Le tableau à 6 colonnes fixes devient illisible sous
+                      // 640px (email/date tronqués) : cartes empilées à la place.
+                      if (constraints.maxWidth < 640) {
+                        return Column(children: [
+                          for (final u in users)
+                            _UserCard(
+                              user: u,
+                              familiesEnabled: familiesEnabled,
+                              onOpen: (u.role == 'student' || u.role == 'parent')
+                                  ? () => setState(() => _viewId = u.id)
+                                  : null,
+                              onEnableAccess: () => _enableAccess(u),
+                              onEdit: () => _editUser(u),
+                              onToggleActive: () => _toggleActive(u),
+                              onWithdraw: () => _withdrawStudent(u),
+                              onReactivate: () => _reactivateStudent(u),
+                              onDelete: () => _deleteUser(u),
+                            ),
+                        ]);
+                      }
+                      return DataTablePanel(
                       columns: const [
                         'Nom',
                         'Email',
@@ -1023,7 +1044,8 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                             ]),
                           ],
                       ],
-                    ),
+                      );
+                    }),
             ),
           ]),
         );
@@ -1555,6 +1577,159 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
           child: const Text('Confirmer la sortie'),
         ),
       ],
+    );
+  }
+}
+
+/// Carte compacte pour un utilisateur — remplace la ligne du tableau sous
+/// 640px, où 6 colonnes à largeur fixe rendaient email/date illisibles.
+/// Les actions se replient dans un menu `⋮` plutôt qu'une rangée d'icônes.
+class _UserCard extends ConsumerWidget {
+  final SbUser user;
+  final bool familiesEnabled;
+  final VoidCallback? onOpen;
+  final VoidCallback onEnableAccess;
+  final VoidCallback onEdit;
+  final VoidCallback onToggleActive;
+  final VoidCallback onWithdraw;
+  final VoidCallback onReactivate;
+  final VoidCallback onDelete;
+  const _UserCard({
+    required this.user,
+    required this.familiesEnabled,
+    required this.onOpen,
+    required this.onEnableAccess,
+    required this.onEdit,
+    required this.onToggleActive,
+    required this.onWithdraw,
+    required this.onReactivate,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final u = user;
+    final canModify = ref.watch(canProvider('utilisateurs.modifier'));
+    final canManageRoles = ref.watch(canProvider('utilisateurs.gerer_roles'));
+    final canDelete = ref.watch(canProvider('utilisateurs.supprimer'));
+    final canEnable = familiesEnabled &&
+        u.authUid == null &&
+        (u.role == 'student' || u.role == 'parent');
+
+    final menuEntries = <PopupMenuEntry<String>>[
+      if (canEnable)
+        const PopupMenuItem(value: 'enable', child: Text('Activer l\'accès')),
+      if (canModify)
+        const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+      if (canManageRoles)
+        PopupMenuItem(
+            value: 'toggle',
+            child: Text(u.isActive ? 'Bloquer' : 'Réactiver')),
+      if (u.role == 'student' && canModify)
+        PopupMenuItem(
+            value: 'withdraw',
+            child: Text(u.hasExited ? 'Réactiver l\'élève' : 'Marquer sorti')),
+      if (canDelete)
+        const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Avatar(name: u.fullName, size: 38),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(u.fullName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: context.cInk,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      if (u.authUid != null)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.lock_open_rounded,
+                              size: 14, color: Color(0xFF15803D)),
+                        )
+                      else if (onOpen != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded,
+                            size: 15, color: context.cMuted.withValues(alpha: .5)),
+                      ],
+                    ]),
+                    const SizedBox(height: 3),
+                    Text(u.email.isEmpty ? '—' : u.email,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _RoleCell(user: u),
+                        u.hasExited
+                            ? _ExitedPill(reason: u.exitReason)
+                            : _StatusDot(active: u.isActive),
+                        Text(
+                          u.lastSeenAt != null
+                              ? '· ${_UsersPageState._relativeTime(u.lastSeenAt!)}'
+                              : '· jamais connecté',
+                          style: TextStyle(fontSize: 11, color: context.cMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (menuEntries.isNotEmpty)
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert_rounded, size: 18, color: context.cMuted),
+                  padding: EdgeInsets.zero,
+                  itemBuilder: (_) => menuEntries,
+                  onSelected: (v) {
+                    switch (v) {
+                      case 'enable':
+                        onEnableAccess();
+                        break;
+                      case 'edit':
+                        onEdit();
+                        break;
+                      case 'toggle':
+                        onToggleActive();
+                        break;
+                      case 'withdraw':
+                        u.hasExited ? onReactivate() : onWithdraw();
+                        break;
+                      case 'delete':
+                        onDelete();
+                        break;
+                    }
+                  },
+                ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

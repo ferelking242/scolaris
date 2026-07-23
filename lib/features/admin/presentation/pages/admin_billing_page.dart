@@ -123,7 +123,19 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.cMuted))),
             )
-          : DataTablePanel(
+          : LayoutBuilder(builder: (_, constraints) {
+              if (constraints.maxWidth < 640) {
+                return Column(children: [
+                  for (final inv in invoices)
+                    _InvoiceCard(
+                      invoice: inv,
+                      statusPill: _statusPill(inv),
+                      onCollect: inv.isPaid ? null : () => _collect(context, ref, inv),
+                      onDelete: () => _delete(context, ref, inv),
+                    ),
+                ]);
+              }
+              return DataTablePanel(
               columns: const ['Facture', 'Élève', 'Montant', 'Statut', ''],
               flex: const [2, 3, 2, 2, 2],
               rows: [
@@ -174,7 +186,8 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                     ]),
                   ],
               ],
-            ),
+              );
+            }),
     );
   }
 
@@ -451,7 +464,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
       title: const Text('Nouvelle facture',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       content: SizedBox(
-        width: 420,
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 420),
         child: Form(
           key: _formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -689,6 +702,74 @@ class _CollectDialogState extends State<_CollectDialog> {
           child: const Text('Encaisser'),
         ),
       ],
+    );
+  }
+}
+
+/// Carte compacte pour une facture ponctuelle — remplace la ligne du tableau
+/// sous 640px.
+class _InvoiceCard extends StatelessWidget {
+  final SbInvoice invoice;
+  final Widget statusPill;
+  final VoidCallback? onCollect;
+  final VoidCallback onDelete;
+  const _InvoiceCard({
+    required this.invoice,
+    required this.statusPill,
+    required this.onCollect,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = invoice;
+    final fmt = NumberFormat.decimalPattern('fr');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(inv.invoiceNumber ?? inv.id.substring(0, 8),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(inv.studentName ?? '—',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ]),
+          ),
+          statusPill,
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${fmt.format(inv.amount)} ${inv.currency}',
+                  style: TextStyle(
+                      fontSize: 13, color: context.cInk, fontWeight: FontWeight.w700)),
+              if (inv.isPartiallyPaid)
+                Text('reste ${fmt.format(inv.balance)}',
+                    style: const TextStyle(
+                        fontSize: 10.5, color: Color(0xFFEA580C), fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          if (onCollect != null)
+            _MiniBtn(label: 'Encaisser', color: _green, onTap: onCollect!),
+          IconButton(
+            icon: Icon(Icons.delete_outline_rounded, size: 16, color: context.cMuted),
+            tooltip: 'Supprimer',
+            onPressed: onDelete,
+          ),
+        ]),
+      ]),
     );
   }
 }

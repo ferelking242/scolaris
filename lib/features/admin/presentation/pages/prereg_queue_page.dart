@@ -254,7 +254,17 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
                       icon: Icons.inbox_rounded,
                       title: 'Aucune demande',
                       description: 'Aucune pré-inscription pour ce filtre.')
-                  : DataTablePanel(
+                  : LayoutBuilder(builder: (_, constraints) {
+                      if (constraints.maxWidth < 640) {
+                        return Column(children: [
+                          for (final r in rows)
+                            _PreRegCard(
+                              request: r,
+                              onTap: () => setState(() => _selected = r),
+                            ),
+                        ]);
+                      }
+                      return DataTablePanel(
                       columns: const [
                         'Élève', 'Niveau', 'Tuteur', 'Reçue', ''
                       ],
@@ -311,7 +321,8 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
                             ),
                           ],
                       ],
-                    ),
+                      );
+                    }),
             ),
           ]),
         );
@@ -480,33 +491,165 @@ class _DocumentRowState extends State<_DocumentRow> {
 
   @override
   Widget build(BuildContext context) {
+    final link = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _loading ? null : () => _open(context),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _loading
+              ? const SizedBox(
+                  height: 13, width: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.attach_file_rounded, size: 15, color: _terra),
+          const SizedBox(width: 6),
+          const Text('Voir la pièce jointe',
+              style: TextStyle(
+                  fontSize: 12.5, color: _terra, fontWeight: FontWeight.w700)),
+        ]),
+      ),
+    );
+    final labelText = Text(widget.label,
+        style: TextStyle(fontSize: 12, color: context.cMuted));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: 150,
-          child: Text(widget.label,
-              style: TextStyle(fontSize: 12, color: context.cMuted)),
-        ),
-        Expanded(
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: _loading ? null : () => _open(context),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                _loading
-                    ? const SizedBox(
-                        height: 13, width: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.attach_file_rounded, size: 15, color: _terra),
-                const SizedBox(width: 6),
-                const Text('Voir la pièce jointe',
-                    style: TextStyle(
-                        fontSize: 12.5, color: _terra, fontWeight: FontWeight.w700)),
-              ]),
-            ),
+      child: LayoutBuilder(builder: (_, constraints) {
+        if (constraints.maxWidth < 420) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            labelText,
+            const SizedBox(height: 2),
+            link,
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 150, child: labelText),
+          Expanded(child: link),
+        ]);
+      }),
+    );
+  }
+}
+
+/// Carte compacte pour une pré-inscription — remplace la ligne du tableau
+/// sous 640px, où « Tuteur » (nom + tél. sur 2 lignes) devenait illisible.
+class _PreRegCard extends StatelessWidget {
+  final PreRegRequest request;
+  final VoidCallback onTap;
+  const _PreRegCard({required this.request, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = request;
+    final status = preRegStatusOf(r);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Avatar(name: r.fullName, size: 34),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.fullName.isEmpty ? '—' : r.fullName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      if (r.level.isNotEmpty) r.level,
+                      if (r.guardianName.isNotEmpty) r.guardianName,
+                      if (r.guardianPhone.isNotEmpty) r.guardianPhone,
+                    ].join(' · '),
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(_PreRegQueuePageState._ago(r.submittedAt),
+                      style: TextStyle(fontSize: 11, color: context.cMuted)),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              status == PreRegStatus.pending
+                  ? Icon(Icons.chevron_right_rounded,
+                      size: 18, color: context.cMuted.withValues(alpha: .6))
+                  : _StatusPill(status: status),
+            ]),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Carte compacte pour une décision de fin d'année — remplace la ligne du
+/// tableau sous 640px.
+class _ReRegCard extends StatelessWidget {
+  final SbProgression progression;
+  final String fromLabel;
+  final String? toLabel;
+  final String decisionLabel;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  const _ReRegCard({
+    required this.progression,
+    required this.fromLabel,
+    required this.toLabel,
+    required this.decisionLabel,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = progression;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Avatar(name: p.studentName, size: 34),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.studentName,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(
+              [
+                decisionLabel,
+                toLabel == null ? fromLabel : '$fromLabel → $toLabel',
+                if (p.average != null) 'Moy. ${p.average!.toStringAsFixed(2)}',
+              ].join(' · '),
+              style: TextStyle(fontSize: 11.5, color: context.cMuted),
+            ),
+          ]),
+        ),
+        IconButton(
+            tooltip: 'Confirmer',
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+            color: _green,
+            onPressed: onConfirm),
+        IconButton(
+            tooltip: 'Annuler',
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: _terra,
+            onPressed: onCancel),
       ]),
     );
   }
@@ -520,20 +663,24 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: 150,
-          child: Text(label,
-              style: TextStyle(fontSize: 12, color: context.cMuted)),
-        ),
-        Expanded(
-          child: Text(value.isEmpty ? '—' : value,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: context.cInk,
-                  fontWeight: FontWeight.w600)),
-        ),
-      ]),
+      child: LayoutBuilder(builder: (_, constraints) {
+        final valueText = Text(value.isEmpty ? '—' : value,
+            style: TextStyle(
+                fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w600));
+        final labelText = Text(label,
+            style: TextStyle(fontSize: 12, color: context.cMuted));
+        if (constraints.maxWidth < 420) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            labelText,
+            const SizedBox(height: 2),
+            valueText,
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 150, child: labelText),
+          Expanded(child: valueText),
+        ]);
+      }),
     );
   }
 }
@@ -699,7 +846,21 @@ class _ReRegistrationTab extends ConsumerWidget {
         }
         return DataPanel(
           title: 'À confirmer',
-          child: DataTablePanel(
+          child: LayoutBuilder(builder: (_, constraints) {
+            if (constraints.maxWidth < 640) {
+              return Column(children: [
+                for (final p in items)
+                  _ReRegCard(
+                    progression: p,
+                    fromLabel: classNameOf(p.fromClassId),
+                    toLabel: p.isExit ? null : classNameOf(p.toClassId),
+                    decisionLabel: _decisionLabel(p.decision),
+                    onConfirm: () => _confirm(context, ref, p, classes),
+                    onCancel: () => _cancel(context, ref, p),
+                  ),
+              ]);
+            }
+            return DataTablePanel(
             columns: const ['Élève', 'Décision', 'De → Vers', 'Moyenne', ''],
             flex: const [3, 2, 3, 1, 2],
             rows: [
@@ -736,7 +897,8 @@ class _ReRegistrationTab extends ConsumerWidget {
                   ]),
                 ],
             ],
-          ),
+            );
+          }),
         );
       },
     );
