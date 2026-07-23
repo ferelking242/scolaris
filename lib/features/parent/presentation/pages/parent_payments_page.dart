@@ -39,22 +39,21 @@ class ParentPaymentsPage extends ConsumerWidget {
             .where((i) => !i.isPaid)
             .fold<double>(0, (a, b) => a + b.balance);
 
-        // La facture-compte de scolarité d'un enfant (peut ne pas encore
-        // exister tant qu'aucun versement n'a été enregistré).
-        SbInvoice? tuitionInvoiceOf(String childId) {
-          for (final i in invoices) {
-            if (i.isTuition && i.studentId == childId && !i.isPaid) return i;
-          }
-          return null;
-        }
+        // Les factures-compte de scolarité impayées d'un enfant (souvent
+        // plusieurs mois en retard) — pas seulement la première, sinon le
+        // parent ne peut régler qu'un mois à la fois.
+        List<SbInvoice> tuitionInvoicesOf(String childId) => invoices
+            .where((i) => i.isTuition && i.studentId == childId && !i.isPaid)
+            .toList();
 
-        Future<void> payTuition(SbInvoice inv) async {
+        Future<void> payTuition(List<SbInvoice> invs) async {
+          if (invs.isEmpty) return;
           // Pré-remplit le dû à ce jour (compte déjà chargé par la carte).
           final owed = ref
-              .read(tuitionAccountProvider(inv.studentId ?? ''))
+              .read(tuitionAccountProvider(invs.first.studentId ?? ''))
               .valueOrNull
               ?.owedNow;
-          final ok = await showOnlinePaymentSheet(context, ref, [inv],
+          final ok = await showOnlinePaymentSheet(context, ref, invs,
               suggestedAmount: (owed != null && owed > 0.01) ? owed : null);
           if (ok) ref.invalidate(myChildrenInvoicesProvider);
         }
@@ -84,10 +83,7 @@ class ParentPaymentsPage extends ConsumerWidget {
                       ? 'Scolarité — ${c.fullName}'
                       : 'Compte scolarité',
                   onPayOnline: online
-                      ? () {
-                          final inv = tuitionInvoiceOf(c.id);
-                          if (inv != null) payTuition(inv);
-                        }
+                      ? () => payTuition(tuitionInvoicesOf(c.id))
                       : null,
                 ),
                 const SizedBox(height: 12),

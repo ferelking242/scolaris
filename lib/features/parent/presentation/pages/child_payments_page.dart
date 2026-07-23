@@ -24,17 +24,17 @@ class ChildPaymentsPage extends ConsumerWidget {
     final invoices = invoicesAsync.valueOrNull ?? const <SbInvoice>[];
     final others = invoices.where((i) => !i.isTuition).toList();
 
-    SbInvoice? tuitionInvoice;
-    for (final i in invoices) {
-      if (i.isTuition && !i.isPaid) { tuitionInvoice = i; break; }
-    }
+    // Toutes les factures de scolarité impayées (souvent plusieurs mois en
+    // retard) — pas seulement la première, sinon le parent ne peut régler
+    // qu'un mois à la fois.
+    final unpaidTuition =
+        invoices.where((i) => i.isTuition && !i.isPaid).toList();
 
     Future<void> payTuition() async {
-      final inv = tuitionInvoice;
-      if (inv == null) return;
+      if (unpaidTuition.isEmpty) return;
       final owed =
           ref.read(tuitionAccountProvider(child.id)).valueOrNull?.owedNow;
-      final ok = await showOnlinePaymentSheet(context, ref, [inv],
+      final ok = await showOnlinePaymentSheet(context, ref, unpaidTuition,
           suggestedAmount: (owed != null && owed > 0.01) ? owed : null);
       if (ok) ref.invalidate(invoicesForStudentProvider(child.id));
     }
@@ -47,7 +47,7 @@ class ChildPaymentsPage extends ConsumerWidget {
         TuitionAccountCard(
           studentId: child.id,
           studentName: child.fullName,
-          onPayOnline: (online && tuitionInvoice != null) ? payTuition : null,
+          onPayOnline: (online && unpaidTuition.isNotEmpty) ? payTuition : null,
         ),
 
         // ── Autres frais (inscription, etc.) ──────────────────────────────

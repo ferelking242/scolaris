@@ -138,8 +138,12 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       // Simulation de la confirmation opérateur (remplacé plus tard par
       // l'appel réel à l'agrégateur).
       await Future<void>.delayed(const Duration(milliseconds: 1200));
-      final method = _operator == 'mtn' ? 'mtn_momo' : 'airtel_money';
-      final ref = 'SIM-${DateTime.now().millisecondsSinceEpoch}';
+      // `payment_method` doit rester une des valeurs autorisées par la
+      // contrainte CHECK de `payments` (cash | mobile_money | bank_transfer |
+      // cheque | other) ; l'opérateur (MTN/Airtel) est conservé dans `reference`.
+      const method = 'mobile_money';
+      final operatorLabel = _operator == 'mtn' ? 'MTN' : 'Airtel';
+      final ref = 'SIM-$operatorLabel-${DateTime.now().millisecondsSinceEpoch}';
       // Écriture SERVEUR (Edge Function) : les familles sont en lecture seule
       // sur `payments`. La fonction vérifie le lien famille↔élève puis écrit.
       if (_single) {

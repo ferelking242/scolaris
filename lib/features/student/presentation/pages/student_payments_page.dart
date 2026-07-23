@@ -73,12 +73,11 @@ class StudentPaymentsPage extends ConsumerWidget {
           final restant = acc?.balance ??
               (total - paye).clamp(0, double.infinity).toDouble();
 
-          // La facture-compte de scolarité (pour le paiement en ligne). Peut ne
-          // pas encore exister tant qu'aucun versement n'a été enregistré.
-          SbInvoice? tuitionInvoice;
-          for (final i in invoices) {
-            if (i.isTuition && !i.isPaid) { tuitionInvoice = i; break; }
-          }
+          // Les factures-compte de scolarité impayées (souvent plusieurs mois
+          // en retard) — pas seulement la première, sinon on ne peut régler
+          // qu'un mois à la fois.
+          final unpaidTuition =
+              invoices.where((i) => i.isTuition && !i.isPaid).toList();
 
           // Autres frais impayés (hors scolarité) — pour le rappel et le CTA.
           final othersUnpaid = others.where(_isUnpaid).toList();
@@ -119,10 +118,10 @@ class StudentPaymentsPage extends ConsumerWidget {
                 if (scolariteEnRetard) ...[
                   _AccountReminder(
                     acc: acc,
-                    online: onlinePay && tuitionInvoice != null,
-                    onPay: tuitionInvoice == null
+                    online: onlinePay && unpaidTuition.isNotEmpty,
+                    onPay: unpaidTuition.isEmpty
                         ? null
-                        : () => pay([tuitionInvoice!], suggested: tuitionSuggest),
+                        : () => pay(unpaidTuition, suggested: tuitionSuggest),
                   ),
                   const SizedBox(height: 16),
                 ] else if (urgentOther != null) ...[
@@ -144,12 +143,12 @@ class StudentPaymentsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _ScheduleCard(acc: acc, currency: currency),
-                  if (onlinePay && tuitionInvoice != null && restant > 0.01) ...[
+                  if (onlinePay && unpaidTuition.isNotEmpty && restant > 0.01) ...[
                     const SizedBox(height: 12),
                     _PayCta(
                       online: true,
-                      count: 1,
-                      onPay: () => pay([tuitionInvoice!], suggested: tuitionSuggest),
+                      count: unpaidTuition.length,
+                      onPay: () => pay(unpaidTuition, suggested: tuitionSuggest),
                     ),
                   ],
                 ] else if (invoices.isNotEmpty) ...[
