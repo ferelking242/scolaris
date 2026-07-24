@@ -82,22 +82,6 @@ String _eventTitle(PlatformEvent e) {
   }
 }
 
-String _eventAgo(DateTime d) {
-  final diff = DateTime.now().difference(d);
-  if (diff.inMinutes < 1) return 'à l\'instant';
-  if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
-  if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
-  if (diff.inDays == 1) return 'hier';
-  if (diff.inDays < 30) return 'il y a ${diff.inDays} j';
-  final m = (diff.inDays / 30).floor();
-  return 'il y a $m mois';
-}
-
-ActivityItem _toActivityItem(PlatformEvent e) {
-  final (icon, color) = _eventVisual(e);
-  return ActivityItem(icon, color, _eventTitle(e), _eventAgo(e.createdAt));
-}
-
 SubEvent _toSubEvent(PlatformEvent e) {
   final (icon, color) = _eventVisual(e);
   return SubEvent(date: e.createdAt, title: _eventTitle(e), icon: icon, color: color);
@@ -127,7 +111,6 @@ class _PlatformSchoolDetailViewState
   static const _tabs = [
     (Icons.dashboard_rounded, 'Aperçu'),
     (Icons.people_alt_rounded, 'Élèves'),
-    (Icons.timeline_rounded, 'Activité'),
     (Icons.receipt_long_rounded, 'Facturation'),
     (Icons.menu_book_rounded, 'Journal'),
   ];
@@ -308,9 +291,8 @@ class _PlatformSchoolDetailViewState
         const SizedBox(height: 16),
         switch (_tab) {
           1 => _StudentsTab(school: s),
-          2 => _ActivityTab(school: s),
-          3 => _BillingTab(school: s),
-          4 => _JournalTab(school: s),
+          2 => _BillingTab(school: s),
+          3 => _JournalTab(school: s),
           _ => _OverviewTab(school: s),
         },
       ]),
@@ -549,79 +531,6 @@ class _StudentsTab extends ConsumerWidget {
                 ],
               ),
       ),
-    );
-  }
-}
-
-// ── Onglet ACTIVITÉ ───────────────────────────────────────────────────────────
-// Alimenté par `platform_events` (triggers DB, cf. 20260764_platform_events.sql)
-// — les 8 événements les plus récents.
-class _ActivityTab extends ConsumerWidget {
-  final PlatformSchool school;
-  const _ActivityTab({required this.school});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(platformSchoolEventsProvider(school.id));
-    return DataPanel(
-      title: 'Activité récente',
-      child: eventsAsync.when(
-        loading: () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 30),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        error: (e, _) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
-        ),
-        data: (events) {
-          final items = events.take(8).map(_toActivityItem).toList();
-          if (items.isEmpty) {
-            return const EmptyState(
-              icon: Icons.history_rounded,
-              title: 'Aucune activité',
-              description: 'Rien d\'enregistré pour cette école pour l\'instant.',
-            );
-          }
-          return Column(children: [
-            for (var i = 0; i < items.length; i++) ...[
-              _ActivityLine(item: items[i]),
-              if (i < items.length - 1)
-                Divider(height: 1, color: context.cBorder.withValues(alpha: .5)),
-            ],
-          ]);
-        },
-      ),
-    );
-  }
-}
-
-class _ActivityLine extends StatelessWidget {
-  final ActivityItem item;
-  const _ActivityLine({required this.item});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(children: [
-        Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-            color: item.color.withValues(alpha: .12),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(item.icon, size: 15, color: item.color),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(item.text,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: context.cInk,
-                  fontWeight: FontWeight.w500)),
-        ),
-        const SizedBox(width: 8),
-        Text(item.ago, style: TextStyle(fontSize: 11, color: context.cMuted)),
-      ]),
     );
   }
 }

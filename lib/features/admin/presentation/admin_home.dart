@@ -14,7 +14,6 @@ import 'pages/timetable_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
-import 'pages/admin_badges_page.dart';
 import 'pages/admin_billing_page.dart';
 import 'pages/admin_school_page.dart';
 import 'pages/admin_subscription_page.dart';
@@ -131,12 +130,8 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'nav.timetable',
           page: PermissionGuard(permission: StaffPermissions.timetable, child: TimetablePage()),
           permission: StaffPermissions.timetable),
-      // Catalogue de badges de l'école. Sans lui, les enseignants n'ont aucun
-      // badge à décerner et le carnet des élèves reste vide.
-      RoleNavEntry(icon: Icons.emoji_events_outlined, activeIcon: Icons.emoji_events_rounded,
-          labelKey: 'nav.recompenses',
-          page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminBadgesPage()),
-          permission: StaffPermissions.schoolConfig),
+      // "Récompenses" (catalogue de badges) retiré du menu admin pour
+      // l'instant — demande explicite, cf. student_home.dart.
     ]),
     RoleNavGroup(labelKey: 'sections.account', entries: [
       // Pas de centre de notifications : la messagerie et les annonces ont été

@@ -70,8 +70,36 @@ class AdminReportsPage extends ConsumerWidget {
     final teachers = users.where((u) => u.role == 'teacher').length;
     final fmt = NumberFormat.decimalPattern('fr');
 
-    final canExport =
-        ref.watch(currentPlanCodeProvider).valueOrNull != 'simple';
+    // ── Tendance de recouvrement par période (exclusif Max) ─────────────────
+    // `period` (ex. '2025-09') est déjà écrit sur chaque facture par le
+    // système de scolarité — un simple regroupement suffit, pas besoin d'une
+    // nouvelle donnée : c'est pour ça qu'on peut l'offrir en Max sans backend
+    // dédié.
+    final byPeriod = <String, ({double billed, double collected})>{};
+    for (final i in invoices) {
+      final p = i.period ?? 'Sans période';
+      final entry = byPeriod[p] ?? (billed: 0.0, collected: 0.0);
+      byPeriod[p] = (
+        billed: entry.billed + i.amount,
+        collected: entry.collected + i.amountPaid,
+      );
+    }
+    final periods = byPeriod.keys.toList()..sort();
+    final recentPeriods =
+        periods.length > 6 ? periods.sublist(periods.length - 6) : periods;
+    final trendRows = [
+      for (final p in recentPeriods)
+        (
+          period: p,
+          billed: byPeriod[p]!.billed,
+          collected: byPeriod[p]!.collected,
+        ),
+    ];
+
+    // Même seuil que le PlanGateBanner plus bas — une seule notion de
+    // "rapports avancés", pas une condition ad hoc dupliquée.
+    final canExport = planMeetsRequirement(
+        ref.watch(currentPlanCodeProvider).valueOrNull, 'pro');
 
     return PageScaffold(
       title: 'Rapports',
@@ -196,6 +224,16 @@ class AdminReportsPage extends ConsumerWidget {
             'Suivi des paiements et retards',
             'Tableau de bord financier mensuel',
           ],
+        ),
+        const SizedBox(height: 14),
+        PlanGate(
+          minPlan: 'max',
+          featureLabel: 'Rapport Premium — tendance de recouvrement',
+          description:
+              'Évolution du taux de recouvrement période par période, pour '
+              'repérer une dérive avant qu\'elle ne s\'installe.',
+          icon: Icons.insights_rounded,
+          child: _PremiumTrendPanel(rows: trendRows, fmt: fmt),
         ),
       ]),
     );
@@ -331,6 +369,94 @@ class _FillBar extends StatelessWidget {
       Text('${(ratio * 100).toStringAsFixed(0)}%',
           style: TextStyle(
               fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+    ]);
+  }
+}
+
+/// Rapport Premium (Max) : évolution du recouvrement période par période,
+/// à partir des mêmes factures que le reste de la page — pas une donnée à
+/// part, juste un regroupement plus poussé.
+class _PremiumTrendPanel extends StatelessWidget {
+  final List<({String period, double billed, double collected})> rows;
+  final NumberFormat fmt;
+  const _PremiumTrendPanel({required this.rows, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    return DataPanel(
+      title: 'Tendance de recouvrement',
+      headerActions: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: const Text('Offre Max',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF7C3AED),
+                  fontWeight: FontWeight.w700)),
+        ),
+      ],
+      child: rows.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                  child: Text('Aucune facture pour établir une tendance.',
+                      style: TextStyle(color: context.cMuted))),
+            )
+          : Column(children: [
+              for (final r in rows) ...[
+                _PeriodTrendRow(row: r, fmt: fmt),
+                if (r != rows.last) const SizedBox(height: 10),
+              ],
+            ]),
+    );
+  }
+}
+
+class _PeriodTrendRow extends StatelessWidget {
+  final ({String period, double billed, double collected}) row;
+  final NumberFormat fmt;
+  const _PeriodTrendRow({required this.row, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = row.billed > 0 ? (row.collected / row.billed).clamp(0.0, 1.0) : 0.0;
+    final color = ratio >= 0.85
+        ? _green
+        : ratio >= 0.5
+            ? const Color(0xFFEA580C)
+            : const Color(0xFFDC2626);
+    return Row(children: [
+      SizedBox(
+        width: 70,
+        child: Text(row.period,
+            style: TextStyle(
+                fontSize: 12, color: context.cInk, fontWeight: FontWeight.w700)),
+      ),
+      Expanded(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 8,
+            backgroundColor: context.cSubtle,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      SizedBox(
+        width: 46,
+        child: Text('${(ratio * 100).toStringAsFixed(0)}%',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700)),
+      ),
+      const SizedBox(width: 10),
+      Text('${fmt.format(row.collected)} / ${fmt.format(row.billed)} F',
+          style: TextStyle(fontSize: 11, color: context.cMuted)),
     ]);
   }
 }

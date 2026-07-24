@@ -17,7 +17,6 @@ import '../../../shared/widgets/surface.dart';
 import 'primary_student_home.dart' show PrimaryDashboard;
 import 'pages/attendance_page.dart';
 import 'pages/cahier_liaison_page.dart';
-import 'pages/carnet_recompenses_page.dart';
 import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
@@ -36,6 +35,15 @@ const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
 const _cyan   = Color(0xFF0891B2);
+
+/// La Bibliothèque est gatée Pro à deux endroits (menu + accès rapide) : un
+/// seul widget const pour ne pas dupliquer la règle.
+const _gatedLibraryPage = PlanGate(
+  minPlan: 'pro',
+  featureLabel: 'Bibliothèque',
+  description: 'Catalogue, manuels et bibliothèque numérique.',
+  child: LibraryPage(),
+);
 
 // ══════════════════════════════════════════════════════════════════════════
 // Shell (navigation)
@@ -103,12 +111,7 @@ class StudentHome extends ConsumerWidget {
           icon: Icons.local_library_outlined,
           activeIcon: Icons.local_library_rounded,
           labelKey: 'nav.library',
-          page: PlanGate(
-            minPlan: 'pro',
-            featureLabel: 'Bibliothèque',
-            description: 'Catalogue, manuels et bibliothèque numérique.',
-            child: LibraryPage(),
-          ),
+          page: _gatedLibraryPage,
         ),
       ]),
 
@@ -120,12 +123,10 @@ class StudentHome extends ConsumerWidget {
             labelKey: 'nav.cahier_liaison',
             page: CahierLiaisonPage(),
           ),
-          RoleNavEntry(
-            icon: Icons.emoji_events_outlined,
-            activeIcon: Icons.emoji_events_rounded,
-            labelKey: 'nav.recompenses',
-            page: CarnetRecompensesPage(),
-          ),
+          // "Mes récompenses" retiré du menu élève pour l'instant (retiré à
+          // la demande explicite — le reste du système reste actif : le
+          // prof distribue toujours des points/badges, le parent les voit
+          // toujours dans la fiche enfant, cf. carnet_recompenses_page.dart).
         ]),
 
       if (isUniv)
@@ -344,12 +345,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                   'presences':     () => _nav('nav.attendance'),
                   'cours':         () => _nav('nav.courses'),
                   'paiements':     () => _nav('nav.my_payments'),
-                  'bibliotheque':  () => _push(const PlanGate(
-                        minPlan: 'pro',
-                        featureLabel: 'Bibliothèque',
-                        description: 'Catalogue, manuels et bibliothèque numérique.',
-                        child: LibraryPage(),
-                      )),
+                  'bibliotheque':  () => _push(_gatedLibraryPage),
                   'notifications': () => _nav('nav.notifications'),
                   'simulateur':    () => _push(const SimulateurMoyennePage()),
                   'documents':     () => _push(const StudentDocumentsPage()),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/config/app_config.dart';
@@ -14,7 +13,7 @@ import '../../../enrollment/data/prereg_store.dart';
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 
-/// Panneau admin « Lien de pré-inscription » : lien public + QR + partage +
+/// Panneau admin « Lien de pré-inscription » : lien public + partage +
 /// interrupteur d'ouverture de la période. C'est ce que l'école diffuse aux
 /// familles (WhatsApp, affiche au portail, réseaux…).
 class PreRegistrationLinkPanel extends ConsumerStatefulWidget {
@@ -84,55 +83,6 @@ class _PreRegistrationLinkPanelState
     }
   }
 
-  void _showQr(String link, String schoolName) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: context.cCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(schoolName,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 14,
-                    color: context.cInk,
-                    fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text('Scannez pour vous pré-inscrire',
-                style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-            const SizedBox(height: 16),
-            // Le QR reste sur fond blanc (lisibilité au scan), volontairement.
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: context.cBorder),
-              ),
-              child: QrImageView(
-                data: link,
-                size: 200,
-                backgroundColor: Colors.white,
-                eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square, color: _terra),
-                dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Color(0xFF1A0A00)),
-              ),
-            ),
-            const SizedBox(height: 14),
-            ActionButton(
-              label: 'Fermer',
-              onTap: () => Navigator.pop(context),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-
   Future<void> _setOpen(String schoolId, bool value) async {
     await SupabaseDbSource.setSchoolPreregistrationOpen(schoolId, value);
     ref.invalidate(schoolEnrollmentStatusProvider);
@@ -141,8 +91,6 @@ class _PreRegistrationLinkPanelState
   @override
   Widget build(BuildContext context) {
     final schoolId = ref.watch(currentSchoolIdProvider);
-    final schoolAsync = ref.watch(schoolProvider);
-    final schoolName = schoolAsync.asData?.value?.name ?? 'Votre école';
     final statusAsync = ref.watch(schoolEnrollmentStatusProvider);
     final status = statusAsync.asData?.value;
     final slug = status?['slug'] as String?;
@@ -168,7 +116,7 @@ class _PreRegistrationLinkPanelState
       ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
-          'Partagez ce lien (ou le QR) aux familles : elles se pré-inscrivent '
+          'Partagez ce lien aux familles : elles se pré-inscrivent '
           'en ligne, puis vous validez les demandes reçues.',
           style: TextStyle(fontSize: 11.5, color: context.cMuted, height: 1.4),
         ),
@@ -248,13 +196,8 @@ class _PreRegistrationLinkPanelState
           ),
           const SizedBox(height: 12),
 
-          // Actions : QR + partager.
+          // Actions : partager.
           Wrap(spacing: 8, runSpacing: 8, children: [
-            ActionButton(
-              label: 'Afficher le QR',
-              icon: Icons.qr_code_2_rounded,
-              onTap: () => _showQr(link, schoolName),
-            ),
             ActionButton(
               label: 'Partager (WhatsApp)',
               icon: Icons.share_rounded,

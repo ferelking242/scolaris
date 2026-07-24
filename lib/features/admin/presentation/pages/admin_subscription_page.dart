@@ -21,7 +21,6 @@ const _featureLabels = <String, String>{
   'annonces': 'Annonces',
   'finance': 'Finance & paiement en ligne',
   'bibliotheque': 'Bibliothèque',
-  'qr': 'Cartes QR',
   'surveillance': 'Surveillance & discipline',
   'rapports': 'Rapports & exports',
   'multi_etablissements': 'Multi-établissements',

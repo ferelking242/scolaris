@@ -55,14 +55,6 @@ class SupabaseAuthSource {
     return _fetchProfile(response.user!.id);
   }
 
-  Future<AppUser> signInWithQrToken(String token) async {
-    final parts = token.split(':');
-    if (parts.length < 2) throw ArgumentError('QR invalide');
-    final email = parts[1];
-    final password = parts.length > 2 ? parts[2] : 'demo1234';
-    return signInWithEmail(email, password);
-  }
-
   Future<void> signOut() async {
     await Supabase.instance.client.auth.signOut();
     _current = null;

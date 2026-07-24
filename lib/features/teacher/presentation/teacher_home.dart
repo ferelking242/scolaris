@@ -6,7 +6,6 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/db_providers.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
-import '../../../shared/widgets/qr_panel.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/school_switcher.dart';
 import 'pages/attendance_today_page.dart';
@@ -63,14 +62,6 @@ class TeacherHome extends ConsumerWidget {
                 activeIcon: Icons.fact_check_rounded,
                 labelKey: 'nav.attendance',
                 page: AttendanceTodayPage()),
-          // Le QR sert à pointer les présences : sans le droit de faire l'appel,
-          // il ne mène nulle part.
-          if (can('presences.saisir'))
-            const RoleNavEntry(
-                icon: Icons.qr_code_2_outlined,
-                activeIcon: Icons.qr_code_2_rounded,
-                labelKey: 'nav.qr',
-                page: QrPanel()),
           if (can('notes.voir'))
             const RoleNavEntry(
                 icon: Icons.bar_chart_outlined,

@@ -14,7 +14,7 @@ const _bg = Color(0xFFF5EEE6);
 const _border = Color(0xFFDDCCBB);
 
 /// Formulaire de **pré-inscription publique** (sans compte), ouvert par le lien
-/// ou le QR de l'école (`schoolCode` = `schools.slug`). Résout l'école depuis
+/// de l'école (`schoolCode` = `schools.slug`). Résout l'école depuis
 /// la vue publique `public_schools` avant d'afficher le formulaire — une école
 /// introuvable ou qui a fermé sa période affiche un état dédié plutôt qu'un
 /// formulaire qui échouerait à l'envoi (la RLS le refuserait de toute façon).
@@ -188,7 +188,7 @@ class _PreRegEntryScreenState extends State<PreRegEntryScreen> {
                 const SizedBox(height: 6),
                 const Text(
                   'Saisissez le code de votre école (fourni par l\'établissement '
-                  'via son lien ou son QR code) pour commencer.',
+                  'via son lien) pour commencer.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: _muted, height: 1.5),
                 ),

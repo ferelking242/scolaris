@@ -624,6 +624,7 @@ class FeaturesCatalog {
 
     AppFeature(
       id: 'billing_admin',
+      minPlan: 'pro',
       title: 'Gestion Financière',
       description: 'Suivi des paiements, relances, budget, rapports comptables.',
       icon: Icons.account_balance_wallet_rounded,
@@ -668,6 +669,18 @@ class FeaturesCatalog {
       color: Color(0xFF2D6A4F),
       category: FeatureCategory.documents,
       roles: _staffTeacher,
+      status: FeatureStatus.available,
+    ),
+
+    AppFeature(
+      id: 'reports_premium',
+      minPlan: 'max',
+      title: 'Rapport Premium',
+      description: 'Tendance de recouvrement période par période, au-delà du rapport standard.',
+      icon: Icons.insights_rounded,
+      color: Color(0xFF7C3AED),
+      category: FeatureCategory.documents,
+      roles: _staffOnly,
       status: FeatureStatus.available,
     ),
 
@@ -746,6 +759,60 @@ class FeaturesCatalog {
       description: 'Simuler l\'interface d\'un élève, enseignant ou parent pour déboguer.',
       icon: Icons.swap_horiz_rounded,
       color: Color(0xFF2D6A4F),
+      category: FeatureCategory.admin,
+      roles: _staffOnly,
+      status: FeatureStatus.planned,
+    ),
+
+    // ── EXCLUSIF MAX (à venir) ─────────────────────────────────────────────
+    // Ces 4 features composent le catalogue `plans.features` de l'offre Max
+    // côté base (20260617_subscriptions.sql) mais n'ont encore aucune UI —
+    // listées ici pour que l'offre Max ait un contenu visible dans la vitrine
+    // plutôt que de sembler ne rien apporter de plus que Pro.
+
+    AppFeature(
+      id: 'multi_etablissements',
+      minPlan: 'max',
+      title: 'Multi-établissements',
+      description: 'Gérez plusieurs écoles d\'un même groupe depuis un seul compte.',
+      icon: Icons.corporate_fare_rounded,
+      color: Color(0xFF7C3AED),
+      category: FeatureCategory.admin,
+      roles: _staffOnly,
+      status: FeatureStatus.planned,
+    ),
+
+    AppFeature(
+      id: 'marque_blanche',
+      minPlan: 'max',
+      title: 'Marque Blanche',
+      description: 'Logo, couleurs et domaine personnalisés aux couleurs de votre établissement.',
+      icon: Icons.palette_rounded,
+      color: Color(0xFF7C3AED),
+      category: FeatureCategory.admin,
+      roles: _staffOnly,
+      status: FeatureStatus.planned,
+    ),
+
+    AppFeature(
+      id: 'support_dedie',
+      minPlan: 'max',
+      title: 'Support Dédié',
+      description: 'Un interlocuteur attitré, priorité sur les demandes d\'assistance.',
+      icon: Icons.support_agent_rounded,
+      color: Color(0xFF7C3AED),
+      category: FeatureCategory.admin,
+      roles: _staffOnly,
+      status: FeatureStatus.planned,
+    ),
+
+    AppFeature(
+      id: 'export_api',
+      minPlan: 'max',
+      title: 'Export API',
+      description: 'Accès API pour connecter Scolaris à vos propres outils.',
+      icon: Icons.api_rounded,
+      color: Color(0xFF7C3AED),
       category: FeatureCategory.admin,
       roles: _staffOnly,
       status: FeatureStatus.planned,

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -40,41 +38,6 @@ class CarteEtudiantePage extends ConsumerWidget {
         _StudentCard(name: name, initials: initials, classe: classe, year: year, qrCode: qrCode),
         const SizedBox(height: 20),
 
-        // ── QR Code simulé ────────────────────────────────────────────────────
-        Center(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.outlineVariant),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Column(children: [
-              Text('QR Code d\'accès',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: cs.onSurface)),
-              const SizedBox(height: 4),
-              Text('Valable jusqu\'au 31 Août ${_nextAugust()}',
-                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-              const SizedBox(height: 16),
-              _QrWidget(data: qrCode),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(qrCode,
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w900,
-                        color: cs.onSurface, letterSpacing: 2)),
-              ),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 20),
-
         // ── Accès autorisés ───────────────────────────────────────────────────
         _SectionHeader(title: 'Accès autorisés', cs: cs),
         const SizedBox(height: 10),
@@ -102,10 +65,6 @@ class CarteEtudiantePage extends ConsumerWidget {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
-  String _nextAugust() {
-    final now = DateTime.now();
-    return now.month >= 9 ? '${now.year + 1}' : '${now.year}';
-  }
 }
 
 // ── Carte physique ────────────────────────────────────────────────────────────
@@ -205,59 +164,6 @@ class _StudentCard extends StatelessWidget {
       ]),
     );
   }
-}
-
-// ── QR simulé (pattern géométrique) ─────────────────────────────────────────
-class _QrWidget extends StatelessWidget {
-  final String data;
-  const _QrWidget({required this.data});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-      width: 160, height: 160,
-      child: CustomPaint(painter: _QrPainter(data: data)));
-}
-
-class _QrPainter extends CustomPainter {
-  final String data;
-  _QrPainter({required this.data});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const darkColor = Color(0xFF1A0A00);
-    final paint = Paint()..color = darkColor..style = PaintingStyle.fill;
-    final bg    = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    canvas.drawRect(Offset.zero & size, bg);
-    final cell = size.width / 21;
-    final rng  = math.Random(data.hashCode);
-    _drawMarker(canvas, paint, 0, 0, cell);
-    _drawMarker(canvas, paint, 14, 0, cell);
-    _drawMarker(canvas, paint, 0, 14, cell);
-    for (var r = 0; r < 21; r++) {
-      for (var c = 0; c < 21; c++) {
-        if (_isMarker(r, c)) continue;
-        if (rng.nextBool()) {
-          canvas.drawRect(
-            Rect.fromLTWH(c * cell + 1, r * cell + 1, cell - 2, cell - 2), paint);
-        }
-      }
-    }
-  }
-
-  void _drawMarker(Canvas c, Paint p, int col, int row, double cell) {
-    const darkColor = Color(0xFF1A0A00);
-    final outer  = Paint()..color = darkColor..style = PaintingStyle.fill;
-    final inner  = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    final center = Paint()..color = darkColor..style = PaintingStyle.fill;
-    c.drawRect(Rect.fromLTWH(col * cell, row * cell, 7 * cell, 7 * cell), outer);
-    c.drawRect(Rect.fromLTWH((col + 1) * cell, (row + 1) * cell, 5 * cell, 5 * cell), inner);
-    c.drawRect(Rect.fromLTWH((col + 2) * cell, (row + 2) * cell, 3 * cell, 3 * cell), center);
-  }
-
-  bool _isMarker(int r, int c) =>
-      (r < 8 && c < 8) || (r < 8 && c > 12) || (r > 12 && c < 8);
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── Grille accès ─────────────────────────────────────────────────────────────

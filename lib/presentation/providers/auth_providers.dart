@@ -17,8 +17,6 @@ final signInUseCaseProvider =
     Provider((ref) => SignInUseCase(ref.watch(authRepositoryProvider)));
 final signOutUseCaseProvider =
     Provider((ref) => SignOutUseCase(ref.watch(authRepositoryProvider)));
-final signInWithQrUseCaseProvider =
-    Provider((ref) => SignInWithQrUseCase(ref.watch(authRepositoryProvider)));
 
 /// Stream of the currently authenticated user (or null).
 final authStateProvider = StreamProvider<AppUser?>((ref) {

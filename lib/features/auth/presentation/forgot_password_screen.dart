@@ -360,11 +360,6 @@ class _HelpSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _HelpItem(
-          icon: Icons.qr_code_scanner_rounded,
-          text: 'Vous pouvez aussi vous connecter avec le QR code de votre carte étudiante.',
-        ),
-        const SizedBox(height: 8),
-        _HelpItem(
           icon: Icons.support_agent_rounded,
           text: 'Support : support@scolaris.app',
         ),

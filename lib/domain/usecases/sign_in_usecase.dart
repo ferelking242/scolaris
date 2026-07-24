@@ -22,9 +22,3 @@ class SignOutUseCase {
   SignOutUseCase(this._repo);
   Future<void> call() => _repo.signOut();
 }
-
-class SignInWithQrUseCase {
-  final AuthRepository _repo;
-  SignInWithQrUseCase(this._repo);
-  Future<AppUser> call(String token) => _repo.signInWithQrToken(token);
-}

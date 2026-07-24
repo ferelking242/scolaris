@@ -59,7 +59,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final atPreRegister    = loc.startsWith(AppRoutes.preRegister);
 
       if (atRegisterSchool) return null;
-      // Pré-inscription publique (lien/QR) — accessible sans compte.
+      // Pré-inscription publique (lien) — accessible sans compte.
       if (atPreRegister) return null;
 
       // Non authentifié → page de connexion (pas de mode démo).

@@ -1877,7 +1877,7 @@ class SupabaseDbSource {
         .eq('user_id', studentId)
         .maybeSingle();
     final fromClassId = profile?['class_id'] as String?;
-    final actorId = _db.auth.currentUser?.id;
+    final actorId = await _currentUserRowId();
 
     await _db.from('student_profiles').update({
       'enrollment_status': decision,
@@ -1926,6 +1926,20 @@ class SupabaseDbSource {
     return row?['full_name'] as String?;
   }
 
+  /// L'id `users.id` (≠ auth uid) du compte connecté — nécessaire pour toute
+  /// colonne qui référence `users(id)` (ex. `decided_by`). `null` si le compte
+  /// connecté n'a pas de fiche `users` (ne devrait pas arriver en pratique).
+  static Future<String?> _currentUserRowId() async {
+    final auth = _db.auth.currentUser;
+    if (auth == null) return null;
+    final row = await _db
+        .from('users')
+        .select('id')
+        .eq('auth_uid', auth.id)
+        .maybeSingle();
+    return row?['id'] as String?;
+  }
+
   /// Nom du niveau suivant dans la taxonomie de l'école (ex. "CM2" → "6e"),
   /// via `class_levels.order_num` (cf. SchoolTaxonomy). `null` si [currentLevelName]
   /// est le dernier niveau du système (fin de cycle/école) ou introuvable.
@@ -1957,7 +1971,7 @@ class SupabaseDbSource {
     required String toAcademicYear,
     required List<PromotionDecision> decisions,
   }) async {
-    final actorId = _db.auth.currentUser?.id;
+    final actorId = await _currentUserRowId();
     final actorName = actorId == null ? null : await _actorName(actorId);
 
     for (final d in decisions) {

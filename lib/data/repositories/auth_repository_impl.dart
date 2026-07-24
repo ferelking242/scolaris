@@ -14,10 +14,6 @@ class AuthRepositoryImpl implements AuthRepository {
       _remote.signInWithEmail(email, password);
 
   @override
-  Future<AppUser> signInWithQrToken(String token) =>
-      _remote.signInWithQrToken(token);
-
-  @override
   Future<void> signOut() => _remote.signOut();
 
   @override

@@ -25,6 +25,9 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
   bool _saving = false;
   bool _loading = true;
   bool _previewing = false;
+  // Deux préoccupations distinctes qui n'ont rien à faire empilées sur la
+  // même page : partager le lien d'inscription, et configurer les champs.
+  int _tab = 0;
 
   @override
   void initState() {
@@ -167,121 +170,186 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
     return PageScaffold(
       title: 'Page d\'Inscription — Configuration',
       subtitle: '$enabledCount champs actifs · $requiredCount obligatoires',
-      actions: [
-        ActionButton(
-          label: 'Prévisualiser',
-          icon: Icons.preview_rounded,
-          onTap: _preview,
-        ),
-        const SizedBox(width: 8),
-        ActionButton(
-          label: _saving
-              ? 'Enregistrement…'
-              : (_saved ? 'Sauvegardé !' : 'Sauvegarder'),
-          icon: _saved ? Icons.check_rounded : Icons.save_rounded,
-          primary: true,
-          onTap: _saving ? () {} : _save,
-        ),
-      ],
+      actions: _tab == 1
+          ? [
+              ActionButton(
+                label: 'Prévisualiser',
+                icon: Icons.preview_rounded,
+                onTap: _preview,
+              ),
+              const SizedBox(width: 8),
+              ActionButton(
+                label: _saving
+                    ? 'Enregistrement…'
+                    : (_saved ? 'Sauvegardé !' : 'Sauvegarder'),
+                icon: _saved ? Icons.check_rounded : Icons.save_rounded,
+                primary: true,
+                onTap: _saving ? () {} : _save,
+              ),
+            ]
+          : const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // ── Lien de pré-inscription (partage lien + QR + période) ───────
-          const PreRegistrationLinkPanel(),
-          const SizedBox(height: 16),
-
-          // ── Info banner ─────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _gold.withOpacity(.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _gold.withOpacity(.25)),
-            ),
-            child: Row(children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                    color: _gold.withOpacity(.15),
-                    borderRadius: BorderRadius.circular(9)),
-                child: const Icon(Icons.tune_rounded, color: _gold, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Personnalisation du formulaire d\'inscription',
-                        style: TextStyle(fontSize: 12.5, color: context.cInk,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Activez ou désactivez les champs selon les besoins de votre '
-                      'établissement. Les champs marqués ★ sont obligatoires '
-                      'et ne peuvent pas être désactivés.',
-                      style: TextStyle(fontSize: 11, color: context.cMuted, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-            ]),
+          _ConfigTabBar(
+            current: _tab,
+            onChanged: (i) => setState(() => _tab = i),
           ),
           const SizedBox(height: 16),
-
-          // ── Stats row ───────────────────────────────────────────────────
-          // Sous ~500px, 3 colonnes égales laissent trop peu de place au
-          // texte (icône + libellé + valeur) : grille 2 colonnes à la place.
-          LayoutBuilder(builder: (_, constraints) {
-            final stats = [
-              _MiniStat(
-                icon: Icons.toggle_on_rounded,
-                label: 'Champs actifs',
-                value: '$enabledCount',
-                color: _green,
+          if (_tab == 0) ...[
+            // ── Lien de pré-inscription (partage lien + QR + période) ─────
+            const PreRegistrationLinkPanel(),
+          ] else ...[
+            // ── Info banner ───────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _gold.withOpacity(.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _gold.withOpacity(.25)),
               ),
-              _MiniStat(
-                icon: Icons.star_rounded,
-                label: 'Obligatoires',
-                value: '$requiredCount',
-                color: _terra,
-              ),
-              _MiniStat(
-                icon: Icons.list_alt_rounded,
-                label: 'Total champs',
-                value: '${EnrollmentFields.all.length}',
-                color: context.cMuted,
-              ),
-            ];
-            if (constraints.maxWidth < 500) {
-              final w = (constraints.maxWidth - 10) / 2;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [for (final s in stats) SizedBox(width: w, child: s)],
-              );
-            }
-            return Row(children: [
-              for (var i = 0; i < stats.length; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(child: stats[i]),
-              ],
-            ]);
-          }),
-          const SizedBox(height: 16),
-
-          // ── Field config by category ─────────────────────────────────
-          for (final cat in cats) ...[
-            _CatSection(
-              category: cat,
-              config: _config,
-              onToggle: _toggleField,
-              onToggleRequired: _toggleRequired,
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                      color: _gold.withOpacity(.15),
+                      borderRadius: BorderRadius.circular(9)),
+                  child: const Icon(Icons.tune_rounded, color: _gold, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Personnalisation du formulaire d\'inscription',
+                          style: TextStyle(fontSize: 12.5, color: context.cInk,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Activez ou désactivez les champs selon les besoins de votre '
+                        'établissement. Les champs marqués ★ sont obligatoires '
+                        'et ne peuvent pas être désactivés.',
+                        style: TextStyle(fontSize: 11, color: context.cMuted, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+
+            // ── Stats row ─────────────────────────────────────────────────
+            // Sous ~500px, 3 colonnes égales laissent trop peu de place au
+            // texte (icône + libellé + valeur) : grille 2 colonnes à la place.
+            LayoutBuilder(builder: (_, constraints) {
+              final stats = [
+                _MiniStat(
+                  icon: Icons.toggle_on_rounded,
+                  label: 'Champs actifs',
+                  value: '$enabledCount',
+                  color: _green,
+                ),
+                _MiniStat(
+                  icon: Icons.star_rounded,
+                  label: 'Obligatoires',
+                  value: '$requiredCount',
+                  color: _terra,
+                ),
+                _MiniStat(
+                  icon: Icons.list_alt_rounded,
+                  label: 'Total champs',
+                  value: '${EnrollmentFields.all.length}',
+                  color: context.cMuted,
+                ),
+              ];
+              if (constraints.maxWidth < 500) {
+                final w = (constraints.maxWidth - 10) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [for (final s in stats) SizedBox(width: w, child: s)],
+                );
+              }
+              return Row(children: [
+                for (var i = 0; i < stats.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(child: stats[i]),
+                ],
+              ]);
+            }),
+            const SizedBox(height: 16),
+
+            // ── Field config by category (repliées par défaut) ────────────
+            for (final cat in cats) ...[
+              _CatSection(
+                category: cat,
+                config: _config,
+                onToggle: _toggleField,
+                onToggleRequired: _toggleRequired,
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         ],
       ),
+    );
+  }
+}
+
+// ── Barre d'onglets internes (Lien / Champs) ────────────────────────────────
+class _ConfigTabBar extends StatelessWidget {
+  final int current;
+  final ValueChanged<int> onChanged;
+  const _ConfigTabBar({required this.current, required this.onChanged});
+
+  static const _tabs = [
+    (Icons.link_rounded, 'Lien de pré-inscription'),
+    (Icons.tune_rounded, 'Champs du formulaire'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: context.cSubtle,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Row(children: [
+        for (var i = 0; i < _tabs.length; i++)
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: current == i ? context.cCard : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: current == i
+                        ? [BoxShadow(
+                            color: Colors.black.withOpacity(.06),
+                            blurRadius: 6, offset: const Offset(0, 1))]
+                        : null,
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(_tabs[i].$1, size: 15,
+                        color: current == i ? _terra : context.cMuted),
+                    const SizedBox(width: 6),
+                    Text(_tabs[i].$2,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: current == i ? _terra : context.cMuted)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 }
@@ -305,7 +373,9 @@ class _CatSection extends StatefulWidget {
 }
 
 class _CatSectionState extends State<_CatSection> {
-  bool _open = true;
+  // Repliées par défaut : 8 catégories × plusieurs champs, tout déplié
+  // d'un coup rendait la page illisible au premier chargement.
+  bool _open = false;
 
   static const _catIcons = {
     'Identité':   Icons.badge_rounded,

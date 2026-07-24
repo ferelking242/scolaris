@@ -16,28 +16,21 @@ class AttendanceLogPage extends ConsumerWidget {
     return studentsAsync.when(
       loading: () => PageScaffold(
         title: 'Journal des présences',
-        subtitle: 'Scans en temps réel — $dateLabel',
+        subtitle: 'Présences du jour — $dateLabel',
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Journal des présences',
-        subtitle: 'Scans en temps réel — $dateLabel',
+        subtitle: 'Présences du jour — $dateLabel',
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) => PageScaffold(
         title: 'Journal des présences',
-        subtitle: 'Scans en temps réel — $dateLabel',
-        actions: [
-          ActionButton(
-              label: 'Ouvrir scanner',
-              icon: Icons.qr_code_scanner_rounded,
-              primary: true,
-              onTap: () {}),
-        ],
+        subtitle: 'Présences du jour — $dateLabel',
         child: students.isEmpty
             ? const _EmptyState()
             : DataPanel(
-                title: 'Scans du jour',
+                title: 'Présences du jour',
                 headerActions: const [SearchInput(hint: 'Rechercher…')],
                 child: DataTablePanel(
                   columns: const ['Élève', 'Classe', 'Matricule', 'Statut'],
@@ -104,12 +97,12 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.qr_code_scanner_rounded, size: 48, color: muted),
+              Icon(Icons.fact_check_outlined, size: 48, color: muted),
               SizedBox(height: 12),
-              Text('Aucun scan ce jour',
+              Text('Aucune présence enregistrée',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ink)),
               SizedBox(height: 4),
-              Text('Utilisez le scanner QR pour enregistrer les présences.',
+              Text('Aucun élève à afficher pour cette journée.',
                   style: TextStyle(fontSize: 13, color: muted),
                   textAlign: TextAlign.center),
             ],

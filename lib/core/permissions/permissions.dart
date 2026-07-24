@@ -37,10 +37,4 @@ class PermissionService {
   bool canManageUsers(AppUser? u) => has(u, StaffPermissions.staffManage);
 
   bool canViewChildren(AppUser? u) => u?.role == UserRole.parent;
-
-  bool canScanQr(AppUser? u) =>
-      u != null &&
-      (u.role == UserRole.teacher ||
-          has(u, StaffPermissions.students) ||
-          has(u, StaffPermissions.attendance));
 }

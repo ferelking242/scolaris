@@ -105,6 +105,16 @@ class AdminClassesPage extends ConsumerWidget {
             : const <Map<String, dynamic>>[];
         final canCreate = ref.watch(canProvider('classes.creer'));
 
+        // Effectif réel par classe (élèves actifs seulement — un sorti ne
+        // compte plus dans sa classe) pour afficher "12 / 30" et non "/ 30".
+        final students =
+            ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
+        final countByClass = <String, int>{};
+        for (final s in students) {
+          if (s.classId == null || s.hasExited) continue;
+          countByClass[s.classId!] = (countByClass[s.classId!] ?? 0) + 1;
+        }
+
         // Recherche libre : nom, niveau ou section, insensible à la casse.
         final rawSearch = ref.watch(_classSearchProvider).trim();
         final search = rawSearch.toLowerCase();
@@ -161,6 +171,7 @@ class AdminClassesPage extends ConsumerWidget {
                       for (final cl in filtered)
                         _ClassCard(
                           klass: cl,
+                          studentCount: countByClass[cl.id] ?? 0,
                           onEdit: ref.watch(canProvider('classes.modifier'))
                               ? () => _openClassDialog(context, ref, cl)
                               : null,
@@ -193,7 +204,8 @@ class AdminClassesPage extends ConsumerWidget {
                             style: TextStyle(fontSize: 12, color: context.cMuted)),
                         Text(cl.section ?? '—',
                             style: TextStyle(fontSize: 12, color: context.cMuted)),
-                        _CapacityBar(max: cl.maxStudents),
+                        _CapacityBar(
+                            count: countByClass[cl.id] ?? 0, max: cl.maxStudents),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -733,11 +745,13 @@ class _ImportBanner extends StatelessWidget {
 /// Carte compacte pour une classe — remplace la ligne du tableau sous 640px.
 class _ClassCard extends StatelessWidget {
   final SbClass klass;
+  final int studentCount;
   final VoidCallback? onEdit;
   final VoidCallback onRoster;
   final VoidCallback? onDelete;
   const _ClassCard({
     required this.klass,
+    required this.studentCount,
     required this.onEdit,
     required this.onRoster,
     required this.onDelete,
@@ -766,7 +780,7 @@ class _ClassCard extends StatelessWidget {
               [
                 if ((cl.level ?? '').isNotEmpty) cl.level!,
                 if ((cl.section ?? '').isNotEmpty) 'Section ${cl.section}',
-                '${cl.maxStudents} places',
+                '$studentCount / ${cl.maxStudents} élèves',
               ].join(' · '),
               style: TextStyle(fontSize: 11.5, color: context.cMuted),
             ),
@@ -802,11 +816,15 @@ class _ClassCard extends StatelessWidget {
 }
 
 class _CapacityBar extends StatelessWidget {
+  final int count;
   final int max;
-  const _CapacityBar({required this.max});
+  const _CapacityBar({required this.count, required this.max});
   @override
-  Widget build(BuildContext context) => Text('/ $max',
-      style: TextStyle(fontSize: 12, color: context.cMuted));
+  Widget build(BuildContext context) => Text('$count / $max',
+      style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: count >= max ? _terra : context.cMuted));
 }
 
 class _IconBtn extends StatelessWidget {
