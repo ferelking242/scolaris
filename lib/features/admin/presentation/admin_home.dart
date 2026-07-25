@@ -23,6 +23,8 @@ import 'pages/admin_subjects_page.dart';
 import 'pages/admin_courses_page.dart';
 import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
+import 'pages/admin_attendance_page.dart';
+import 'pages/admin_class_stats_page.dart';
 import 'pages/users_page.dart';
 
 // Accents de marque — volontairement constants, lisibles en clair comme en sombre.
@@ -122,9 +124,17 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'nav.grades',
           page: PermissionGuard(permission: StaffPermissions.grades, child: AdminGradesPage()),
           permission: StaffPermissions.grades),
+      RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
+          labelKey: 'Présences',
+          page: PermissionGuard(permission: StaffPermissions.attendance, child: AdminAttendancePage()),
+          permission: StaffPermissions.attendance),
       RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
           labelKey: 'nav.reports',
           page: PermissionGuard(permission: StaffPermissions.reports, child: AdminReportsPage()),
+          permission: StaffPermissions.reports),
+      RoleNavEntry(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded,
+          labelKey: 'Statistiques de classe',
+          page: PermissionGuard(permission: StaffPermissions.reports, child: AdminClassStatsPage()),
           permission: StaffPermissions.reports),
       RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
           labelKey: 'nav.timetable',

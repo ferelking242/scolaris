@@ -9,11 +9,8 @@ import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/school_switcher.dart';
 import 'pages/attendance_today_page.dart';
-import 'pages/class_stats_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
-import 'pages/teacher_liaison_page.dart';
-import 'pages/teacher_rewards_page.dart';
 
 /// Le menu du professeur, **filtré par ses permissions**.
 ///
@@ -62,28 +59,6 @@ class TeacherHome extends ConsumerWidget {
                 activeIcon: Icons.fact_check_rounded,
                 labelKey: 'nav.attendance',
                 page: AttendanceTodayPage()),
-          if (can('notes.voir'))
-            const RoleNavEntry(
-                icon: Icons.bar_chart_outlined,
-                activeIcon: Icons.bar_chart_rounded,
-                labelKey: 'nav.class_stats',
-                page: ClassStatsPage()),
-          // L'écriture du cahier de liaison. Sans elle, le cahier que voient
-          // les familles reste une boîte vide.
-          if (can('liaison.voir'))
-            const RoleNavEntry(
-                icon: Icons.import_contacts_outlined,
-                activeIcon: Icons.import_contacts_rounded,
-                labelKey: 'nav.cahier_liaison',
-                page: TeacherLiaisonPage()),
-          // L'attribution des bons points et badges. Même logique : sans
-          // écriture, le carnet des familles reste vide.
-          if (can('recompenses.voir'))
-            const RoleNavEntry(
-                icon: Icons.emoji_events_outlined,
-                activeIcon: Icons.emoji_events_rounded,
-                labelKey: 'nav.recompenses',
-                page: TeacherRewardsPage()),
         ]),
         // Messagerie retirée : l'écran était 100 % fictif (conversations codées
         // en dur, aucun accès à la base). À réintroduire quand une vraie
@@ -152,11 +127,6 @@ class _TeacherDashboard extends ConsumerWidget {
           title: 'Saisir les notes',
           description: 'Ouvrez le carnet pour valider les notes de vos classes.',
           suggested: true,
-        ),
-        ExploreCard(
-          icon: Icons.bar_chart_rounded,
-          title: 'Statistiques de classe',
-          description: 'Analysez les performances réelles par matière.',
         ),
       ],
         ),
