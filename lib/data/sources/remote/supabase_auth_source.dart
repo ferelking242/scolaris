@@ -10,10 +10,27 @@ class SupabaseAuthSource {
   AppUser? _current;
 
   SupabaseAuthSource() {
+    // ── Restauration immédiate depuis la session stockée ──────────────────
+    // Sur Flutter Web, Supabase restore la session depuis localStorage *avant*
+    // que le listener ne reçoive son premier événement. On lit donc la session
+    // courante de façon synchrone et on l'émet immédiatement pour que le router
+    // ne redirige pas vers /login à chaque rechargement de page.
+    _restoreCurrentSession();
+
     Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-      final event = data.event;
+      final event   = data.event;
       final session = data.session;
-      if (event == AuthChangeEvent.signedIn && session != null) {
+
+      // Tous les événements indiquant une session VALIDE
+      if (session != null && (
+          event == AuthChangeEvent.signedIn          ||
+          event == AuthChangeEvent.tokenRefreshed    ||
+          event == AuthChangeEvent.initialSession    ||
+          event == AuthChangeEvent.userUpdated)) {
+        // Évite de re-fetcher le profil si c'est le même utilisateur
+        if (_current?.id == session.user.id && _current != null) {
+          return;
+        }
         try {
           final user = await _fetchProfile(session.user.id);
           _current = user;
@@ -22,12 +39,31 @@ class SupabaseAuthSource {
           _current = null;
           _controller.add(null);
         }
-      } else if (event == AuthChangeEvent.signedOut ||
-          event == AuthChangeEvent.tokenRefreshed && session == null) {
+        return;
+      }
+
+      // Session expirée ou déconnexion explicite
+      if (event == AuthChangeEvent.signedOut ||
+          (event == AuthChangeEvent.tokenRefreshed && session == null)) {
         _current = null;
         _controller.add(null);
       }
     });
+  }
+
+  /// Lit la session Supabase déjà en mémoire (restaurée depuis localStorage
+  /// sur web) et émet l'utilisateur sans attendre un événement du stream.
+  Future<void> _restoreCurrentSession() async {
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null) return;
+    if (_current != null) return; // déjà hydraté
+    try {
+      final user = await _fetchProfile(authUser.id);
+      _current = user;
+      _controller.add(user);
+    } catch (_) {
+      // Session stockée mais profil inaccessible (ex. RLS) → on laisse null
+    }
   }
 
   Future<AppUser?> currentUser() async {
@@ -69,10 +105,6 @@ class SupabaseAuthSource {
         .maybeSingle();
 
     if (data == null) {
-      // Ne JAMAIS se rabattre silencieusement sur un faux profil élève : ça a
-      // déjà causé un bug (prof invité redirigé vers l'espace élève) quand la
-      // ligne `users` existait mais restait invisible à cause de la RLS
-      // (adhésion `school_members` manquante). Mieux vaut échouer bruyamment.
       throw StateError(
           'Profil utilisateur introuvable ou inaccessible pour $authUid — '
           'vérifier la ligne `users` et son adhésion `school_members`.');
@@ -81,9 +113,6 @@ class SupabaseAuthSource {
     final rawRole = data['role'] as String? ?? 'student';
     final role = UserRole.fromString(rawRole);
 
-    // Permissions du personnel : lues depuis la colonne jsonb. Le fondateur /
-    // direction (rôle brut 'admin'/'direction') a TOUJOURS un accès total, même
-    // si la colonne est vide (compte créé à l'inscription avant assignation).
     Set<String> permissions = {};
     if (role == UserRole.staff) {
       final raw = data['permissions'];
@@ -94,18 +123,12 @@ class SupabaseAuthSource {
       }
     }
 
-    // Titre affiché : la colonne role_title (ex. « Secrétaire ») si renseignée,
-    // sinon « Direction » pour le fondateur, sinon le libellé du rôle.
     final title = data['role_title'] as String?;
     final r = rawRole.toLowerCase();
     final displayTitle = (title != null && title.isNotEmpty)
         ? title
         : (r == 'admin' || r == 'direction' ? 'Direction' : null);
 
-    // Super-admin PLATEFORME : remplace l'ancienne allowlist d'emails codée
-    // en dur (cf. platform_admin.dart) par une vraie table, vérifiable côté
-    // base. Un échec ici ne doit jamais faire échouer tout le login — un
-    // simple staff d'école n'a pas à être bloqué par un souci sur cette table.
     var isPlatformAdmin = false;
     try {
       final pa = await Supabase.instance.client
@@ -114,9 +137,7 @@ class SupabaseAuthSource {
           .eq('user_id', data['id'] as String)
           .maybeSingle();
       isPlatformAdmin = pa != null;
-    } catch (_) {
-      /* pas de statut plateforme accordé — comportement par défaut */
-    }
+    } catch (_) {}
 
     final user = AppUser(
       id: data['id'] as String,
@@ -132,17 +153,13 @@ class SupabaseAuthSource {
       createdAt: data['created_at'] != null
           ? DateTime.tryParse(data['created_at'] as String)
           : null,
-      // Valeur AVANT cette connexion (= « dernière connexion »).
       lastSeenAt: data['last_seen_at'] != null
           ? DateTime.tryParse(data['last_seen_at'] as String)
           : null,
       isPlatformAdmin: isPlatformAdmin,
     );
 
-    // Marque l'activité courante (pour la prochaine « dernière connexion » et
-    // la liste du personnel côté admin). Fire-and-forget — n'échoue pas le login.
     unawaited(_touchLastSeen(data['id'] as String));
-
     return user;
   }
 
@@ -152,8 +169,6 @@ class SupabaseAuthSource {
           .from('users')
           .update({'last_seen_at': DateTime.now().toIso8601String()})
           .eq('id', userId);
-    } catch (_) {
-      /* sans gravité */
-    }
+    } catch (_) {}
   }
 }
