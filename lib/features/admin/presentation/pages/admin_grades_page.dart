@@ -841,6 +841,9 @@ class _StudentBulletinPage extends ConsumerWidget {
                 periodLabel: periodLabel,
                 bulletin: b,
                 rules: rules,
+                classId: classId,
+                academicYear: school?.academicYear,
+                periodCode: period,
               ),
               const SizedBox(height: 8),
             ]);

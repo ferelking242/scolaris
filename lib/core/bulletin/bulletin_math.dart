@@ -94,6 +94,11 @@ class BulletinLine {
 
   final String appreciation;
 
+  /// Le(s) professeur(s) de la matière — pour le modèle de bulletin détaillé
+  /// (colonne « Noms des Profs »). `null` sur les vieux bulletins archivés
+  /// avant l'ajout de ce champ, ou si le cours n'a aucun professeur assigné.
+  final String? teacherName;
+
   const BulletinLine({
     required this.subjectId,
     required this.subject,
@@ -105,6 +110,7 @@ class BulletinLine {
     required this.total,
     required this.rank,
     required this.appreciation,
+    this.teacherName,
   });
 
   /// Une matière sans aucune note ne figure pas au bulletin.
@@ -121,6 +127,7 @@ class BulletinLine {
         'total': total,
         'rank': rank,
         'appreciation': appreciation,
+        'teacher_name': teacherName,
       };
 
   /// Relit une ligne **figée** (bulletin généré puis archivé). Cf. [toJson].
@@ -140,6 +147,7 @@ class BulletinLine {
       total: d(j['total']),
       rank: (j['rank'] as num?)?.toInt(),
       appreciation: j['appreciation'] as String? ?? '',
+      teacherName: j['teacher_name'] as String?,
     );
   }
 }
@@ -271,6 +279,7 @@ BulletinLine _lineFor({
   required int coef,
   required List<SbGrade> grades,
   required BulletinRules rules,
+  String? teacherName,
 }) {
   // Les notes sont ramenées sur 20 (`outOf20`) : une école peut noter sur 10 au
   // primaire, le bulletin reste sur 20.
@@ -316,6 +325,7 @@ BulletinLine _lineFor({
     total: avgRaw == null ? null : _r2(avgRaw * coef),
     rank: null, // rempli par buildBulletins, qui voit toute la classe
     appreciation: avgRaw == null ? '' : mentionOf(avgRaw),
+    teacherName: teacherName,
   );
 }
 
@@ -354,6 +364,7 @@ Map<String, Bulletin> buildBulletins({
             coef: c.coefficient,
             grades: mine.where((g) => g.subjectId == c.subjectId).toList(),
             rules: rules,
+            teacherName: c.teacherName,
           ),
     ].where((l) => l.hasGrades).toList();
   }
@@ -414,6 +425,7 @@ Map<String, Bulletin> buildBulletins({
               total: l.total,
               rank: rankBySubject[l.subjectId]?[sid],
               appreciation: l.appreciation,
+              teacherName: l.teacherName,
             ),
         ],
         totalPoints: generals[sid]!.points,

@@ -322,6 +322,10 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final p in _fmt.periods) _periodChip(p),
             ]),
+            const SizedBox(height: 14),
+            _label('MODÈLE DE BULLETIN'),
+            const SizedBox(height: 6),
+            _templateGallery(),
           ]),
         ),
         const SizedBox(height: 14),
@@ -387,6 +391,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
               classe: className),
           className: className,
           bulletin: c.toBulletin(),
+          classId: _classId,
         ),
     ];
     try {
@@ -395,6 +400,8 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         periodLabel: _fmt.periodLabel(_period),
         rules: BulletinRules.fromSchool(school),
         items: items,
+        academicYear: _year,
+        periodCode: _period,
       );
     } catch (e) {
       _toast('Impression impossible : $e', _terra);
@@ -420,6 +427,9 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
         rules: BulletinRules.fromSchool(school),
       ),
     ));
+    // classId/academicYear/period pour la synthèse annuelle du modèle détaillé
+    // voyagent déjà avec la fiche `card` (classId, academicYear, period) —
+    // cf. _FrozenBulletinPage.build, qui les relit directement dessus.
   }
 
   /// Le bandeau qui pilote la clôture. Ce qu'il montre — et propose — dépend de
@@ -532,6 +542,42 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
     );
   }
 
+  /// La galerie des 4 modèles de bulletin — un réglage de l'école, pas de la
+  /// page : cf. `SbSchool.bulletinTemplate` / `updateSchoolBulletinTemplate`.
+  /// Les libellés viennent de `bulletinTemplates` (bulletin_pdf.dart), source
+  /// unique partagée avec le moteur PDF — pas de duplication des noms ici.
+  Widget _templateGallery() {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final selected = school?.bulletinTemplate ?? 'standard';
+    Future<void> pick(String key) async {
+      if (school == null || key == selected) return;
+      try {
+        await SupabaseDbSource.updateSchoolBulletinTemplate(
+            id: school.id, template: key);
+        ref.invalidate(schoolProvider);
+        _toast('Modèle de bulletin mis à jour.', _green);
+      } catch (e) {
+        _toast('Échec : $e', _terra);
+      }
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final entry in bulletinTemplates.entries) ...[
+          _TemplateCard(
+            templateKey: entry.key,
+            label: entry.value.label,
+            description: entry.value.description,
+            selected: entry.key == selected,
+            onTap: () => pick(entry.key),
+          ),
+          const SizedBox(width: 10),
+        ],
+      ]),
+    );
+  }
+
   // ── petits widgets ────────────────────────────────────────────────────────
   Widget _label(String t) => Text(t,
       style: TextStyle(color: context.cMuted, fontSize: 9,
@@ -610,6 +656,149 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           ),
         ),
       );
+}
+
+/// Une carte de la galerie « MODÈLE DE BULLETIN » : un aperçu miniature (pas
+/// un vrai PDF rendu — trop lourd pour une simple sélection), le nom du
+/// modèle, sa description, et un état sélectionné.
+class _TemplateCard extends StatelessWidget {
+  final String templateKey;
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TemplateCard({
+    required this.templateKey,
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 168,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: context.cCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: selected ? _terra : context.cBorder,
+                width: selected ? 2 : 1),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Stack(children: [
+              _preview(context),
+              if (selected)
+                Positioned(
+                  top: 4, right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                        color: _terra, shape: BoxShape.circle),
+                    child: const Icon(Icons.check_rounded,
+                        size: 12, color: Colors.white),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 8),
+            Text(label,
+                style: TextStyle(
+                    color: context.cInk, fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(description,
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: context.cMuted, fontSize: 10, height: 1.25)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Une mini-maquette au look propre à chaque modèle — pas un rendu PDF réel.
+  Widget _preview(BuildContext context) {
+    final line = context.cBorder;
+    Widget bar({double w = double.infinity, double h = 5, Color? color}) =>
+        Container(
+            width: w, height: h,
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            decoration: BoxDecoration(
+                color: color ?? line, borderRadius: BorderRadius.circular(2)));
+
+    switch (templateKey) {
+      case 'detailed':
+        // Bandeau pêche + bandeau vert, comme le papier Emma & Bénie.
+        return Container(
+          height: 108,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+              color: context.cSubtle, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            bar(h: 10, color: const Color(0xFFF4D9B0)),
+            const SizedBox(height: 3),
+            bar(h: 8, color: const Color(0xFFCDE8CB)),
+            const SizedBox(height: 6),
+            for (var i = 0; i < 4; i++) bar(h: 4),
+          ]),
+        );
+      case 'compact':
+        // Un unique bloc dense, sans bandeau distinct.
+        return Container(
+          height: 108,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+              color: context.cSubtle, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            bar(h: 7),
+            const SizedBox(height: 5),
+            for (var i = 0; i < 5; i++) bar(h: 3.5),
+            const SizedBox(height: 5),
+            bar(h: 8, color: context.cMuted.withValues(alpha: .3)),
+          ]),
+        );
+      case 'modern':
+        // En-tête et lignes teintées de la couleur d'accent, coins arrondis.
+        return Container(
+          height: 108,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+              color: context.cSubtle, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            bar(h: 14, color: _terra),
+            const SizedBox(height: 5),
+            for (var i = 0; i < 4; i++)
+              bar(h: 4, color: i.isOdd ? _terra.withValues(alpha: .15) : null),
+            const SizedBox(height: 4),
+            Center(
+              child: Container(
+                width: 22, height: 22,
+                decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle),
+              ),
+            ),
+          ]),
+        );
+      case 'standard':
+      default:
+        // Sobre : gris/blanc, tableau simple.
+        return Container(
+          height: 108,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+              color: context.cSubtle, borderRadius: BorderRadius.circular(8)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            bar(h: 8, color: context.cMuted.withValues(alpha: .35)),
+            const SizedBox(height: 6),
+            for (var i = 0; i < 6; i++) bar(h: 3.5),
+          ]),
+        );
+    }
+  }
 }
 
 class _StudentRow extends StatelessWidget {
@@ -713,6 +902,9 @@ class _FrozenBulletinPage extends StatelessWidget {
             bulletin: card.toBulletin(),
             rules: rules,
             frozen: true,
+            classId: card.classId,
+            academicYear: card.academicYear,
+            periodCode: card.period,
           ),
         ],
       ),

@@ -1199,6 +1199,12 @@ class SbSchool {
   final int bulletinDevoirs;
   final double bulletinCompoWeight;
 
+  /// Le MODÈLE de mise en page du bulletin (metadata.bulletin_template) :
+  /// `standard` (CSBFE, celui d'origine) ou `detailed` (Emma & Bénie, avec
+  /// professeurs nommés et synthèse annuelle). Pas de colonne dédiée : une
+  /// école de plus qui veut son propre papier ne doit pas coûter une migration.
+  final String bulletinTemplate;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -1217,6 +1223,7 @@ class SbSchool {
     this.periodSystemByCycle = const {},
     this.bulletinDevoirs = 3,
     this.bulletinCompoWeight = 0.5,
+    this.bulletinTemplate = 'standard',
   });
 
   SchoolFormat get format => SchoolFormat(
@@ -1284,6 +1291,8 @@ class SbSchool {
       bulletinDevoirs: (j['bulletin_devoirs'] as num?)?.toInt() ?? 3,
       bulletinCompoWeight:
           (j['bulletin_compo_weight'] as num?)?.toDouble() ?? 0.5,
+      bulletinTemplate:
+          meta is Map ? (meta['bulletin_template'] as String? ?? 'standard') : 'standard',
       city: j['city'] as String?,
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,
@@ -4023,6 +4032,30 @@ class SupabaseDbSource {
       ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
       'types': types,
       'educational_system': educationalSystem,
+    };
+
+    await _db.from('schools').update({
+      'metadata': meta,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
+  /// Le modèle de bulletin choisi par l'école (`standard` ou `detailed`) —
+  /// même schéma que [updateSchoolTaxonomy] : `metadata` n'est pas une colonne
+  /// dédiée, donc on relit, on fusionne, on réécrit.
+  static Future<void> updateSchoolBulletinTemplate({
+    required String id,
+    required String template,
+  }) async {
+    final row = await _db
+        .from('schools')
+        .select('metadata')
+        .eq('id', id)
+        .maybeSingle();
+
+    final meta = <String, dynamic>{
+      ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
+      'bulletin_template': template,
     };
 
     await _db.from('schools').update({

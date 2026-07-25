@@ -29,6 +29,12 @@ class BulletinView extends StatelessWidget {
   /// jour de la génération, pas d'aujourd'hui.
   final bool frozen;
 
+  /// Ne servent qu'au modèle DÉTAILLÉ (synthèse annuelle à l'impression) —
+  /// `null` : le bloc annuel ne s'affichera simplement pas.
+  final String? classId;
+  final String? academicYear;
+  final String? periodCode;
+
   const BulletinView({
     super.key,
     required this.school,
@@ -38,6 +44,9 @@ class BulletinView extends StatelessWidget {
     required this.bulletin,
     required this.rules,
     this.frozen = false,
+    this.classId,
+    this.academicYear,
+    this.periodCode,
   });
 
   static const _terra = Color(0xFF8B1A00);
@@ -77,6 +86,9 @@ class BulletinView extends StatelessWidget {
             periodLabel: periodLabel,
             bulletin: bulletin,
             rules: rules,
+            classId: classId,
+            academicYear: academicYear,
+            periodCode: periodCode,
           ),
           icon: const Icon(Icons.print_rounded, size: 18),
           label: const Text('Imprimer le bulletin',
