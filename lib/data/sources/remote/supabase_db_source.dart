@@ -3936,14 +3936,18 @@ class SupabaseDbSource {
     await _db.from('classes').delete().eq('id', id);
   }
 
-  /// Supprime un compte, motif transporté jusqu'au trigger d'audit des notes
-  /// (la suppression cascade sur `grades` ; une note en période validée exige
-  /// un motif). [reason] optionnel si l'élève n'a aucune note gelée.
+  /// Supprime un compte, via l'Edge Function `delete-account` : supprime la
+  /// fiche `public.users` (motif transporté jusqu'au trigger d'audit des
+  /// notes — la suppression cascade sur `grades` ; une note en période
+  /// validée exige un motif) **et** le compte de connexion `auth.users`
+  /// associé, découplés dans ce schéma (cf. `users.auth_uid`). [reason]
+  /// optionnel si l'élève n'a aucune note gelée.
   static Future<void> deleteUser(String id, {String? reason}) async {
-    await _db.rpc('delete_user_account', params: {
-      'p_id': id,
-      if (reason != null) 'p_reason': reason,
+    final res = await _db.functions.invoke('delete-account', body: {
+      'userId': id,
+      if (reason != null) 'reason': reason,
     });
+    _throwIfFnError(res);
   }
 
   // ── Grades write ─────────────────────────────────────────────────────────────
