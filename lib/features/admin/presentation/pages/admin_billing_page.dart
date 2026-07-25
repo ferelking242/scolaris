@@ -23,6 +23,8 @@ class AdminBillingPage extends ConsumerStatefulWidget {
 class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
   /// Sous-vue affichée inline : 'overview' | 'fees' | 'tracking'.
   String _view = 'overview';
+  /// Filtre classe de la liste « Factures ponctuelles ». null = toutes.
+  String? _classId;
 
   void _newInvoice(BuildContext context, WidgetRef ref) {
     final schoolId = ref.read(currentSchoolIdProvider);
@@ -111,9 +113,11 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
   /// La table des factures ponctuelles (encaisser / supprimer). Utilisée par la
   /// sous-vue « Factures ponctuelles ».
   Widget _invoicesPanel(
-      BuildContext context, WidgetRef ref, List<SbInvoice> invoices) {
+      BuildContext context, WidgetRef ref, List<SbInvoice> invoices,
+      {List<Widget> headerActions = const []}) {
     return DataPanel(
       title: 'Factures ponctuelles',
+      headerActions: headerActions,
       child: invoices.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(24),
@@ -237,6 +241,23 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
 
         // Sous-vue « Factures ponctuelles » : la liste sur sa propre page.
         if (_view == 'invoices') {
+          // Filtre par classe : jointure invoice.studentId → student.classId,
+          // en mémoire — les factures n'ont pas de classId propre.
+          final students = ref.watch(studentsProvider).valueOrNull ?? const [];
+          final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+          final classIdByStudent = {for (final s in students) s.id: s.classId};
+          final invoiceClassIds =
+              invoices.map((i) => classIdByStudent[i.studentId]).whereType<String>().toSet();
+          final filterableClasses = classes
+              .where((c) => invoiceClassIds.contains(c.id))
+              .toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
+          final filteredInvoices = _classId == null
+              ? invoices
+              : invoices
+                  .where((i) => classIdByStudent[i.studentId] == _classId)
+                  .toList();
+
           return PageScaffold(
             title: 'Factures ponctuelles',
             subtitle: 'Inscription, cantine, transport, fournitures…',
@@ -254,7 +275,40 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                   label: 'Retour à l\'aperçu',
                   onTap: () => setState(() => _view = 'overview')),
               const SizedBox(height: 14),
-              _invoicesPanel(context, ref, invoices),
+              _invoicesPanel(
+                context, ref, filteredInvoices,
+                headerActions: filterableClasses.length > 1
+                    ? [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: context.cSubtle,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: context.cBorder),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String?>(
+                              value: _classId,
+                              isDense: true,
+                              dropdownColor: context.cCard,
+                              style: TextStyle(fontSize: 12, color: context.cInk),
+                              hint: Text('Toutes les classes',
+                                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+                              items: [
+                                DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('Toutes les classes',
+                                        style: TextStyle(fontSize: 12, color: context.cMuted))),
+                                for (final c in filterableClasses)
+                                  DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                              ],
+                              onChanged: (v) => setState(() => _classId = v),
+                            ),
+                          ),
+                        ),
+                      ]
+                    : const [],
+              ),
             ]),
           );
         }

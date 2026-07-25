@@ -20,8 +20,10 @@ class ReceiptsPage extends ConsumerStatefulWidget {
 class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
   String _statusFilter = 'Tous';
   String _search = '';
+  /// Filtre classe. null = toutes.
+  String? _classId;
 
-  List<SbInvoice> _filtered(List<SbInvoice> all) {
+  List<SbInvoice> _filtered(List<SbInvoice> all, Map<String, String?> classIdByStudent) {
     return all.where((inv) {
       final matchStatus = _statusFilter == 'Tous'
           ? true
@@ -35,7 +37,8 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
           (inv.studentName?.toLowerCase().contains(q) ?? false) ||
           (inv.invoiceNumber?.toLowerCase().contains(q) ?? false) ||
           (inv.description?.toLowerCase().contains(q) ?? false);
-      return matchStatus && matchSearch;
+      final matchClass = _classId == null || classIdByStudent[inv.studentId] == _classId;
+      return matchStatus && matchSearch && matchClass;
     }).toList();
   }
 
@@ -52,7 +55,20 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allInvoices) {
-        final invoices = _filtered(allInvoices);
+        // Filtre par classe : les factures n'ont pas de classId propre, on
+        // joint via invoice.studentId → student.classId (en mémoire).
+        final students = ref.watch(studentsProvider).valueOrNull ?? const [];
+        final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+        final classIdByStudent = {for (final s in students) s.id: s.classId};
+        final invoiceClassIds = allInvoices
+            .map((i) => classIdByStudent[i.studentId])
+            .whereType<String>()
+            .toSet();
+        final filterableClasses = classes
+            .where((c) => invoiceClassIds.contains(c.id))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+        final invoices = _filtered(allInvoices, classIdByStudent);
         return PageScaffold(
           title: 'Reçus & Quittances',
           subtitle: '${allInvoices.length} documents au total',
@@ -78,6 +94,35 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
             DataPanel(
               title: 'Factures',
               headerActions: [
+                if (filterableClasses.length > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: context.cSubtle,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: context.cBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _classId,
+                        isDense: true,
+                        dropdownColor: context.cCard,
+                        style: TextStyle(fontSize: 12, color: context.cInk),
+                        hint: Text('Toutes les classes',
+                            style: TextStyle(fontSize: 12, color: context.cMuted)),
+                        items: [
+                          DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Toutes les classes',
+                                  style: TextStyle(fontSize: 12, color: context.cMuted))),
+                          for (final c in filterableClasses)
+                            DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                        ],
+                        onChanged: (v) => setState(() => _classId = v),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 SearchInput(
                   hint: 'Rechercher…',
                   onChanged: (v) => setState(() => _search = v),

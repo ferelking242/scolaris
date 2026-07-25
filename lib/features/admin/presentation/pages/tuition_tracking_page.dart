@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/pdf/reports_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 const _terra = Color(0xFF8B1A00);
@@ -61,9 +62,30 @@ class TuitionTrackingPage extends ConsumerWidget {
       }
     }
 
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final latePayers = [
+      for (final s in students ?? const <SbStudent>[])
+        if (accounts?[s.id] != null && accounts![s.id]!.owedNow > 0.01)
+          (
+            name: s.fullName,
+            classe: s.classe ?? '—',
+            email: s.email,
+            amount: accounts[s.id]!.owedNow,
+          ),
+    ];
+
     return PageScaffold(
       title: 'Suivi scolarité',
       subtitle: loading ? 'Chargement…' : subtitle,
+      actions: [
+        if (!loading && error == null)
+          ActionButton(
+            label: 'Exporter les impayés',
+            icon: Icons.picture_as_pdf_outlined,
+            primary: true,
+            onTap: () => printLatePayersPdf(school: school, rows: latePayers),
+          ),
+      ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
         const SizedBox(height: 14),

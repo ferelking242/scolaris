@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/pdf/reports_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
 
@@ -150,10 +150,12 @@ class AdminReportsPage extends ConsumerWidget {
         .toList()
       ..sort((a, b) => b.billed.compareTo(a.billed));
 
+    final planCode = ref.watch(currentPlanCodeProvider).valueOrNull;
     // Même seuil que le PlanGateBanner plus bas — une seule notion de
     // "rapports avancés", pas une condition ad hoc dupliquée.
-    final canExport = planMeetsRequirement(
-        ref.watch(currentPlanCodeProvider).valueOrNull, 'pro');
+    final canExport = planMeetsRequirement(planCode, 'pro');
+    final isMax = planMeetsRequirement(planCode, 'max');
+    final school = ref.watch(schoolProvider).valueOrNull;
 
     return PageScaffold(
       title: 'Rapports',
@@ -161,10 +163,25 @@ class AdminReportsPage extends ConsumerWidget {
       actions: [
         if (canExport)
           ActionButton(
-            label: 'Exporter (CSV)',
-            icon: Icons.file_download_outlined,
+            label: 'Exporter (PDF)',
+            icon: Icons.picture_as_pdf_outlined,
             primary: true,
-            onTap: () => _exportCsv(context, classRows, fmt),
+            onTap: () => printReportsPdf(
+              school: school,
+              classRows: classRows,
+              finances: (
+                collected: collected,
+                pending: pending,
+                overdue: overdue,
+                billed: billed,
+              ),
+              studentsCount: students.length,
+              teachersCount: teachers,
+              unassigned: unassigned,
+              trendRows: isMax ? trendRows : null,
+              lateByClassRows: isMax ? classLateRows : null,
+              topLateRows: isMax ? topLateRows : null,
+            ),
           ),
       ],
       child: Column(children: [
@@ -301,69 +318,6 @@ class AdminReportsPage extends ConsumerWidget {
     );
   }
 
-  void _exportCsv(
-    BuildContext context,
-    List<({String name, String level, int count, int capacity})> rows,
-    NumberFormat fmt,
-  ) {
-    final buf = StringBuffer('Classe,Niveau,Effectif,Capacité\n');
-    for (final r in rows) {
-      buf.writeln('"${r.name}","${r.level}",${r.count},${r.capacity}');
-    }
-    final csv = buf.toString();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Export CSV — Effectifs'),
-        content: SizedBox(
-          width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 460),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                  'Copiez ce texte et collez-le dans Excel / Google Sheets '
-                  '(données séparées par des virgules).',
-                  style: TextStyle(fontSize: 12, color: context.cMuted)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 240),
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: context.cSubtle,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(csv,
-                    style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 12, color: context.cInk)),
-              ),
-            ),
-          ]),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fermer')),
-          FilledButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: csv));
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('CSV copié dans le presse-papier.'),
-                behavior: SnackBarBehavior.floating,
-              ));
-            },
-            style: FilledButton.styleFrom(backgroundColor: _terra),
-            icon: const Icon(Icons.copy_rounded, size: 16),
-            label: const Text('Copier'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// Carte compacte pour une classe — remplace la ligne du tableau sous 640px.

@@ -5,6 +5,11 @@ import 'package:intl/intl.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
+/// Filtre classe de la page Paiements. `autoDispose` : se remet à vide dès
+/// qu'on quitte la page.
+final _financeClassFilterProvider =
+    StateProvider.autoDispose<String?>((ref) => null);
+
 class FinancePaymentsPage extends ConsumerWidget {
   const FinancePaymentsPage({super.key});
 
@@ -20,7 +25,27 @@ class FinancePaymentsPage extends ConsumerWidget {
         title: 'Paiements',
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (invoices) {
+      data: (allInvoices) {
+        // Filtre par classe : les factures n'ont pas de classId propre, on
+        // joint via invoice.studentId → student.classId (en mémoire).
+        final students = ref.watch(studentsProvider).valueOrNull ?? const [];
+        final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+        final classIdByStudent = {for (final s in students) s.id: s.classId};
+        final invoiceClassIds = allInvoices
+            .map((i) => classIdByStudent[i.studentId])
+            .whereType<String>()
+            .toSet();
+        final filterableClasses = classes
+            .where((c) => invoiceClassIds.contains(c.id))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+        final classId = ref.watch(_financeClassFilterProvider);
+        final invoices = classId == null
+            ? allInvoices
+            : allInvoices
+                .where((i) => classIdByStudent[i.studentId] == classId)
+                .toList();
+
         final collected =
             invoices.where((i) => i.isPaid).fold(0.0, (a, b) => a + b.amount);
         // En retard = échéance dépassée impayée (isLate), pas status=='overdue'
@@ -73,7 +98,39 @@ class FinancePaymentsPage extends ConsumerWidget {
             const SizedBox(height: 12),
             DataPanel(
               title: 'Toutes les factures',
-              headerActions: const [SearchInput(hint: 'Rechercher facture…')],
+              headerActions: [
+                if (filterableClasses.length > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: context.cSubtle,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: context.cBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: classId,
+                        isDense: true,
+                        dropdownColor: context.cCard,
+                        style: TextStyle(fontSize: 12, color: context.cInk),
+                        hint: Text('Toutes les classes',
+                            style: TextStyle(fontSize: 12, color: context.cMuted)),
+                        items: [
+                          DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Toutes les classes',
+                                  style: TextStyle(fontSize: 12, color: context.cMuted))),
+                          for (final c in filterableClasses)
+                            DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                        ],
+                        onChanged: (v) =>
+                            ref.read(_financeClassFilterProvider.notifier).state = v,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                const SearchInput(hint: 'Rechercher facture…'),
+              ],
               child: invoices.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.all(24),
