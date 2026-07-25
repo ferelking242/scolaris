@@ -96,6 +96,60 @@ class AdminReportsPage extends ConsumerWidget {
         ),
     ];
 
+    // ── Retards par classe (exclusif Max) ────────────────────────────────────
+    // Jointure en mémoire invoice.studentId → student.classId/classe — pas de
+    // nouvelle donnée serveur, juste une agrégation plus poussée des mêmes
+    // factures.
+    final classById = {for (final s in students) s.id: s};
+    final lateByClass = <String, double>{};
+    for (final i in invoices) {
+      if (!i.isLate) continue;
+      final className = classById[i.studentId]?.classe ?? 'Sans classe';
+      lateByClass[className] = (lateByClass[className] ?? 0) + i.balance;
+    }
+    final classLateRows = lateByClass.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // ── Top des retards par élève (exclusif Max) ─────────────────────────────
+    final lateByStudent = <String, double>{};
+    final studentLabel = <String, String>{};
+    for (final i in invoices) {
+      if (!i.isLate) continue;
+      final key = i.studentId ?? i.studentName ?? i.id;
+      lateByStudent[key] = (lateByStudent[key] ?? 0) + i.balance;
+      final st = classById[i.studentId];
+      studentLabel[key] =
+          i.studentName ?? (st != null ? '${st.prenom} ${st.nom}' : 'Élève inconnu');
+    }
+    final topLateRows = (lateByStudent.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(8)
+        .map((e) => (
+              label: studentLabel[e.key] ?? 'Élève inconnu',
+              className: classById[e.key]?.classe ?? '—',
+              amount: e.value,
+            ))
+        .toList();
+
+    // ── Répartition par catégorie (exclusif Max) ─────────────────────────────
+    final byCategory = <String, ({double billed, double collected})>{};
+    for (final i in invoices) {
+      final cat = i.category ?? 'Autre';
+      final entry = byCategory[cat] ?? (billed: 0.0, collected: 0.0);
+      byCategory[cat] = (
+        billed: entry.billed + i.amount,
+        collected: entry.collected + i.amountPaid,
+      );
+    }
+    final categoryRows = byCategory.entries
+        .map((e) => (
+              category: e.key,
+              billed: e.value.billed,
+              collected: e.value.collected,
+            ))
+        .toList()
+      ..sort((a, b) => b.billed.compareTo(a.billed));
+
     // Même seuil que le PlanGateBanner plus bas — une seule notion de
     // "rapports avancés", pas une condition ad hoc dupliquée.
     final canExport = planMeetsRequirement(
@@ -228,12 +282,20 @@ class AdminReportsPage extends ConsumerWidget {
         const SizedBox(height: 14),
         PlanGate(
           minPlan: 'max',
-          featureLabel: 'Rapport Premium — tendance de recouvrement',
+          featureLabel: 'Rapport Premium',
           description:
-              'Évolution du taux de recouvrement période par période, pour '
-              'repérer une dérive avant qu\'elle ne s\'installe.',
-          icon: Icons.insights_rounded,
-          child: _PremiumTrendPanel(rows: trendRows, fmt: fmt),
+              'Analyses financières avancées : tendance, retards par classe, '
+              'top des impayés, répartition par catégorie.',
+          icon: Icons.workspace_premium_rounded,
+          child: Column(children: [
+            _PremiumTrendPanel(rows: trendRows, fmt: fmt),
+            const SizedBox(height: 14),
+            _PremiumLateByClassPanel(rows: classLateRows, fmt: fmt),
+            const SizedBox(height: 14),
+            _PremiumTopLatePanel(rows: topLateRows, fmt: fmt),
+            const SizedBox(height: 14),
+            _PremiumCategoryPanel(rows: categoryRows, fmt: fmt),
+          ]),
         ),
       ]),
     );
@@ -373,6 +435,18 @@ class _FillBar extends StatelessWidget {
   }
 }
 
+/// Badge "Offre Max" — répété sur chaque volet du Rapport Premium.
+Widget _maxBadge() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C3AED).withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: const Text('Offre Max',
+          style: TextStyle(
+              fontSize: 10, color: Color(0xFF7C3AED), fontWeight: FontWeight.w700)),
+    );
+
 /// Rapport Premium (Max) : évolution du recouvrement période par période,
 /// à partir des mêmes factures que le reste de la page — pas une donnée à
 /// part, juste un regroupement plus poussé.
@@ -385,20 +459,7 @@ class _PremiumTrendPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DataPanel(
       title: 'Tendance de recouvrement',
-      headerActions: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: const Text('Offre Max',
-              style: TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF7C3AED),
-                  fontWeight: FontWeight.w700)),
-        ),
-      ],
+      headerActions: [_maxBadge()],
       child: rows.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(20),
@@ -458,6 +519,133 @@ class _PeriodTrendRow extends StatelessWidget {
       Text('${fmt.format(row.collected)} / ${fmt.format(row.billed)} F',
           style: TextStyle(fontSize: 11, color: context.cMuted)),
     ]);
+  }
+}
+
+/// Rapport Premium (Max) : montant en retard cumulé par classe — jointure
+/// invoice.studentId → student.classe, en mémoire, sur les mêmes factures.
+class _PremiumLateByClassPanel extends StatelessWidget {
+  final List<MapEntry<String, double>> rows;
+  final NumberFormat fmt;
+  const _PremiumLateByClassPanel({required this.rows, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    return DataPanel(
+      title: 'Retards par classe',
+      headerActions: [_maxBadge()],
+      child: rows.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                  child: Text('Aucun retard actuellement — bravo.',
+                      style: TextStyle(color: context.cMuted))),
+            )
+          : Column(children: [
+              for (final r in rows.take(8)) ...[
+                Row(children: [
+                  Expanded(
+                    child: Text(r.key,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: context.cInk,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                  Text('${fmt.format(r.value)} F',
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w700)),
+                ]),
+                if (r != rows.take(8).last) const SizedBox(height: 8),
+              ],
+            ]),
+    );
+  }
+}
+
+/// Rapport Premium (Max) : les élèves qui doivent le plus, pour cibler les
+/// relances plutôt que de recontacter toute la liste.
+class _PremiumTopLatePanel extends StatelessWidget {
+  final List<({String label, String className, double amount})> rows;
+  final NumberFormat fmt;
+  const _PremiumTopLatePanel({required this.rows, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    return DataPanel(
+      title: 'Top des impayés',
+      headerActions: [_maxBadge()],
+      child: rows.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                  child: Text('Aucun impayé actuellement.',
+                      style: TextStyle(color: context.cMuted))),
+            )
+          : Column(children: [
+              for (var idx = 0; idx < rows.length; idx++) ...[
+                Row(children: [
+                  SizedBox(
+                    width: 20,
+                    child: Text('${idx + 1}',
+                        style: TextStyle(fontSize: 11, color: context.cMuted, fontWeight: FontWeight.w700)),
+                  ),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(rows[idx].label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              color: context.cInk,
+                              fontWeight: FontWeight.w600)),
+                      Text(rows[idx].className,
+                          style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+                    ]),
+                  ),
+                  Text('${fmt.format(rows[idx].amount)} F',
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w700)),
+                ]),
+                if (idx < rows.length - 1) const SizedBox(height: 10),
+              ],
+            ]),
+    );
+  }
+}
+
+/// Rapport Premium (Max) : facturé/encaissé regroupé par catégorie de
+/// facture (scolarité, cantine, transport…) — même logique que la tendance
+/// par période, mais un autre axe de lecture.
+class _PremiumCategoryPanel extends StatelessWidget {
+  final List<({String category, double billed, double collected})> rows;
+  final NumberFormat fmt;
+  const _PremiumCategoryPanel({required this.rows, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    return DataPanel(
+      title: 'Répartition par catégorie',
+      headerActions: [_maxBadge()],
+      child: rows.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                  child: Text('Aucune facture pour l\'instant.',
+                      style: TextStyle(color: context.cMuted))),
+            )
+          : Column(children: [
+              for (final r in rows) ...[
+                _PeriodTrendRow(
+                    row: (period: r.category, billed: r.billed, collected: r.collected),
+                    fmt: fmt),
+                if (r != rows.last) const SizedBox(height: 10),
+              ],
+            ]),
+    );
   }
 }
 
