@@ -156,37 +156,54 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
                           child: Text('Aucun élève.',
                               style: TextStyle(color: context.cMuted))),
                     )
-                  : DataTablePanel(
-                      columns: const ['Élève', 'Classe', 'Statut'],
-                      flex: const [3, 2, 4],
-                      rows: [
-                        for (final s in students)
-                          [
-                            Row(children: [
-                              Avatar(name: s.fullName, size: 24),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(s.fullName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: context.cInk,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                            ]),
-                            Text(s.classe ?? '—',
-                                style: TextStyle(
-                                    fontSize: 12, color: context.cMuted)),
-                            _StatusToggle(
-                              current: _statusMap[s.id] ?? _Status.present,
+                  : LayoutBuilder(builder: (_, constraints) {
+                      // 3 boutons de statut dans une colonne flex débordaient
+                      // sous 640px : cartes empilées à la place, comme Classes.
+                      if (constraints.maxWidth < 640) {
+                        return Column(children: [
+                          for (final s in students)
+                            _AttendanceCard(
+                              student: s,
+                              status: _statusMap[s.id] ?? _Status.present,
                               onChanged: canSaisir
                                   ? (v) =>
                                       setState(() => _statusMap[s.id] = v)
                                   : null,
                             ),
-                          ],
-                      ],
-                    ),
+                        ]);
+                      }
+                      return DataTablePanel(
+                        columns: const ['Élève', 'Classe', 'Statut'],
+                        flex: const [3, 2, 4],
+                        rows: [
+                          for (final s in students)
+                            [
+                              Row(children: [
+                                Avatar(name: s.fullName, size: 24),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(s.fullName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: context.cInk,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              ]),
+                              Text(s.classe ?? '—',
+                                  style: TextStyle(
+                                      fontSize: 12, color: context.cMuted)),
+                              _StatusToggle(
+                                current: _statusMap[s.id] ?? _Status.present,
+                                onChanged: canSaisir
+                                    ? (v) =>
+                                        setState(() => _statusMap[s.id] = v)
+                                    : null,
+                              ),
+                            ],
+                        ],
+                      );
+                    }),
             ),
           ]),
         );
@@ -225,6 +242,64 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
       }
     }
   }
+}
+
+class _AttendanceCard extends StatelessWidget {
+  final SbStudent student;
+  final _Status status;
+  final ValueChanged<_Status>? onChanged;
+  const _AttendanceCard(
+      {required this.student, required this.status, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: context.cCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.cBorder),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Avatar(name: student.fullName, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(student.fullName,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: context.cInk,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                Text(student.classe ?? '—',
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            _Btn(
+              label: 'Présent',
+              color: const Color(0xFF16A34A),
+              active: status == _Status.present,
+              onTap: onChanged == null ? null : () => onChanged!(_Status.present),
+            ),
+            _Btn(
+              label: 'Retard',
+              color: const Color(0xFFEA580C),
+              active: status == _Status.late,
+              onTap: onChanged == null ? null : () => onChanged!(_Status.late),
+            ),
+            _Btn(
+              label: 'Absent',
+              color: const Color(0xFFDC2626),
+              active: status == _Status.absent,
+              onTap: onChanged == null ? null : () => onChanged!(_Status.absent),
+            ),
+          ]),
+        ]),
+      );
 }
 
 class _ClassPicker extends StatelessWidget {

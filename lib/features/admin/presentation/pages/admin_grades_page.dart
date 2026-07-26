@@ -704,13 +704,24 @@ class _ClassGradesPanel extends ConsumerWidget {
 
     return DataPanel(
       title: '${classObj.name} — $noted/${students.length} élève(s) noté(s)',
-      child: DataTablePanel(
-        columns: const ['Rang', 'Élève', 'Moy. générale', 'Mention', ''],
-        flex: const [1, 4, 2, 3, 1],
-        rows: [
-          for (final s in sorted) _row(context, s, bulletins[s.id]),
-        ],
-      ),
+      child: LayoutBuilder(builder: (_, c) {
+        // Moyenne + mention se compressaient sous 640px, partagées avec le
+        // nom : cartes empilées à la place, comme Présences/Classes.
+        if (c.maxWidth < 640) {
+          return Column(children: [
+            for (final s in sorted)
+              _BulletinCard(
+                  student: s, bulletin: bulletins[s.id], onTap: () => onOpen(s)),
+          ]);
+        }
+        return DataTablePanel(
+          columns: const ['Rang', 'Élève', 'Moy. générale', 'Mention', ''],
+          flex: const [1, 4, 2, 3, 1],
+          rows: [
+            for (final s in sorted) _row(context, s, bulletins[s.id]),
+          ],
+        );
+      }),
     );
   }
 
@@ -758,6 +769,81 @@ class _ClassGradesPanel extends ConsumerWidget {
         onPressed: () => onOpen(s),
       ),
     ];
+  }
+}
+
+class _BulletinCard extends StatelessWidget {
+  final SbStudent student;
+  final Bulletin? bulletin;
+  final VoidCallback onTap;
+  const _BulletinCard(
+      {required this.student, required this.bulletin, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final b = bulletin;
+    final hasGrades = b != null && !b.isEmpty;
+    final avg = hasGrades ? b.average : 0.0;
+    final c = _mentionColor(avg);
+    return Material(
+      color: context.cCard,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: context.cBorder),
+          ),
+          child: Row(children: [
+            if (hasGrades) ...[
+              SizedBox(
+                width: 26,
+                child: Text('${b.rank}',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: context.cMuted,
+                        fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Avatar(name: student.fullName, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(student.fullName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: context.cInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 8),
+            if (hasGrades) ...[
+              Text(avg.toStringAsFixed(2).replaceAll('.', ','),
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w800, color: c)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: c.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(b.mention,
+                    style: TextStyle(
+                        fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+              ),
+            ] else
+              Text('Pas de notes',
+                  style: TextStyle(fontSize: 11, color: context.cMuted)),
+            Icon(Icons.chevron_right_rounded, size: 20, color: context.cMuted),
+          ]),
+        ),
+      ),
+    );
   }
 }
 
