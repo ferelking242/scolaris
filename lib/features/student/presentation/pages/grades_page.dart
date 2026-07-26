@@ -7,7 +7,6 @@ import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
-import 'simulateur_moyenne_page.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _gold   = ScolarisPalette.gold;
@@ -92,17 +91,6 @@ class GradesPage extends ConsumerWidget {
         return PageScaffold(
           title: heading,
           subtitle: '${grades.isEmpty ? "Aucun" : grades.length} résultat(s)',
-          actions: [
-            ActionButton(
-                label: 'Simulateur',
-                icon: Icons.calculate_rounded,
-                onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SimulateurMoyennePage()))),
-            ActionButton(
-                label: 'Export PDF',
-                icon: Icons.picture_as_pdf_rounded,
-                onTap: () => _exportPdf(context, grades)),
-          ],
           child: grades.isEmpty
               ? const EmptyState(
                   icon: Icons.grading_outlined,
@@ -151,20 +139,6 @@ class GradesPage extends ConsumerWidget {
     );
   }
 
-  void _exportPdf(BuildContext context, List<SbGrade> grades) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(children: [
-          Icon(Icons.info_outline_rounded, color: Colors.white, size: 16),
-          SizedBox(width: 8),
-          Text('Export PDF — disponible prochainement'),
-        ]),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 }
 
 // ── Type badge widget ─────────────────────────────────────────────────────────

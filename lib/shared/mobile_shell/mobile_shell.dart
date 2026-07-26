@@ -149,9 +149,10 @@ class _MobileShellState extends ConsumerState<MobileShell>
 
   void _openAccount() {
     if (_menuOpen) _closeMenu();
+    // Pas de _FullPage ici : AccountPage a son propre bandeau avec bouton
+    // retour (photo, nom, rôle) — l'envelopper doublait le bouton retour.
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => _FullPage(
-            title: 'settings.account'.tr(), child: const AccountPage())));
+        MaterialPageRoute(builder: (_) => const AccountPage()));
   }
 
   @override

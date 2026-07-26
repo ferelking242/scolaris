@@ -326,7 +326,10 @@ class _CourseGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (_, c) {
-        final cols = c.maxWidth > 1100 ? 3 : c.maxWidth > 600 ? 2 : 2;
+        final cols = c.maxWidth > 1400 ? 4
+                   : c.maxWidth > 1000 ? 3
+                   : c.maxWidth > 600  ? 2
+                   : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -335,7 +338,7 @@ class _CourseGrid extends StatelessWidget {
             crossAxisCount: cols,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            mainAxisExtent: 152,
+            childAspectRatio: 1.4,
           ),
           itemBuilder: (_, i) => _CourseCard(course: courses[i], onOpen: () => onOpen(courses[i])),
         );

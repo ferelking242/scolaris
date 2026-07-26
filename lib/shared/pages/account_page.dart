@@ -76,6 +76,9 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     final isStaff      = user.role == UserRole.staff;
     final isPrivileged = isStaff || user.role == UserRole.teacher;
     final showAccess   = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty;
+    // Élève et parent sont en lecture seule sur leur profil : seuls staff et
+    // enseignant peuvent modifier nom/téléphone depuis cette page.
+    final canEdit = isPrivileged;
 
     final schoolLine = [
       if (school?.name != null && school!.name.isNotEmpty) school.name,
@@ -84,219 +87,248 @@ class _AccountPageState extends ConsumerState<AccountPage> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _Cover(
-            name: name,
-            roleLabel: user.displayRole,
-            initials: _initialsOf(name),
-            isPrivileged: isPrivileged,
-            onEdit: () => _openEdit(user),
+      body: SafeArea(
+        child: Column(children: [
+          // Barre fixe (retour + modifier) : reste accessible même en
+          // scrollant, contrairement aux boutons qui étaient dessinés dans
+          // le bandeau dégradé (et disparaissaient avec le scroll).
+          _TopBar(canEdit: canEdit, onEdit: () => _openEdit(user)),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                // Sur desktop/tablette large, éviter que la page s'étire sur
+                // toute la largeur de la fenêtre.
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _Cover(
+                      name: name,
+                      roleLabel: user.displayRole,
+                      initials: _initialsOf(name),
+                      isPrivileged: isPrivileged,
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        _SectionTitle('Coordonnées', Icons.contact_mail_outlined, _terra),
+                        const SizedBox(height: 8),
+                        _InfoTile(
+                          icon: Icons.mail_outline_rounded, color: _terra,
+                          label: 'Email (identifiant de connexion)',
+                          value: user.email.isEmpty ? '—' : user.email,
+                        ),
+                        const SizedBox(height: 6),
+                        _InfoTile(
+                          icon: Icons.phone_outlined, color: _orange,
+                          label: 'Téléphone',
+                          value: (user.phone == null || user.phone!.isEmpty)
+                              ? 'Non renseigné'
+                              : user.phone!,
+                          onEdit: canEdit ? () => _openEdit(user) : null,
+                        ),
+                        const SizedBox(height: 18),
+
+                        _SectionTitle('Établissement & rôle', Icons.school_outlined, _gold),
+                        const SizedBox(height: 8),
+                        _InfoTile(
+                          icon: Icons.badge_outlined, color: _green,
+                          label: 'Rôle', value: user.displayRole,
+                        ),
+                        if (schoolLine.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _InfoTile(
+                            icon: Icons.apartment_rounded, color: Colors.blueGrey,
+                            label: 'École', value: schoolLine,
+                          ),
+                        ],
+                        if (user.createdAt != null) ...[
+                          const SizedBox(height: 6),
+                          _InfoTile(
+                            icon: Icons.calendar_today_outlined, color: const Color(0xFF0D47A1),
+                            label: 'Membre depuis',
+                            value: '${_months[user.createdAt!.month - 1]} ${user.createdAt!.year}',
+                          ),
+                        ],
+
+                        if (showAccess) ...[
+                          const SizedBox(height: 18),
+                          _SectionTitle('Mes accès', Icons.verified_user_outlined, _terra),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
+                            ),
+                            child: Wrap(spacing: 8, runSpacing: 8, children: [
+                              for (final key in user.permissions)
+                                if (StaffPermissions.byKey(key) != null)
+                                  _AccessChip(perm: StaffPermissions.byKey(key)!),
+                            ]),
+                          ),
+                        ],
+                        const SizedBox(height: 32),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 64),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SectionTitle('Coordonnées', Icons.contact_mail_outlined, _terra),
-              const SizedBox(height: 8),
-              _InfoTile(
-                icon: Icons.mail_outline_rounded, color: _terra,
-                label: 'Email (identifiant de connexion)',
-                value: user.email.isEmpty ? '—' : user.email,
-              ),
-              const SizedBox(height: 6),
-              _InfoTile(
-                icon: Icons.phone_outlined, color: _orange,
-                label: 'Téléphone',
-                value: (user.phone == null || user.phone!.isEmpty)
-                    ? 'Non renseigné'
-                    : user.phone!,
-                onEdit: () => _openEdit(user),
-              ),
-              const SizedBox(height: 18),
-
-              _SectionTitle('Établissement & rôle', Icons.school_outlined, _gold),
-              const SizedBox(height: 8),
-              _InfoTile(
-                icon: Icons.badge_outlined, color: _green,
-                label: 'Rôle', value: user.displayRole,
-              ),
-              if (schoolLine.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                _InfoTile(
-                  icon: Icons.apartment_rounded, color: Colors.blueGrey,
-                  label: 'École', value: schoolLine,
-                ),
-              ],
-              if (user.createdAt != null) ...[
-                const SizedBox(height: 6),
-                _InfoTile(
-                  icon: Icons.calendar_today_outlined, color: const Color(0xFF0D47A1),
-                  label: 'Membre depuis',
-                  value: '${_months[user.createdAt!.month - 1]} ${user.createdAt!.year}',
-                ),
-              ],
-
-              if (showAccess) ...[
-                const SizedBox(height: 18),
-                _SectionTitle('Mes accès', Icons.verified_user_outlined, _terra),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
-                  ),
-                  child: Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final key in user.permissions)
-                      if (StaffPermissions.byKey(key) != null)
-                        _AccessChip(perm: StaffPermissions.byKey(key)!),
-                  ]),
-                ),
-              ],
-              const SizedBox(height: 32),
-            ]),
-          ),
-        ],
+        ]),
       ),
     );
   }
 }
 
+// ── Barre fixe (retour + modifier) ───────────────────────────────────────────
+class _TopBar extends StatelessWidget {
+  final bool canEdit;
+  final VoidCallback onEdit;
+  const _TopBar({required this.canEdit, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => Navigator.maybePop(context),
+            child: Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                  color: cs.surfaceContainer, borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.arrow_back_rounded, color: cs.onSurface, size: 20),
+            ),
+          ),
+        ),
+        const Spacer(),
+        if (canEdit)
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onEdit,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _terra.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _terra.withOpacity(.25)),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.edit_outlined, color: _terra, size: 14),
+                  SizedBox(width: 5),
+                  Text('Modifier', style: TextStyle(
+                      color: _terra, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
 // ── Cover ─────────────────────────────────────────────────────────────────────
+// Purement décoratif (bandeau + avatar + nom) : le retour et l'édition vivent
+// dans `_TopBar`, fixe au-dessus du scroll. Le nom peut passer sur 2 lignes
+// (texte long, accessibilité) : l'espace réservé sous le bandeau suit donc sa
+// hauteur réelle au lieu d'une constante qui risquait de le faire chevaucher
+// la section "Coordonnées".
 class _Cover extends StatelessWidget {
   final String name, roleLabel, initials;
   final bool isPrivileged;
-  final VoidCallback onEdit;
   const _Cover({
     required this.name,
     required this.roleLabel,
     required this.initials,
     required this.isPrivileged,
-    required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
-    return Stack(clipBehavior: Clip.none, children: [
-      Container(
-        height: 180,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1A0A00), _terra],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Padding(
+      // Réserve assez d'espace sous le bandeau pour le pire cas (nom sur 2
+      // lignes + badge de rôle) : évite le chevauchement avec "Coordonnées".
+      padding: const EdgeInsets.only(bottom: 70),
+      child: Stack(clipBehavior: Clip.none, children: [
+        Container(
+          height: 130,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1A0A00), _terra],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
+          child: CustomPaint(painter: _AfricanPatternPainter(), child: const SizedBox.expand()),
         ),
-        child: Stack(children: [
-          CustomPaint(painter: _AfricanPatternPainter(), child: const SizedBox.expand()),
-          Positioned(
-            top: 0, left: 0,
-            child: SafeArea(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                onTap: () => Navigator.maybePop(context),
-                child: Container(
-                  margin: const EdgeInsets.all(12),
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
-                ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0, right: 0,
-            child: SafeArea(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                onTap: onEdit,
-                child: Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.edit_outlined, color: Colors.white, size: 14),
-                    SizedBox(width: 5),
-                    Text('Modifier', style: TextStyle(
-                        color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-                ),
-              ),
-            ),
-          ),
-        ]),
-      ),
 
-      Positioned(
-        bottom: -52, left: 20, right: 16,
-        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Container(
-            width: 96, height: 96,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1A0A00), _terra, _orange],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(color: scaffoldBg, width: 4),
-              boxShadow: [
-                BoxShadow(color: _terra.withOpacity(.35),
-                    blurRadius: 18, offset: const Offset(0, 6)),
-              ],
-            ),
-            child: Center(child: Text(initials, style: const TextStyle(
-                color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900))),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(child: Text(name,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 18, fontWeight: FontWeight.w900),
-                      maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  if (isPrivileged) ...[
-                    const SizedBox(width: 5),
-                    const Icon(Icons.verified_rounded, color: _gold, size: 18),
-                  ],
-                ]),
-                const SizedBox(height: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _terra.withOpacity(.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _terra.withOpacity(.25)),
-                  ),
-                  child: Text(roleLabel.toUpperCase(), style: const TextStyle(
-                      color: _terra, fontSize: 9.5,
-                      fontWeight: FontWeight.w800, letterSpacing: 1),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+        Positioned(
+          top: 78, left: 20, right: 16,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 96, height: 96,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1A0A00), _terra, _orange],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
-              ]),
+                shape: BoxShape.circle,
+                border: Border.all(color: scaffoldBg, width: 4),
+                boxShadow: [
+                  BoxShadow(color: _terra.withOpacity(.35),
+                      blurRadius: 18, offset: const Offset(0, 6)),
+                ],
+              ),
+              child: Center(child: Text(initials, style: const TextStyle(
+                  color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900))),
             ),
-          ),
-        ]),
-      ),
-    ]);
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 46),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Flexible(child: Text(name,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 18, fontWeight: FontWeight.w900),
+                        maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    if (isPrivileged) ...[
+                      const SizedBox(width: 5),
+                      const Icon(Icons.verified_rounded, color: _gold, size: 18),
+                    ],
+                  ]),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _terra.withOpacity(.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _terra.withOpacity(.25)),
+                    ),
+                    child: Text(roleLabel.toUpperCase(), style: const TextStyle(
+                        color: _terra, fontSize: 9.5,
+                        fontWeight: FontWeight.w800, letterSpacing: 1),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 

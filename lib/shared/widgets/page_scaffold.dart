@@ -54,12 +54,14 @@ class PageScaffold extends StatelessWidget {
       child: SafeArea(
         top: canPop,
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LayoutBuilder(builder: (_, constraints) {
+        child: Column(
+          children: [
+            // Bandeau titre + bouton retour : fixe, hors du scroll, pour
+            // rester accessible même quand le contenu de la page est long
+            // (utile en particulier sur desktop où la page peut être haute).
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              child: LayoutBuilder(builder: (_, constraints) {
                 final titleRow = Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -119,16 +121,24 @@ class PageScaffold extends StatelessWidget {
                   ],
                 );
               }),
-              const SizedBox(height: 4),
-              Container(
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
                   height: 2,
                   width: 32,
                   decoration: BoxDecoration(
                       color: _terra, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 16),
-              child,
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                child: child,
+              ),
+            ),
+          ],
         ),
       ),
     );

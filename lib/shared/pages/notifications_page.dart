@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
+import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../widgets/page_scaffold.dart';
@@ -66,12 +67,22 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(authSessionProvider);
+    final isParent = session?.role == UserRole.parent;
 
-    final gradesAsync = session != null
-        ? ref.watch(gradesForStudentProvider(session.id))
-        : const AsyncValue<List<SbGrade>>.data([]);
-    final absencesAsync = ref.watch(myAbsencesProvider);
-    final invoicesAsync = ref.watch(myInvoicesProvider);
+    // Un parent n'a pas de note/absence/facture en son nom propre : ses
+    // signaux sont ceux de ses enfants, agrégés (sinon `session.id` ne
+    // matche jamais un `student_id` et le flux reste vide en silence).
+    final gradesAsync = isParent
+        ? ref.watch(myChildrenGradesProvider)
+        : session != null
+            ? ref.watch(gradesForStudentProvider(session.id))
+            : const AsyncValue<List<SbGrade>>.data([]);
+    final absencesAsync = isParent
+        ? ref.watch(myChildrenAbsencesProvider)
+        : ref.watch(myAbsencesProvider);
+    final invoicesAsync = isParent
+        ? ref.watch(myChildrenInvoicesProvider)
+        : ref.watch(myInvoicesProvider);
 
     final stillLoading = gradesAsync.isLoading &&
         absencesAsync.isLoading &&
