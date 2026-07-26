@@ -25,6 +25,15 @@ String _periodShort(String p) {
   return (m != null && m >= 1 && m <= 12) ? _moisAbbr[m - 1] : p;
 }
 
+/// Label de la première période échue non couverte par le versé
+/// (`periodsCovered` avance en cascade depuis le début de l'année) — c'est
+/// depuis ce mois que l'élève est en retard.
+String? _firstUnpaidPeriodLabel(SbTuitionAccount acc) {
+  final firstUnpaid = acc.periodsCovered.floor();
+  if (firstUnpaid < 0 || firstUnpaid >= acc.periods.length) return null;
+  return acc.periods[firstUnpaid].label;
+}
+
 enum _Cell { paid, partial, late, upcoming, none }
 
 /// Suivi de la scolarité : matrice élève × mois, dérivée du COMPTE annuel de
@@ -71,6 +80,7 @@ class TuitionTrackingPage extends ConsumerWidget {
             classe: s.classe ?? '—',
             email: s.email,
             amount: accounts[s.id]!.owedNow,
+            since: _firstUnpaidPeriodLabel(accounts[s.id]!),
           ),
     ];
 

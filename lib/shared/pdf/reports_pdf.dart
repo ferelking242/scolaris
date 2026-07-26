@@ -163,7 +163,7 @@ Future<void> printReportsPdf({
 /// liste de travail, pas une analyse).
 Future<void> printLatePayersPdf({
   required SbSchool? school,
-  required List<({String name, String classe, String? email, double amount})> rows,
+  required List<({String name, String classe, String? email, double amount, String? since})> rows,
 }) async {
   final font = await PdfGoogleFonts.notoSansRegular();
   final bold = await PdfGoogleFonts.notoSansBold();
@@ -210,9 +210,10 @@ Future<void> printLatePayersPdf({
             style: const pw.TextStyle(fontSize: 11, color: _muted))
       else ...[
         _table(
-          headers: const ['Élève', 'Classe', 'Email', 'Montant dû'],
+          headers: const ['Élève', 'Classe', 'Email', 'En retard depuis', 'Montant dû'],
           rows: [
-            for (final r in sorted) [r.name, r.classe, r.email ?? '—', '${fmt.format(r.amount)} F'],
+            for (final r in sorted)
+              [r.name, r.classe, r.email ?? '—', r.since ?? '—', '${fmt.format(r.amount)} F'],
           ],
           highlightLastCol: true,
         ),

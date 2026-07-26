@@ -511,7 +511,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       context: context,
       builder: (_) => _InviteMemberDialog(
         schoolId: schoolId,
-        onCreated: () => ref.invalidate(usersProvider),
+        onCreated: () {
+          ref.invalidate(usersProvider);
+          ref.invalidate(teachersProvider);
+        },
       ),
     );
   }
@@ -521,7 +524,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       context: context,
       builder: (_) => _EditUserDialog(
         user: u,
-        onSaved: () => ref.invalidate(usersProvider),
+        onSaved: () {
+          ref.invalidate(usersProvider);
+          ref.invalidate(teachersProvider);
+        },
       ),
     );
   }
@@ -606,6 +612,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     }
     ref.invalidate(usersProvider);
     ref.invalidate(studentsProvider);
+    ref.invalidate(teachersProvider);
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
       content: Text('Compte "${u.fullName}" supprimé.'),
