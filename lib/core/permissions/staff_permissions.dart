@@ -46,6 +46,7 @@ class StaffPermissions {
   // rien est pire qu'absente : elle promet une sécurité inexistante.
   static const staffManage = 'staff_manage';
   static const schoolConfig = 'school_config';
+  static const library = 'library';
 
   /// Catalogue complet (ordre d'affichage dans l'écran de gestion).
   static const List<StaffPermission> all = [
@@ -116,6 +117,12 @@ class StaffPermissions {
       description: 'Infos école, abonnement, paramètres',
       icon: Icons.settings_outlined,
       sensitive: true,
+    ),
+    StaffPermission(
+      key: library,
+      label: 'Bibliothèque',
+      description: 'Soumettre un livre/annale/support au catalogue partagé',
+      icon: Icons.local_library_outlined,
     ),
   ];
 

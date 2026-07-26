@@ -4635,6 +4635,250 @@ class SupabaseDbSource {
       );
     }).toList();
   }
+
+  // ── Bibliothèque : contribution & modération ───────────────────────────────
+  //
+  // Les 3 catalogues (`bibliotheque`, `exam_subjects`, `course_materials`)
+  // sont UNIVERSELS (pas de school_id) : un item soumis par une école devient
+  // visible par toutes les écoles une fois `published`. Tant qu'il est
+  // `pending`, seule l'école soumettrice le voit (RLS), le temps qu'un
+  // super-admin plateforme le valide ou le rejette (cf.
+  // 20260770_library_moderation.sql, 20260772_library_permission.sql).
+
+  /// Dépose le fichier d'une soumission bibliothèque dans le bucket public
+  /// `library-content` (le contenu, une fois publié, est censé être diffusé
+  /// largement) — même pattern que `uploadEnrollmentDocument`.
+  static Future<String> uploadLibraryContent({
+    required String category, // 'bibliotheque' | 'exam_subjects' | 'course_materials'
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final safeName = filename.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path = '$category/${const Uuid().v4()}-$safeName';
+    await _db.storage.from('library-content').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return _db.storage.from('library-content').getPublicUrl(path);
+  }
+
+  static Future<void> submitLibraryBook({
+    required String schoolId,
+    required String userId,
+    required String titre,
+    required String auteur,
+    required String type,
+    required String domaine,
+    String? annee,
+    String? url,
+    String acces = 'libre',
+    String? resume,
+  }) async {
+    await _db.from('bibliotheque').insert({
+      'titre': titre,
+      'auteur': auteur,
+      'type': type,
+      'domaine': domaine,
+      'annee': annee,
+      'url': url,
+      'acces': acces,
+      'resume': resume,
+      'submitted_by_school_id': schoolId,
+      'submitted_by_user_id': userId,
+    });
+  }
+
+  static Future<void> submitExamSubject({
+    required String schoolId,
+    required String userId,
+    required String title,
+    required String subject,
+    required String level,
+    required int year,
+    String? session,
+    bool hasCorrection = false,
+    String? url,
+    String? correctionUrl,
+  }) async {
+    await _db.from('exam_subjects').insert({
+      'title': title,
+      'subject': subject,
+      'level': level,
+      'session': session,
+      'year': year,
+      'has_correction': hasCorrection,
+      'url': url,
+      'correction_url': correctionUrl,
+      'submitted_by_school_id': schoolId,
+      'submitted_by_user_id': userId,
+    });
+  }
+
+  static Future<void> submitCourseMaterial({
+    required String schoolId,
+    required String userId,
+    required String title,
+    required String subject,
+    required String type,
+    String? level,
+    String? publisher,
+    int? year,
+    String? fileUrl,
+    int? sizeKb,
+  }) async {
+    await _db.from('course_materials').insert({
+      'title': title,
+      'subject': subject,
+      'type': type,
+      'level': level,
+      'publisher': publisher,
+      'year': year,
+      'file_url': fileUrl,
+      'size_kb': sizeKb,
+      'submitted_by_school_id': schoolId,
+      'submitted_by_user_id': userId,
+    });
+  }
+
+  static const _librarySubmissionSelect =
+      'id, status, rejection_reason, created_at';
+
+  /// Toutes les soumissions d'une école (tous statuts, toutes catégories),
+  /// les plus récentes d'abord — pour le suivi « Mes soumissions » côté admin.
+  static Future<List<SbLibrarySubmission>> getMyLibrarySubmissions(
+      String schoolId) async {
+    final out = <SbLibrarySubmission>[];
+    final books = await _db
+        .from('bibliotheque')
+        .select('$_librarySubmissionSelect, titre')
+        .eq('submitted_by_school_id', schoolId);
+    out.addAll((books as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'bibliotheque',
+        titleKey: 'titre')));
+
+    final exams = await _db
+        .from('exam_subjects')
+        .select('$_librarySubmissionSelect, title')
+        .eq('submitted_by_school_id', schoolId);
+    out.addAll((exams as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'exam_subjects',
+        titleKey: 'title')));
+
+    final materials = await _db
+        .from('course_materials')
+        .select('$_librarySubmissionSelect, title')
+        .eq('submitted_by_school_id', schoolId);
+    out.addAll((materials as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'course_materials',
+        titleKey: 'title')));
+
+    out.sort((a, b) => (b.createdAt ?? DateTime(2000))
+        .compareTo(a.createdAt ?? DateTime(2000)));
+    return out;
+  }
+
+  /// Toutes les soumissions `pending` (toutes écoles, toutes catégories) —
+  /// file de modération de la console plateforme.
+  static Future<List<SbLibrarySubmission>> getPendingLibraryItems() async {
+    final out = <SbLibrarySubmission>[];
+    const sel = '$_librarySubmissionSelect, submitted_by_school_id, '
+        'schools(name)';
+
+    final books = await _db
+        .from('bibliotheque')
+        .select('$sel, titre')
+        .eq('status', 'pending');
+    out.addAll((books as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'bibliotheque',
+        titleKey: 'titre')));
+
+    final exams = await _db
+        .from('exam_subjects')
+        .select('$sel, title')
+        .eq('status', 'pending');
+    out.addAll((exams as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'exam_subjects',
+        titleKey: 'title')));
+
+    final materials = await _db
+        .from('course_materials')
+        .select('$sel, title')
+        .eq('status', 'pending');
+    out.addAll((materials as List).map((j) => SbLibrarySubmission.fromJson(
+        j as Map<String, dynamic>,
+        category: 'course_materials',
+        titleKey: 'title')));
+
+    out.sort((a, b) => (a.createdAt ?? DateTime(2000))
+        .compareTo(b.createdAt ?? DateTime(2000)));
+    return out;
+  }
+
+  /// Publie une soumission : elle devient visible par TOUTES les écoles.
+  static Future<void> approveLibraryItem(
+          String category, String id) =>
+      _db.from(category).update({'status': 'published'}).eq('id', id);
+
+  /// Rejette une soumission (motif obligatoire, visible par l'école
+  /// soumettrice dans son suivi, invisible ailleurs).
+  static Future<void> rejectLibraryItem(
+          String category, String id, String reason) =>
+      _db
+          .from(category)
+          .update({'status': 'rejected', 'rejection_reason': reason})
+          .eq('id', id);
+}
+
+/// Une soumission au catalogue bibliothèque (livre / annale / support),
+/// toutes catégories confondues — pour l'écran « Mes soumissions » (admin
+/// école) et la file de modération (console plateforme).
+class SbLibrarySubmission {
+  final String id;
+  final String category; // 'bibliotheque' | 'exam_subjects' | 'course_materials'
+  final String title;
+  final String status; // 'pending' | 'published' | 'rejected'
+  final String? rejectionReason;
+  final DateTime? createdAt;
+  final String? schoolName;
+
+  const SbLibrarySubmission({
+    required this.id,
+    required this.category,
+    required this.title,
+    required this.status,
+    this.rejectionReason,
+    this.createdAt,
+    this.schoolName,
+  });
+
+  factory SbLibrarySubmission.fromJson(
+    Map<String, dynamic> j, {
+    required String category,
+    required String titleKey,
+  }) =>
+      SbLibrarySubmission(
+        id: j['id'] as String,
+        category: category,
+        title: j[titleKey] as String? ?? '—',
+        status: j['status'] as String? ?? 'pending',
+        rejectionReason: j['rejection_reason'] as String?,
+        createdAt: DateTime.tryParse(j['created_at'] as String? ?? ''),
+        schoolName:
+            (j['schools'] as Map<String, dynamic>?)?['name'] as String?,
+      );
+
+  String get categoryLabel => switch (category) {
+        'bibliotheque' => 'Livre',
+        'exam_subjects' => 'Annale',
+        'course_materials' => 'Support',
+        _ => category,
+      };
 }
 
 // ══════════════════════════════════════════════════════════════════════════

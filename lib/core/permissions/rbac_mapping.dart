@@ -21,7 +21,7 @@ class RbacMapping {
 
   /// Module RBAC (base) → permission historique (menu & gardes).
   ///
-  /// Les 9 modules couvrent 9 des 10 clés historiques. `discipline` n'a pas
+  /// Les 10 modules couvrent 10 des 11 clés historiques. `discipline` n'a pas
   /// de module dédié : elle est dérivée de `presences` (le Surveillant Général,
   /// qui porte la vie scolaire, a les deux dans tous les modèles de rôles).
   static const Map<String, String> moduleToPermission = {
@@ -34,6 +34,7 @@ class RbacMapping {
     'emploi_du_temps': StaffPermissions.timetable,
     'utilisateurs': StaffPermissions.staffManage,
     'parametres': StaffPermissions.schoolConfig,
+    'bibliotheque': StaffPermissions.library,
   };
 
   /// Permission historique → module RBAC (sens inverse, sans `discipline`).

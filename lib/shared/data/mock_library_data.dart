@@ -469,11 +469,13 @@ class MockLibraryData {
             '${r['resource_type']}:${r['resource_id']}'));
     } catch (_) {/* table absente / hors-ligne → pas de favoris */}
 
-    // Livres (catalogue partagé).
+    // Livres (catalogue partagé). Seul le contenu publié (modéré par la
+    // plateforme) est visible ici — cf. `bibliotheque.status`.
     try {
       final rows = await _db
           .from('bibliotheque')
           .select('id, titre, auteur, type, domaine, annee, url, acces, resume')
+          .eq('status', 'published')
           .order('titre');
       _bookRows = List<Map<String, dynamic>>.from(rows as List);
     } catch (_) {
@@ -485,6 +487,7 @@ class MockLibraryData {
       final rows = await _db
           .from('exam_subjects')
           .select('id, title, subject, level, session, year, has_correction, url, correction_url')
+          .eq('status', 'published')
           .order('year', ascending: false);
       _examRows = List<Map<String, dynamic>>.from(rows as List);
     } catch (_) {
@@ -496,6 +499,7 @@ class MockLibraryData {
       final rows = await _db
           .from('course_materials')
           .select('id, title, subject, type, level, publisher, year, file_url, size_kb, created_at')
+          .eq('status', 'published')
           .order('created_at', ascending: false);
       _materialRows = List<Map<String, dynamic>>.from(rows as List);
     } catch (_) {

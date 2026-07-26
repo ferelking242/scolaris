@@ -4,6 +4,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/platform_announcements_page.dart';
 import 'pages/platform_dashboard.dart';
+import 'pages/platform_library_moderation_page.dart';
 import 'pages/platform_schools_page.dart';
 import 'pages/platform_settings_page.dart';
 import 'pages/platform_subscriptions_page.dart';
@@ -35,6 +36,11 @@ class PlatformHome extends StatelessWidget {
         icon: Icons.campaign_rounded,
         labelKey: 'Annonces',
         page: PlatformAnnouncementsPage(),
+      ),
+      RoleNavEntry(
+        icon: Icons.local_library_rounded,
+        labelKey: 'Modération bibliothèque',
+        page: PlatformLibraryModerationPage(),
       ),
       RoleNavEntry(
         icon: Icons.settings_rounded,

@@ -25,6 +25,7 @@ import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/admin_attendance_page.dart';
 import 'pages/admin_class_stats_page.dart';
+import 'pages/library_submission_page.dart';
 import 'pages/users_page.dart';
 
 // Accents de marque — volontairement constants, lisibles en clair comme en sombre.
@@ -142,6 +143,10 @@ class AdminHome extends ConsumerWidget {
           permission: StaffPermissions.timetable),
       // "Récompenses" (catalogue de badges) retiré du menu admin pour
       // l'instant — demande explicite, cf. student_home.dart.
+      RoleNavEntry(icon: Icons.local_library_outlined, activeIcon: Icons.local_library_rounded,
+          labelKey: 'Bibliothèque',
+          page: PermissionGuard(permission: StaffPermissions.library, child: LibrarySubmissionPage()),
+          permission: StaffPermissions.library),
     ]),
     RoleNavGroup(labelKey: 'sections.account', entries: [
       // Pas de centre de notifications : la messagerie et les annonces ont été
