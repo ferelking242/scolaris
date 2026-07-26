@@ -46,6 +46,12 @@ class ParentPaymentsPage extends ConsumerWidget {
             .where((i) => i.isTuition && i.studentId == childId && !i.isPaid)
             .toList();
 
+        // La facture annuelle de scolarité d'un enfant (une seule par élève),
+        // seule trace imprimable d'un versement cash ou en ligne.
+        SbInvoice? tuitionInvoiceOf(String childId) => invoices
+            .where((i) => i.isTuition && i.studentId == childId)
+            .firstOrNull;
+
         Future<void> payTuition(List<SbInvoice> invs) async {
           if (invs.isEmpty) return;
           // Pré-remplit le dû à ce jour (compte déjà chargé par la carte).
@@ -85,6 +91,10 @@ class ParentPaymentsPage extends ConsumerWidget {
                   onPayOnline: online
                       ? () => payTuition(tuitionInvoicesOf(c.id))
                       : null,
+                  onDownload: tuitionInvoiceOf(c.id) == null
+                      ? null
+                      : () => printInvoice(
+                          school: school, invoice: tuitionInvoiceOf(c.id)!),
                 ),
                 const SizedBox(height: 12),
               ],

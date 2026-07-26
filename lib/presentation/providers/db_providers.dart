@@ -604,6 +604,13 @@ final invoicesForStudentProvider =
   return SupabaseDbSource.getInvoicesForStudent(studentId);
 });
 
+/// Historique des versements individuels d'un élève — reçu par versement,
+/// distinct de la facture annuelle unique qui ne montre que le cumul.
+final paymentsForStudentProvider =
+    FutureProvider.family<List<SbPayment>, String>((ref, studentId) async {
+  return SupabaseDbSource.getPaymentsForStudent(studentId);
+});
+
 /// Toutes les factures de TOUS les enfants du parent connecté, fusionnées.
 /// (`myInvoicesProvider` cherchait les factures d'un élève portant l'id du
 /// parent — il ne remontait donc jamais rien pour un parent.)
@@ -616,6 +623,33 @@ final myChildrenInvoicesProvider =
   }
   out.sort((a, b) => (b.dueDate ?? DateTime(2000))
       .compareTo(a.dueDate ?? DateTime(2000)));
+  return out;
+});
+
+/// Toutes les notes de TOUS les enfants du parent connecté, fusionnées.
+/// Même piège que `myChildrenInvoicesProvider` : `gradesForStudentProvider`
+/// pris avec l'id du parent ne remonte jamais rien.
+final myChildrenGradesProvider = FutureProvider<List<SbGrade>>((ref) async {
+  final children = await ref.watch(myChildrenProvider.future);
+  final out = <SbGrade>[];
+  for (final c in children) {
+    out.addAll(await ref.watch(gradesForStudentProvider(c.id).future));
+  }
+  out.sort((a, b) =>
+      (b.gradedAt ?? DateTime(2000)).compareTo(a.gradedAt ?? DateTime(2000)));
+  return out;
+});
+
+/// Toutes les absences de TOUS les enfants du parent connecté, fusionnées.
+final myChildrenAbsencesProvider =
+    FutureProvider<List<SbAbsence>>((ref) async {
+  final children = await ref.watch(myChildrenProvider.future);
+  final out = <SbAbsence>[];
+  for (final c in children) {
+    out.addAll(await ref.watch(absencesForStudentProvider(c.id).future));
+  }
+  out.sort((a, b) => (b.absenceDate ?? DateTime(2000))
+      .compareTo(a.absenceDate ?? DateTime(2000)));
   return out;
 });
 

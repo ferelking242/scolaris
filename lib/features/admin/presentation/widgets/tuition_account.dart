@@ -40,6 +40,11 @@ class TuitionAccountCard extends ConsumerWidget {
   /// (Le règlement à la caisse passe par [canCollect], côté admin.)
   final VoidCallback? onPayOnline;
 
+  /// Vue famille : si fourni, affiche « Télécharger la facture/le reçu » — la
+  /// facture annuelle de scolarité (catégorie `tuition`), seule trace
+  /// imprimable d'un versement fait à la caisse ou en ligne.
+  final VoidCallback? onDownload;
+
   const TuitionAccountCard({
     super.key,
     required this.studentId,
@@ -47,6 +52,7 @@ class TuitionAccountCard extends ConsumerWidget {
     this.canCollect = false,
     this.title = 'Compte scolarité',
     this.onPayOnline,
+    this.onDownload,
   });
 
   @override
@@ -118,6 +124,19 @@ class TuitionAccountCard extends ConsumerWidget {
                   _kv('Payé d\'avance', _money(acc.credit, acc.currency),
                       context,
                       valueColor: _green),
+                if (onDownload != null) ...[
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: onDownload,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.download_rounded, size: 14, color: context.cMuted),
+                      const SizedBox(width: 4),
+                      Text(upToDate ? 'Télécharger le reçu' : 'Télécharger la facture',
+                          style: TextStyle(
+                              fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ],
                 if (canCollect) ...[
                   const SizedBox(height: 12),
                   SizedBox(

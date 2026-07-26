@@ -2532,6 +2532,18 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbInvoice.fromJson(j as Map<String, dynamic>)).toList();
   }
 
+  /// Historique des VERSEMENTS individuels d'un élève (table `payments`), le
+  /// plus récent d'abord — utile pour un reçu par versement, distinct de la
+  /// facture annuelle unique qui, elle, ne montre que le cumul.
+  static Future<List<SbPayment>> getPaymentsForStudent(String studentId) async {
+    final data = await _db
+        .from('payments')
+        .select()
+        .eq('student_id', studentId)
+        .order('payment_date', ascending: false);
+    return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
   // ── Frais de scolarité (grille + génération de l'échéancier) ────────────────
   /// Grilles de frais de l'école pour une année (une par classe).
   static Future<List<SbFeeStructure>> getFeeStructures(

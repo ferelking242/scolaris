@@ -25,6 +25,101 @@ Future<void> printInvoice({
   );
 }
 
+/// Reçu imprimable d'UN versement précis (table `payments`) — distinct de la
+/// facture annuelle globale, qui ne montre que le cumul encaissé à date. Un
+/// parent qui veut la preuve du paiement du 15 mars, précisément, a besoin de
+/// CE document, pas de l'état cumulé de la facture.
+Future<void> printPaymentReceipt({
+  required SbSchool? school,
+  required SbPayment payment,
+  required String studentName,
+  String? description,
+  required String currency,
+}) async {
+  final theme = await _theme();
+  final pdf = pw.Document();
+  final money = SchoolFormat(currency: currency).money;
+  final df = DateFormat('d MMMM yyyy', 'fr');
+  final ref = payment.reference ?? payment.id.substring(0, 8).toUpperCase();
+
+  pdf.addPage(pw.Page(
+    theme: theme,
+    pageFormat: PdfPageFormat.a4,
+    margin: const pw.EdgeInsets.all(36),
+    build: (ctx) => pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text(school?.name ?? 'Établissement',
+                  style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: _ink)),
+              if ((school?.city ?? '').isNotEmpty)
+                pw.Text([school?.city, school?.country].where((e) => (e ?? '').isNotEmpty).join(', '),
+                    style: const pw.TextStyle(fontSize: 10, color: _muted)),
+            ]),
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: pw.BoxDecoration(color: _green, borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Text('REÇU DE VERSEMENT',
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 6),
+        pw.Divider(color: _line, thickness: 1),
+        pw.SizedBox(height: 18),
+        _kv('Réglé par', studentName),
+        pw.SizedBox(height: 8),
+        _kv('Date du versement', df.format(payment.paymentDate ?? DateTime.now())),
+        pw.SizedBox(height: 8),
+        _kv('Motif', description ?? 'Scolarité'),
+        pw.SizedBox(height: 8),
+        _kv('Mode de paiement', _methodLabel(payment.paymentMethod)),
+        pw.SizedBox(height: 8),
+        _kv('Référence', ref),
+        pw.SizedBox(height: 22),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(14),
+          decoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFFF0FDF4),
+            border: pw.Border.all(color: _green),
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Montant versé',
+                  style: pw.TextStyle(fontSize: 12, color: _muted, fontWeight: pw.FontWeight.bold)),
+              pw.Text(money(payment.amount),
+                  style: pw.TextStyle(fontSize: 18, color: _green, fontWeight: pw.FontWeight.bold)),
+            ],
+          ),
+        ),
+        pw.Spacer(),
+        pw.Divider(color: _line, thickness: 1),
+        pw.Text('Ce reçu atteste du règlement de ce versement précis. Merci.',
+            style: const pw.TextStyle(fontSize: 9, color: _muted)),
+      ],
+    ),
+  ));
+
+  await Printing.layoutPdf(
+    onLayout: (_) => pdf.save(),
+    name: 'Recu $ref',
+  );
+}
+
+String _methodLabel(String? method) => switch (method?.toLowerCase()) {
+      'cash' => 'Espèces',
+      'mobile_money' || 'mtn' || 'airtel' => 'Mobile Money',
+      'bank_transfer' || 'transfer' => 'Virement bancaire',
+      'card' => 'Carte bancaire',
+      _ => method ?? '—',
+    };
+
 Future<Uint8List> buildInvoicePdf({
   required SbSchool? school,
   required SbInvoice invoice,

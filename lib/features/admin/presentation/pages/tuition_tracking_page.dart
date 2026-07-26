@@ -41,40 +41,67 @@ enum _Cell { paid, partial, late, upcoming, none }
 /// parent) — pas de facture par mois : le versé se déduit en cascade sur les
 /// mois via `SbTuitionAccount.periodsCovered`. Design system : `PageScaffold`
 /// + `DataPanel`.
-class TuitionTrackingPage extends ConsumerWidget {
+class TuitionTrackingPage extends ConsumerStatefulWidget {
   /// Si fourni, la barre de retour appelle ce callback (mode inline) au lieu de
   /// `Navigator.maybePop` (mode route).
   final VoidCallback? onBack;
   const TuitionTrackingPage({super.key, this.onBack});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TuitionTrackingPage> createState() => _TuitionTrackingPageState();
+}
+
+class _TuitionTrackingPageState extends ConsumerState<TuitionTrackingPage> {
+  String? _classId; // null = toutes les classes
+
+  @override
+  Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsProvider);
     final accountsAsync = ref.watch(tuitionAccountsProvider);
+    final classesAsync = ref.watch(classesProvider);
     final loading = studentsAsync.isLoading || accountsAsync.isLoading;
     final error = accountsAsync.hasError ? accountsAsync.error : null;
 
+    final allStudents = studentsAsync.valueOrNull ?? const <SbStudent>[];
+    final accounts = accountsAsync.valueOrNull ?? const <String, SbTuitionAccount>{};
+
+    // Classes ayant au moins un élève avec compte — même logique que « Comptes
+    // scolarité » : pas la peine de proposer un filtre pour une classe vide.
+    final classIdsWithAccount = allStudents
+        .where((s) => accounts.containsKey(s.id))
+        .map((s) => s.classId)
+        .toSet();
+    final filterableClasses = (classesAsync.valueOrNull ?? const <SbClass>[])
+        .where((c) => classIdsWithAccount.contains(c.id))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    final students = _classId == null
+        ? allStudents
+        : allStudents.where((s) => s.classId == _classId).toList();
+
     String? subtitle;
-    final students = studentsAsync.valueOrNull;
-    final accounts = accountsAsync.valueOrNull;
-    if (students != null && accounts != null) {
-      if (accounts.isEmpty) {
+    if (studentsAsync.valueOrNull != null && accountsAsync.valueOrNull != null) {
+      final relevantAccounts = [
+        for (final s in students) if (accounts[s.id] != null) accounts[s.id]!,
+      ];
+      if (relevantAccounts.isEmpty) {
         subtitle = 'Aucune grille de frais configurée';
       } else {
         var total = 0, paid = 0;
-        for (final acc in accounts.values) {
+        for (final acc in relevantAccounts) {
           total += acc.periods.length;
           paid += acc.periodsCovered.floor().clamp(0, acc.periods.length);
         }
         final pct = total == 0 ? 0 : (paid / total * 100).round();
-        subtitle = '${accounts.length} élève(s) · $pct % réglé';
+        subtitle = '${relevantAccounts.length} élève(s) · $pct % réglé';
       }
     }
 
     final school = ref.watch(schoolProvider).valueOrNull;
     final latePayers = [
-      for (final s in students ?? const <SbStudent>[])
-        if (accounts?[s.id] != null && accounts![s.id]!.owedNow > 0.01)
+      for (final s in students)
+        if (accounts[s.id] != null && accounts[s.id]!.owedNow > 0.01)
           (
             name: s.fullName,
             classe: s.classe ?? '—',
@@ -97,7 +124,7 @@ class TuitionTrackingPage extends ConsumerWidget {
           ),
       ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        BackLinkRow(label: 'Retour à la facturation', onTap: onBack),
+        BackLinkRow(label: 'Retour à la facturation', onTap: widget.onBack),
         const SizedBox(height: 14),
         if (loading)
           const Padding(
@@ -109,8 +136,41 @@ class TuitionTrackingPage extends ConsumerWidget {
             padding: const EdgeInsets.all(24),
             child: Text('Erreur : $error', style: TextStyle(color: context.cMuted)),
           )
-        else
-          _body(context, students ?? const [], accounts ?? const {}),
+        else ...[
+          if (filterableClasses.length > 1) ...[
+            Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: context.cSubtle,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: context.cBorder),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _classId,
+                    isDense: true,
+                    dropdownColor: context.cCard,
+                    style: TextStyle(fontSize: 12, color: context.cInk),
+                    hint: Text('Toutes les classes',
+                        style: TextStyle(fontSize: 12, color: context.cMuted)),
+                    items: [
+                      DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Toutes les classes',
+                              style: TextStyle(fontSize: 12, color: context.cMuted))),
+                      for (final c in filterableClasses)
+                        DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                    ],
+                    onChanged: (v) => setState(() => _classId = v),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+          ],
+          _body(context, students, accounts),
+        ],
       ]),
     );
   }

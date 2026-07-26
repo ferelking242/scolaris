@@ -18,11 +18,15 @@ class ChildPaymentsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoicesAsync = ref.watch(invoicesForStudentProvider(child.id));
+    final paymentsAsync = ref.watch(paymentsForStudentProvider(child.id));
     final school = ref.watch(schoolProvider).valueOrNull;
     final online = ref.watch(onlinePaymentEnabledProvider).valueOrNull ?? false;
 
     final invoices = invoicesAsync.valueOrNull ?? const <SbInvoice>[];
+    final payments = paymentsAsync.valueOrNull ?? const <SbPayment>[];
     final others = invoices.where((i) => !i.isTuition).toList();
+    final tuitionInvoice = invoices.where((i) => i.isTuition).firstOrNull;
+    final currency = tuitionInvoice?.currency ?? 'FCFA';
 
     // Toutes les factures de scolarité impayées (souvent plusieurs mois en
     // retard) — pas seulement la première, sinon le parent ne peut régler
@@ -48,6 +52,9 @@ class ChildPaymentsPage extends ConsumerWidget {
           studentId: child.id,
           studentName: child.fullName,
           onPayOnline: (online && unpaidTuition.isNotEmpty) ? payTuition : null,
+          onDownload: tuitionInvoice == null
+              ? null
+              : () => printInvoice(school: school, invoice: tuitionInvoice),
         ),
 
         // ── Autres frais (inscription, etc.) ──────────────────────────────
@@ -118,7 +125,56 @@ class ChildPaymentsPage extends ConsumerWidget {
             ),
           ),
         ],
+
+        // ── Historique des versements ──────────────────────────────────────
+        if (payments.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          DataPanel(
+            title: 'Historique des versements',
+            child: DataTablePanel(
+              columns: const ['Date', 'Mode', 'Montant', ''],
+              flex: const [2, 2, 2, 1],
+              rows: [
+                for (final p in payments)
+                  [
+                    Text(
+                        p.paymentDate != null
+                            ? DateFormat('dd/MM/yy').format(p.paymentDate!)
+                            : '—',
+                        style: TextStyle(fontSize: 12.5, color: context.cInk)),
+                    Text(_methodLabel(p.paymentMethod),
+                        style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+                    Text('${NumberFormat.compact(locale: "fr").format(p.amount)} $currency',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: context.cInk,
+                            fontWeight: FontWeight.w700)),
+                    IconButton(
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      color: context.cMuted,
+                      tooltip: 'Télécharger le reçu',
+                      onPressed: () => printPaymentReceipt(
+                        school: school,
+                        payment: p,
+                        studentName: child.fullName,
+                        description: 'Scolarité',
+                        currency: currency,
+                      ),
+                    ),
+                  ],
+              ],
+            ),
+          ),
+        ],
       ]),
     );
   }
 }
+
+String _methodLabel(String? method) => switch (method?.toLowerCase()) {
+      'cash' => 'Espèces',
+      'mobile_money' || 'mtn' || 'airtel' => 'Mobile Money',
+      'bank_transfer' || 'transfer' => 'Virement bancaire',
+      'card' => 'Carte bancaire',
+      _ => method ?? '—',
+    };

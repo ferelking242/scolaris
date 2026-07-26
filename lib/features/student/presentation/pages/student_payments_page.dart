@@ -24,6 +24,7 @@ class StudentPaymentsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user        = ref.watch(authSessionProvider);
     final invoicesAsync = ref.watch(myInvoicesProvider);
+    final paymentsAsync = ref.watch(paymentsForStudentProvider(user?.id ?? ''));
     // Le COMPTE de scolarité (solde qui court) — remplace la pile de tranches.
     final acc         = ref.watch(tuitionAccountProvider(user?.id ?? '')).valueOrNull;
     final level       = ref.watch(studentSchoolLevelProvider).valueOrNull
@@ -78,6 +79,10 @@ class StudentPaymentsPage extends ConsumerWidget {
           // qu'un mois à la fois.
           final unpaidTuition =
               invoices.where((i) => i.isTuition && !i.isPaid).toList();
+
+          // La facture annuelle de scolarité (une seule par élève) — seule
+          // trace imprimable d'un versement cash ou en ligne.
+          final tuitionInvoice = invoices.where((i) => i.isTuition).firstOrNull;
 
           // Autres frais impayés (hors scolarité) — pour le rappel et le CTA.
           final othersUnpaid = others.where(_isUnpaid).toList();
@@ -143,6 +148,13 @@ class StudentPaymentsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _ScheduleCard(acc: acc, currency: currency),
+                  if (tuitionInvoice != null) ...[
+                    const SizedBox(height: 8),
+                    _DownloadRow(
+                      label: acc.isUpToDate ? 'Télécharger le reçu' : 'Télécharger la facture',
+                      onTap: () => printInvoice(school: school, invoice: tuitionInvoice),
+                    ),
+                  ],
                   if (onlinePay && unpaidTuition.isNotEmpty && restant > 0.01) ...[
                     const SizedBox(height: 12),
                     _PayCta(
@@ -196,15 +208,15 @@ class StudentPaymentsPage extends ConsumerWidget {
                 const SizedBox(height: 24),
                 _SectionTitle(
                   icon: Icons.history_rounded,
-                  label: 'Historique des paiements',
+                  label: 'Historique des versements',
                   gradient: const [_gold, _orange],
                 ),
                 const SizedBox(height: 12),
                 _HistoriqueCard(
-                  paid: invoices
-                      .where((i) => i.status.toLowerCase() == 'paid')
-                      .toList(),
+                  payments: paymentsAsync.valueOrNull ?? const <SbPayment>[],
                   currency: currency,
+                  studentName: user?.fullName ?? 'Étudiant',
+                  school: school,
                 ),
 
                 const SizedBox(height: 24),
@@ -248,6 +260,14 @@ bool _isUnpaid(SbInvoice i) {
   final s = i.status.toLowerCase();
   return s != 'paid' && s != 'cancelled';
 }
+
+String _methodLabel(String? method) => switch (method?.toLowerCase()) {
+      'cash' => 'Espèces',
+      'mobile_money' || 'mtn' || 'airtel' => 'Mobile Money',
+      'bank_transfer' || 'transfer' => 'Virement bancaire',
+      'card' => 'Carte bancaire',
+      _ => method ?? '—',
+    };
 
 // ── Bannière de rappel (prochaine échéance / retard) ────────────────────────
 class _ReminderBanner extends StatelessWidget {
@@ -480,6 +500,30 @@ class _MonthRow extends StatelessWidget {
               style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
         ),
       ]),
+    );
+  }
+}
+
+// ── Ligne « Télécharger la facture/le reçu » ───────────────────────────────
+class _DownloadRow extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _DownloadRow({required this.label, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.download_rounded, size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+        ]),
+      ),
     );
   }
 }
@@ -794,14 +838,21 @@ class _EmptyInvoices extends StatelessWidget {
 
 // ── Historique Card ───────────────────────────────────────────────────────
 class _HistoriqueCard extends StatelessWidget {
-  final List<SbInvoice> paid;
+  final List<SbPayment> payments;
   final String currency;
-  const _HistoriqueCard({required this.paid, required this.currency});
+  final String studentName;
+  final SbSchool? school;
+  const _HistoriqueCard({
+    required this.payments,
+    required this.currency,
+    required this.studentName,
+    required this.school,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (paid.isEmpty) {
+    if (payments.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -809,7 +860,7 @@ class _HistoriqueCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: cs.outlineVariant),
         ),
-        child: Text('Aucun paiement enregistré pour le moment.',
+        child: Text('Aucun versement enregistré pour le moment.',
             style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
       );
     }
@@ -820,12 +871,12 @@ class _HistoriqueCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
       ),
       child: Column(
-        children: List.generate(paid.length, (i) {
-          final h = paid[i];
+        children: List.generate(payments.length, (i) {
+          final h = payments[i];
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              border: i < paid.length - 1
+              border: i < payments.length - 1
                   ? Border(bottom: BorderSide(color: cs.outlineVariant))
                   : null,
             ),
@@ -842,11 +893,24 @@ class _HistoriqueCard extends StatelessWidget {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${_fmtMoney(h.amount)} $currency', style: TextStyle(
                     color: cs.onSurface, fontSize: 13, fontWeight: FontWeight.w700)),
-                Text(h.description ?? h.invoiceNumber ?? 'Paiement',
+                Text(_methodLabel(h.paymentMethod),
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
-              Text(_fmtDate(h.dueDate), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
+              Text(_fmtDate(h.paymentDate), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.download_rounded, size: 18),
+                color: cs.onSurfaceVariant,
+                tooltip: 'Télécharger le reçu',
+                onPressed: () => printPaymentReceipt(
+                  school: school,
+                  payment: h,
+                  studentName: studentName,
+                  description: 'Scolarité',
+                  currency: currency,
+                ),
+              ),
             ]),
           );
         }),
