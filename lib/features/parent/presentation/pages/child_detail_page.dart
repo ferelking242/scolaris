@@ -10,7 +10,6 @@ import '../../../../shared/widgets/page_scaffold.dart';
 import 'child_payments_page.dart';
 import '../../../student/presentation/pages/attendance_page.dart';
 import '../../../student/presentation/pages/cahier_liaison_page.dart';
-import '../../../student/presentation/pages/carnet_recompenses_page.dart';
 import '../../../student/presentation/pages/grades_page.dart';
 import '../../../student/presentation/pages/schedule_page.dart';
 
@@ -183,16 +182,7 @@ class ChildDetailPage extends ConsumerWidget {
                 studentId: child.id,
                 title: 'Cahier de ${child.prenom}')),
           ),
-          const SizedBox(height: 8),
-          _NavTile(
-            icon: Icons.emoji_events_rounded, color: _gold,
-            title: 'Carnet de récompenses',
-            subtitle: 'Bons points et badges',
-            onTap: () => _push(context, CarnetRecompensesPage(
-                studentId: child.id,
-                title: 'Récompenses de ${child.prenom}')),
-          ),
-          // Cantine retirée : pas un besoin actuel.
+          // Carnet de récompenses et cantine retirés : pas un besoin actuel.
         ],
         const SizedBox(height: 22),
 

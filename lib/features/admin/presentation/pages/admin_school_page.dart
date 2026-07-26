@@ -26,15 +26,15 @@ const _swatches = <({String label, String hex})>[
 /// Types d'établissement (`schools.metadata.types`). Les clés sont celles que
 /// [SchoolTaxonomy] traduit en cycles du catalogue des niveaux — ne pas les
 /// renommer sans mettre la taxonomie à jour.
+// Université, lycée technique, enseignement supérieur et établissement
+// spécialisé sont marqués `comingSoon` à l'inscription (school_registration
+// _screen.dart) : pas de logique métier dédiée derrière. On ne les propose
+// donc pas ici non plus tant qu'ils ne sont pas développés.
 const _kTypes = <String, String>{
   'garderie': 'Garderie / Maternelle',
   'primaire': 'Primaire',
   'college': 'Collège',
   'lycee': 'Lycée',
-  'technique': 'Lycée technique',
-  'universite': 'Université',
-  'superieur': 'Enseignement supérieur',
-  'special': 'Établissement spécialisé',
 };
 
 /// Systèmes éducatifs (`schools.metadata.educational_system`). Combinés au pays,

@@ -67,7 +67,8 @@ class StaffRolesSource {
 
   /// Catalogue complet des permissions/sous-permissions (référence, pas de school_id).
   static Future<List<SbPermissionModule>> fetchPermissionCatalog() async {
-    final perms = await _sb.from('permission_catalog').select('key,label,order_num').order('order_num');
+    final perms = (await _sb.from('permission_catalog').select('key,label,order_num').order('order_num'))
+        .where((p) => p['key'] != 'recompenses').toList();
     final subs  = await _sb.from('sub_permission_catalog').select('permission_key,key,label,order_num').order('order_num');
     return (perms as List).map((p) {
       final subList = (subs as List)
