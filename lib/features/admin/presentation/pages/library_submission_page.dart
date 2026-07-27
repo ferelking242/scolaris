@@ -271,7 +271,7 @@ class _LibrarySubmissionPageState
               const SizedBox(height: 12),
               if (_category == _Category.book) ...[
                 DropdownButtonFormField<String>(
-                  initialValue: _bookType,
+                  value: _bookType,
                   decoration: const InputDecoration(
                       labelText: 'Type *', border: OutlineInputBorder()),
                   items: [
@@ -296,7 +296,7 @@ class _LibrarySubmissionPageState
               ],
               if (_category == _Category.exam) ...[
                 DropdownButtonFormField<String>(
-                  initialValue: _examLevel,
+                  value: _examLevel,
                   decoration: const InputDecoration(
                       labelText: 'Niveau *', border: OutlineInputBorder()),
                   items: [
