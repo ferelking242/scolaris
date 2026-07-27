@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/sources/remote/staff_roles_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
@@ -65,6 +66,24 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
 
   bool get _dirty => _roles.any((r) => r.isDirty) || _pendingDeletes.isNotEmpty;
   RoleDraft? get _selected => _roles.where((r) => r.draftId == _selectedId).firstOrNull;
+
+  /// La base exige `utilisateurs.gerer_roles` pour écrire `staff_roles`/
+  /// `staff_role_permissions` (cf. 20260713) — l'écran, lui, n'était gardé
+  /// que par la case grossière `staffManage` (la même que « Personnel »),
+  /// jamais par ce droit fin. Un rôle avec `utilisateurs.creer/modifier` mais
+  /// sans `gerer_roles` pouvait ouvrir cet atelier, modifier des cases, et se
+  /// faire recaler par la base au moment d'enregistrer.
+  ///
+  /// Même repli que `_canSeeStudents()` (`users_page.dart`) : jamais bloqué
+  /// pour une école qui n'utilise pas encore les rôles fins.
+  bool _canManageRoles() {
+    final grants = ref.watch(myGrantsProvider).valueOrNull;
+    if (grants == null) return false;
+    if (grants.contains('*') || grants.contains('utilisateurs.gerer_roles')) {
+      return true;
+    }
+    return grants.isEmpty;
+  }
 
   List<RoleDraft> get _filteredRoles {
     if (_searchQuery.trim().isEmpty) return _roles;
@@ -294,6 +313,31 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
 
     final cs   = Theme.of(context).colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= 960;
+
+    if (!_canManageRoles()) {
+      final denied = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.lock_outline_rounded, color: context.cMuted, size: 40),
+            const SizedBox(height: 12),
+            Text('Accès non autorisé',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800, color: context.cInk)),
+            const SizedBox(height: 6),
+            Text(
+              'Votre rôle n\'a pas le droit « Gérer les rôles ». '
+              'Contactez la direction de votre établissement.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: context.cMuted),
+            ),
+          ]),
+        ),
+      );
+      return widget.onboarding
+          ? Scaffold(backgroundColor: cs.surface, body: SafeArea(child: denied))
+          : Container(color: context.cPage, child: denied);
+    }
 
     if (_loading) {
       return Scaffold(

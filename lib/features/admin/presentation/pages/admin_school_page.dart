@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/countries.dart';
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart';
@@ -583,7 +584,10 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _saving ? null : _save,
+                    onPressed: (_saving ||
+                            !ref.watch(canProvider('parametres.modifier')))
+                        ? null
+                        : _save,
                     icon: _saving
                         ? const SizedBox(
                             width: 16,

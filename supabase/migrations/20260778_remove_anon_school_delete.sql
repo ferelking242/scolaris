@@ -1,0 +1,43 @@
+-- ============================================================================
+--  20260778_remove_anon_school_delete.sql — Faille critique : suppression
+--  anonyme et SANS CONDITION de n'importe quelle école
+--
+--  ── La faille ────────────────────────────────────────────────────────────────
+--  policy "Inscription publique - rollback schools" : DELETE, role `anon`
+--  (la clé publique, intégrée dans le client, AUCUNE connexion requise),
+--  qual = true (aucune restriction). N'importe qui, sans compte, pouvait
+--  supprimer N'IMPORTE QUELLE école de la plateforme via un appel API direct
+--  — pas seulement celle qu'il venait de créer.
+--
+--  ── L'usage légitime qu'elle couvrait ────────────────────────────────────────
+--  `school_registration_screen.dart:525` : si une étape de l'inscription
+--  échoue APRÈS la création de l'école (email déjà utilisé, réseau…), le
+--  client tente de supprimer l'école qu'IL VIENT DE CRÉER (son propre
+--  `schoolId`, connu de lui seul) pour ne pas laisser d'enregistrement
+--  orphelin. C'est un best-effort déjà tolérant à l'échec (cf. commentaire
+--  dans le code : "si le rollback échoue aussi, on laisse l'erreur d'origine
+--  remonter").
+--
+--  ── Le correctif ────────────────────────────────────────────────────────────
+--  On retire la policy. L'accès direct anonyme à la suppression d'une table
+--  aussi centrale ne doit plus exister, point — même scopée, une policy
+--  RLS ne peut pas vérifier de façon fiable « c'est bien MOI qui viens de la
+--  créer » (l'`anon` key n'a pas d'identité). Le rollback légitime devra
+--  passer par une Edge Function `service_role` dédiée (même schéma que
+--  `create-account`/`delete-account`), qui peut, elle, vérifier que l'école
+--  est fraîchement créée et sans fondateur avant de la supprimer.
+--
+--  Impact : un échec d'inscription en cours de route laissera désormais
+--  l'école orpheline en base au lieu de la nettoyer automatiquement — déjà
+--  toléré par le code (try/catch best-effort), donc aucune régression visible
+--  pour l'utilisateur. Nettoyage manuel/edge function à prévoir séparément.
+-- ============================================================================
+
+drop policy if exists "Inscription publique - rollback schools" on public.schools;
+
+-- ============================================================================
+--  VERIFICATION :
+--    select policyname, roles, cmd from pg_policies
+--     where tablename = 'schools' order by policyname;
+--    -- attendu : plus de policy DELETE pour le rôle anon
+-- ============================================================================

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/bulletin/bulletin_math.dart';
 import '../../../../core/config/countries.dart' show academicYears;
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart' show SchoolLevel;
@@ -327,6 +328,13 @@ class _StudentDecisionList extends ConsumerWidget {
           rows[s.id] = rowFor(s.id, suggested: suggested, toClassId: defaultDest);
         }
 
+        // `eleves.passage_classe` OU `utilisateurs.modifier` — même règle OR
+        // que la policy `student_progressions_write` (cf. 20260770). La page
+        // reste accessible via le droit large `promotion` (legacy, coarse) ;
+        // c'est l'ACTION d'envoi qui exige le droit fin dédié.
+        final canDecide = ref.watch(canProvider('eleves.passage_classe')) ||
+            ref.watch(canProvider('utilisateurs.modifier'));
+
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // shrinkWrap + pas de scroll propre : la page défile déjà entière
           // (cf. commentaire dans ClassPromotionPage.build).
@@ -350,15 +358,22 @@ class _StudentDecisionList extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ActionButton(
-              label: busy ? 'Envoi…' : 'Envoyer en ré-inscription — ${students.length} élève(s)',
-              icon: Icons.move_up_rounded,
-              primary: true,
-              onTap: busy ? null : () => onApply(students, bulletins),
+          if (!canDecide)
+            Text(
+              'Vous n\'avez pas le droit « Passage de classe & sortie » : '
+              'contactez la direction pour envoyer ces décisions.',
+              style: TextStyle(fontSize: 12, color: context.cMuted),
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: ActionButton(
+                label: busy ? 'Envoi…' : 'Envoyer en ré-inscription — ${students.length} élève(s)',
+                icon: Icons.move_up_rounded,
+                primary: true,
+                onTap: busy ? null : () => onApply(students, bulletins),
+              ),
             ),
-          ),
         ]);
       },
     );

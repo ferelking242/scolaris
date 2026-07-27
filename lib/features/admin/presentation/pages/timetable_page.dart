@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -131,6 +132,11 @@ class _WeekView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final schedulesAsync = ref.watch(schedulesForClassProvider(classId));
+    // La base n'a qu'UN droit d'écriture (`emploi_du_temps.modifier`, policy
+    // `schedules_write` FOR ALL) — pas de distinction créer/supprimer côté
+    // base, donc aucune côté écran non plus : un bouton visible sans ce droit
+    // échouerait de toute façon.
+    final canWrite = ref.watch(canProvider('emploi_du_temps.modifier'));
     return schedulesAsync.when(
       loading: () => const Padding(
           padding: EdgeInsets.all(24),
@@ -143,6 +149,7 @@ class _WeekView extends ConsumerWidget {
               _DaySection(
                 day: day,
                 sessions: sessions.where((s) => s.dayOfWeek == day).toList(),
+                canWrite: canWrite,
                 onAdd: () => onAdd(day),
                 onDelete: onDelete,
                 onEdit: onEdit,
@@ -159,12 +166,14 @@ class _WeekView extends ConsumerWidget {
 class _DaySection extends StatelessWidget {
   final int day;
   final List<SbSchedule> sessions;
+  final bool canWrite;
   final VoidCallback onAdd;
   final ValueChanged<SbSchedule> onDelete;
   final ValueChanged<SbSchedule> onEdit;
   const _DaySection(
       {required this.day,
       required this.sessions,
+      required this.canWrite,
       required this.onAdd,
       required this.onDelete,
       required this.onEdit});
@@ -184,15 +193,16 @@ class _DaySection extends StatelessWidget {
             Text('${sessions.length} cours',
                 style: TextStyle(fontSize: 11, color: context.cMuted)),
             const Spacer(),
-            TextButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded, size: 16, color: _terra),
-              label: const Text('Ajouter',
-                  style: TextStyle(
-                      color: _terra,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700)),
-            ),
+            if (canWrite)
+              TextButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_rounded, size: 16, color: _terra),
+                label: const Text('Ajouter',
+                    style: TextStyle(
+                        color: _terra,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ),
           ]),
         ),
         if (sessions.isNotEmpty) Divider(height: 1, color: context.cBorder),
@@ -235,17 +245,19 @@ class _DaySection extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: context.cMuted)),
                     ]),
               ),
-              IconButton(
-                icon: Icon(Icons.edit_outlined, size: 17, color: context.cMuted),
-                tooltip: 'Modifier',
-                onPressed: () => onEdit(s),
-              ),
-              IconButton(
-                icon: Icon(Icons.delete_outline_rounded,
-                    size: 17, color: context.cMuted),
-                tooltip: 'Supprimer',
-                onPressed: () => onDelete(s),
-              ),
+              if (canWrite) ...[
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 17, color: context.cMuted),
+                  tooltip: 'Modifier',
+                  onPressed: () => onEdit(s),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded,
+                      size: 17, color: context.cMuted),
+                  tooltip: 'Supprimer',
+                  onPressed: () => onDelete(s),
+                ),
+              ],
             ]),
           ),
       ]),

@@ -115,6 +115,11 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
   Widget _invoicesPanel(
       BuildContext context, WidgetRef ref, List<SbInvoice> invoices,
       {List<Widget> headerActions = const []}) {
+    // Encaisser écrit dans `payments` (droit `enregistrer_paiement`) — PAS
+    // `creer_facture`, qui ne protège que la création d'une facture. Supprimer
+    // une facture exige `supprimer_facture`, distinct de modifier/créer.
+    final canCollect = ref.watch(canProvider('comptabilite.enregistrer_paiement'));
+    final canDeleteInvoice = ref.watch(canProvider('comptabilite.supprimer_facture'));
     return DataPanel(
       title: 'Factures ponctuelles',
       headerActions: headerActions,
@@ -134,8 +139,12 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                     _InvoiceCard(
                       invoice: inv,
                       statusPill: _statusPill(inv),
-                      onCollect: inv.isPaid ? null : () => _collect(context, ref, inv),
-                      onDelete: () => _delete(context, ref, inv),
+                      onCollect: (inv.isPaid || !canCollect)
+                          ? null
+                          : () => _collect(context, ref, inv),
+                      onDelete: canDeleteInvoice
+                          ? () => _delete(context, ref, inv)
+                          : null,
                     ),
                 ]);
               }
@@ -175,18 +184,19 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                         alignment: Alignment.centerLeft,
                         child: _statusPill(inv)),
                     Row(mainAxisSize: MainAxisSize.min, children: [
-                      if (!inv.isPaid)
+                      if (!inv.isPaid && canCollect)
                         _MiniBtn(
                           label: 'Encaisser',
                           color: _green,
                           onTap: () => _collect(context, ref, inv),
                         ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline_rounded,
-                            size: 16, color: context.cMuted),
-                        tooltip: 'Supprimer',
-                        onPressed: () => _delete(context, ref, inv),
-                      ),
+                      if (canDeleteInvoice)
+                        IconButton(
+                          icon: Icon(Icons.delete_outline_rounded,
+                              size: 16, color: context.cMuted),
+                          tooltip: 'Supprimer',
+                          onPressed: () => _delete(context, ref, inv),
+                        ),
                     ]),
                   ],
               ],
@@ -766,7 +776,7 @@ class _InvoiceCard extends StatelessWidget {
   final SbInvoice invoice;
   final Widget statusPill;
   final VoidCallback? onCollect;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
   const _InvoiceCard({
     required this.invoice,
     required this.statusPill,
@@ -817,11 +827,12 @@ class _InvoiceCard extends StatelessWidget {
           ),
           if (onCollect != null)
             _MiniBtn(label: 'Encaisser', color: _green, onTap: onCollect!),
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, size: 16, color: context.cMuted),
-            tooltip: 'Supprimer',
-            onPressed: onDelete,
-          ),
+          if (onDelete != null)
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, size: 16, color: context.cMuted),
+              tooltip: 'Supprimer',
+              onPressed: onDelete,
+            ),
         ]),
       ]),
     );

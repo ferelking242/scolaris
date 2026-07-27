@@ -55,8 +55,43 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
   String? _selectedPeriod;
   SbStudent? _bulletinStudent; // fiche bulletin inline (null = liste)
 
+  /// « notes.voir » — même règle et même repli que `_canSeeStudents()` dans
+  /// `users_page.dart` : bloqué si le rôle est sur le système fin (au moins un
+  /// grain quelconque) mais n'a pas `notes.voir` ; jamais bloqué pour une école
+  /// qui n'utilise pas encore les rôles fins (repli sur la case grossière
+  /// `grades`, qui a déjà laissé passer la page).
+  bool _canSeeGrades() {
+    final grants = ref.watch(myGrantsProvider).valueOrNull;
+    if (grants == null) return false;
+    if (grants.contains('*') || grants.contains('notes.voir')) return true;
+    return grants.isEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_canSeeGrades()) {
+      return PageScaffold(
+        title: 'Notes & Bulletins',
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.lock_outline_rounded, color: context.cMuted, size: 40),
+            const SizedBox(height: 12),
+            Text('Accès non autorisé',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800, color: context.cInk)),
+            const SizedBox(height: 6),
+            Text(
+              'Votre rôle n\'a pas le droit « Voir les notes ». '
+              'Contactez la direction de votre établissement.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: context.cMuted),
+            ),
+          ]),
+        ),
+      );
+    }
     final classesAsync = ref.watch(classesProvider);
 
     return classesAsync.when(
@@ -331,7 +366,11 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
   }
 
   Future<void> _save(List<SbStudent> students, List<GradeSlot> slots,
-      double maxScore, {required bool reasonRequired}) async {
+      double maxScore, {
+    required bool reasonRequired,
+    required bool Function(bool isNew) canWriteCell,
+    required SbGrade? Function(String studentId, GradeSlot slot) existing,
+  }) async {
     // Période validée : un motif unique couvre le lot de corrections. La base le
     // réclame de toute façon, et il part dans l'historique.
     String? reason;
@@ -344,9 +383,18 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     var n = 0;
+    var skipped = 0;
     try {
       for (final s in students) {
         for (final slot in slots) {
+          // Une note déjà en base exige `notes.modifier` ; une case encore
+          // vide exige `notes.saisir` — pas le même droit. On ignore toute
+          // case que ce rôle n'a pas le droit d'écrire, plutôt que de la
+          // renvoyer et se faire rejeter par la base au milieu du lot.
+          if (!canWriteCell(existing(s.id, slot) == null)) {
+            skipped++;
+            continue;
+          }
           final raw = _ctrls[s.id]?['${slot.type}#${slot.seq}']
                   ?.text
                   .trim()
@@ -396,7 +444,9 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
           '${widget.classObj.id}|${widget.period}'));
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text('$n note(s) enregistrée(s).'),
+        content: Text(skipped > 0
+            ? '$n note(s) enregistrée(s), $skipped ignorée(s) (droit insuffisant).'
+            : '$n note(s) enregistrée(s).'),
         backgroundColor: _green,
         behavior: SnackBarBehavior.floating,
       ));
@@ -497,11 +547,18 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     final status = period?.status ?? 'open';
     final canCorriger = ref.watch(canProvider('notes.corriger'));
     final canSaisir = ref.watch(canProvider('notes.saisir'));
-    final canEdit = status == 'open'
-        ? (canSaisir || canCorriger)
-        : status == 'validated'
-            ? canCorriger
-            : false; // verrouillée
+    final canModifier = ref.watch(canProvider('notes.modifier'));
+    // La base distingue TOUJOURS saisir (note neuve, INSERT) de modifier
+    // (note déjà en base, UPDATE) — même en période validée, où le trigger
+    // exige EN PLUS `notes.corriger` (cf. guard_grade_period : le droit de
+    // base ne suffit jamais à lui seul une fois la période gelée).
+    bool canWriteCell(bool isNew) {
+      if (status == 'locked') return false;
+      final base = isNew ? canSaisir : canModifier;
+      return status == 'validated' ? (base && canCorriger) : base;
+    }
+
+    final canEdit = canWriteCell(true) || canWriteCell(false);
     final reasonRequired = status == 'validated';
 
     return studentsAsync.when(
@@ -587,7 +644,7 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                       )),
                       for (final slot in slots)
                         DataCell(_cell(s.id, slot, existing(s.id, slot),
-                            canEdit: canEdit)),
+                            canEdit: canWriteCell(existing(s.id, slot) == null))),
                     ]),
                 ],
               ),
@@ -600,7 +657,9 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                   onPressed: _saving
                       ? null
                       : () => _save(students, slots, maxScore,
-                          reasonRequired: reasonRequired),
+                          reasonRequired: reasonRequired,
+                          canWriteCell: canWriteCell,
+                          existing: existing),
                   icon: _saving
                       ? const SizedBox(
                           width: 16,

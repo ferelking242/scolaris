@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -142,6 +143,8 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
     super.dispose();
   }
 
+  bool get _canEdit => ref.watch(canProvider('comptabilite.plans_facturation'));
+
   Future<void> _save() async {
     final schoolId = ref.read(currentSchoolIdProvider);
     final amount = double.tryParse(_amount.text.trim().replaceAll(',', '.'));
@@ -264,7 +267,7 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
             ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: _saving ? null : _save,
+            onPressed: (_saving || !_canEdit) ? null : _save,
             icon: _saving
                 ? const SizedBox(width: 14, height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

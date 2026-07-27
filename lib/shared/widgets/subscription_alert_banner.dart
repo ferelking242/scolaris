@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/permissions/platform_admin.dart';
+import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
 
@@ -17,6 +19,9 @@ class SubscriptionAlertBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authSessionProvider);
+    if (PlatformAdmins.isPlatformAdmin(user)) return const SizedBox.shrink();
+
     final sub = ref.watch(subscriptionProvider).valueOrNull;
     if (sub == null) return const SizedBox.shrink();
 

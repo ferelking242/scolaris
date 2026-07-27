@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/pdf/reports_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -36,6 +37,12 @@ class AdminReportsPage extends ConsumerWidget {
     final classes = classesAsync.valueOrNull ?? const [];
     final users = usersAsync.valueOrNull ?? const [];
     final invoices = invoicesAsync.valueOrNull ?? const [];
+    // `invoices_read` (base) filtre silencieusement les lignes sans
+    // `comptabilite.voir_paiements` — 0 ligne, pas d'erreur. Sans ce signal,
+    // "Encaissé : 0 F" est indiscernable d'une école qui n'a vraiment aucune
+    // facture.
+    final financeHidden =
+        invoices.isEmpty && !ref.watch(canProvider('comptabilite.voir_paiements'));
 
     // ── Effectifs par classe ────────────────────────────────────────────────
     final byClass = <String, int>{};
@@ -218,7 +225,24 @@ class AdminReportsPage extends ConsumerWidget {
         // ── Finances ──────────────────────────────────────────────────────
         DataPanel(
           title: 'Finances (scolarité)',
-          child: Wrap(spacing: 12, runSpacing: 12, children: [
+          child: financeHidden
+              ? Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Row(children: [
+                    Icon(Icons.visibility_off_outlined,
+                        size: 16, color: context.cMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Chiffres masqués : votre rôle n\'a pas le droit '
+                        '« Voir les paiements ». Ce n\'est pas forcément que '
+                        'l\'école n\'a aucune facture.',
+                        style: TextStyle(fontSize: 12, color: context.cMuted),
+                      ),
+                    ),
+                  ]),
+                )
+              : Wrap(spacing: 12, runSpacing: 12, children: [
             _Tile(
                 label: 'Encaissé',
                 value: '${fmt.format(collected)} F',

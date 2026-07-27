@@ -34,7 +34,10 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
     final studentsAsync = ref.watch(studentsProvider);
     final accountsAsync = ref.watch(tuitionAccountsProvider);
     final classesAsync = ref.watch(classesProvider);
-    final canCollect = ref.watch(canProvider('comptabilite.creer_facture'));
+    // Encaisser écrit dans `payments` : le droit fin dédié est
+    // `enregistrer_paiement`, pas `creer_facture` (qui protège la création
+    // d'une facture, une action différente).
+    final canCollect = ref.watch(canProvider('comptabilite.enregistrer_paiement'));
 
     return PageScaffold(
       title: 'Comptes scolarité',

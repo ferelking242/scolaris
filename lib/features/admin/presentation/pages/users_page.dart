@@ -70,6 +70,53 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   // Fiche élève inline (id de l'utilisateur consulté).
   String? _viewId;
 
+  // ── Droits fins « Élèves & familles » ─────────────────────────────────────
+  //  La base accepte `eleves.X` OU `utilisateurs.X` (cf. policies users_insert/
+  //  update/delete) pour une fiche élève/parent — le personnel peut recevoir le
+  //  droit via l'un ou l'autre module. L'écran ne testait jusqu'ici QUE
+  //  `utilisateurs.X` : un rôle avec seulement `eleves.ajouter` par ex. voyait
+  //  la base accepter l'action mais l'écran cachait le bouton. On reflète donc
+  //  ici la même règle OR que le serveur applique déjà.
+  bool _canAddStudent() =>
+      ref.watch(canProvider('eleves.ajouter')) ||
+      ref.watch(canProvider('utilisateurs.creer'));
+
+  bool _canEditUser(SbUser u) =>
+      ref.watch(canProvider('utilisateurs.modifier')) ||
+      ((u.role == 'student' || u.role == 'parent') &&
+          ref.watch(canProvider('eleves.modifier')));
+
+  bool _canDeleteUser(SbUser u) =>
+      ref.watch(canProvider('utilisateurs.supprimer')) ||
+      ((u.role == 'student' || u.role == 'parent') &&
+          ref.watch(canProvider('eleves.supprimer')));
+
+  /// Ouvrir la fiche détaillée (dossier complet) d'un élève/parent.
+  bool _canOpenDossier(SbUser u) {
+    if (u.role != 'student' && u.role != 'parent') return false;
+    return ref.watch(canProvider('eleves.dossier_complet')) ||
+        ref.watch(canProvider('utilisateurs.modifier'));
+  }
+
+  /// « eleves.voir » — sans ce droit fin, la liste des élèves/parents ne
+  /// doit PAS s'afficher, même si le rôle a accès à la page (coarse
+  /// `students`, cf. legacy_permissions_of_role qui l'active dès qu'UNE
+  /// sous-permission « eleves.* » est cochée, `.voir` ou une autre).
+  ///
+  /// Repli : une école qui n'utilise pas encore le système de rôles fins
+  /// (aucun `staff_role_id`, uniquement l'ancien `permissions` plat) n'a
+  /// AUCUN grain fin du tout — `myGrantsProvider` renvoie alors un ensemble
+  /// vide. Bloquer sur ce cas casserait l'accès de toutes ces écoles. On ne
+  /// bloque donc que si le rôle EST sur le système fin (au moins un grain,
+  /// peu importe lequel) mais n'a explicitement pas `eleves.voir`.
+  bool _canSeeStudents() {
+    final grants = ref.watch(myGrantsProvider).valueOrNull;
+    if (grants == null) return false; // droits pas encore chargés
+    if (grants.contains('*') || grants.contains('eleves.voir')) return true;
+    final onFineRbac = grants.isNotEmpty;
+    return !onFineRbac;
+  }
+
   Future<void> _openEnrollment() async {
     final schoolId = ref.read(authSessionProvider)?.schoolId;
     if (schoolId == null) {
@@ -268,11 +315,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
         // Actions.
         Wrap(spacing: 8, runSpacing: 8, children: [
-          if (ref.watch(canProvider('utilisateurs.modifier')))
+          if (_canEditUser(u))
             ActionButton(
                 label: 'Modifier', icon: Icons.edit_outlined,
                 onTap: () => _editUser(u)),
-          if (canEnable && ref.watch(canProvider('utilisateurs.modifier')))
+          if (canEnable && _canEditUser(u))
             ActionButton(
                 label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
                 onTap: () => _enableAccess(u)),
@@ -362,7 +409,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         TuitionAccountCard(
           studentId: u.id,
           studentName: u.fullName,
-          canCollect: ref.watch(canProvider('comptabilite.creer_facture')),
+          canCollect: ref.watch(canProvider('comptabilite.enregistrer_paiement')),
         ),
       ]),
     );
@@ -411,11 +458,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
         // Actions (mêmes droits fins que la fiche élève).
         Wrap(spacing: 8, runSpacing: 8, children: [
-          if (ref.watch(canProvider('utilisateurs.modifier')))
+          if (_canEditUser(u))
             ActionButton(
                 label: 'Modifier', icon: Icons.edit_outlined,
                 onTap: () => _editUser(u)),
-          if (canEnable && ref.watch(canProvider('utilisateurs.modifier')))
+          if (canEnable && _canEditUser(u))
             ActionButton(
                 label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
                 onTap: () => _enableAccess(u)),
@@ -613,6 +660,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     ref.invalidate(usersProvider);
     ref.invalidate(studentsProvider);
     ref.invalidate(teachersProvider);
+    ref.invalidate(coursesForSchoolProvider);
+    ref.invalidate(coursesForClassProvider);
+    ref.invalidate(teachersWithoutClassProvider);
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
       content: Text('Compte "${u.fullName}" supprimé.'),
@@ -794,6 +844,29 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (everyone) {
+        if (_isFamilies && !_canSeeStudents()) {
+          return PageScaffold(
+            title: pageTitle,
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(32),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.lock_outline_rounded, color: context.cMuted, size: 40),
+                const SizedBox(height: 12),
+                Text('Accès non autorisé',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w800, color: context.cInk)),
+                const SizedBox(height: 6),
+                Text(
+                  'Votre rôle n\'a pas le droit « Voir les élèves ». '
+                  'Contactez la direction de votre établissement.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted),
+                ),
+              ]),
+            ),
+          );
+        }
         final allUsers = everyone.where((u) => _inScope(u.role)).toList();
         // Fiche inline : remplace la liste par le profil (élève OU parent).
         if (_viewId != null) {
@@ -858,13 +931,13 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           actions: [
             // Chaque écran n'offre que le geste qui lui correspond : on
             // n'INVITE pas un élève, on l'INSCRIT.
-            if (_isFamilies)
+            if (_isFamilies && _canAddStudent())
               ActionButton(
                   label: 'Inscrire un élève',
                   icon: Icons.person_add_alt_1_rounded,
                   primary: true,
                   onTap: _openEnrollment)
-            else if (ref.watch(canProvider('utilisateurs.creer')))
+            else if (!_isFamilies && ref.watch(canProvider('utilisateurs.creer')))
               ActionButton(
                   label: 'Inviter',
                   icon: Icons.send_outlined,
@@ -915,7 +988,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                             _UserCard(
                               user: u,
                               familiesEnabled: familiesEnabled,
-                              onOpen: (u.role == 'student' || u.role == 'parent')
+                              onOpen: _canOpenDossier(u)
                                   ? () => setState(() => _viewId = u.id)
                                   : null,
                               onEnableAccess: () => _enableAccess(u),
@@ -941,9 +1014,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                         for (final u in users)
                           [
                             Builder(builder: (_) {
-                              // Élèves ET parents ouvrent une fiche détaillée.
-                              final openable =
-                                  u.role == 'student' || u.role == 'parent';
+                              // Élèves ET parents ouvrent une fiche détaillée,
+                              // si le rôle a le droit `eleves.dossier_complet`
+                              // (ou `utilisateurs.modifier`, en repli).
+                              final openable = _canOpenDossier(u);
                               return MouseRegion(
                                 cursor: openable
                                     ? SystemMouseCursors.click
@@ -1008,10 +1082,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                     icon: Icons.vpn_key_outlined,
                                     onTap: () => _enableAccess(u)),
                               // Les boutons suivent les droits FINS du rôle :
-                              // suspendre un compte ou changer son rôle exige
-                              // `utilisateurs.gerer_roles` — la base le refuse
-                              // sinon (cf. guard_user_privileges).
-                              if (ref.watch(canProvider('utilisateurs.modifier'))) ...[
+                              // `eleves.X` OU `utilisateurs.X` pour un élève/
+                              // parent (même règle OR que la base) ; suspendre
+                              // un compte ou changer son rôle exige toujours
+                              // `utilisateurs.gerer_roles` (cf. guard_user_privileges).
+                              if (_canEditUser(u)) ...[
                                 const SizedBox(width: 6),
                                 _IconBtn(
                                     icon: Icons.edit_outlined,
@@ -1029,8 +1104,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                               // garde son dossier (notes, bulletins), juste
                               // hors effectifs actifs. C'est le chemin normal
                               // pour un transfert, un diplôme ou un abandon.
-                              if (u.role == 'student' &&
-                                  ref.watch(canProvider('utilisateurs.modifier'))) ...[
+                              if (u.role == 'student' && _canEditUser(u)) ...[
                                 const SizedBox(width: 6),
                                 _IconBtn(
                                     icon: u.hasExited
@@ -1041,7 +1115,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                         ? _reactivateStudent(u)
                                         : _withdrawStudent(u)),
                               ],
-                              if (ref.watch(canProvider('utilisateurs.supprimer'))) ...[
+                              if (_canDeleteUser(u)) ...[
                                 const SizedBox(width: 6),
                                 _IconBtn(
                                     icon: Icons.delete_outline_rounded,
@@ -1616,9 +1690,14 @@ class _UserCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final u = user;
-    final canModify = ref.watch(canProvider('utilisateurs.modifier'));
+    final isFamily = u.role == 'student' || u.role == 'parent';
+    // `eleves.X` OU `utilisateurs.X` pour un élève/parent — même règle OR que
+    // les policies RLS de `users` (cf. 20260724_lock_users.sql).
+    final canModify = ref.watch(canProvider('utilisateurs.modifier')) ||
+        (isFamily && ref.watch(canProvider('eleves.modifier')));
     final canManageRoles = ref.watch(canProvider('utilisateurs.gerer_roles'));
-    final canDelete = ref.watch(canProvider('utilisateurs.supprimer'));
+    final canDelete = ref.watch(canProvider('utilisateurs.supprimer')) ||
+        (isFamily && ref.watch(canProvider('eleves.supprimer')));
     final canEnable = familiesEnabled &&
         u.authUid == null &&
         (u.role == 'student' || u.role == 'parent');
