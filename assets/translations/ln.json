@@ -168,5 +168,43 @@
     },
     "nav_tab": "Barre ya baonglet",
     "nav_tab_sub": "Lakisa barre ya navigation ya baonglet"
+  },
+  "profile": {
+    "title": "Profil na ngai",
+    "default_user": "Mosaleli",
+    "coordinates": "Bansango ya kokutana",
+    "email_label": "Email (bilembo ya kokɔta)",
+    "not_provided": "Etyami te",
+    "phone": "Telefone",
+    "school_role": "Sukulu & Mokumba",
+    "role": "Mokumba",
+    "school": "Sukulu",
+    "member_since": "Azali na kati banda",
+    "access": "Ndingisa na Ngai",
+    "edit_profile": "Bongisa profil",
+    "password_security": "Mot ya sekele & Bokengi",
+    "password": {
+      "title": "Bongola mot ya sekele",
+      "new": "Mot ya sekele ya sika",
+      "confirm": "Kitisa mot ya sekele",
+      "too_short": "Mot ya sekele esengeli kozala na mikapo 8 ata moke.",
+      "mismatch": "Mimot ya sekele ekokani te.",
+      "success": "Mot ya sekele ebongwani malamu.",
+      "error_generic": "Likambo moko esalemi. Meka lisusu.",
+      "submit": "Bongola mot ya sekele"
+    },
+    "edit": {
+      "title": "Bongisa profil na ngai",
+      "full_name": "Nkombo mobimba",
+      "name_required": "Nkombo esengeli.",
+      "update_success": "Profil ebongwani",
+      "update_error": "Elongi te: {error}",
+      "password_hint": "Mpo na kobongola mot ya sekele na yo, salela \"Mot ya sekele & Bokengi\" na nse ya profil na yo."
+    },
+    "month": {
+      "1": "sanza ya yambo", "2": "sanza ya mibale", "3": "sanza ya misato", "4": "sanza ya minei",
+      "5": "sanza ya mitano", "6": "sanza ya motoba", "7": "sanza ya sambo", "8": "sanza ya mwambe",
+      "9": "sanza ya libwa", "10": "sanza ya zomi", "11": "sanza ya zomi na moko", "12": "sanza ya zomi na mibale"
+    }
   }
 }

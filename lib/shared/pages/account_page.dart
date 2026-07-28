@@ -5,22 +5,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/localization/locales.dart';
 import '../../core/permissions/staff_permissions.dart';
+import '../../core/platform/platform_utils.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
+import '../widgets/page_scaffold.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
 const _gold   = ScolarisPalette.gold;
 const _green  = ScolarisPalette.forestGreen;
-
-const _months = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
-];
 
 String _initialsOf(String name) => name
     .trim()
@@ -49,52 +46,120 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         );
   }
 
-  void _openEdit(AppUser user) {
+  bool get _isWide =>
+      PlatformUtils.isLargeFormFactor(MediaQuery.sizeOf(context).width);
+
+  /// Bottom sheet sur mobile, dialogue centré sur desktop — même contenu.
+  void _openResponsive(Widget content) {
+    if (_isWide) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: content,
+          ),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _EditProfileSheet(
+      builder: (_) => content,
+    );
+  }
+
+  void _openEdit(AppUser user) => _openResponsive(_EditProfileSheet(
         user: user,
         onSave: (name, phone) => _saveProfile(user, name, phone),
-      ),
-    );
-  }
+      ));
 
-  void _openPasswordSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => const _PasswordSheet(),
-    );
-  }
+  void _openPasswordSheet() => _openResponsive(const _PasswordSheet());
 
-  void _openLanguageSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => const _LanguageSheet(),
-    );
-  }
+  void _openLanguageSheet() => _openResponsive(const _LanguageSheet());
 
-  void _openAppearanceSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => const _AppearanceSheet(),
-    );
-  }
+  void _openAppearanceSheet() => _openResponsive(const _AppearanceSheet());
+
+  List<Widget> _coordonneesTiles(AppUser user, bool canEdit) => [
+        _InfoTile(
+          icon: Icons.mail_outline_rounded, color: _terra,
+          label: 'profile.email_label'.tr(),
+          value: user.email.isEmpty ? '—' : user.email,
+        ),
+        const SizedBox(height: 6),
+        _InfoTile(
+          icon: Icons.phone_outlined, color: _orange,
+          label: 'profile.phone'.tr(),
+          value: (user.phone == null || user.phone!.isEmpty)
+              ? 'profile.not_provided'.tr()
+              : user.phone!,
+          onEdit: canEdit ? () => _openEdit(user) : null,
+        ),
+      ];
+
+  List<Widget> _etablissementTiles(AppUser user, String schoolLine) => [
+        _InfoTile(
+          icon: Icons.badge_outlined, color: _green,
+          label: 'profile.role'.tr(), value: user.displayRole,
+        ),
+        if (schoolLine.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _InfoTile(
+            icon: Icons.apartment_rounded, color: Colors.blueGrey,
+            label: 'profile.school'.tr(), value: schoolLine,
+          ),
+        ],
+        if (user.createdAt != null) ...[
+          const SizedBox(height: 6),
+          _InfoTile(
+            icon: Icons.calendar_today_outlined, color: const Color(0xFF0D47A1),
+            label: 'profile.member_since'.tr(),
+            value: '${'profile.month.${user.createdAt!.month}'.tr()} ${user.createdAt!.year}',
+          ),
+        ],
+      ];
+
+  List<Widget> _parametresTiles(BuildContext context) => [
+        _ActionTile(
+          icon: Icons.lock_outline_rounded, color: _orange,
+          label: 'profile.password_security'.tr(),
+          onTap: _openPasswordSheet,
+        ),
+        const SizedBox(height: 6),
+        _ActionTile(
+          icon: Icons.language_outlined, color: const Color(0xFF0D47A1),
+          label: 'settings.lang.title'.tr(),
+          value: AppLocales.label(context.locale),
+          onTap: _openLanguageSheet,
+        ),
+        const SizedBox(height: 6),
+        _ActionTile(
+          icon: Icons.palette_outlined, color: _green,
+          label: 'settings.appearance'.tr(),
+          onTap: _openAppearanceSheet,
+        ),
+      ];
+
+  Widget _accessWrap(BuildContext context, AppUser user) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
+        ),
+        child: Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final key in user.permissions)
+            if (StaffPermissions.byKey(key) != null)
+              _AccessChip(perm: StaffPermissions.byKey(key)!),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +174,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
       );
     }
 
-    final name = user.fullName.isEmpty ? 'Utilisateur' : user.fullName;
+    final name = user.fullName.isEmpty ? 'profile.default_user'.tr() : user.fullName;
     final isStaff      = user.role == UserRole.staff;
     final isPrivileged = isStaff || user.role == UserRole.teacher;
     final showAccess   = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty;
@@ -122,6 +187,19 @@ class _AccountPageState extends ConsumerState<AccountPage> {
       if (school?.city != null && school!.city!.isNotEmpty) school.city,
     ].join(' · ');
 
+    return LayoutBuilder(builder: (context, constraints) {
+      if (PlatformUtils.isLargeFormFactor(constraints.maxWidth)) {
+        return _buildDesktop(context, user, name, isPrivileged, canEdit,
+            showAccess, schoolLine);
+      }
+      return _buildMobile(context, user, name, isPrivileged, canEdit,
+          showAccess, schoolLine);
+    });
+  }
+
+  Widget _buildMobile(BuildContext context, AppUser user, String name,
+      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.surface,
       body: SafeArea(
@@ -131,116 +209,163 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           // le bandeau dégradé (et disparaissaient avec le scroll).
           _TopBar(canEdit: canEdit, onEdit: () => _openEdit(user)),
           Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                // Sur desktop/tablette large, éviter que la page s'étire sur
-                // toute la largeur de la fenêtre.
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _Cover(
-                      name: name,
-                      roleLabel: user.displayRole,
-                      initials: _initialsOf(name),
-                      isPrivileged: isPrivileged,
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _SectionTitle('Coordonnées', Icons.contact_mail_outlined, _terra),
-                        const SizedBox(height: 8),
-                        _InfoTile(
-                          icon: Icons.mail_outline_rounded, color: _terra,
-                          label: 'Email (identifiant de connexion)',
-                          value: user.email.isEmpty ? '—' : user.email,
-                        ),
-                        const SizedBox(height: 6),
-                        _InfoTile(
-                          icon: Icons.phone_outlined, color: _orange,
-                          label: 'Téléphone',
-                          value: (user.phone == null || user.phone!.isEmpty)
-                              ? 'Non renseigné'
-                              : user.phone!,
-                          onEdit: canEdit ? () => _openEdit(user) : null,
-                        ),
-                        const SizedBox(height: 18),
-
-                        _SectionTitle('Établissement & rôle', Icons.school_outlined, _gold),
-                        const SizedBox(height: 8),
-                        _InfoTile(
-                          icon: Icons.badge_outlined, color: _green,
-                          label: 'Rôle', value: user.displayRole,
-                        ),
-                        if (schoolLine.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          _InfoTile(
-                            icon: Icons.apartment_rounded, color: Colors.blueGrey,
-                            label: 'École', value: schoolLine,
-                          ),
-                        ],
-                        if (user.createdAt != null) ...[
-                          const SizedBox(height: 6),
-                          _InfoTile(
-                            icon: Icons.calendar_today_outlined, color: const Color(0xFF0D47A1),
-                            label: 'Membre depuis',
-                            value: '${_months[user.createdAt!.month - 1]} ${user.createdAt!.year}',
-                          ),
-                        ],
-
-                        const SizedBox(height: 18),
-                        _SectionTitle('Paramètres', Icons.tune_rounded, _orange),
-                        const SizedBox(height: 8),
-                        _ActionTile(
-                          icon: Icons.lock_outline_rounded, color: _orange,
-                          label: 'Mot de passe & Sécurité',
-                          onTap: _openPasswordSheet,
-                        ),
-                        const SizedBox(height: 6),
-                        _ActionTile(
-                          icon: Icons.language_outlined, color: const Color(0xFF0D47A1),
-                          label: 'Langue de l\'interface',
-                          value: AppLocales.label(context.locale),
-                          onTap: _openLanguageSheet,
-                        ),
-                        const SizedBox(height: 6),
-                        _ActionTile(
-                          icon: Icons.palette_outlined, color: _green,
-                          label: 'Apparence',
-                          onTap: _openAppearanceSheet,
-                        ),
-
-                        if (showAccess) ...[
-                          const SizedBox(height: 18),
-                          _SectionTitle('Mes accès', Icons.verified_user_outlined, _terra),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainer,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: Theme.of(context).colorScheme.outline.withOpacity(.3)),
-                            ),
-                            child: Wrap(spacing: 8, runSpacing: 8, children: [
-                              for (final key in user.permissions)
-                                if (StaffPermissions.byKey(key) != null)
-                                  _AccessChip(perm: StaffPermissions.byKey(key)!),
-                            ]),
-                          ),
-                        ],
-                        const SizedBox(height: 32),
-                      ]),
-                    ),
-                  ],
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _Cover(
+                  name: name,
+                  roleLabel: user.displayRole,
+                  initials: _initialsOf(name),
+                  isPrivileged: isPrivileged,
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _SectionTitle('profile.coordinates'.tr(), Icons.contact_mail_outlined, _terra),
+                    const SizedBox(height: 8),
+                    ..._coordonneesTiles(user, canEdit),
+                    const SizedBox(height: 18),
+
+                    _SectionTitle('profile.school_role'.tr(), Icons.school_outlined, _gold),
+                    const SizedBox(height: 8),
+                    ..._etablissementTiles(user, schoolLine),
+
+                    const SizedBox(height: 18),
+                    _SectionTitle('common.settings'.tr(), Icons.tune_rounded, _orange),
+                    const SizedBox(height: 8),
+                    ..._parametresTiles(context),
+
+                    if (showAccess) ...[
+                      const SizedBox(height: 18),
+                      _SectionTitle('profile.access'.tr(), Icons.verified_user_outlined, _terra),
+                      const SizedBox(height: 8),
+                      _accessWrap(context, user),
+                    ],
+                    const SizedBox(height: 32),
+                  ]),
+                ),
+              ],
             ),
           ),
         ]),
       ),
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, AppUser user, String name,
+      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine) {
+    final cs = Theme.of(context).colorScheme;
+    return PageScaffold(
+      title: 'profile.title'.tr(),
+      subtitle: user.displayRole,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final twoCols = constraints.maxWidth >= 1100;
+        final rightColumn = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: DataPanel(
+                title: 'profile.coordinates'.tr(),
+                child: Column(children: _coordonneesTiles(user, canEdit)),
+              ),
+            ),
+            if (twoCols) ...[
+              const SizedBox(width: 16),
+              Expanded(
+                child: DataPanel(
+                  title: 'profile.school_role'.tr(),
+                  child: Column(children: _etablissementTiles(user, schoolLine)),
+                ),
+              ),
+            ],
+          ]),
+          if (!twoCols) ...[
+            const SizedBox(height: 16),
+            DataPanel(
+              title: 'profile.school_role'.tr(),
+              child: Column(children: _etablissementTiles(user, schoolLine)),
+            ),
+          ],
+          const SizedBox(height: 16),
+          DataPanel(
+            title: 'common.settings'.tr(),
+            child: Column(children: _parametresTiles(context)),
+          ),
+          if (showAccess) ...[
+            const SizedBox(height: 16),
+            DataPanel(
+              title: 'profile.access'.tr(),
+              child: _accessWrap(context, user),
+            ),
+          ],
+        ]);
+
+        final profileCard = DataPanel(
+          child: Column(children: [
+            Container(
+              width: 84, height: 84,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [cs.primary, Color.lerp(cs.primary, Colors.white, .25)!],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: cs.primary.withOpacity(.3),
+                    blurRadius: 14, offset: const Offset(0, 5))],
+              ),
+              child: Center(child: Text(_initialsOf(name), style: const TextStyle(
+                  color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900))),
+            ),
+            const SizedBox(height: 14),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(child: Text(name,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800),
+                  maxLines: 2, overflow: TextOverflow.ellipsis)),
+              if (isPrivileged) ...[
+                const SizedBox(width: 5),
+                const Icon(Icons.verified_rounded, color: _gold, size: 16),
+              ],
+            ]),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: cs.primary.withOpacity(.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.primary.withOpacity(.25)),
+              ),
+              child: Text(user.displayRole.toUpperCase(), style: TextStyle(
+                  color: cs.primary, fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 1)),
+            ),
+            if (canEdit) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ActionButton(
+                  label: 'profile.edit_profile'.tr(),
+                  icon: Icons.edit_outlined,
+                  onTap: () => _openEdit(user),
+                ),
+              ),
+            ],
+          ]),
+        );
+
+        if (constraints.maxWidth < 760) {
+          // Assez large pour le shell desktop mais étroit (panneau réduit) :
+          // empile la carte profil au-dessus des sections plutôt qu'à côté.
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            profileCard,
+            const SizedBox(height: 16),
+            rightColumn,
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 260, child: profileCard),
+          const SizedBox(width: 16),
+          Expanded(child: rightColumn),
+        ]);
+      }),
     );
   }
 }
@@ -282,10 +407,10 @@ class _TopBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: _terra.withOpacity(.25)),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.edit_outlined, color: _terra, size: 14),
-                  SizedBox(width: 5),
-                  Text('Modifier', style: TextStyle(
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.edit_outlined, color: _terra, size: 14),
+                  const SizedBox(width: 5),
+                  Text('common.edit'.tr(), style: const TextStyle(
                       color: _terra, fontSize: 12, fontWeight: FontWeight.w600)),
                 ]),
               ),
@@ -543,11 +668,11 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   Future<void> _submit() async {
     final newPwd = _newPwd.text.trim();
     if (newPwd.length < 8) {
-      setState(() => _error = 'Le mot de passe doit contenir au moins 8 caractères.');
+      setState(() => _error = 'profile.password.too_short'.tr());
       return;
     }
     if (newPwd != _confirmPwd.text.trim()) {
-      setState(() => _error = 'Les mots de passe ne correspondent pas.');
+      setState(() => _error = 'profile.password.mismatch'.tr());
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -556,15 +681,15 @@ class _PasswordSheetState extends State<_PasswordSheet> {
           .updateUser(UserAttributes(password: newPwd));
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(
-        content: Text('Mot de passe modifié avec succès.'),
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        content: Text('profile.password.success'.tr()),
         backgroundColor: _green,
         behavior: SnackBarBehavior.floating,
       ));
     } on AuthException catch (e) {
       setState(() { _loading = false; _error = e.message; });
     } catch (e) {
-      setState(() { _loading = false; _error = 'Une erreur est survenue. Réessayez.'; });
+      setState(() { _loading = false; _error = 'profile.password.error_generic'.tr(); });
     }
   }
 
@@ -578,7 +703,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('Changer le mot de passe', style: TextStyle(
+          Text('profile.password.title'.tr(), style: TextStyle(
               color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
           const Spacer(),
           MouseRegion(
@@ -594,7 +719,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
           controller: _newPwd,
           obscureText: _obscureNew,
           decoration: InputDecoration(
-            labelText: 'Nouveau mot de passe',
+            labelText: 'profile.password.new'.tr(),
             prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
               icon: Icon(_obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -608,7 +733,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
           controller: _confirmPwd,
           obscureText: _obscureConfirm,
           decoration: InputDecoration(
-            labelText: 'Confirmer le mot de passe',
+            labelText: 'profile.password.confirm'.tr(),
             prefixIcon: const Icon(Icons.lock_outline_rounded),
             suffixIcon: IconButton(
               icon: Icon(_obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -633,7 +758,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             child: _loading
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Modifier le mot de passe', style: TextStyle(
+                : Text('profile.password.submit'.tr(), style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),
@@ -653,7 +778,7 @@ class _LanguageSheet extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Langue de l\'interface', style: TextStyle(
+        Text('settings.lang.title'.tr(), style: TextStyle(
             color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
         for (final l in AppLocales.supported)
@@ -714,7 +839,7 @@ class _AppearanceSheet extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Apparence', style: TextStyle(
+        Text('settings.appearance'.tr(), style: TextStyle(
             color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
         Wrap(spacing: 10, runSpacing: 10, children: [
@@ -798,7 +923,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
-      setState(() => _error = 'Le nom est requis.');
+      setState(() => _error = 'profile.edit.name_required'.tr());
       return;
     }
     setState(() { _saving = true; _error = null; });
@@ -807,14 +932,14 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     try {
       await widget.onSave(_name.text.trim(), _phone.text.trim());
       navigator.pop();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Profil mis à jour'),
+      messenger.showSnackBar(SnackBar(
+        content: Text('profile.edit.update_success'.tr()),
         backgroundColor: _green,
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
       if (mounted) setState(() {
-        _error = 'Échec : $e';
+        _error = 'profile.edit.update_error'.tr(namedArgs: {'error': '$e'});
         _saving = false;
       });
     }
@@ -830,7 +955,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('Modifier mon profil', style: TextStyle(
+          Text('profile.edit.title'.tr(), style: TextStyle(
               color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800)),
           const Spacer(),
           MouseRegion(
@@ -845,7 +970,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         TextField(
           controller: _name,
           decoration: InputDecoration(
-            labelText: 'Nom complet',
+            labelText: 'profile.edit.full_name'.tr(),
             prefixIcon: const Icon(Icons.person_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -855,15 +980,14 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           controller: _phone,
           keyboardType: TextInputType.phone,
           decoration: InputDecoration(
-            labelText: 'Téléphone',
+            labelText: 'profile.phone'.tr(),
             prefixIcon: const Icon(Icons.phone_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         const SizedBox(height: 6),
         Text(
-          'Pour changer votre mot de passe, utilisez '
-          '« Mot de passe & Sécurité » plus bas sur votre profil.',
+          'profile.edit.password_hint'.tr(),
           style: TextStyle(
               color: cs.onSurface.withOpacity(.5), fontSize: 11),
         ),
@@ -883,7 +1007,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             child: _saving
                 ? const SizedBox(width: 20, height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Enregistrer', style: TextStyle(
+                : Text('common.save'.tr(), style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),

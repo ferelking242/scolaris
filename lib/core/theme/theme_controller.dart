@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
+import '../services/offline_storage.dart';
 
 /// Theme state: dynamic accent color (per-school branding).
 /// L'application est en thème clair uniquement — le mode sombre a été retiré.
@@ -15,12 +16,21 @@ class ThemeState {
 }
 
 class ThemeController extends StateNotifier<ThemeState> {
-  ThemeController()
-      : super(const ThemeState(
-          accent: Color(AppConfig.defaultAccentArgb),
-        ));
+  ThemeController() : super(_load());
 
-  void setAccent(Color color) => state = state.copyWith(accent: color);
+  static const _key = 'theme_accent_argb';
+
+  static ThemeState _load() {
+    final saved = OfflineStorage.settings.get(_key) as int?;
+    return ThemeState(
+      accent: Color(saved ?? AppConfig.defaultAccentArgb),
+    );
+  }
+
+  void setAccent(Color color) {
+    OfflineStorage.settings.put(_key, color.toARGB32());
+    state = state.copyWith(accent: color);
+  }
 }
 
 final themeControllerProvider =

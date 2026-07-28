@@ -168,5 +168,42 @@
     },
     "nav_tab": "Tab bar",
     "nav_tab_sub": "Show navigation tab bar"
+  },
+  "profile": {
+    "title": "My profile",
+    "default_user": "User",
+    "coordinates": "Contact details",
+    "email_label": "Email (login)",
+    "not_provided": "Not provided",
+    "phone": "Phone",
+    "school_role": "School & role",
+    "role": "Role",
+    "school": "School",
+    "member_since": "Member since",
+    "access": "My access",
+    "edit_profile": "Edit profile",
+    "password_security": "Password & Security",
+    "password": {
+      "title": "Change password",
+      "new": "New password",
+      "confirm": "Confirm password",
+      "too_short": "Password must be at least 8 characters.",
+      "mismatch": "Passwords do not match.",
+      "success": "Password changed successfully.",
+      "error_generic": "Something went wrong. Please try again.",
+      "submit": "Change password"
+    },
+    "edit": {
+      "title": "Edit my profile",
+      "full_name": "Full name",
+      "name_required": "Name is required.",
+      "update_success": "Profile updated",
+      "update_error": "Failed: {error}",
+      "password_hint": "To change your password, use \"Password & Security\" further down your profile."
+    },
+    "month": {
+      "1": "January", "2": "February", "3": "March", "4": "April", "5": "May", "6": "June",
+      "7": "July", "8": "August", "9": "September", "10": "October", "11": "November", "12": "December"
+    }
   }
 }

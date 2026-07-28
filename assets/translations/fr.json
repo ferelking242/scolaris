@@ -168,5 +168,42 @@
     },
     "nav_tab": "Barre d'onglets",
     "nav_tab_sub": "Afficher la barre de navigation par onglets"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "default_user": "Utilisateur",
+    "coordinates": "Coordonnées",
+    "email_label": "Email (identifiant de connexion)",
+    "not_provided": "Non renseigné",
+    "phone": "Téléphone",
+    "school_role": "Établissement & rôle",
+    "role": "Rôle",
+    "school": "École",
+    "member_since": "Membre depuis",
+    "access": "Mes accès",
+    "edit_profile": "Modifier le profil",
+    "password_security": "Mot de passe & Sécurité",
+    "password": {
+      "title": "Changer le mot de passe",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "too_short": "Le mot de passe doit contenir au moins 8 caractères.",
+      "mismatch": "Les mots de passe ne correspondent pas.",
+      "success": "Mot de passe modifié avec succès.",
+      "error_generic": "Une erreur est survenue. Réessayez.",
+      "submit": "Modifier le mot de passe"
+    },
+    "edit": {
+      "title": "Modifier mon profil",
+      "full_name": "Nom complet",
+      "name_required": "Le nom est requis.",
+      "update_success": "Profil mis à jour",
+      "update_error": "Échec : {error}",
+      "password_hint": "Pour changer votre mot de passe, utilisez « Mot de passe & Sécurité » plus bas sur votre profil."
+    },
+    "month": {
+      "1": "janvier", "2": "février", "3": "mars", "4": "avril", "5": "mai", "6": "juin",
+      "7": "juillet", "8": "août", "9": "septembre", "10": "octobre", "11": "novembre", "12": "décembre"
+    }
   }
 }
