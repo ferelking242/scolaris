@@ -19,15 +19,10 @@ import '../widgets/responsive_role_shell.dart';
 import '../widgets/subscription_alert_banner.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
-const _terra     = ScolarisPalette.terracotta;
-const _orange    = ScolarisPalette.orange;
-const _gold      = ScolarisPalette.gold;
-const _menuAcc   = ScolarisPalette.gold;
+// _terra/_orange/_gold/_menuBg1/_menuBg2 retirés : la chrome sombre (header,
+// sidebar, avatar, badges) suit désormais l'accent choisi dans Apparence
+// (Theme.of(context).colorScheme.primary) plutôt qu'une couleur figée.
 const _white     = Colors.white;
-
-// African sidebar background — dark terracotta/brown, NOT green
-const _menuBg1   = Color(0xFF1A0A00);
-const _menuBg2   = Color(0xFF3E1A00);
 const _menuTxt   = Color(0xFFE8DDD0);
 
 const _kEdgeZone = 28.0;
@@ -166,6 +161,8 @@ class _MobileShellState extends ConsumerState<MobileShell>
     });
     final size = MediaQuery.sizeOf(context);
     final user = ref.watch(authSessionProvider);
+    final accent = Theme.of(context).colorScheme.primary;
+    final menuBg1 = Color.lerp(Colors.black, accent, .32)!;
 
     return GestureDetector(
       onHorizontalDragStart: _onDragStart,
@@ -173,7 +170,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
       onHorizontalDragEnd: _onDragEnd,
       behavior: HitTestBehavior.translucent,
       child: Scaffold(
-        backgroundColor: _menuBg1,
+        backgroundColor: menuBg1,
         body: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -218,7 +215,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
                         offset: const Offset(-2, 28),
                       ),
                       BoxShadow(
-                        color: _terra.withOpacity(0.12),
+                        color: accent.withOpacity(0.12),
                         blurRadius: 60,
                         spreadRadius: -8,
                         offset: const Offset(0, 40),
@@ -365,6 +362,8 @@ class _SmartHeader extends StatelessWidget {
     final surfColor = cs.surface;
     final onSurf    = cs.onSurface;
     final mutedClr  = cs.onSurface.withOpacity(.5);
+    final accent    = cs.primary;
+    final accentLight = Color.lerp(accent, Colors.white, .18)!;
 
     final initials = (user?.fullName.isNotEmpty ?? false)
         ? user!.fullName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
@@ -387,7 +386,7 @@ class _SmartHeader extends StatelessWidget {
                     errorBuilder: (_, __, ___) => Image.asset(
                       'assets/images/logo.png', width: 28, height: 28,
                       errorBuilder: (_, __, ___) =>
-                        Icon(Icons.school_rounded, size: 26, color: _terra),
+                        Icon(Icons.school_rounded, size: 26, color: accent),
                     )),
                 const SizedBox(width: 7),
                 Text(AppConfig.appName,
@@ -402,7 +401,7 @@ class _SmartHeader extends StatelessWidget {
                     Icon(Icons.notifications_outlined, size: 20, color: mutedClr),
                     Positioned(top: -2, right: -2,
                       child: Container(width: 7, height: 7,
-                          decoration: const BoxDecoration(color: _terra, shape: BoxShape.circle))),
+                          decoration: BoxDecoration(color: accent, shape: BoxShape.circle))),
                   ]),
                 ),
                 MouseRegion(
@@ -413,14 +412,14 @@ class _SmartHeader extends StatelessWidget {
                     width: 32, height: 32,
                     margin: const EdgeInsets.only(left: 2, right: 6),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_terra, _orange],
+                      gradient: LinearGradient(
+                        colors: [accent, accentLight],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [BoxShadow(
-                          color: _terra.withOpacity(.3),
+                          color: accent.withOpacity(.3),
                           blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: Center(child: Text(initials,
@@ -457,7 +456,7 @@ class _SmartHeader extends StatelessWidget {
                     margin: const EdgeInsets.only(right: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: sel ? _terra : Colors.transparent,
+                      color: sel ? accent : Colors.transparent,
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -527,12 +526,13 @@ class _EdgeBubble extends StatelessWidget {
   const _EdgeBubble({required this.progress});
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Opacity(
       opacity: (1 - progress * 6).clamp(0.0, 1.0),
       child: Container(
         width: 44, height: 44,
         decoration: BoxDecoration(
-          color: _terra.withOpacity(.85),
+          color: accent.withOpacity(.85),
           shape: BoxShape.circle,
           boxShadow: const [BoxShadow(
               color: Color(0x33000000), blurRadius: 12, offset: Offset(2, 2))],
@@ -604,6 +604,11 @@ class _SidebarPanelState extends State<_SidebarPanel> {
     final initials = (user?.fullName.isNotEmpty ?? false)
         ? user!.fullName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = Theme.of(context).colorScheme.primary;
+    final accentLight = Color.lerp(accent, Colors.white, .18)!;
+    final menuBg1 = Color.lerp(Colors.black, accent, .32)!;
+    final menuBg2 = Color.lerp(Colors.black, accent, .55)!;
 
     return SizedBox(
       width: widget.width,
@@ -612,9 +617,9 @@ class _SidebarPanelState extends State<_SidebarPanel> {
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: Theme.of(context).brightness == Brightness.dark
+              colors: isDark
                   ? [const Color(0xFF0D1117), const Color(0xFF1C2128)]
-                  : [_menuBg1, _menuBg2],
+                  : [menuBg1, menuBg2],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -623,7 +628,8 @@ class _SidebarPanelState extends State<_SidebarPanel> {
             // Subtle African pattern background
             CustomPaint(
               painter: _SidebarPatternPainter(
-                isDark: Theme.of(context).brightness == Brightness.dark,
+                isDark: isDark,
+                accent: accent,
               ),
               child: const SizedBox.expand(),
             ),
@@ -651,7 +657,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: _white.withOpacity(.12),
-                                border: Border.all(color: _gold.withOpacity(.4), width: 1.5),
+                                border: Border.all(color: accentLight.withOpacity(.4), width: 1.5),
                               ),
                               child: Center(child: Text(initials,
                                   style: const TextStyle(color: _white,
@@ -676,7 +682,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                 ),
                                 Text(
                                   (widget.user?.role.name ?? 'user').toUpperCase(),
-                                  style: TextStyle(color: _gold.withOpacity(.8),
+                                  style: TextStyle(color: accentLight.withOpacity(.8),
                                       fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.1),
                                 ),
                               ]),
@@ -700,7 +706,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                       turns: _accountExpanded ? 0.5 : 0,
                                       duration: const Duration(milliseconds: 220),
                                       child: Icon(Icons.apartment_rounded,
-                                          color: _gold.withOpacity(.85), size: 19),
+                                          color: accentLight.withOpacity(.85), size: 19),
                                     ),
                                   ),
                                 ),
@@ -798,13 +804,13 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                     ? Icons.grid_view_rounded
                                     : Icons.more_horiz_rounded,
                                 size: 11,
-                                color: _gold.withOpacity(.55),
+                                color: accentLight.withOpacity(.55),
                               ),
                               const SizedBox(width: 5),
                               Text(
                                 group.labelKey.tr().toUpperCase(),
                                 style: TextStyle(
-                                    color: _gold.withOpacity(.6),
+                                    color: accentLight.withOpacity(.6),
                                     fontSize: 9, fontWeight: FontWeight.w800,
                                     letterSpacing: 1.5),
                               ),
@@ -813,7 +819,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                 turns: _collapsedSections.contains(group.labelKey) ? 0 : 0.5,
                                 duration: const Duration(milliseconds: 200),
                                 child: Icon(Icons.expand_less_rounded,
-                                    size: 12, color: _gold.withOpacity(.4)),
+                                    size: 12, color: accentLight.withOpacity(.4)),
                               ),
                             ]),
                           ),
@@ -851,8 +857,8 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                     child: Row(children: [
                       Image.asset('assets/images/logo_transparent.png',
                           width: 22, height: 22,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.school_rounded, size: 20, color: _gold)),
+                          errorBuilder: (_, __, ___) => Icon(
+                              Icons.school_rounded, size: 20, color: accentLight)),
                       const SizedBox(width: 8),
                       Text(AppConfig.appName,
                           style: TextStyle(color: _white.withOpacity(.5),
@@ -884,11 +890,12 @@ class _AccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: _gold.withOpacity(.1),
+        splashColor: accent.withOpacity(.1),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(children: [
@@ -896,12 +903,12 @@ class _AccountTile extends StatelessWidget {
               width: 34, height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive ? _gold.withOpacity(.25) : _white.withOpacity(.10),
-                border: isActive ? Border.all(color: _gold.withOpacity(.5)) : null,
+                color: isActive ? accent.withOpacity(.25) : _white.withOpacity(.10),
+                border: isActive ? Border.all(color: accent.withOpacity(.5)) : null,
               ),
               child: Center(child: Text(initials,
                   style: TextStyle(
-                      color: isActive ? _gold : _white.withOpacity(.7),
+                      color: isActive ? accent : _white.withOpacity(.7),
                       fontSize: 12, fontWeight: FontWeight.w800))),
             ),
             const SizedBox(width: 10),
@@ -910,12 +917,12 @@ class _AccountTile extends StatelessWidget {
                   color: isActive ? _white : _white.withOpacity(.8),
                   fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400)),
               Text(role.toUpperCase(), style: TextStyle(
-                  color: _gold.withOpacity(.6), fontSize: 9,
+                  color: accent.withOpacity(.6), fontSize: 9,
                   fontWeight: FontWeight.w700, letterSpacing: 1.0)),
             ])),
             if (isActive)
               Container(width: 6, height: 6,
-                  decoration: const BoxDecoration(color: _gold, shape: BoxShape.circle)),
+                  decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
           ]),
         ),
       ),
@@ -943,6 +950,7 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return AnimatedSlide(
       offset: Offset(-(1 - opacity.clamp(0.0, 1.0)) * 0.35, 0),
       duration: Duration(milliseconds: 180 + index * 35),
@@ -957,26 +965,26 @@ class _SidebarItem extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: onTap,
-              splashColor: _gold.withOpacity(.1),
+              splashColor: accent.withOpacity(.1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
                   color: selected ? _white.withOpacity(.10) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
-                  border: selected ? Border.all(color: _gold.withOpacity(.2)) : null,
+                  border: selected ? Border.all(color: accent.withOpacity(.2)) : null,
                 ),
                 child: Row(children: [
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
                       color: selected
-                          ? _gold.withOpacity(.2)
+                          ? accent.withOpacity(.2)
                           : _white.withOpacity(.07),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(entry.icon, size: 18,
-                        color: selected ? _gold : _menuTxt.withOpacity(.7)),
+                        color: selected ? accent : _menuTxt.withOpacity(.7)),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -990,8 +998,8 @@ class _SidebarItem extends StatelessWidget {
                   if (selected)
                     Container(
                       width: 6, height: 6,
-                      decoration: const BoxDecoration(
-                          color: _gold, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                          color: accent, shape: BoxShape.circle),
                     ),
                 ]),
               ),
@@ -1041,18 +1049,19 @@ class _SidebarLogoutItem extends StatelessWidget {
 // ── Sidebar background pattern ────────────────────────────────────────────
 class _SidebarPatternPainter extends CustomPainter {
   final bool isDark;
-  const _SidebarPatternPainter({this.isDark = false});
+  final Color accent;
+  const _SidebarPatternPainter({this.isDark = false, this.accent = ScolarisPalette.gold});
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Dark mode: vivid pattern with gold fill + outline; light mode: subtle outline
+    // Dark mode: vivid pattern with accent fill + outline; light mode: subtle outline
     final strokePaint = Paint()
-      ..color = ScolarisPalette.gold.withOpacity(isDark ? .22 : .05)
+      ..color = accent.withOpacity(isDark ? .22 : .05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = isDark ? 1.6 : 1.2;
     final fillPaint = isDark
         ? (Paint()
-          ..color = ScolarisPalette.gold.withOpacity(.07)
+          ..color = accent.withOpacity(.07)
           ..style = PaintingStyle.fill)
         : null;
 
@@ -1072,12 +1081,12 @@ class _SidebarPatternPainter extends CustomPainter {
     if (isDark) {
       final cx = size.width * 0.5;
       final cy = size.height * 0.42;
-      final accent = Paint()
-        ..color = ScolarisPalette.gold.withOpacity(.10)
+      final ringPaint = Paint()
+        ..color = accent.withOpacity(.10)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       for (final r in [28.0, 46.0, 64.0]) {
-        _diamond(canvas, Offset(cx, cy), r, accent);
+        _diamond(canvas, Offset(cx, cy), r, ringPaint);
       }
     }
   }
@@ -1093,5 +1102,6 @@ class _SidebarPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SidebarPatternPainter old) => old.isDark != isDark;
+  bool shouldRepaint(_SidebarPatternPainter old) =>
+      old.isDark != isDark || old.accent != accent;
 }

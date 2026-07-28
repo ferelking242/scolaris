@@ -4,7 +4,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/platform_announcements_page.dart';
 import 'pages/platform_dashboard.dart';
-import 'pages/platform_library_moderation_page.dart';
+// import 'pages/platform_library_moderation_page.dart'; // Bibliothèque désactivée temporairement.
 import 'pages/platform_schools_page.dart';
 import 'pages/platform_settings_page.dart';
 import 'pages/platform_subscriptions_page.dart';
@@ -37,11 +37,13 @@ class PlatformHome extends StatelessWidget {
         labelKey: 'Annonces',
         page: PlatformAnnouncementsPage(),
       ),
-      RoleNavEntry(
-        icon: Icons.local_library_rounded,
-        labelKey: 'Modération bibliothèque',
-        page: PlatformLibraryModerationPage(),
-      ),
+      // Bibliothèque désactivée temporairement (demande explicite) — à
+      // réactiver plus tard. Ne pas supprimer PlatformLibraryModerationPage.
+      // RoleNavEntry(
+      //   icon: Icons.local_library_rounded,
+      //   labelKey: 'Modération bibliothèque',
+      //   page: PlatformLibraryModerationPage(),
+      // ),
       RoleNavEntry(
         icon: Icons.settings_rounded,
         labelKey: 'Réglages',

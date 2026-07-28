@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/permissions/my_grants.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/db_providers.dart';
+import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/school_switcher.dart';
@@ -62,6 +63,13 @@ class TeacherHome extends ConsumerWidget {
         // Messagerie retirée : l'écran était 100 % fictif (conversations codées
         // en dur, aucun accès à la base). À réintroduire quand une vraie
         // messagerie existera (schéma conversations/participants + RLS).
+        RoleNavGroup(labelKey: 'sections.account', entries: [
+          const RoleNavEntry(
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings_rounded,
+              labelKey: 'common.settings',
+              page: AccountPage()),
+        ]),
       ],
     );
   }

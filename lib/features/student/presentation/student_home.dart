@@ -13,8 +13,8 @@ import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
 import '../../../shared/data/features_catalog.dart';
 import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
-import '../../../shared/pages/settings_page.dart';
-import '../../../shared/widgets/plan_gate.dart';
+import '../../../shared/pages/account_page.dart';
+// import '../../../shared/widgets/plan_gate.dart'; // uniquement pour Bibliothèque, désactivée temporairement.
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
 import 'primary_student_home.dart' show PrimaryDashboard;
@@ -24,7 +24,7 @@ import 'pages/carte_etudiante_page.dart';
 import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/inscription_ue_page.dart';
-import 'pages/library/library_page.dart';
+// import 'pages/library/library_page.dart'; // Bibliothèque désactivée temporairement.
 import 'pages/notifications_page.dart';
 import 'pages/releve_ects_page.dart';
 import 'pages/schedule_page.dart';
@@ -41,12 +41,14 @@ const _cyan   = Color(0xFF0891B2);
 const _violet = Color(0xFF6D28D9);
 const _pink   = Color(0xFFDB2777);
 
-const _gatedLibraryPage = PlanGate(
-  minPlan: 'pro',
-  featureLabel: 'Bibliothèque',
-  description: 'Catalogue, manuels et bibliothèque numérique.',
-  child: LibraryPage(),
-);
+// Bibliothèque désactivée temporairement (demande explicite) — à réactiver
+// plus tard. Ne pas supprimer LibraryPage.
+// const _gatedLibraryPage = PlanGate(
+//   minPlan: 'pro',
+//   featureLabel: 'Bibliothèque',
+//   description: 'Catalogue, manuels et bibliothèque numérique.',
+//   child: LibraryPage(),
+// );
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Shell navigation
@@ -91,9 +93,11 @@ class StudentHome extends ConsumerWidget {
         const RoleNavEntry(icon: Icons.fact_check_outlined,
             activeIcon: Icons.fact_check_rounded,
             labelKey: 'nav.attendance', page: AttendancePage()),
-        const RoleNavEntry(icon: Icons.local_library_outlined,
-            activeIcon: Icons.local_library_rounded,
-            labelKey: 'nav.library', page: _gatedLibraryPage),
+        // Bibliothèque désactivée temporairement (demande explicite) — à
+        // réactiver plus tard. Ne pas supprimer _gatedLibraryPage/LibraryPage.
+        // const RoleNavEntry(icon: Icons.local_library_outlined,
+        //     activeIcon: Icons.local_library_rounded,
+        //     labelKey: 'nav.library', page: _gatedLibraryPage),
       ]),
       if (isPrimaire)
         const RoleNavGroup(labelKey: 'sections.primary_tools', entries: [
@@ -128,7 +132,7 @@ class StudentHome extends ConsumerWidget {
             labelKey: 'nav.notifications', page: NotificationsPage()),
         const RoleNavEntry(icon: Icons.settings_outlined,
             activeIcon: Icons.settings_rounded,
-            labelKey: 'nav.settings', page: SettingsPage()),
+            labelKey: 'nav.settings', page: AccountPage()),
       ]),
     ];
   }
@@ -472,7 +476,7 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                       'presences':     () => _nav('nav.attendance'),
                       'cours':         () => _nav('nav.courses'),
                       'paiements':     () => _nav('nav.my_payments'),
-                      'bibliotheque':  () => _push(_gatedLibraryPage),
+                      // 'bibliotheque':  () => _push(_gatedLibraryPage), // désactivée temporairement
                       'notifications': () => _nav('nav.notifications'),
                       'simulateur':    () => _push(const SimulateurMoyennePage()),
                       'documents':     () => _push(const StudentDocumentsPage()),
@@ -1804,7 +1808,8 @@ class _ShortcutsGrid extends StatelessWidget {
     (key: 'edt',          icon: Icons.calendar_month_rounded,         label: 'Emploi',       c: _terra),
     (key: 'cours',        icon: Icons.menu_book_rounded,              label: 'Cours',        c: _terra),
     (key: 'paiements',    icon: Icons.account_balance_wallet_rounded, label: 'Paiements',    c: _orange),
-    (key: 'bibliotheque', icon: Icons.local_library_rounded,          label: 'Bibliothèque', c: _green),
+    // Bibliothèque désactivée temporairement (demande explicite) — à réactiver plus tard.
+    // (key: 'bibliotheque', icon: Icons.local_library_rounded,          label: 'Bibliothèque', c: _green),
     (key: 'notifications',icon: Icons.notifications_rounded,          label: 'Alertes',      c: _orange),
     (key: 'simulateur',   icon: Icons.calculate_rounded,              label: 'Simulateur',   c: _gold),
     (key: 'documents',    icon: Icons.folder_rounded,                 label: 'Documents',    c: _cyan),

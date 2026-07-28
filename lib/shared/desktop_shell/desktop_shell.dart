@@ -11,23 +11,20 @@ import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
+import '../pages/account_page.dart';
 import '../pages/notifications_page.dart';
-import '../pages/settings_page.dart';
 import '../widgets/subscription_alert_banner.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
+// _terra/_orange/_gold retirés : la chrome sombre (sidebar/header/popups) suit
+// désormais l'accent choisi dans Apparence (Theme.of(context).colorScheme.primary)
+// plutôt qu'une couleur de marque figée.
 const _bg      = Color(0xFFF5EEE6);
-const _terra   = Color(0xFF8B1A00);
-const _orange  = Color(0xFFD4540A);
-const _gold    = Color(0xFFC17F24);
 const _ink     = Color(0xFF1A0A00);
 const _muted   = Color(0xFF7A5C44);
 const _border  = Color(0xFFDDCCBB);
 const _white   = Colors.white;
 
-// Unified dark shell — sidebar + header share this palette
-const _sh1     = Color(0xFF1A0A00);
-const _sh2     = Color(0xFF3E1A00);
 const _shTxt   = Color(0xFFE8DDD0);
 const _shMuted = Color(0xFFB89880);
 
@@ -113,8 +110,13 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
       }
     });
     final _isDark = Theme.of(context).brightness == Brightness.dark;
-    final _side1  = _isDark ? const Color(0xFF0D1117) : _sh1;
-    final _side2  = _isDark ? const Color(0xFF1C2128) : _sh2;
+    final _accent = Theme.of(context).colorScheme.primary;
+    final _side1  = _isDark
+        ? const Color(0xFF0D1117)
+        : Color.lerp(Colors.black, _accent, .32)!;
+    final _side2  = _isDark
+        ? const Color(0xFF1C2128)
+        : Color.lerp(Colors.black, _accent, .55)!;
     return Scaffold(
       backgroundColor: _side1,
       body: SafeArea(
@@ -180,7 +182,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                       child: Container(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         child: _showSettings
-                            ? const SettingsPage()
+                            ? const AccountPage()
                             : _showNotifs
                                 ? const NotificationsPage()
                                 : _flatItems[_flatIndex].page,
@@ -232,6 +234,8 @@ class _SidebarState extends State<_Sidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final accent2 = Color.lerp(accent, Colors.white, .18)!;
     return Column(
       children: [
         // ── Logo Scolaris ──────────────────────────────────────────────────
@@ -245,13 +249,13 @@ class _SidebarState extends State<_Sidebar> {
                     errorBuilder: (_, __, ___) => Container(
                       width: 38, height: 38,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [_terra, Color(0xFFD4540A)],
+                        gradient: LinearGradient(
+                          colors: [accent, accent2],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: [BoxShadow(color: _terra.withOpacity(.4),
+                        boxShadow: [BoxShadow(color: accent.withOpacity(.4),
                             blurRadius: 8, offset: const Offset(0, 3))],
                       ),
                       child: const Center(child: Text('S',
@@ -268,13 +272,13 @@ class _SidebarState extends State<_Sidebar> {
                         errorBuilder: (_, __, ___) => Container(
                           width: 36, height: 36,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [_terra, Color(0xFFD4540A)],
+                            gradient: LinearGradient(
+                              colors: [accent, accent2],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(10),
-                            boxShadow: [BoxShadow(color: _terra.withOpacity(.35),
+                            boxShadow: [BoxShadow(color: accent.withOpacity(.35),
                                 blurRadius: 8, offset: const Offset(0, 3))],
                           ),
                           child: const Center(child: Text('S',
@@ -324,7 +328,7 @@ class _SidebarState extends State<_Sidebar> {
                               style: TextStyle(
                                 fontSize: 9,
                                 letterSpacing: 1.2,
-                                color: _gold.withOpacity(.65),
+                                color: accent2.withOpacity(.75),
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -334,7 +338,7 @@ class _SidebarState extends State<_Sidebar> {
                                 ? Icons.expand_more_rounded
                                 : Icons.expand_less_rounded,
                             size: 13,
-                            color: _gold.withOpacity(.5),
+                            color: accent2.withOpacity(.6),
                           ),
                         ]),
                       ),
@@ -414,23 +418,26 @@ class _HeaderState extends ConsumerState<_Header> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authSessionProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = Theme.of(context).colorScheme.primary;
+    final side1  = isDark
+        ? const Color(0xFF0D1117)
+        : Color.lerp(Colors.black, accent, .32)!;
+    final side2  = isDark
+        ? const Color(0xFF1C2128)
+        : Color.lerp(Colors.black, accent, .55)!;
 
     return Container(
       height: 56,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: Theme.of(context).brightness == Brightness.dark
-              ? [const Color(0xFF0D1117), const Color(0xFF1C2128)]
-              : [_sh1, _sh2],
+          colors: [side1, side2],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: (Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF0D1117)
-                    : _sh1)
-                .withOpacity(.4),
+            color: side1.withOpacity(.4),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -471,7 +478,7 @@ class _HeaderState extends ConsumerState<_Header> {
               borderRadius: BorderRadius.circular(9),
               border: Border.all(
                 color: _searchActive
-                    ? _gold.withOpacity(.4)
+                    ? accent.withOpacity(.4)
                     : _white.withOpacity(.1),
               ),
             ),
@@ -626,6 +633,7 @@ class _BranchSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final branchesAsync = ref.watch(branchesProvider);
     final selected = ref.watch(selectedBranchProvider);
+    final accent = Theme.of(context).colorScheme.primary;
 
     return branchesAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -653,7 +661,7 @@ class _BranchSelector extends ConsumerWidget {
                   border: Border.all(color: _white.withOpacity(.12)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.school_outlined, size: 13, color: _gold),
+                  Icon(Icons.school_outlined, size: 13, color: accent),
                   const SizedBox(width: 7),
                   Text(label,
                       style: const TextStyle(
@@ -688,6 +696,7 @@ class _BranchPopup extends ConsumerWidget {
       Navigator.of(context, rootNavigator: true).pop();
     }
 
+    final accent = Theme.of(context).colorScheme.primary;
     final items = <SbBranch?>[null, ...branches];
 
     return Container(
@@ -709,7 +718,7 @@ class _BranchPopup extends ConsumerWidget {
               child: Text('SÉLECTIONNER LE CENTRE',
                   style: TextStyle(
                     fontSize: 9, letterSpacing: 1.2,
-                    color: _gold.withOpacity(.7), fontWeight: FontWeight.w800,
+                    color: accent.withOpacity(.7), fontWeight: FontWeight.w800,
                   )),
             ),
           ),
@@ -725,7 +734,7 @@ class _BranchPopup extends ConsumerWidget {
                       width: 6, height: 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: b?.id == selected?.id ? _gold : _shMuted.withOpacity(.4),
+                        color: b?.id == selected?.id ? accent : _shMuted.withOpacity(.4),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -734,13 +743,13 @@ class _BranchPopup extends ConsumerWidget {
                         b?.name ?? 'Tous les campus',
                         style: TextStyle(
                           fontSize: 13,
-                          color: b?.id == selected?.id ? _gold : _shTxt,
+                          color: b?.id == selected?.id ? accent : _shTxt,
                           fontWeight: b?.id == selected?.id ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                     ),
                     if (b?.id == selected?.id)
-                      const Icon(Icons.check_rounded, size: 14, color: _gold),
+                      Icon(Icons.check_rounded, size: 14, color: accent),
                   ]),
                 ),
               ),
@@ -771,6 +780,9 @@ class _AccountPanel extends ConsumerWidget {
       UserRole.parent  => 'Parent',
       null             => '—',
     };
+    final accent = Theme.of(context).colorScheme.primary;
+    final accentDark = Color.lerp(accent, Colors.black, .25)!;
+    final accentLight = Color.lerp(accent, Colors.white, .18)!;
 
     return Container(
       width: 290,
@@ -794,9 +806,9 @@ class _AccountPanel extends ConsumerWidget {
                 const BorderRadius.vertical(top: Radius.circular(16)),
             child: Container(
               height: 80,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF6B1200), _terra, _orange],
+                  colors: [accentDark, accent, accentLight],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -891,7 +903,7 @@ class _AccountPanel extends ConsumerWidget {
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: _terra,
+                color: accent,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text('3',
@@ -907,7 +919,7 @@ class _AccountPanel extends ConsumerWidget {
           ),
           _PanelItem(
             icon: Icons.settings_outlined,
-            label: 'Paramètres',
+            label: 'Mon profil',
             onTap: () {
               Navigator.of(context, rootNavigator: true).pop();
               onSettings?.call();
@@ -1012,6 +1024,7 @@ class _NotifPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: 310,
       decoration: BoxDecoration(
@@ -1042,7 +1055,7 @@ class _NotifPanel extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _terra,
+                    color: accent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text('3',
@@ -1081,12 +1094,12 @@ class _NotifPanel extends StatelessWidget {
                       'Voir toutes les notifications',
                       style: TextStyle(
                           fontSize: 12.5,
-                          color: _gold,
+                          color: accent,
                           fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward_rounded,
-                        size: 13, color: _gold),
+                        size: 13, color: accent),
                   ],
                 ),
               ),
@@ -1113,6 +1126,7 @@ class _NotifItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
@@ -1121,11 +1135,11 @@ class _NotifItem extends StatelessWidget {
           Container(
             width: 34, height: 34,
             decoration: BoxDecoration(
-              color: _terra.withOpacity(.2),
+              color: accent.withOpacity(.2),
               borderRadius: BorderRadius.circular(9),
             ),
             child: Center(
-              child: Icon(icon, size: 16, color: _orange),
+              child: Icon(icon, size: 16, color: accent),
             ),
           ),
           const SizedBox(width: 10),
@@ -1238,20 +1252,22 @@ class _Avatar3D extends StatelessWidget {
     final seed = (user?.fullName ?? 'user').replaceAll(' ', '+');
     final url =
         'https://api.dicebear.com/7.x/bottts-neutral/png?seed=$seed&size=128&backgroundColor=transparent';
+    final accent = Theme.of(context).colorScheme.primary;
+    final accentLight = Color.lerp(accent, Colors.white, .18)!;
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [_terra, _orange],
+        gradient: LinearGradient(
+          colors: [accent, accentLight],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: _terra.withOpacity(.35),
+            color: accent.withOpacity(.35),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1318,8 +1334,9 @@ class _SideItemState extends State<_SideItem> {
   @override
   Widget build(BuildContext context) {
     final active = widget.selected;
+    final accent = Theme.of(context).colorScheme.primary;
     final bg = active
-        ? _terra
+        ? accent
         : _hover
             ? _white.withOpacity(.08)
             : Colors.transparent;
@@ -1371,8 +1388,8 @@ class _SideItemState extends State<_SideItem> {
                     if (active)
                       Container(
                         width: 5, height: 5,
-                        decoration: const BoxDecoration(
-                          color: _gold,
+                        decoration: BoxDecoration(
+                          color: _white.withOpacity(.9),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1407,7 +1424,7 @@ class _SidebarFooter extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(children: [
           _FooterIconBtn(icon: Icons.settings_outlined,
-              tooltip: 'Paramètres', onTap: onSettings),
+              tooltip: 'Mon profil', onTap: onSettings),
           const SizedBox(height: 4),
           _FooterIconBtn(icon: Icons.help_outline_rounded,
               tooltip: 'Aide & Support', onTap: onHelp),
@@ -1418,7 +1435,7 @@ class _SidebarFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
       child: Column(children: [
         _FooterRow(icon: Icons.settings_outlined,
-            label: 'Paramètres', onTap: onSettings),
+            label: 'Mon profil', onTap: onSettings),
         const SizedBox(height: 4),
         _FooterRow(icon: Icons.help_outline_rounded,
             label: 'Aide & Support', onTap: onHelp),
@@ -1566,6 +1583,7 @@ class _DarkBadgeBtnState extends State<_DarkBadgeBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Tooltip(
       message: widget.tooltip,
       child: MouseRegion(
@@ -1591,8 +1609,8 @@ class _DarkBadgeBtnState extends State<_DarkBadgeBtn> {
                   top: 6, right: 6,
                   child: Container(
                     width: 8, height: 8,
-                    decoration: const BoxDecoration(
-                      color: _terra,
+                    decoration: BoxDecoration(
+                      color: accent,
                       shape: BoxShape.circle,
                     ),
                   ),

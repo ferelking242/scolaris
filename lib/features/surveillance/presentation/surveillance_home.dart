@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
-import '../../../shared/pages/settings_page.dart';
+import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/attendance_log_page.dart';
@@ -40,7 +40,7 @@ class SurveillanceHome extends StatelessWidget {
               icon: Icons.settings_outlined,
               activeIcon: Icons.settings_rounded,
               labelKey: 'common.settings',
-              page: SettingsPage()),
+              page: AccountPage()),
         ]),
       ],
     );

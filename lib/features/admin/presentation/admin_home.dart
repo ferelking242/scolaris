@@ -11,6 +11,7 @@ import '../roles/roles_permissions_page.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/timetable_page.dart';
+import '../../../shared/pages/account_page.dart';
 import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
@@ -25,7 +26,7 @@ import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/admin_attendance_page.dart';
 import 'pages/admin_class_stats_page.dart';
-import 'pages/library_submission_page.dart';
+// import 'pages/library_submission_page.dart'; // Bibliothèque désactivée temporairement.
 import 'pages/users_page.dart';
 
 // Accents de marque — volontairement constants, lisibles en clair comme en sombre.
@@ -143,10 +144,12 @@ class AdminHome extends ConsumerWidget {
           permission: StaffPermissions.timetable),
       // "Récompenses" (catalogue de badges) retiré du menu admin pour
       // l'instant — demande explicite, cf. student_home.dart.
-      RoleNavEntry(icon: Icons.local_library_outlined, activeIcon: Icons.local_library_rounded,
-          labelKey: 'Bibliothèque',
-          page: PermissionGuard(permission: StaffPermissions.library, child: LibrarySubmissionPage()),
-          permission: StaffPermissions.library),
+      // Bibliothèque désactivée temporairement (demande explicite) — à
+      // réactiver plus tard. Ne pas supprimer LibrarySubmissionPage.
+      // RoleNavEntry(icon: Icons.local_library_outlined, activeIcon: Icons.local_library_rounded,
+      //     labelKey: 'Bibliothèque',
+      //     page: PermissionGuard(permission: StaffPermissions.library, child: LibrarySubmissionPage()),
+      //     permission: StaffPermissions.library),
     ]),
     RoleNavGroup(labelKey: 'sections.account', entries: [
       // Pas de centre de notifications : la messagerie et les annonces ont été
@@ -162,6 +165,8 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'Rôles & permissions',
           page: PermissionGuard(permission: StaffPermissions.staffManage, child: RolesPermissionsPage()),
           permission: StaffPermissions.staffManage),
+      RoleNavEntry(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
+          labelKey: 'Mon profil', page: AccountPage()),
     ]),
   ];
 

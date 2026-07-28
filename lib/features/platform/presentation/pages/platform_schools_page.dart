@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
@@ -273,11 +274,17 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
       _submitting = true;
       _error = null;
     });
+    final countryCode = countryCodeOf(_country.text);
+    if (countryCode == null) {
+      setState(() => _error = 'Pays inconnu : "${_country.text}". '
+          'Utilise un nom reconnu (Congo, Cameroun, France...) ou un code ISO (CG, CM, FR...).');
+      return;
+    }
     try {
       final schoolId = await PlatformRepository.createSchool(
         name: _name.text,
         city: _city.text,
-        country: _country.text,
+        country: countryCode,
         types: _types.toList(),
         plan: _plan,
         directorName: _director.text,

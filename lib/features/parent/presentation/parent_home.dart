@@ -6,6 +6,7 @@ import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
+import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/page_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -42,6 +43,10 @@ class ParentHome extends StatelessWidget {
         RoleNavGroup(labelKey: 'sections.activity', entries: [
           RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
               labelKey: 'nav.payments', page: ParentPaymentsPage()),
+        ]),
+        RoleNavGroup(labelKey: 'sections.account', entries: [
+          RoleNavEntry(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
+              labelKey: 'Mon profil', page: AccountPage()),
         ]),
       ],
     );

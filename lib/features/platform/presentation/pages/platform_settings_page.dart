@@ -1,7 +1,12 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/localization/locales.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../shared/pages/account_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
 import '../../data/platform_repository.dart';
@@ -9,12 +14,28 @@ import '../platform_providers.dart';
 import '../widgets/platform_search.dart';
 import '../widgets/platform_widgets.dart';
 
-/// Réglages de la plateforme : offres & tarifs (réels) + équipe super-admin
-/// (lecture seule — l'ajout/retrait se fait par SQL direct, volontairement :
-/// cf. le commentaire sur `platform_admins`, pas de policy insert/update côté
-/// client pour éviter l'auto-attribution de ce statut).
+/// Réglages de la plateforme : compte personnel du super-admin + offres &
+/// tarifs (réels) + équipe super-admin (lecture seule — l'ajout/retrait se
+/// fait par SQL direct, volontairement : cf. le commentaire sur
+/// `platform_admins`, pas de policy insert/update côté client pour éviter
+/// l'auto-attribution de ce statut).
 class PlatformSettingsPage extends ConsumerWidget {
   const PlatformSettingsPage({super.key});
+
+  Future<void> _changePassword(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _ChangePasswordDialog(),
+    );
+  }
+
+  Future<void> _pickLanguage(BuildContext context) async {
+    final locale = await showDialog<Locale>(
+      context: context,
+      builder: (_) => const _LanguageDialog(),
+    );
+    if (locale != null && context.mounted) context.setLocale(locale);
+  }
 
   Future<void> _editPlan(BuildContext context, WidgetRef ref, PlatformPlan p,
       ({int price, int? limit}) current) async {
@@ -50,12 +71,50 @@ class PlatformSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final planSettingsAsync = ref.watch(platformPlanSettingsProvider);
     final adminsAsync = ref.watch(platformAdminsProvider);
+    final user = ref.watch(authSessionProvider);
 
     return PageScaffold(
       title: 'Réglages',
-      subtitle: 'Offres, tarifs & équipe de la plateforme',
+      subtitle: 'Compte, offres, tarifs & équipe de la plateforme',
       actions: const [PlatformSearchLauncher()],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Compte ────────────────────────────────────────────────────────
+        if (user != null)
+          DataPanel(
+            title: 'Compte',
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _AccountRow(icon: Icons.badge_outlined, label: 'Nom', value: user.fullName),
+              Divider(height: 18, color: context.cBorder.withValues(alpha: .6)),
+              _AccountRow(icon: Icons.alternate_email_rounded, label: 'Email', value: user.email),
+              Divider(height: 18, color: context.cBorder.withValues(alpha: .6)),
+              _AccountRow(
+                icon: Icons.language_outlined,
+                label: 'Langue',
+                value: AppLocales.label(context.locale),
+              ),
+              const SizedBox(height: 14),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                ActionButton(
+                  label: 'Gérer le profil',
+                  icon: Icons.person_outline_rounded,
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const AccountPage())),
+                ),
+                ActionButton(
+                  label: 'Changer le mot de passe',
+                  icon: Icons.lock_outline_rounded,
+                  onTap: () => _changePassword(context),
+                ),
+                ActionButton(
+                  label: 'Changer la langue',
+                  icon: Icons.translate_rounded,
+                  onTap: () => _pickLanguage(context),
+                ),
+              ]),
+            ]),
+          ),
+        if (user != null) const SizedBox(height: 14),
+
         // ── Offres & tarifs ──────────────────────────────────────────────
         DataPanel(
           title: 'Offres & tarifs',
@@ -139,6 +198,149 @@ class PlatformSettingsPage extends ConsumerWidget {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+// ── Ligne d'identité (section Compte) ──────────────────────────────────────────
+class _AccountRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _AccountRow({required this.icon, required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, size: 16, color: context.cMuted),
+      const SizedBox(width: 10),
+      Text(label,
+          style: TextStyle(
+              fontSize: 11.5, color: context.cMuted, fontWeight: FontWeight.w600)),
+      const Spacer(),
+      Text(value,
+          style: TextStyle(
+              fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w700)),
+    ]);
+  }
+}
+
+// ── Dialogue : changer le mot de passe ──────────────────────────────────────────
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _newPwd = TextEditingController();
+  final _confirmPwd = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _newPwd.dispose();
+    _confirmPwd.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      await Supabase.instance.client.auth
+          .updateUser(UserAttributes(password: _newPwd.text.trim()));
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(
+        content: Text('Mot de passe modifié avec succès.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.forestGreen,
+      ));
+    } on AuthException catch (e) {
+      setState(() { _loading = false; _error = e.message; });
+    } catch (e) {
+      setState(() { _loading = false; _error = 'Une erreur est survenue. Réessayez.'; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Changer le mot de passe',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: Form(
+        key: _formKey,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _DialogField(
+            controller: _newPwd,
+            label: 'Nouveau mot de passe',
+            hint: 'Au moins 8 caractères',
+            validator: (v) => (v == null || v.trim().length < 8)
+                ? 'Au moins 8 caractères'
+                : null,
+          ),
+          const SizedBox(height: 12),
+          _DialogField(
+            controller: _confirmPwd,
+            label: 'Confirmer le mot de passe',
+            validator: (v) =>
+                v?.trim() != _newPwd.text.trim() ? 'Ne correspond pas' : null,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!,
+                style:
+                    const TextStyle(color: ScolarisPalette.terracotta, fontSize: 12)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: ScolarisPalette.forestGreen),
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Modifier'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dialogue : changer la langue ────────────────────────────────────────────────
+class _LanguageDialog extends StatelessWidget {
+  const _LanguageDialog();
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Langue de l\'interface',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        for (final l in AppLocales.supported)
+          ListTile(
+            title: Text(AppLocales.label(l)),
+            trailing: context.locale == l
+                ? const Icon(Icons.check_circle_rounded,
+                    color: ScolarisPalette.terracotta)
+                : null,
+            onTap: () => Navigator.pop(context, l),
+          ),
+      ]),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
+      ],
     );
   }
 }
