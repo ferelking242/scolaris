@@ -298,17 +298,21 @@ class PlatformRepository {
   static Future<List<PlatformAnnouncement>> getAnnouncements() async {
     final data = await _db
         .from('platform_announcements')
-        .select('title, body, kind, audience, reach, created_at')
+        .select('id, title, body, kind, audience, reach, created_at, '
+            'expires_at, archived_at')
         .order('created_at', ascending: false);
     return (data as List).map((r) {
       final row = r as Map<String, dynamic>;
       return PlatformAnnouncement(
+        id: row['id'] as String,
         title: row['title'] as String? ?? '',
         body: row['body'] as String? ?? '',
         kind: kindFromCode(row['kind'] as String?),
         audience: audienceFromCode(row['audience'] as String?),
         reach: (row['reach'] as num?)?.toInt() ?? 0,
         date: _parseDate(row['created_at']) ?? DateTime.now(),
+        expiresAt: _parseDate(row['expires_at']),
+        archivedAt: _parseDate(row['archived_at']),
       );
     }).toList();
   }
@@ -316,12 +320,15 @@ class PlatformRepository {
   /// Publie une vraie annonce (visible par les écoles concernées via
   /// `my_platform_announcements()`). `reach` est figé au moment de la
   /// diffusion (nombre d'écoles réellement ciblées à cet instant).
+  /// `expiresAt` optionnel : passé cette date, l'annonce arrête d'être
+  /// distribuée sans intervention manuelle.
   static Future<void> publishAnnouncement({
     required String title,
     required String body,
     required AnnouncementKind kind,
     required AnnouncementAudience audience,
     required int reach,
+    DateTime? expiresAt,
   }) async {
     await _db.from('platform_announcements').insert({
       'title': title.trim(),
@@ -329,7 +336,18 @@ class PlatformRepository {
       'kind': kind.code,
       'audience': audience.code,
       'reach': reach,
+      'expires_at': expiresAt?.toIso8601String(),
     });
+  }
+
+  /// Dépublie une annonce immédiatement (erreur de saisie, info périmée…) —
+  /// elle arrête d'être distribuée aux écoles dès le prochain appel de
+  /// `my_platform_announcements()`, sans attendre son expiration.
+  static Future<void> unpublishAnnouncement(String id) async {
+    await _db
+        .from('platform_announcements')
+        .update({'archived_at': DateTime.now().toIso8601String()})
+        .eq('id', id);
   }
 
   /// Équipe super-admin réelle (lecture seule — l'ajout/retrait se fait par

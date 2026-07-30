@@ -77,8 +77,9 @@ AnnouncementKind kindFromCode(String? code) => switch (code) {
       _ => AnnouncementKind.info,
     };
 
-/// Une annonce diffusée aux écoles (mock — futur `platform_announcements`).
+/// Une annonce diffusée aux écoles — table `platform_announcements`.
 class PlatformAnnouncement {
+  final String id;
   final String title;
   final String body;
   final AnnouncementAudience audience;
@@ -88,13 +89,26 @@ class PlatformAnnouncement {
   /// Nombre d'écoles atteintes au moment de la diffusion (figé).
   final int reach;
 
+  /// Date à partir de laquelle l'annonce arrête d'être distribuée (null =
+  /// pas d'expiration).
+  final DateTime? expiresAt;
+
+  /// Dépubliée manuellement depuis la console (null = toujours active).
+  final DateTime? archivedAt;
+
+  bool get isActive => archivedAt == null &&
+      (expiresAt == null || expiresAt!.isAfter(DateTime.now()));
+
   const PlatformAnnouncement({
+    required this.id,
     required this.title,
     required this.body,
     required this.audience,
     required this.kind,
     required this.date,
     required this.reach,
+    this.expiresAt,
+    this.archivedAt,
   });
 }
 

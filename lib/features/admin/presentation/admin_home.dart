@@ -12,7 +12,6 @@ import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/timetable_page.dart';
 import '../../../shared/pages/account_page.dart';
-import '../../../shared/pages/features_hub_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/admin_billing_page.dart';
@@ -155,8 +154,6 @@ class AdminHome extends ConsumerWidget {
       // Pas de centre de notifications : la messagerie et les annonces ont été
       // retirées (décision utilisateur). Elles étaient aussi le dernier trou de
       // la RLS — un élève pouvait écrire au nom d'un autre.
-      RoleNavEntry(icon: Icons.apps_outlined, activeIcon: Icons.apps_rounded,
-          labelKey: 'nav.features', page: FeaturesHubPage()),
       RoleNavEntry(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded,
           labelKey: 'nav.school',
           page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminSchoolPage()),
@@ -276,8 +273,9 @@ class _AdminDashboardState extends ConsumerState<_AdminDashboard> {
 }
 
 /// Annonce plateforme (Scolaris → écoles) concernant l'école courante —
-/// maintenance, nouveauté, rappel d'essai/impayé. Masquage SESSION seulement
-/// (cf. `dismissedAnnouncementIdsProvider`) : réapparaît à la reconnexion.
+/// maintenance, nouveauté, rappel d'essai/impayé. Masquage persisté
+/// localement (cf. `dismissedAnnouncementIdsProvider`) : ne réapparaît plus
+/// une fois masquée sur cet appareil.
 class _PlatformAnnouncementBanner extends ConsumerWidget {
   const _PlatformAnnouncementBanner();
 
@@ -330,7 +328,7 @@ class _PlatformAnnouncementBanner extends ConsumerWidget {
           IconButton(
             onPressed: () => ref
                 .read(dismissedAnnouncementIdsProvider.notifier)
-                .update((s) => {...s, a.id}),
+                .dismiss(a.id),
             icon: const Icon(Icons.close_rounded, size: 16),
             color: _DashColors.of(context).muted,
             tooltip: 'Masquer',

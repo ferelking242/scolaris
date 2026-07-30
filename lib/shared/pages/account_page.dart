@@ -85,6 +85,30 @@ class _AccountPageState extends ConsumerState<AccountPage> {
 
   void _openAppearanceSheet() => _openResponsive(const _AppearanceSheet());
 
+  Future<void> _confirmSignOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('profile.sign_out'.tr()),
+        content: Text('profile.sign_out_confirm'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('common.cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('profile.sign_out'.tr(),
+                style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(signOutUseCaseProvider)();
+    }
+  }
+
   List<Widget> _coordonneesTiles(AppUser user, bool canEdit) => [
         _InfoTile(
           icon: Icons.mail_outline_rounded, color: _terra,
@@ -102,10 +126,10 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         ),
       ];
 
-  List<Widget> _etablissementTiles(AppUser user, String schoolLine) => [
+  List<Widget> _etablissementTiles(AppUser user, String schoolLine, String roleLabel) => [
         _InfoTile(
           icon: Icons.badge_outlined, color: _green,
-          label: 'profile.role'.tr(), value: user.displayRole,
+          label: 'profile.role'.tr(), value: roleLabel,
         ),
         if (schoolLine.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -145,6 +169,21 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         ),
       ];
 
+  Widget _signOutButton(BuildContext context) => SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _confirmSignOut,
+          icon: const Icon(Icons.logout_rounded, size: 17, color: Colors.red),
+          label: Text('profile.sign_out'.tr(),
+              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            side: const BorderSide(color: Colors.red),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+
   Widget _accessWrap(BuildContext context, AppUser user) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -177,12 +216,20 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     final name = user.fullName.isEmpty ? 'profile.default_user'.tr() : user.fullName;
     final isStaff      = user.role == UserRole.staff;
     final isPrivileged = isStaff || user.role == UserRole.teacher;
-    final showAccess   = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty;
+    final showAccess   = isStaff && !user.hasFullAccess && user.permissions.isNotEmpty &&
+        !user.isPlatformAdmin;
     // Élève et parent sont en lecture seule sur leur profil : seuls staff et
     // enseignant peuvent modifier nom/téléphone depuis cette page.
     final canEdit = isPrivileged;
 
-    final schoolLine = [
+    // Le super-admin (plateforme) n'est rattaché à aucune école — pas de
+    // schoolLine, et le libellé de rôle affiché doit le refléter plutôt
+    // que d'afficher "Staff" générique.
+    final roleLabel = user.isPlatformAdmin
+        ? 'profile.super_admin'.tr()
+        : user.displayRole;
+
+    final schoolLine = user.isPlatformAdmin ? '' : [
       if (school?.name != null && school!.name.isNotEmpty) school.name,
       if (school?.city != null && school!.city!.isNotEmpty) school.city,
     ].join(' · ');
@@ -190,15 +237,16 @@ class _AccountPageState extends ConsumerState<AccountPage> {
     return LayoutBuilder(builder: (context, constraints) {
       if (PlatformUtils.isLargeFormFactor(constraints.maxWidth)) {
         return _buildDesktop(context, user, name, isPrivileged, canEdit,
-            showAccess, schoolLine);
+            showAccess, schoolLine, roleLabel);
       }
       return _buildMobile(context, user, name, isPrivileged, canEdit,
-          showAccess, schoolLine);
+          showAccess, schoolLine, roleLabel);
     });
   }
 
   Widget _buildMobile(BuildContext context, AppUser user, String name,
-      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine) {
+      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine,
+      String roleLabel) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.surface,
@@ -214,7 +262,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               children: [
                 _Cover(
                   name: name,
-                  roleLabel: user.displayRole,
+                  roleLabel: roleLabel,
                   initials: _initialsOf(name),
                   isPrivileged: isPrivileged,
                 ),
@@ -226,9 +274,13 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                     ..._coordonneesTiles(user, canEdit),
                     const SizedBox(height: 18),
 
-                    _SectionTitle('profile.school_role'.tr(), Icons.school_outlined, _gold),
+                    _SectionTitle(
+                        user.isPlatformAdmin
+                            ? 'profile.account_info'.tr()
+                            : 'profile.school_role'.tr(),
+                        Icons.school_outlined, _gold),
                     const SizedBox(height: 8),
-                    ..._etablissementTiles(user, schoolLine),
+                    ..._etablissementTiles(user, schoolLine, roleLabel),
 
                     const SizedBox(height: 18),
                     _SectionTitle('common.settings'.tr(), Icons.tune_rounded, _orange),
@@ -241,6 +293,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                       const SizedBox(height: 8),
                       _accessWrap(context, user),
                     ],
+                    const SizedBox(height: 18),
+                    _signOutButton(context),
                     const SizedBox(height: 32),
                   ]),
                 ),
@@ -253,11 +307,15 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   }
 
   Widget _buildDesktop(BuildContext context, AppUser user, String name,
-      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine) {
+      bool isPrivileged, bool canEdit, bool showAccess, String schoolLine,
+      String roleLabel) {
     final cs = Theme.of(context).colorScheme;
+    final schoolRoleTitle = user.isPlatformAdmin
+        ? 'profile.account_info'.tr()
+        : 'profile.school_role'.tr();
     return PageScaffold(
       title: 'profile.title'.tr(),
-      subtitle: user.displayRole,
+      subtitle: roleLabel,
       child: LayoutBuilder(builder: (context, constraints) {
         final twoCols = constraints.maxWidth >= 1100;
         final rightColumn = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -272,8 +330,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               const SizedBox(width: 16),
               Expanded(
                 child: DataPanel(
-                  title: 'profile.school_role'.tr(),
-                  child: Column(children: _etablissementTiles(user, schoolLine)),
+                  title: schoolRoleTitle,
+                  child: Column(children: _etablissementTiles(user, schoolLine, roleLabel)),
                 ),
               ),
             ],
@@ -281,8 +339,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           if (!twoCols) ...[
             const SizedBox(height: 16),
             DataPanel(
-              title: 'profile.school_role'.tr(),
-              child: Column(children: _etablissementTiles(user, schoolLine)),
+              title: schoolRoleTitle,
+              child: Column(children: _etablissementTiles(user, schoolLine, roleLabel)),
             ),
           ],
           const SizedBox(height: 16),
@@ -297,6 +355,8 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               child: _accessWrap(context, user),
             ),
           ],
+          const SizedBox(height: 16),
+          _signOutButton(context),
         ]);
 
         final profileCard = DataPanel(
@@ -334,7 +394,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: cs.primary.withOpacity(.25)),
               ),
-              child: Text(user.displayRole.toUpperCase(), style: TextStyle(
+              child: Text(roleLabel.toUpperCase(), style: TextStyle(
                   color: cs.primary, fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 1)),
             ),
             if (canEdit) ...[

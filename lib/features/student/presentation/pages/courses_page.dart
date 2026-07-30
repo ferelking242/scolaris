@@ -848,7 +848,8 @@ class _InfoTab extends StatelessWidget {
         if (course.hoursWeek != null)
           _Row(Icons.access_time_rounded,  'Heures/semaine',   '${course.hoursWeek}h',    color, cs),
         if (course.chapterCount != null)
-          _Row(Icons.list_alt_rounded,     'Chapitres',        '${course.chapterCount}',  color, cs),
+          _Row(Icons.list_alt_rounded,     'Chapitres',
+              '${course.chaptersDone} / ${course.chapterCount} vus',  color, cs),
         if (course.teacherName != null)
           _Row(Icons.person_outline_rounded,'Enseignant',      course.teacherName!,       color, cs),
         if (course.daysOfWeek.isNotEmpty)

@@ -11,6 +11,7 @@ import '../../../shared/widgets/school_switcher.dart';
 import 'pages/attendance_today_page.dart';
 import 'pages/classes_page.dart';
 import 'pages/gradebook_page.dart';
+import 'pages/program_page.dart';
 
 /// Le menu du professeur, **filtré par ses permissions**.
 ///
@@ -45,6 +46,11 @@ class TeacherHome extends ConsumerWidget {
                 activeIcon: Icons.class_rounded,
                 labelKey: 'nav.classes',
                 page: TeacherClassesPage()),
+          const RoleNavEntry(
+              icon: Icons.list_alt_outlined,
+              activeIcon: Icons.list_alt_rounded,
+              labelKey: 'nav.program',
+              page: TeacherProgramPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.activity', entries: [
           if (can('notes.voir'))

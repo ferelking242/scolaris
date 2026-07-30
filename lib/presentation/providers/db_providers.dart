@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/bulletin/bulletin_math.dart';
 import '../../core/config/school_format.dart';
+import '../../core/services/offline_storage.dart';
 import '../../data/sources/remote/staff_roles_source.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../shared/data/features_catalog.dart';
@@ -579,11 +580,30 @@ final myPlatformAnnouncementsProvider =
   return SupabaseDbSource.getMyPlatformAnnouncements();
 });
 
-/// Ids d'annonces masquées par l'utilisateur — SESSION seulement (pas
-/// persisté) : elles réapparaîtront à la prochaine connexion. Suffisant pour
-/// ne pas répéter une bannière déjà lue dans la même session ; une vraie
-/// table `read` par utilisateur serait nécessaire pour une persistance durable.
-final dismissedAnnouncementIdsProvider = StateProvider<Set<String>>((ref) => {});
+/// Ids d'annonces masquées par l'utilisateur — persisté localement (Hive) :
+/// une fois masquée, une annonce ne réapparaît plus sur cet appareil, même
+/// après reconnexion. (Avant : StateProvider en mémoire, remis à zéro à
+/// chaque connexion — l'annonce semblait "infinie".)
+class DismissedAnnouncementIdsNotifier extends StateNotifier<Set<String>> {
+  DismissedAnnouncementIdsNotifier() : super(_load());
+
+  static const _key = 'dismissed_announcement_ids';
+
+  static Set<String> _load() {
+    final saved = OfflineStorage.settings.get(_key) as List?;
+    return saved?.map((e) => e.toString()).toSet() ?? {};
+  }
+
+  void dismiss(String id) {
+    state = {...state, id};
+    OfflineStorage.settings.put(_key, state.toList());
+  }
+}
+
+final dismissedAnnouncementIdsProvider =
+    StateNotifierProvider<DismissedAnnouncementIdsNotifier, Set<String>>(
+  (ref) => DismissedAnnouncementIdsNotifier(),
+);
 
 // ── Invoices ──────────────────────────────────────────────────────────────────
 final invoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
@@ -848,6 +868,14 @@ final coursesForSchoolProvider =
   final schoolId = ref.watch(currentSchoolIdProvider);
   if (schoolId == null) return [];
   return SupabaseDbSource.getCoursesForSchool(schoolId);
+});
+
+/// Cours du prof connecté — pour indiquer sa progression dans le programme
+/// (`chapters_done`), le programme lui-même restant écrit par l'admin.
+final coursesTaughtByMeProvider = FutureProvider<List<SbCourse>>((ref) async {
+  final user = ref.watch(authSessionProvider);
+  if (user == null) return [];
+  return SupabaseDbSource.getCoursesForTeacher(user.id);
 });
 
 /// Les enseignants qui n'ont **aucune classe** : ni titulariat, ni cours.

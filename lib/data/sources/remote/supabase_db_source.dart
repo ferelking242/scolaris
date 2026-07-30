@@ -1560,6 +1560,11 @@ class SbCourse {
   final String? icon;
   final String? programSummary;
   final int? chapterCount;
+
+  /// Progression réelle indiquée par le prof (cf. `set_course_chapters_done`)
+  /// — distincte de `chapterCount` (nombre total, fixé par l'admin dans le
+  /// programme officiel).
+  final int chaptersDone;
   final List<String> daysOfWeek;
   final String? room;
 
@@ -1578,6 +1583,7 @@ class SbCourse {
     this.icon,
     this.programSummary,
     this.chapterCount,
+    this.chaptersDone = 0,
     this.daysOfWeek = const [],
     this.room,
   });
@@ -1616,6 +1622,7 @@ class SbCourse {
       icon: j['icon'] as String?,
       programSummary: j['program_summary'] as String?,
       chapterCount: (j['chapter_count'] as num?)?.toInt(),
+      chaptersDone: (j['chapters_done'] as num?)?.toInt() ?? 0,
       daysOfWeek: days,
       room: j['room'] as String?,
     );
@@ -4376,6 +4383,20 @@ class SupabaseDbSource {
     if (patch.isNotEmpty) {
       await _db.from('courses').update(patch).eq('id', id);
     }
+  }
+
+  /// Met à jour la progression réelle du prof dans le programme d'un cours
+  /// (`chapters_done`) — jamais un UPDATE direct sur `courses` (réservé à
+  /// l'admin) : passe par `set_course_chapters_done`, qui vérifie côté base
+  /// que l'appelant est bien un enseignant affecté à ce cours.
+  static Future<void> setCourseChaptersDone({
+    required String courseId,
+    required int chaptersDone,
+  }) async {
+    await _db.rpc('set_course_chapters_done', params: {
+      'p_course_id': courseId,
+      'p_chapters_done': chaptersDone,
+    });
   }
 
   /// Fixe la liste des enseignants d'un cours. Le **premier** est le principal,

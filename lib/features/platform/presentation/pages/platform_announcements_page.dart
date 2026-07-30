@@ -27,7 +27,15 @@ class _PlatformAnnouncementsPageState
   final _body = TextEditingController();
   AnnouncementAudience _audience = AnnouncementAudience.all;
   AnnouncementKind _kind = AnnouncementKind.info;
+  Duration? _expiry;
   bool _publishing = false;
+
+  static const _expiryChoices = <String, Duration?>{
+    'Sans expiration': null,
+    '24 h': Duration(hours: 24),
+    '7 jours': Duration(days: 7),
+    '30 jours': Duration(days: 30),
+  };
 
   @override
   void dispose() {
@@ -48,6 +56,7 @@ class _PlatformAnnouncementsPageState
         kind: _kind,
         audience: _audience,
         reach: reach,
+        expiresAt: _expiry == null ? null : DateTime.now().add(_expiry!),
       );
       ref.invalidate(platformAnnouncementsProvider);
       setState(() {
@@ -55,6 +64,7 @@ class _PlatformAnnouncementsPageState
         _body.clear();
         _audience = AnnouncementAudience.all;
         _kind = AnnouncementKind.info;
+        _expiry = null;
       });
       messenger.showSnackBar(SnackBar(
         content: Text('Annonce diffusée à $reach école${reach > 1 ? 's' : ''}.'),
@@ -70,6 +80,20 @@ class _PlatformAnnouncementsPageState
       ));
     } finally {
       if (mounted) setState(() => _publishing = false);
+    }
+  }
+
+  Future<void> _unpublish(PlatformAnnouncement item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await PlatformRepository.unpublishAnnouncement(item.id);
+      ref.invalidate(platformAnnouncementsProvider);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.terracotta,
+      ));
     }
   }
 
@@ -131,6 +155,19 @@ class _PlatformAnnouncementsPageState
                     onTap: () => setState(() => _audience = a),
                   ),
               ]),
+              const SizedBox(height: 14),
+              const _FieldLabel(label: 'Expiration'),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final entry in _expiryChoices.entries)
+                  _ChoicePill(
+                    label: entry.key,
+                    icon: Icons.timer_outlined,
+                    color: ScolarisPalette.terracotta,
+                    selected: _expiry == entry.value,
+                    onTap: () => setState(() => _expiry = entry.value),
+                  ),
+              ]),
               const SizedBox(height: 18),
               Align(
                 alignment: Alignment.centerRight,
@@ -175,7 +212,12 @@ class _PlatformAnnouncementsPageState
                     description: 'Diffuse ta première annonce ci-dessus.')
                 : Column(children: [
                     for (var i = 0; i < history.length; i++) ...[
-                      _AnnouncementTile(item: history[i]),
+                      _AnnouncementTile(
+                        item: history[i],
+                        onUnpublish: history[i].isActive
+                            ? () => _unpublish(history[i])
+                            : null,
+                      ),
                       if (i < history.length - 1)
                         Divider(
                             height: 20,
@@ -192,7 +234,11 @@ class _PlatformAnnouncementsPageState
 // ── Tuile d'annonce (historique) ──────────────────────────────────────────────
 class _AnnouncementTile extends StatelessWidget {
   final PlatformAnnouncement item;
-  const _AnnouncementTile({required this.item});
+
+  /// null = déjà inactive (expirée ou dépubliée) : pas de bouton à afficher.
+  final VoidCallback? onUnpublish;
+
+  const _AnnouncementTile({required this.item, this.onUnpublish});
 
   static String _fmt(DateTime d) {
     const m = [
@@ -204,41 +250,60 @@ class _AnnouncementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          color: item.kind.color.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(10),
+    final inactive = !item.isActive;
+    return Opacity(
+      opacity: inactive ? .55 : 1,
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: item.kind.color.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(item.kind.icon, size: 17, color: item.kind.color),
         ),
-        child: Icon(item.kind.icon, size: 17, color: item.kind.color),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item.title,
-              style: TextStyle(
-                  fontSize: 13,
-                  color: context.cInk,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 3),
-          Text(item.body,
-              style: TextStyle(
-                  fontSize: 12, color: context.cMuted, height: 1.35)),
-          const SizedBox(height: 8),
-          Row(children: [
-            _Tag(label: item.kind.label, color: item.kind.color),
-            const SizedBox(width: 6),
-            _Tag(
-                label: '${item.audience.label} · ${item.reach}',
-                color: ScolarisPalette.terracotta),
-            const Spacer(),
-            Text(_fmt(item.date),
-                style: TextStyle(fontSize: 11, color: context.cMuted)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(item.title,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: context.cInk,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(item.body,
+                style: TextStyle(
+                    fontSize: 12, color: context.cMuted, height: 1.35)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              _Tag(label: item.kind.label, color: item.kind.color),
+              _Tag(
+                  label: '${item.audience.label} · ${item.reach}',
+                  color: ScolarisPalette.terracotta),
+              if (item.archivedAt != null)
+                const _Tag(label: 'Dépubliée', color: Colors.grey)
+              else if (item.expiresAt != null)
+                _Tag(
+                    label: item.isActive
+                        ? 'Expire le ${_fmt(item.expiresAt!)}'
+                        : 'Expirée',
+                    color: item.isActive ? Colors.blueGrey : Colors.grey),
+              Text(_fmt(item.date),
+                  style: TextStyle(fontSize: 11, color: context.cMuted)),
+            ]),
           ]),
-        ]),
-      ),
-    ]);
+        ),
+        if (onUnpublish != null)
+          IconButton(
+            onPressed: onUnpublish,
+            icon: const Icon(Icons.campaign_outlined, size: 17),
+            color: ScolarisPalette.terracotta,
+            tooltip: 'Dépublier',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+          ),
+      ]),
+    );
   }
 }
 
