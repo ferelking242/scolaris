@@ -13,7 +13,6 @@ import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
 import '../../../shared/data/features_catalog.dart';
 import '../../../shared/data/timetable_data.dart' show getSubjectMeta;
-import '../../../shared/pages/account_page.dart';
 // import '../../../shared/widgets/plan_gate.dart'; // uniquement pour Bibliothèque, désactivée temporairement.
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/surface.dart';
@@ -25,7 +24,6 @@ import 'pages/courses_page.dart';
 import 'pages/grades_page.dart';
 import 'pages/inscription_ue_page.dart';
 // import 'pages/library/library_page.dart'; // Bibliothèque désactivée temporairement.
-import 'pages/notifications_page.dart';
 import 'pages/releve_ects_page.dart';
 import 'pages/schedule_page.dart';
 import 'pages/simulateur_moyenne_page.dart';
@@ -126,14 +124,8 @@ class StudentHome extends ConsumerWidget {
               activeIcon: Icons.folder_rounded,
               labelKey: 'nav.documents', page: StudentDocumentsPage()),
         ]),
-      RoleNavGroup(labelKey: 'sections.account', entries: [
-        const RoleNavEntry(icon: Icons.notifications_outlined,
-            activeIcon: Icons.notifications_rounded,
-            labelKey: 'nav.notifications', page: NotificationsPage()),
-        const RoleNavEntry(icon: Icons.settings_outlined,
-            activeIcon: Icons.settings_rounded,
-            labelKey: 'nav.settings', page: AccountPage()),
-      ]),
+      // Profil accessible uniquement via l'avatar de l'app bar (mobile) —
+      // plus de doublon dans le drawer.
     ];
   }
 }
@@ -477,7 +469,6 @@ class _StudentDashboardState extends ConsumerState<_StudentDashboard> {
                       'cours':         () => _nav('nav.courses'),
                       'paiements':     () => _nav('nav.my_payments'),
                       // 'bibliotheque':  () => _push(_gatedLibraryPage), // désactivée temporairement
-                      'notifications': () => _nav('nav.notifications'),
                       'simulateur':    () => _push(const SimulateurMoyennePage()),
                       'documents':     () => _push(const StudentDocumentsPage()),
                     },
@@ -1810,7 +1801,6 @@ class _ShortcutsGrid extends StatelessWidget {
     (key: 'paiements',    icon: Icons.account_balance_wallet_rounded, label: 'Paiements',    c: _orange),
     // Bibliothèque désactivée temporairement (demande explicite) — à réactiver plus tard.
     // (key: 'bibliotheque', icon: Icons.local_library_rounded,          label: 'Bibliothèque', c: _green),
-    (key: 'notifications',icon: Icons.notifications_rounded,          label: 'Alertes',      c: _orange),
     (key: 'simulateur',   icon: Icons.calculate_rounded,              label: 'Simulateur',   c: _gold),
     (key: 'documents',    icon: Icons.folder_rounded,                 label: 'Documents',    c: _cyan),
   ];

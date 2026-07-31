@@ -8,6 +8,7 @@ import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/pdf/invoice_pdf.dart';
 import '../../../../shared/widgets/online_payment_sheet.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../widgets/payment_lists.dart';
 
 class ParentPaymentsPage extends ConsumerWidget {
   const ParentPaymentsPage({super.key});
@@ -64,6 +65,11 @@ class ParentPaymentsPage extends ConsumerWidget {
           if (ok) ref.invalidate(myChildrenInvoicesProvider);
         }
 
+        Future<void> payOther(SbInvoice inv) async {
+          final ok = await showOnlinePaymentSheet(context, ref, [inv]);
+          if (ok) ref.invalidate(myChildrenInvoicesProvider);
+        }
+
         return PageScaffold(
           title: 'Paiements',
           subtitle: 'Scolarité, cantine et transport',
@@ -80,7 +86,7 @@ class ParentPaymentsPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Compte de scolarité, un par enfant ──────────────────────
+              // ── Compte de scolarité + historique, un bloc par enfant ────
               for (final c in children) ...[
                 TuitionAccountCard(
                   studentId: c.id,
@@ -96,86 +102,26 @@ class ParentPaymentsPage extends ConsumerWidget {
                       : () => printInvoice(
                           school: school, invoice: tuitionInvoiceOf(c.id)!),
                 ),
+                const SizedBox(height: 8),
+                _ChildPaymentHistory(
+                  childId: c.id,
+                  childName: c.fullName,
+                  school: school,
+                  currency: tuitionInvoiceOf(c.id)?.currency ?? 'FCFA',
+                ),
                 const SizedBox(height: 12),
               ],
 
               // ── Autres frais ────────────────────────────────────────────
               if (others.isEmpty && children.isEmpty)
                 const _EmptyState()
-              else if (others.isNotEmpty)
-                DataPanel(
-                  title: 'Autres frais',
-                  headerActions: const [SearchInput()],
-                  child: DataTablePanel(
-                    columns: const [
-                      'Élève',
-                      'Facture',
-                      'Description',
-                      'Échéance',
-                      'Montant',
-                      'Statut',
-                      ''
-                    ],
-                    flex: const [2, 2, 3, 2, 2, 2, 2],
-                    rows: [
-                      for (final inv in others)
-                        [
-                          // Un parent peut avoir plusieurs enfants : sans cette
-                          // colonne, il ne sait pas qui la facture concerne.
-                          Text(inv.studentName ?? '—',
-                              style: const TextStyle(
-                                  color: ink,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700)),
-                          Text(
-                              inv.invoiceNumber ??
-                                  inv.id.substring(0, 8).toUpperCase(),
-                              style: const TextStyle(
-                                  color: ink,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600)),
-                          Text(inv.description ?? '—',
-                              style:
-                                  const TextStyle(fontSize: 12.5, color: ink)),
-                          Text(
-                              inv.dueDate != null
-                                  ? DateFormat('dd/MM/yy').format(inv.dueDate!)
-                                  : '—',
-                              style:
-                                  const TextStyle(fontSize: 12, color: muted)),
-                          Text(
-                              '${NumberFormat.compact(locale: "fr").format(inv.amount)} ${inv.currency}',
-                              style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: ink,
-                                  fontWeight: FontWeight.w700)),
-                          Align(
-                              alignment: Alignment.centerLeft,
-                              child: _statusPill(inv.isLate ? 'overdue' : inv.status)),
-                          Row(mainAxisSize: MainAxisSize.min, children: [
-                            // Télécharger : reçu si soldée, sinon la facture.
-                            IconButton(
-                              icon: const Icon(Icons.download_rounded, size: 18),
-                              color: muted,
-                              tooltip: inv.isPaid
-                                  ? 'Télécharger le reçu'
-                                  : 'Télécharger la facture',
-                              onPressed: () =>
-                                  printInvoice(school: school, invoice: inv),
-                            ),
-                            if (!inv.isPaid) ...[
-                              const SizedBox(width: 4),
-                              ActionButton(
-                                label: 'Payer',
-                                primary: true,
-                                onTap: () =>
-                                    showOnlinePaymentSheet(context, ref, [inv]),
-                              ),
-                            ],
-                          ]),
-                        ],
-                    ],
-                  ),
+              else
+                OtherFeesPanel(
+                  invoices: others,
+                  school: school,
+                  showStudentName: children.length > 1,
+                  onlineEnabled: online,
+                  onPay: payOther,
                 ),
             ],
           ),
@@ -183,31 +129,32 @@ class ParentPaymentsPage extends ConsumerWidget {
       },
     );
   }
+}
 
-  static Widget _statusPill(String s) {
-    Color c;
-    String label;
-    switch (s) {
-      case 'paid':
-        c = const Color(0xFF16A34A);
-        label = 'Payé';
-        break;
-      case 'overdue':
-        c = const Color(0xFFDC2626);
-        label = 'En retard';
-        break;
-      default:
-        c = const Color(0xFFEA580C);
-        label = 'En attente';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(label,
-          style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+/// Historique des versements d'UN enfant — chargé séparément (provider par
+/// enfant) pour ne pas bloquer l'affichage du compte le temps qu'il arrive.
+class _ChildPaymentHistory extends ConsumerWidget {
+  final String childId;
+  final String childName;
+  final dynamic school;
+  final String currency;
+  const _ChildPaymentHistory({
+    required this.childId,
+    required this.childName,
+    required this.school,
+    required this.currency,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paymentsAsync = ref.watch(paymentsForStudentProvider(childId));
+    final payments = paymentsAsync.valueOrNull ?? const <SbPayment>[];
+    if (payments.isEmpty) return const SizedBox.shrink();
+    return PaymentHistoryPanel(
+      payments: payments,
+      school: school,
+      studentName: childName,
+      currency: currency,
     );
   }
 }

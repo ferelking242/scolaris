@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user_entity.dart';
-import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/dashboard_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/attendance_log_page.dart';
@@ -35,13 +33,8 @@ class SurveillanceHome extends StatelessWidget {
               labelKey: 'nav.students',
               page: StudentsListPage()),
         ]),
-        RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings_rounded,
-              labelKey: 'common.settings',
-              page: AccountPage()),
-        ]),
+        // Profil accessible uniquement via l'avatar de l'app bar (mobile) —
+        // plus de doublon dans le drawer.
       ],
     );
   }

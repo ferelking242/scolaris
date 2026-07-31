@@ -478,8 +478,13 @@ final classBulletinsProvider =
   final students = await ref.watch(studentsByClassProvider(classObj.name).future);
   final programme = await ref.watch(coursesForClassProvider(classId).future);
   final grades = await ref.watch(gradesForClassProvider(classId).future);
-  final absences = await ref.watch(absencesForClassProvider(classId).future);
+  final rawAbsences = await ref.watch(absencesForClassProvider(classId).future);
   final school = await ref.watch(schoolProvider.future);
+
+  // Plusieurs profs peuvent chacun marquer le même élève absent le même jour
+  // (une ligne par prof, cf. 20260731_attendance_per_teacher.sql) — sans ce
+  // regroupement, un jour d'absence complète compterait pour N absences.
+  final absences = SupabaseDbSource.dedupeAbsencesByDay(rawAbsences);
 
   final attendance = <String, ({int absences, int lates})>{};
   for (final a in absences) {
@@ -530,20 +535,42 @@ final myGradesProvider = FutureProvider<List<SbGrade>>((ref) async {
 });
 
 // ── Attendance ────────────────────────────────────────────────────────────────
-final attendanceForClassProvider = FutureProvider.family<List<SbAttendance>, String>(
-  (ref, classId) async => SupabaseDbSource.getAttendanceForClass(classId),
-);
+/// Clé encodée `"classId|yyyy-MM-dd|teacherId"` — `teacherId` vide = vue large
+/// (staff/vie scolaire), sinon le pointage d'UN prof précis pour cette classe
+/// et ce jour (cf. 20260731_attendance_per_teacher.sql : plusieurs profs
+/// peuvent pointer la même classe le même jour sans se marcher dessus).
+final attendanceForClassProvider =
+    FutureProvider.family<List<SbAttendance>, String>((ref, key) async {
+  final parts = key.split('|');
+  final classId = parts[0];
+  final date = parts.length > 1 && parts[1].isNotEmpty
+      ? DateTime.tryParse(parts[1])
+      : null;
+  final teacherId = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : null;
+  return SupabaseDbSource.getAttendanceForClass(classId,
+      date: date, teacherId: teacherId);
+});
 
 final myAbsencesProvider = FutureProvider<List<SbAbsence>>((ref) async {
   final session = ref.watch(authSessionProvider);
   if (session == null) return [];
-  return SupabaseDbSource.getAbsencesForStudent(session.id);
+  final absences = await SupabaseDbSource.getAbsencesForStudent(session.id);
+  return SupabaseDbSource.dedupeAbsencesByDay(absences);
 });
 
 /// Absences d'un élève donné (vue parent — clé : studentId).
 final absencesForStudentProvider =
     FutureProvider.family<List<SbAbsence>, String>((ref, studentId) async {
-  return SupabaseDbSource.getAbsencesForStudent(studentId);
+  final absences = await SupabaseDbSource.getAbsencesForStudent(studentId);
+  return SupabaseDbSource.dedupeAbsencesByDay(absences);
+});
+
+/// Absences/retards non justifiés de l'école — écran de justification staff.
+final pendingJustificationsProvider =
+    FutureProvider<List<SbAbsence>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return [];
+  return SupabaseDbSource.getPendingJustifications(schoolId);
 });
 
 // ── Frais de scolarité (grille) ──────────────────────────────────────────────

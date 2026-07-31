@@ -11,7 +11,6 @@ import '../roles/roles_permissions_page.dart';
 import 'pages/enrollment_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/timetable_page.dart';
-import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/admin_billing_page.dart';
@@ -52,7 +51,7 @@ class _DashColors {
       cs.onSurfaceVariant,
       cs.surface,
       cs.outlineVariant,
-      cs.outlineVariant.withOpacity(.5),
+      cs.outlineVariant.withValues(alpha: .5),
       cs.surfaceContainerHighest,
     );
   }
@@ -162,8 +161,8 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'Rôles & permissions',
           page: PermissionGuard(permission: StaffPermissions.staffManage, child: RolesPermissionsPage()),
           permission: StaffPermissions.staffManage),
-      RoleNavEntry(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
-          labelKey: 'Mon profil', page: AccountPage()),
+      // Profil accessible uniquement via l'avatar de l'app bar (mobile) —
+      // plus de doublon dans le drawer.
     ]),
   ];
 
@@ -392,26 +391,23 @@ class _DashKpiRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final students = ref.watch(studentCountProvider);
     final classes  = ref.watch(classesProvider);
-    final users    = ref.watch(usersProvider);
+    final teachers = ref.watch(teachersProvider);
     final subjects = ref.watch(subjectsProvider);
 
     String n(AsyncValue<int> v) =>
         v.maybeWhen(data: (d) => '$d', orElse: () => '—');
     String len(AsyncValue<List> v) =>
         v.maybeWhen(data: (d) => '${d.length}', orElse: () => '—');
-    String teachers(AsyncValue<List> v) => v.maybeWhen(
-        data: (d) => '${d.where((u) => (u as dynamic).role == 'teacher').length}',
-        orElse: () => '—');
 
     final loadingAny = students.isLoading ||
         classes.isLoading ||
-        users.isLoading ||
+        teachers.isLoading ||
         subjects.isLoading;
 
     final kpis = <(IconData, String, String, Color)>[
       (Icons.people_alt_rounded, 'Élèves inscrits', n(students), _terra),
       (Icons.class_rounded, 'Classes actives', len(classes), _orange),
-      (Icons.co_present_rounded, 'Enseignants', teachers(users), _green),
+      (Icons.co_present_rounded, 'Enseignants', len(teachers), _green),
       (Icons.menu_book_rounded, 'Matières', len(subjects), _gold),
     ];
 
@@ -422,14 +418,33 @@ class _DashKpiRow extends ConsumerWidget {
       if (c.maxWidth < 500) {
         // Bande horizontale scrollable : libère la hauteur verticale sur
         // mobile plutôt qu'une grille 2×2 qui repousse le contenu utile.
+        // Fondu en bord droit : signale qu'il reste des cartes à découvrir.
+        final bg = Theme.of(context).scaffoldBackgroundColor;
         return SizedBox(
           height: 92,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: kpis.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => SizedBox(width: 132, child: card(i)),
-          ),
+          child: Stack(children: [
+            ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: kpis.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => SizedBox(width: 132, child: card(i)),
+            ),
+            Positioned(
+              right: 0, top: 0, bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  width: 24,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [bg.withValues(alpha: 0), bg.withValues(alpha: .9)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ]),
         );
       }
       return Row(children: [
@@ -459,15 +474,17 @@ class _DashKpiCard extends StatelessWidget {
         color: c.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: c.border),
-        boxShadow: const [BoxShadow(
-            color: Color(0x05000000), blurRadius: 6, offset: Offset(0, 2))],
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : const [BoxShadow(
+                color: Color(0x05000000), blurRadius: 6, offset: Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
             width: 30, height: 30,
             decoration: BoxDecoration(
-                color: accent.withOpacity(.10),
+                color: accent.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 15, color: accent),
           ),
@@ -605,9 +622,9 @@ class _ActivityItem extends StatelessWidget {
           Container(
             width: 34, height: 34,
             decoration: BoxDecoration(
-                color: color.withOpacity(.08),
+                color: color.withValues(alpha: .08),
                 borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: color.withOpacity(.14))),
+                border: Border.all(color: color.withValues(alpha: .14))),
             child: Icon(icon, size: 15, color: color),
           ),
           const SizedBox(width: 12),
@@ -633,7 +650,7 @@ class _DashQuickActions extends ConsumerWidget {
   static const _actions = [
     (Icons.person_add_rounded, 'Inscrire un élève',  _terra,            'Élèves & familles', StaffPermissions.students),
     (Icons.class_rounded,      'Gérer les classes',  _orange,           'nav.classes',       StaffPermissions.classes),
-    (Icons.menu_book_rounded,  'Gérer les matières', Color(0xFF388E3C), 'nav.subjects',      StaffPermissions.classes),
+    (Icons.menu_book_rounded,  'Gérer les matières', _green,            'nav.subjects',      StaffPermissions.classes),
     (Icons.summarize_rounded,  'Voir les rapports',  _gold,             'nav.reports',       StaffPermissions.reports),
   ];
 
@@ -681,7 +698,7 @@ class _DashQuickActions extends ConsumerWidget {
                     Container(
                       width: 30, height: 30,
                       decoration: BoxDecoration(
-                          color: a.$3.withOpacity(.09),
+                          color: a.$3.withValues(alpha: .09),
                           borderRadius: BorderRadius.circular(8)),
                       child: Icon(a.$1, size: 14, color: a.$3),
                     ),
@@ -690,7 +707,7 @@ class _DashQuickActions extends ConsumerWidget {
                         style: TextStyle(
                             color: c.ink, fontSize: 12.5, fontWeight: FontWeight.w500))),
                     Icon(Icons.chevron_right_rounded, size: 15,
-                        color: c.muted.withOpacity(.5)),
+                        color: c.muted.withValues(alpha: .5)),
                   ]),
                 ),
               ),
@@ -745,7 +762,7 @@ class _DashToday extends ConsumerWidget {
           fmt(pending, 'facture en attente', 'factures en attente')),
       (Icons.warning_amber_rounded,
           _gold,
-          overdue == 0 || overdue == null && invoicesAsync.hasValue
+          overdue == 0
               ? 'Aucune facture en retard'
               : fmt(overdue, 'facture en retard', 'factures en retard')),
     ];
@@ -778,7 +795,7 @@ class _DashToday extends ConsumerWidget {
                   width: 6, height: 6,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
-                      color: it.$2.withOpacity(.55), shape: BoxShape.circle),
+                      color: it.$2.withValues(alpha: .55), shape: BoxShape.circle),
                 ),
                 Icon(it.$1, size: 13, color: it.$2),
                 const SizedBox(width: 8),

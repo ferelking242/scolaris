@@ -616,6 +616,7 @@ class SbAttendance {
   final String id;
   final String studentId;
   final String? classId;
+  final String? teacherId;
   final DateTime? date;
   final String status;
   final String? arrivalTime;
@@ -625,6 +626,7 @@ class SbAttendance {
     required this.id,
     required this.studentId,
     this.classId,
+    this.teacherId,
     this.date,
     this.status = 'present',
     this.arrivalTime,
@@ -635,6 +637,7 @@ class SbAttendance {
         id: j['id'] as String,
         studentId: j['student_id'] as String? ?? '',
         classId: j['class_id'] as String?,
+        teacherId: j['teacher_id'] as String?,
         date: j['absence_date'] != null
             ? DateTime.tryParse(j['absence_date'] as String)
             : null,
@@ -2367,14 +2370,26 @@ class SupabaseDbSource {
   //  dans `attendance`, la famille lisait `absences`, et les deux ne se
   //  parlaient pas : une absence marquée n'apparaissait nulle part.
   //  Cf. supabase/migrations/20260729_unify_attendance.sql.
+  //
+  //  Un pointage est identifié par (élève, jour, PROF qui l'a fait) depuis
+  //  20260731_attendance_per_teacher.sql : au collège/lycée, plusieurs profs
+  //  prennent la même classe le même jour — sans `teacher_id` dans la clé, le
+  //  dernier qui enregistrait écrasait le pointage des autres pour la journée.
 
-  static Future<List<SbAttendance>> getAttendanceForClass(String classId) async {
-    final today = DateTime.now().toIso8601String().split('T').first;
-    final data = await _db
+  static String _isoDate(DateTime d) => d.toIso8601String().split('T').first;
+
+  static Future<List<SbAttendance>> getAttendanceForClass(
+    String classId, {
+    DateTime? date,
+    String? teacherId,
+  }) async {
+    var q = _db
         .from('absences')
         .select()
         .eq('class_id', classId)
-        .eq('absence_date', today);
+        .eq('absence_date', _isoDate(date ?? DateTime.now()));
+    if (teacherId != null) q = q.eq('teacher_id', teacherId);
+    final data = await q;
     return (data as List).map((j) => SbAttendance.fromJson(j as Map<String, dynamic>)).toList();
   }
 
@@ -2382,6 +2397,11 @@ class SupabaseDbSource {
   /// compte par élève. On ne lit **que** ce qui fait défaut (`status <> present`) :
   /// une classe de 40 élèves sur un trimestre, c'est des milliers de lignes de
   /// présence dont le bulletin n'a rien à faire.
+  ///
+  /// Peut renvoyer PLUSIEURS lignes pour le même (élève, jour) désormais —
+  /// un jour d'absence complète peut être marqué par plusieurs profs. Les
+  /// appelants qui comptent des absences doivent passer par
+  /// [dedupeAbsencesByDay] pour ne pas compter 1 jour comme N absences.
   static Future<List<SbAbsence>> getAbsencesForClass(String classId) async {
     final data = await _db
         .from('absences')
@@ -2404,24 +2424,78 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbAbsence.fromJson(j as Map<String, dynamic>)).toList();
   }
 
-  /// Enregistre l'appel du jour. Un élève, un jour, une ligne : on se corrige
-  /// (upsert) au lieu d'empiler des présences contradictoires.
+  /// Toutes les absences/retards non justifiés de l'école — pour l'écran de
+  /// justification staff (`presences.modifier`).
+  static Future<List<SbAbsence>> getPendingJustifications(String schoolId) async {
+    final data = await _db
+        .from('absences')
+        .select()
+        .eq('school_id', schoolId)
+        .neq('status', 'present')
+        .eq('justified', false)
+        .order('absence_date', ascending: false);
+    return (data as List).map((j) => SbAbsence.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  /// Marque une absence/retard justifié (ou revient en arrière) — l'action
+  /// « le mot des parents est arrivé », réservée à `presences.modifier` (RLS).
+  static Future<void> justifyAbsence(
+    String id, {
+    required bool justified,
+    String? reason,
+  }) async {
+    await _db.from('absences').update({
+      'justified': justified,
+      'reason': reason,
+    }).eq('id', id);
+  }
+
+  /// Regroupe des absences/retards par (élève, jour) et garde le pire statut
+  /// du jour (absent > retard > le reste) — nécessaire car plusieurs profs
+  /// peuvent chacun marquer un même élève absent le même jour (une ligne par
+  /// prof) : sans ce regroupement, un jour d'absence complète compterait pour
+  /// N absences au lieu d'1 dans le bulletin et les écrans élève/parent.
+  static List<SbAbsence> dedupeAbsencesByDay(List<SbAbsence> absences) {
+    int rank(String s) => switch (s) {
+          'absent' => 2,
+          'late' => 1,
+          _ => 0,
+        };
+    final byDay = <String, SbAbsence>{};
+    for (final a in absences) {
+      final key = '${a.studentId}|${a.absenceDate?.toIso8601String() ?? ''}';
+      final cur = byDay[key];
+      if (cur == null || rank(a.status) > rank(cur.status)) {
+        byDay[key] = a;
+      }
+    }
+    return byDay.values.toList()
+      ..sort((a, b) =>
+          (b.absenceDate ?? DateTime(0)).compareTo(a.absenceDate ?? DateTime(0)));
+  }
+
+  /// Enregistre l'appel pour une date donnée (défaut aujourd'hui). Un élève,
+  /// un jour, un PROF, une ligne : ce prof se corrige (upsert) sans écraser le
+  /// pointage d'un collègue sur la même classe le même jour.
   static Future<void> saveAttendance(
     List<SbAttendance> records, {
     required String schoolId,
+    required String teacherId,
+    DateTime? date,
   }) async {
-    final today = DateTime.now().toIso8601String().split('T').first;
+    final day = _isoDate(date ?? DateTime.now());
     final rows = records.map((r) => {
       'school_id': schoolId,
       'student_id': r.studentId,
       'class_id': r.classId,
-      'absence_date': today,
+      'teacher_id': teacherId,
+      'absence_date': day,
       'status': r.status,
       'arrival_time': r.arrivalTime,
     }).toList();
     await _db
         .from('absences')
-        .upsert(rows, onConflict: 'student_id,absence_date');
+        .upsert(rows, onConflict: 'student_id,absence_date,teacher_id');
   }
 
   // ── Invoices ──────────────────────────────────────────────────────────────

@@ -12,7 +12,6 @@ import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
-import '../pages/notifications_page.dart';
 import '../widgets/subscription_alert_banner.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -74,7 +73,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   int _flatIndex = 0;
   _SideMode _mode = _SideMode.icons;
   bool _showSettings = false;
-  bool _showNotifs   = false;
 
   List<DesktopNavItem> get _flatItems =>
       [for (final g in widget.groups) ...g.items];
@@ -82,9 +80,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   void _toggle() => setState(() {
     _mode = _mode == _SideMode.full ? _SideMode.icons : _SideMode.full;
   });
-  void _openSettings() => setState(() { _showSettings = true;  _showNotifs = false; });
-  void _openNotifs()   => setState(() { _showNotifs   = true;  _showSettings = false; });
-  void _closeOverlay() => setState(() { _showSettings = false; _showNotifs = false; });
+  void _openSettings() => setState(() { _showSettings = true; });
+  void _closeOverlay() => setState(() { _showSettings = false; });
 
   double get _sideW => _mode == _SideMode.full ? 220.0 : 56.0;
 
@@ -95,7 +92,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
       setState(() {
         _flatIndex = idx;
         _showSettings = false;
-        _showNotifs = false;
       });
     }
   }
@@ -147,7 +143,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   groups: widget.groups,
                   collapsed: _mode == _SideMode.icons,
                   currentIndex: _flatIndex,
-                  onSelect: (i) => setState(() { _flatIndex = i; _showSettings = false; _showNotifs = false; }),
+                  onSelect: (i) => setState(() { _flatIndex = i; _showSettings = false; }),
                   onSettings: _openSettings,
                   onHelp: () => showDialog(
                     context: context,
@@ -170,8 +166,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                     mode: _mode,
                     onToggle: _toggle,
                     onSettings: _openSettings,
-                    onNotifs: _openNotifs,
-                    showingOverlay: _showSettings || _showNotifs,
+                    showingOverlay: _showSettings,
                     onCloseOverlay: _closeOverlay,
                   ),
                   const SubscriptionAlertBanner(),
@@ -183,9 +178,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         color: Theme.of(context).scaffoldBackgroundColor,
                         child: _showSettings
                             ? const AccountPage()
-                            : _showNotifs
-                                ? const NotificationsPage()
-                                : _flatItems[_flatIndex].page,
+                            : _flatItems[_flatIndex].page,
                       ),
                     ),
                   ),
@@ -385,7 +378,6 @@ class _Header extends ConsumerStatefulWidget {
   final _SideMode mode;
   final VoidCallback onToggle;
   final VoidCallback? onSettings;
-  final VoidCallback? onNotifs;
   final bool showingOverlay;
   final VoidCallback? onCloseOverlay;
 
@@ -394,7 +386,6 @@ class _Header extends ConsumerStatefulWidget {
     required this.mode,
     required this.onToggle,
     this.onSettings,
-    this.onNotifs,
     this.showingOverlay = false,
     this.onCloseOverlay,
   });
@@ -404,17 +395,6 @@ class _Header extends ConsumerStatefulWidget {
 }
 
 class _HeaderState extends ConsumerState<_Header> {
-  final _searchCtrl = TextEditingController();
-  final _searchFocus = FocusNode();
-  bool _searchActive = false;
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    _searchFocus.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authSessionProvider);
@@ -464,112 +444,7 @@ class _HeaderState extends ConsumerState<_Header> {
           // ── Campus selector (uniquement si l'école a des filiales) ──────
           _BranchSelector(),
 
-          const SizedBox(width: 14),
-          Container(width: 1, height: 20, color: _white.withOpacity(.12)),
-          const SizedBox(width: 14),
-
-          // ── Search bar ─────────────────────────────────────────────────
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _searchActive ? 280 : 220,
-            height: 34,
-            decoration: BoxDecoration(
-              color: _white.withOpacity(_searchActive ? .12 : .07),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                color: _searchActive
-                    ? accent.withOpacity(.4)
-                    : _white.withOpacity(.1),
-              ),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 10),
-                Icon(Icons.search_rounded, size: 15, color: _shMuted),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    focusNode: _searchFocus,
-                    onTap: () => setState(() => _searchActive = true),
-                    onTapOutside: (_) {
-                      _searchFocus.unfocus();
-                      setState(() => _searchActive = false);
-                    },
-                    style: const TextStyle(fontSize: 12.5, color: _shTxt),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'common.search_placeholder'.tr(),
-                      hintStyle: TextStyle(
-                          fontSize: 12.5, color: _shMuted.withOpacity(.7)),
-                      isCollapsed: true,
-                    ),
-                  ),
-                ),
-                if (!_searchActive)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        _searchFocus.requestFocus();
-                        setState(() => _searchActive = true);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _white.withOpacity(.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('⌘K',
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: _shMuted.withOpacity(.8))),
-                      ),
-                    ),
-                  )
-                else
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        _searchCtrl.clear();
-                        _searchFocus.unfocus();
-                        setState(() => _searchActive = false);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        child: Icon(Icons.close_rounded,
-                            size: 14, color: _shMuted),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
           const Spacer(),
-
-          // ── Notification icon ──────────────────────────────────────────
-          CustomPopup(
-            barrierColor: Colors.transparent,
-            content: Material(
-              type: MaterialType.transparency,
-              child: _NotifPanel(
-                onViewAll: () {
-                  Navigator.of(context, rootNavigator: true).pop();
-                  widget.onNotifs?.call();
-                },
-              ),
-            ),
-            child: const _DarkBadgeBtn(
-              icon: Icons.notifications_outlined,
-              badge: true,
-              tooltip: 'Notifications',
-            ),
-          ),
-          const SizedBox(width: 4),
 
           // ── Help icon ──────────────────────────────────────────────────
           CustomPopup(
@@ -596,10 +471,6 @@ class _HeaderState extends ConsumerState<_Header> {
                 onSettings: () {
                   Navigator.of(context, rootNavigator: true).pop();
                   widget.onSettings?.call();
-                },
-                onNotifs: () {
-                  Navigator.of(context, rootNavigator: true).pop();
-                  widget.onNotifs?.call();
                 },
               ),
             ),
@@ -767,9 +638,8 @@ class _BranchPopup extends ConsumerWidget {
 class _AccountPanel extends ConsumerWidget {
   final AppUser? user;
   final VoidCallback? onSettings;
-  final VoidCallback? onNotifs;
 
-  const _AccountPanel({required this.user, this.onSettings, this.onNotifs});
+  const _AccountPanel({required this.user, this.onSettings});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -898,26 +768,6 @@ class _AccountPanel extends ConsumerWidget {
 
           // ── Menu items ───────────────────────────────────────────────────
           _PanelItem(
-            icon: Icons.notifications_outlined,
-            label: 'Notifications',
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Text('3',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: _white,
-                      fontWeight: FontWeight.w700)),
-            ),
-            onTap: () {
-              Navigator.of(context, rootNavigator: true).pop();
-              onNotifs?.call();
-            },
-          ),
-          _PanelItem(
             icon: Icons.settings_outlined,
             label: 'Mon profil',
             onTap: () {
@@ -1000,171 +850,6 @@ class _PanelItemState extends State<_PanelItem> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Notification panel
-// ─────────────────────────────────────────────────────────────────────────────
-class _NotifPanel extends StatelessWidget {
-  final VoidCallback? onViewAll;
-
-  static const _notifs = [
-    ('Nouvelle inscription', 'Amara Diallo – Terminale A', '2 min',
-        Icons.person_add_outlined),
-    ('Résultats publiés', 'Semestre 1 – Classe 4ème B', '1 h',
-        Icons.grade_outlined),
-    ('Paiement reçu', '85 000 XAF – Frais scolaires', '3 h',
-        Icons.payments_outlined),
-  ];
-
-  const _NotifPanel({this.onViewAll});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      width: 310,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E0C00),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.5),
-            blurRadius: 24,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            child: Row(
-              children: [
-                const Text('Notifications',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: _shTxt)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text('3',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: _white,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-          ),
-          Container(height: 1, color: _white.withOpacity(.07)),
-          ..._notifs.map((n) => _NotifItem(
-                icon: n.$4,
-                title: n.$1,
-                subtitle: n.$2,
-                time: n.$3,
-              )),
-          Container(height: 1, color: _white.withOpacity(.07)),
-          // Bouton "Voir toutes" fonctionnel
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                Navigator.of(context, rootNavigator: true).pop();
-                onViewAll?.call();
-              },
-              borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Voir toutes les notifications',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          color: accent,
-                          fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_rounded,
-                        size: 13, color: accent),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotifItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String time;
-
-  const _NotifItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(
-              color: accent.withOpacity(.2),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Center(
-              child: Icon(icon, size: 16, color: accent),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: _shTxt)),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: _shMuted.withOpacity(.8))),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(time,
-              style: TextStyle(
-                  fontSize: 10, color: _shMuted.withOpacity(.6))),
-        ],
       ),
     );
   }

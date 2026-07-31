@@ -6,7 +6,6 @@ import '../../../data/sources/remote/supabase_db_source.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/providers/db_providers.dart';
-import '../../../shared/pages/account_page.dart';
 import '../../../shared/widgets/page_scaffold.dart';
 import '../../../shared/widgets/responsive_role_shell.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -44,10 +43,8 @@ class ParentHome extends StatelessWidget {
           RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
               labelKey: 'nav.payments', page: ParentPaymentsPage()),
         ]),
-        RoleNavGroup(labelKey: 'sections.account', entries: [
-          RoleNavEntry(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded,
-              labelKey: 'Mon profil', page: AccountPage()),
-        ]),
+        // Profil accessible uniquement via l'avatar de l'app bar (mobile) —
+        // plus de doublon dans le drawer.
       ],
     );
   }
@@ -356,6 +353,9 @@ class _MiniStat extends StatelessWidget {
       );
 }
 
+void _openPayments(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const ParentPaymentsPage()));
+
 // ── Ce qui demande attention — dérivé du réel, jamais fabriqué ──────────────
 class _AttentionSection extends ConsumerWidget {
   final List<SbStudent> children;
@@ -379,6 +379,7 @@ class _AttentionSection extends ConsumerWidget {
           subtitle: '${c.prenom} · '
               '${i.amount.toStringAsFixed(0)} ${i.currency}'
               '${i.description != null ? ' · ${i.description}' : ''}',
+          onTap: () => _openPayments(context),
         ));
       }
       for (final i in invoices.where((i) => i.isPending)) {
@@ -388,6 +389,7 @@ class _AttentionSection extends ConsumerWidget {
           title: 'Frais de scolarité à régler',
           subtitle: '${c.prenom} · '
               '${i.amount.toStringAsFixed(0)} ${i.currency}',
+          onTap: () => _openPayments(context),
         ));
       }
 
@@ -425,38 +427,48 @@ class _AlertCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String title, subtitle;
+  final VoidCallback? onTap;
   const _AlertCard({required this.icon, required this.color,
-      required this.title, required this.subtitle});
+      required this.title, required this.subtitle, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.cCard,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: color.withOpacity(.35)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 36, height: 36,
+        child: Container(
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: color.withOpacity(.12),
-            borderRadius: BorderRadius.circular(10),
+            color: context.cCard,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: color.withOpacity(.35)),
           ),
-          child: Icon(icon, color: color, size: 18),
+          child: Row(children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(
+                  color: context.cInk, fontSize: 13,
+                  fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(
+                  color: context.cMuted, fontSize: 11.5)),
+            ])),
+            if (onTap != null)
+              Icon(Icons.chevron_right_rounded, color: context.cMuted, size: 18),
+          ]),
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: TextStyle(
-              color: context.cInk, fontSize: 13,
-              fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(
-              color: context.cMuted, fontSize: 11.5)),
-        ])),
-      ]),
+      ),
     );
   }
 }

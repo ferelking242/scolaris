@@ -13,8 +13,6 @@ import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
-import '../pages/notifications_page.dart';
-import '../pages/search_page.dart';
 import '../widgets/responsive_role_shell.dart';
 import '../widgets/subscription_alert_banner.dart';
 
@@ -128,20 +126,6 @@ class _MobileShellState extends ConsumerState<MobileShell>
     }
   }
 
-  void _openNotifications() {
-    if (_menuOpen) _closeMenu();
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => _FullPage(
-            title: 'nav.notifications'.tr(), child: const NotificationsPage())));
-  }
-
-  void _openSearch() {
-    if (_menuOpen) _closeMenu();
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => _FullPage(
-            title: 'common.search'.tr(), child: const SearchPage())));
-  }
-
   void _openAccount() {
     if (_menuOpen) _closeMenu();
     // Pas de _FullPage ici : AccountPage a son propre bandeau avec bouton
@@ -182,7 +166,6 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   entries: widget.drawerEntries,
                   user: user,
                   onSelect: (key) { _closeMenu(); _navigateTo(key); },
-                  onSignOut: () => ref.read(signOutUseCaseProvider)(),
                   onAccount: _openAccount,
                   onClose: _closeMenu,
                   opacity: _menuCtrl.value,
@@ -203,19 +186,19 @@ class _MobileShellState extends ConsumerState<MobileShell>
                   borderRadius: BorderRadius.circular(_radius),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(_menuOpen ? 0.45 : 0.12),
+                      color: Colors.black.withValues(alpha: _menuOpen ? 0.45 : 0.12),
                       blurRadius: _menuOpen ? 40 : 10,
                       offset: Offset(_menuOpen ? -6 : 0, 0),
                     ),
                     if (_menuOpen) ...[
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.18),
+                        color: Colors.black.withValues(alpha: 0.18),
                         blurRadius: 80,
                         spreadRadius: -4,
                         offset: const Offset(-2, 28),
                       ),
                       BoxShadow(
-                        color: accent.withOpacity(0.12),
+                        color: accent.withValues(alpha: 0.12),
                         blurRadius: 60,
                         spreadRadius: -8,
                         offset: const Offset(0, 40),
@@ -238,8 +221,6 @@ class _MobileShellState extends ConsumerState<MobileShell>
                             title: widget.title,
                             user: user,
                             onMenu: _toggleMenu,
-                            onSearch: _openSearch,
-                            onNotifications: _openNotifications,
                             onAccount: _openAccount,
                             pageIndex: _pageIndex,
                             entries: widget.drawerEntries,
@@ -290,58 +271,11 @@ class _MobileShellState extends ConsumerState<MobileShell>
   }
 }
 
-// ─── Full Page Wrapper ────────────────────────────────────────────────────
-class _FullPage extends StatelessWidget {
-  final String title;
-  final Widget child;
-  const _FullPage({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(children: [
-          Container(
-            color: cs.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(children: [
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.arrow_back_rounded,
-                        color: cs.onSurface, size: 20),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(title, style: TextStyle(
-                  color: cs.onSurface, fontSize: 17,
-                  fontWeight: FontWeight.w700)),
-            ]),
-          ),
-          Expanded(child: child),
-        ]),
-      ),
-    );
-  }
-}
-
 // ─── Smart Header ─────────────────────────────────────────────────────────
 class _SmartHeader extends StatelessWidget {
   final String title;
   final AppUser? user;
   final VoidCallback onMenu;
-  final VoidCallback onSearch;
-  final VoidCallback onNotifications;
   final VoidCallback onAccount;
   final int pageIndex;
   final List<RoleNavEntry> entries;
@@ -350,8 +284,8 @@ class _SmartHeader extends StatelessWidget {
   final bool showTabBar;
   const _SmartHeader({
     required this.title, required this.user,
-    required this.onMenu, required this.onSearch,
-    required this.onNotifications, required this.onAccount,
+    required this.onMenu,
+    required this.onAccount,
     required this.pageIndex, required this.entries,
     required this.onTabTap, required this.showTabBar,
   });
@@ -361,7 +295,7 @@ class _SmartHeader extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final surfColor = cs.surface;
     final onSurf    = cs.onSurface;
-    final mutedClr  = cs.onSurface.withOpacity(.5);
+    final mutedClr  = cs.onSurface.withValues(alpha: .5);
     final accent    = cs.primary;
     final accentLight = Color.lerp(accent, Colors.white, .18)!;
 
@@ -378,7 +312,7 @@ class _SmartHeader extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               height: 56,
-              color: surfColor.withOpacity(0.88),
+              color: surfColor.withValues(alpha: 0.88),
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(children: [
                 _HeaderBtn(onTap: onMenu, child: _HamburgerIcon(color: onSurf)),
@@ -393,17 +327,6 @@ class _SmartHeader extends StatelessWidget {
                     style: TextStyle(fontSize: 14, color: onSurf,
                         fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                 const Spacer(),
-                _HeaderBtn(onTap: onSearch,
-                    child: Icon(Icons.search_rounded, size: 20, color: mutedClr)),
-                _HeaderBtn(
-                  onTap: onNotifications,
-                  child: Stack(clipBehavior: Clip.none, children: [
-                    Icon(Icons.notifications_outlined, size: 20, color: mutedClr),
-                    Positioned(top: -2, right: -2,
-                      child: Container(width: 7, height: 7,
-                          decoration: BoxDecoration(color: accent, shape: BoxShape.circle))),
-                  ]),
-                ),
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
@@ -419,7 +342,7 @@ class _SmartHeader extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [BoxShadow(
-                          color: accent.withOpacity(.3),
+                          color: accent.withValues(alpha: .3),
                           blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: Center(child: Text(initials,
@@ -433,7 +356,7 @@ class _SmartHeader extends StatelessWidget {
           ),
         ),
         // Divider under header
-        Container(height: 1, color: cs.outline.withOpacity(.15)),
+        Container(height: 1, color: cs.outline.withValues(alpha: .15)),
 
         // ── Tab nav bar (optionnel) ───────────────────────────────────────
         if (showTabBar) ...[
@@ -475,7 +398,7 @@ class _SmartHeader extends StatelessWidget {
               },
             ),
           ),
-          Container(height: 1, color: cs.outline.withOpacity(.2)),
+          Container(height: 1, color: cs.outline.withValues(alpha: .2)),
         ],
       ],
     );
@@ -532,7 +455,7 @@ class _EdgeBubble extends StatelessWidget {
       child: Container(
         width: 44, height: 44,
         decoration: BoxDecoration(
-          color: accent.withOpacity(.85),
+          color: accent.withValues(alpha: .85),
           shape: BoxShape.circle,
           boxShadow: const [BoxShadow(
               color: Color(0x33000000), blurRadius: 12, offset: Offset(2, 2))],
@@ -549,7 +472,6 @@ class _SidebarPanel extends StatefulWidget {
   final List<RoleNavEntry> entries;
   final AppUser? user;
   final ValueChanged<String> onSelect;
-  final VoidCallback onSignOut;
   final VoidCallback onAccount;
   final VoidCallback onClose;
   final double opacity;
@@ -558,7 +480,7 @@ class _SidebarPanel extends StatefulWidget {
 
   const _SidebarPanel({
     required this.entries, required this.user,
-    required this.onSelect, required this.onSignOut,
+    required this.onSelect,
     required this.onAccount, required this.onClose,
     required this.opacity, required this.width,
     required this.role,
@@ -656,8 +578,8 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               width: 44, height: 44,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: _white.withOpacity(.12),
-                                border: Border.all(color: accentLight.withOpacity(.4), width: 1.5),
+                                color: _white.withValues(alpha: .12),
+                                border: Border.all(color: accentLight.withValues(alpha: .4), width: 1.5),
                               ),
                               child: Center(child: Text(initials,
                                   style: const TextStyle(color: _white,
@@ -682,7 +604,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                 ),
                                 Text(
                                   (widget.user?.role.name ?? 'user').toUpperCase(),
-                                  style: TextStyle(color: accentLight.withOpacity(.8),
+                                  style: TextStyle(color: accentLight.withValues(alpha: .8),
                                       fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.1),
                                 ),
                               ]),
@@ -706,7 +628,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                       turns: _accountExpanded ? 0.5 : 0,
                                       duration: const Duration(milliseconds: 220),
                                       child: Icon(Icons.apartment_rounded,
-                                          color: accentLight.withOpacity(.85), size: 19),
+                                          color: accentLight.withValues(alpha: .85), size: 19),
                                     ),
                                   ),
                                 ),
@@ -715,7 +637,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                           const SizedBox(width: 6),
                           // X close
                           Material(
-                            color: _white.withOpacity(.14),
+                            color: _white.withValues(alpha: .14),
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
@@ -742,14 +664,14 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                       padding: const EdgeInsets.only(top: 12),
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: _white.withOpacity(.06),
+                                          color: _white.withValues(alpha: .06),
                                           borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(color: _white.withOpacity(.08)),
+                                          border: Border.all(color: _white.withValues(alpha: .08)),
                                         ),
                                         child: Column(children: [
                                           for (int i = 0; i < memberships.length; i++) ...[
                                             if (i > 0)
-                                              Container(height: .5, color: _white.withOpacity(.08)),
+                                              Container(height: .5, color: _white.withValues(alpha: .08)),
                                             _AccountTile(
                                               initials: _schoolInitials(memberships[i].schoolName),
                                               name: memberships[i].schoolName ?? 'École',
@@ -776,7 +698,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
 
                 Container(height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 20),
-                    color: _white.withOpacity(.08)),
+                    color: _white.withValues(alpha: .08)),
                 const SizedBox(height: 8),
 
                 // ── Nav groups ─────────────────────────────────────────
@@ -804,13 +726,13 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                     ? Icons.grid_view_rounded
                                     : Icons.more_horiz_rounded,
                                 size: 11,
-                                color: accentLight.withOpacity(.55),
+                                color: accentLight.withValues(alpha: .55),
                               ),
                               const SizedBox(width: 5),
                               Text(
                                 group.labelKey.tr().toUpperCase(),
                                 style: TextStyle(
-                                    color: accentLight.withOpacity(.6),
+                                    color: accentLight.withValues(alpha: .6),
                                     fontSize: 9, fontWeight: FontWeight.w800,
                                     letterSpacing: 1.5),
                               ),
@@ -819,7 +741,7 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                                 turns: _collapsedSections.contains(group.labelKey) ? 0 : 0.5,
                                 duration: const Duration(milliseconds: 200),
                                 child: Icon(Icons.expand_less_rounded,
-                                    size: 12, color: accentLight.withOpacity(.4)),
+                                    size: 12, color: accentLight.withValues(alpha: .4)),
                               ),
                             ]),
                           ),
@@ -838,13 +760,6 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               },
                             ),
                       ],
-
-                      // ── Logout as last item ─────────────────────────
-                      const SizedBox(height: 8),
-                      Container(height: 1, color: _white.withOpacity(.06),
-                          margin: const EdgeInsets.symmetric(horizontal: 4)),
-                      const SizedBox(height: 8),
-                      _SidebarLogoutItem(onTap: widget.onSignOut),
                     ],
                   ),
                 ),
@@ -861,11 +776,11 @@ class _SidebarPanelState extends State<_SidebarPanel> {
                               Icons.school_rounded, size: 20, color: accentLight)),
                       const SizedBox(width: 8),
                       Text(AppConfig.appName,
-                          style: TextStyle(color: _white.withOpacity(.5),
+                          style: TextStyle(color: _white.withValues(alpha: .5),
                               fontSize: 12, fontWeight: FontWeight.w600)),
                       const Spacer(),
                       Text('v${AppConfig.appVersion}',
-                          style: TextStyle(color: _white.withOpacity(.25), fontSize: 10)),
+                          style: TextStyle(color: _white.withValues(alpha: .25), fontSize: 10)),
                     ]),
                   ),
                 ),
@@ -895,7 +810,7 @@ class _AccountTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: accent.withOpacity(.1),
+        splashColor: accent.withValues(alpha: .1),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(children: [
@@ -903,21 +818,21 @@ class _AccountTile extends StatelessWidget {
               width: 34, height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive ? accent.withOpacity(.25) : _white.withOpacity(.10),
-                border: isActive ? Border.all(color: accent.withOpacity(.5)) : null,
+                color: isActive ? accent.withValues(alpha: .25) : _white.withValues(alpha: .10),
+                border: isActive ? Border.all(color: accent.withValues(alpha: .5)) : null,
               ),
               child: Center(child: Text(initials,
                   style: TextStyle(
-                      color: isActive ? accent : _white.withOpacity(.7),
+                      color: isActive ? accent : _white.withValues(alpha: .7),
                       fontSize: 12, fontWeight: FontWeight.w800))),
             ),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: TextStyle(
-                  color: isActive ? _white : _white.withOpacity(.8),
+                  color: isActive ? _white : _white.withValues(alpha: .8),
                   fontSize: 13, fontWeight: isActive ? FontWeight.w700 : FontWeight.w400)),
               Text(role.toUpperCase(), style: TextStyle(
-                  color: accent.withOpacity(.6), fontSize: 9,
+                  color: accent.withValues(alpha: .6), fontSize: 9,
                   fontWeight: FontWeight.w700, letterSpacing: 1.0)),
             ])),
             if (isActive)
@@ -965,32 +880,32 @@ class _SidebarItem extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: onTap,
-              splashColor: accent.withOpacity(.1),
+              splashColor: accent.withValues(alpha: .1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
-                  color: selected ? _white.withOpacity(.10) : Colors.transparent,
+                  color: selected ? _white.withValues(alpha: .10) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
-                  border: selected ? Border.all(color: accent.withOpacity(.2)) : null,
+                  border: selected ? Border.all(color: accent.withValues(alpha: .2)) : null,
                 ),
                 child: Row(children: [
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
                       color: selected
-                          ? accent.withOpacity(.2)
-                          : _white.withOpacity(.07),
+                          ? accent.withValues(alpha: .2)
+                          : _white.withValues(alpha: .07),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(entry.icon, size: 18,
-                        color: selected ? accent : _menuTxt.withOpacity(.7)),
+                        color: selected ? accent : _menuTxt.withValues(alpha: .7)),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(entry.labelKey.tr(),
                         style: TextStyle(
-                          color: selected ? _white : _menuTxt.withOpacity(.8),
+                          color: selected ? _white : _menuTxt.withValues(alpha: .8),
                           fontSize: 14,
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                         )),
@@ -1011,41 +926,6 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-class _SidebarLogoutItem extends StatelessWidget {
-  final VoidCallback onTap;
-  const _SidebarLogoutItem({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: ScolarisPalette.terracotta.withOpacity(.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.logout_rounded, size: 18,
-                  color: ScolarisPalette.terracotta),
-            ),
-            const SizedBox(width: 14),
-            Text('common.logout'.tr(),
-                style: TextStyle(
-                    color: ScolarisPalette.terracotta.withOpacity(.9),
-                    fontSize: 14, fontWeight: FontWeight.w500)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Sidebar background pattern ────────────────────────────────────────────
 class _SidebarPatternPainter extends CustomPainter {
   final bool isDark;
@@ -1056,12 +936,12 @@ class _SidebarPatternPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Dark mode: vivid pattern with accent fill + outline; light mode: subtle outline
     final strokePaint = Paint()
-      ..color = accent.withOpacity(isDark ? .22 : .05)
+      ..color = accent.withValues(alpha: isDark ? .22 : .05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = isDark ? 1.6 : 1.2;
     final fillPaint = isDark
         ? (Paint()
-          ..color = accent.withOpacity(.07)
+          ..color = accent.withValues(alpha: .07)
           ..style = PaintingStyle.fill)
         : null;
 
@@ -1082,7 +962,7 @@ class _SidebarPatternPainter extends CustomPainter {
       final cx = size.width * 0.5;
       final cy = size.height * 0.42;
       final ringPaint = Paint()
-        ..color = accent.withOpacity(.10)
+        ..color = accent.withValues(alpha: .10)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       for (final r in [28.0, 46.0, 64.0]) {

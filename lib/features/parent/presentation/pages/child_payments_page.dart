@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../admin/presentation/widgets/tuition_account.dart';
@@ -8,6 +7,7 @@ import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/pdf/invoice_pdf.dart';
 import '../../../../shared/widgets/online_payment_sheet.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../widgets/payment_lists.dart';
 
 /// La scolarité d'UN enfant, ouverte depuis sa fiche : le compte (solde qui
 /// court + paiement en ligne) et, séparément, ses autres frais.
@@ -43,6 +43,11 @@ class ChildPaymentsPage extends ConsumerWidget {
       if (ok) ref.invalidate(invoicesForStudentProvider(child.id));
     }
 
+    Future<void> payOther(SbInvoice inv) async {
+      final ok = await showOnlinePaymentSheet(context, ref, [inv]);
+      if (ok) ref.invalidate(invoicesForStudentProvider(child.id));
+    }
+
     return PageScaffold(
       title: 'Scolarité — ${child.fullName}',
       subtitle: child.classe?.isNotEmpty == true ? child.classe : null,
@@ -56,125 +61,25 @@ class ChildPaymentsPage extends ConsumerWidget {
               ? null
               : () => printInvoice(school: school, invoice: tuitionInvoice),
         ),
-
-        // ── Autres frais (inscription, etc.) ──────────────────────────────
         if (others.isNotEmpty) ...[
           const SizedBox(height: 14),
-          DataPanel(
-            title: 'Autres frais',
-            child: DataTablePanel(
-              columns: const ['Facture', 'Description', 'Échéance', 'Montant', 'Statut', ''],
-              flex: const [2, 3, 2, 2, 2, 2],
-              rows: [
-                for (final inv in others)
-                  [
-                    Text(inv.invoiceNumber ?? inv.id.substring(0, 8).toUpperCase(),
-                        style: TextStyle(
-                            color: context.cInk,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600)),
-                    Text(inv.description ?? '—',
-                        style: TextStyle(fontSize: 12.5, color: context.cInk)),
-                    Text(
-                        inv.dueDate != null
-                            ? DateFormat('dd/MM/yy').format(inv.dueDate!)
-                            : '—',
-                        style: TextStyle(fontSize: 12, color: context.cMuted)),
-                    Text(
-                        '${NumberFormat.compact(locale: "fr").format(inv.amount)} ${inv.currency}',
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: context.cInk,
-                            fontWeight: FontWeight.w700)),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: inv.isPaid
-                          ? StatusPill.success('Payé')
-                          : (inv.isLate
-                              ? StatusPill.danger('En retard')
-                              : StatusPill.warning('En attente')),
-                    ),
-                    Row(mainAxisSize: MainAxisSize.min, children: [
-                      IconButton(
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        color: context.cMuted,
-                        tooltip: inv.isPaid
-                            ? 'Télécharger le reçu'
-                            : 'Télécharger la facture',
-                        onPressed: () =>
-                            printInvoice(school: school, invoice: inv),
-                      ),
-                      if (!inv.isPaid && online) ...[
-                        const SizedBox(width: 4),
-                        ActionButton(
-                          label: 'Payer',
-                          primary: true,
-                          onTap: () async {
-                            final ok = await showOnlinePaymentSheet(
-                                context, ref, [inv]);
-                            if (ok) {
-                              ref.invalidate(
-                                  invoicesForStudentProvider(child.id));
-                            }
-                          },
-                        ),
-                      ],
-                    ]),
-                  ],
-              ],
-            ),
+          OtherFeesPanel(
+            invoices: others,
+            school: school,
+            onlineEnabled: online,
+            onPay: payOther,
           ),
         ],
-
-        // ── Historique des versements ──────────────────────────────────────
         if (payments.isNotEmpty) ...[
           const SizedBox(height: 14),
-          DataPanel(
-            title: 'Historique des versements',
-            child: DataTablePanel(
-              columns: const ['Date', 'Mode', 'Montant', ''],
-              flex: const [2, 2, 2, 1],
-              rows: [
-                for (final p in payments)
-                  [
-                    Text(
-                        p.paymentDate != null
-                            ? DateFormat('dd/MM/yy').format(p.paymentDate!)
-                            : '—',
-                        style: TextStyle(fontSize: 12.5, color: context.cInk)),
-                    Text(_methodLabel(p.paymentMethod),
-                        style: TextStyle(fontSize: 12.5, color: context.cMuted)),
-                    Text('${NumberFormat.compact(locale: "fr").format(p.amount)} $currency',
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: context.cInk,
-                            fontWeight: FontWeight.w700)),
-                    IconButton(
-                      icon: const Icon(Icons.download_rounded, size: 18),
-                      color: context.cMuted,
-                      tooltip: 'Télécharger le reçu',
-                      onPressed: () => printPaymentReceipt(
-                        school: school,
-                        payment: p,
-                        studentName: child.fullName,
-                        description: 'Scolarité',
-                        currency: currency,
-                      ),
-                    ),
-                  ],
-              ],
-            ),
+          PaymentHistoryPanel(
+            payments: payments,
+            school: school,
+            studentName: child.fullName,
+            currency: currency,
           ),
         ],
       ]),
     );
   }
 }
-
-String _methodLabel(String? method) => switch (method?.toLowerCase()) {
-      'cash' => 'Espèces',
-      'mobile_money' || 'mtn' || 'airtel' => 'Mobile Money',
-      'bank_transfer' || 'transfer' => 'Virement bancaire',
-      'card' => 'Carte bancaire',
-      _ => method ?? '—',
-    };
