@@ -330,6 +330,9 @@ class _CourseGrid extends StatelessWidget {
                    : c.maxWidth > 1000 ? 3
                    : c.maxWidth > 600  ? 2
                    : 1;
+        // En 1 colonne la carte prend toute la largeur : un ratio identique
+        // à celui du desktop la rendrait bien trop haute (grand vide interne).
+        final aspectRatio = cols == 1 ? 2.3 : cols == 2 ? 1.6 : 1.4;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -338,7 +341,7 @@ class _CourseGrid extends StatelessWidget {
             crossAxisCount: cols,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 1.4,
+            childAspectRatio: aspectRatio,
           ),
           itemBuilder: (_, i) => _CourseCard(course: courses[i], onOpen: () => onOpen(courses[i])),
         );
