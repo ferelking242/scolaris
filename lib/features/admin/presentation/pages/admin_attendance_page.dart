@@ -3,16 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
+import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import 'attendance_justify_page.dart';
 
 /// Présences côté staff : contrairement à `AttendanceTodayPage` (prof, limité
 /// à ses classes assignées), ici toutes les classes de l'école sont visibles —
 /// c'est l'écran du surveillant/secrétariat qui fait ou supervise l'appel.
 /// Même mécanique d'écriture (`SupabaseDbSource.saveAttendance`), même garde
 /// fine `presences.saisir` : un membre avec seulement `presences.voir`
-/// consulte sans pouvoir modifier.
+/// consulte sans pouvoir modifier. Son propre pointage reste isolé de celui
+/// des profs (clé student_id, absence_date, teacher_id) : ni écrasement, ni
+/// substitution silencieuse d'un pointage de prof déjà transmis.
 enum _Status { present, late, absent }
+
+const _historyDays = 7;
+const _moisAbbr = [
+  'janv', 'févr', 'mars', 'avr', 'mai', 'juin',
+  'juil', 'août', 'sept', 'oct', 'nov', 'déc'
+];
+const _joursAbbr = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+
+String _isoDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+String _shortDate(DateTime d) =>
+    '${_joursAbbr[d.weekday - 1]} ${d.day} ${_moisAbbr[d.month - 1]}';
 
 class AdminAttendancePage extends ConsumerStatefulWidget {
   const AdminAttendancePage({super.key});
@@ -23,8 +39,13 @@ class AdminAttendancePage extends ConsumerStatefulWidget {
 
 class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
   String? _selectedClassId;
+  DateTime _selectedDate = DateTime.now();
   Map<String, _Status> _statusMap = {};
-  String? _seededClassId;
+  String? _seededKey;
+  bool _forceUnlock = false;
+
+  DateTime get _dateOnly =>
+      DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
   @override
   Widget build(BuildContext context) {
@@ -65,18 +86,22 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
       );
     }
 
+    final myId = ref.watch(authSessionProvider)?.id;
     final studentsAsync =
         ref.watch(studentsByClassProvider(selectedClass.name));
-    final attendanceAsync =
-        ref.watch(attendanceForClassProvider(selectedClass.id));
+    final providerKey =
+        '${selectedClass.id}|${_isoDate(_dateOnly)}|${myId ?? ''}';
+    final attendanceAsync = ref.watch(attendanceForClassProvider(providerKey));
 
-    // Pré-remplir le pointage déjà saisi aujourd'hui (une fois par classe) —
-    // reflète ce qui est en base au lieu du défaut « présent implicite ».
-    final todayRecords = attendanceAsync.valueOrNull;
-    if (todayRecords != null && _seededClassId != selectedClass.id) {
-      _seededClassId = selectedClass.id;
+    // Pré-remplir le pointage déjà saisi pour (classe, date, CE membre du
+    // staff) — reflète ce qui est en base au lieu du défaut « présent
+    // implicite », et reste isolé du pointage d'un prof sur la même classe.
+    final existingRecords = attendanceAsync.valueOrNull;
+    if (existingRecords != null && _seededKey != providerKey) {
+      _seededKey = providerKey;
+      _forceUnlock = false;
       _statusMap = {
-        for (final r in todayRecords)
+        for (final r in existingRecords)
           r.studentId: r.status == 'late'
               ? _Status.late
               : r.status == 'absent'
@@ -84,6 +109,7 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
                   : _Status.present,
       };
     }
+    final locked = (existingRecords?.isNotEmpty ?? false) && !_forceUnlock;
 
     return studentsAsync.when(
       loading: () => const PageScaffold(
@@ -102,19 +128,29 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
             _statusMap.values.where((s) => s == _Status.absent).length;
 
         final canSaisir = ref.watch(canProvider('presences.saisir'));
+        final canModifier = ref.watch(canProvider('presences.modifier'));
+        final canEdit = canSaisir && !locked;
 
         return PageScaffold(
           title: 'Présences',
-          subtitle: canSaisir
-              ? 'Marquez présent, retard ou absent — par classe'
-              : 'Consultation seule — la saisie ne vous est pas confiée',
+          subtitle: !canSaisir
+              ? 'Consultation seule — la saisie ne vous est pas confiée'
+              : locked
+                  ? 'Pointage déjà transmis pour ce jour'
+                  : 'Marquez présent, retard ou absent — par classe',
           actions: [
-            if (canSaisir)
+            ActionButton(
+                label: 'Justifier des absences',
+                icon: Icons.fact_check_outlined,
+                onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AttendanceJustifyPage()))),
+            if (canEdit)
               ActionButton(
                   label: 'Enregistrer',
                   icon: Icons.check_rounded,
                   primary: true,
-                  onTap: () => _save(students, selectedClass.id)),
+                  onTap: () => _save(students, selectedClass.id, myId)),
           ],
           child: Column(children: [
             _ClassPicker(
@@ -123,9 +159,27 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
               onChanged: (id) => setState(() {
                 _selectedClassId = id;
                 _statusMap = {};
+                _seededKey = null;
               }),
             ),
             const SizedBox(height: 12),
+            _DatePicker(
+              date: _dateOnly,
+              onChanged: (d) => setState(() {
+                _selectedDate = d;
+                _statusMap = {};
+                _seededKey = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+            if (locked) ...[
+              _LockBanner(
+                canModifier: canModifier,
+                onUnlock:
+                    canModifier ? () => _confirmUnlock(context) : null,
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(children: [
               Expanded(
                   child: _SummaryCard(
@@ -211,7 +265,31 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
     );
   }
 
-  Future<void> _save(List<SbStudent> students, String classId) async {
+  Future<void> _confirmUnlock(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Modifier un pointage déjà transmis ?'),
+        content: const Text(
+            'Ce pointage a déjà été enregistré pour ce jour. Le corriger '
+            'remplacera ce qui a été transmis.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B1A00)),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Modifier')),
+        ],
+      ),
+    );
+    if (ok == true) setState(() => _forceUnlock = true);
+  }
+
+  Future<void> _save(
+      List<SbStudent> students, String classId, String? teacherId) async {
+    if (teacherId == null) return;
     final records = students.map((s) {
       final st = _statusMap[s.id] ?? _Status.present;
       return SbAttendance(
@@ -228,7 +306,10 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
     try {
       final schoolId = ref.read(currentSchoolIdProvider);
       if (schoolId == null) return;
-      await SupabaseDbSource.saveAttendance(records, schoolId: schoolId);
+      await SupabaseDbSource.saveAttendance(records,
+          schoolId: schoolId, teacherId: teacherId, date: _dateOnly);
+      _seededKey = null;
+      ref.invalidate(attendanceForClassProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Présences enregistrées !')),
@@ -241,6 +322,108 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
         );
       }
     }
+  }
+}
+
+/// Sélecteur de date : "Aujourd'hui"/"Hier" en un tap + calendrier borné aux
+/// 7 derniers jours (rattraper un pointage oublié, jamais dans le futur).
+class _DatePicker extends StatelessWidget {
+  final DateTime date;
+  final ValueChanged<DateTime> onChanged;
+  const _DatePicker({required this.date, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final yesterday = todayOnly.subtract(const Duration(days: 1));
+    final isToday = date == todayOnly;
+    final isYesterday = date == yesterday;
+
+    return Row(children: [
+      Expanded(
+        child: Wrap(spacing: 6, runSpacing: 6, children: [
+          ChoiceChip(
+            label: const Text('Aujourd\'hui'),
+            selected: isToday,
+            onSelected: (_) => onChanged(todayOnly),
+            labelStyle: TextStyle(fontSize: 12, color: isToday ? const Color(0xFF8B1A00) : context.cMuted,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500),
+            selectedColor: const Color(0xFF8B1A00).withValues(alpha: .12),
+          ),
+          ChoiceChip(
+            label: const Text('Hier'),
+            selected: isYesterday,
+            onSelected: (_) => onChanged(yesterday),
+            labelStyle: TextStyle(fontSize: 12, color: isYesterday ? const Color(0xFF8B1A00) : context.cMuted,
+                fontWeight: isYesterday ? FontWeight.w700 : FontWeight.w500),
+            selectedColor: const Color(0xFF8B1A00).withValues(alpha: .12),
+          ),
+          if (!isToday && !isYesterday)
+            Chip(
+              label: Text(_shortDate(date)),
+              labelStyle: const TextStyle(
+                  fontSize: 12, color: Color(0xFF8B1A00), fontWeight: FontWeight.w700),
+              backgroundColor: const Color(0xFF8B1A00).withValues(alpha: .12),
+            ),
+        ]),
+      ),
+      IconButton(
+        icon: Icon(Icons.calendar_month_rounded, size: 20, color: context.cMuted),
+        tooltip: 'Choisir une date',
+        onPressed: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: date,
+            firstDate: todayOnly.subtract(const Duration(days: _historyDays)),
+            lastDate: todayOnly,
+          );
+          if (picked != null) onChanged(picked);
+        },
+      ),
+    ]);
+  }
+}
+
+/// Bandeau « pointage déjà transmis » — verrouillage client-side, basé sur
+/// `presences.modifier` (déjà défini et appliqué en RLS).
+class _LockBanner extends StatelessWidget {
+  final bool canModifier;
+  final VoidCallback? onUnlock;
+  const _LockBanner({required this.canModifier, required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF8B1A00);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.lock_rounded, size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            canModifier
+                ? 'Pointage déjà transmis pour ce jour.'
+                : 'Pointage déjà transmis pour ce jour. Seul un droit de correction permet de le modifier.',
+            style: const TextStyle(fontSize: 12.5, color: color, height: 1.35),
+          ),
+        ),
+        if (canModifier && onUnlock != null) ...[
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onUnlock,
+            style: TextButton.styleFrom(foregroundColor: color),
+            child: const Text('Modifier'),
+          ),
+        ],
+      ]),
+    );
   }
 }
 

@@ -535,10 +535,12 @@ final myGradesProvider = FutureProvider<List<SbGrade>>((ref) async {
 });
 
 // ── Attendance ────────────────────────────────────────────────────────────────
-/// Clé encodée `"classId|yyyy-MM-dd|teacherId"` — `teacherId` vide = vue large
-/// (staff/vie scolaire), sinon le pointage d'UN prof précis pour cette classe
-/// et ce jour (cf. 20260731_attendance_per_teacher.sql : plusieurs profs
-/// peuvent pointer la même classe le même jour sans se marcher dessus).
+/// Clé encodée `"classId|yyyy-MM-dd|teacherId|subjectId"` — `teacherId` vide =
+/// vue large (non utilisé aujourd'hui) ; sinon le pointage d'UN prof précis
+/// pour cette classe, ce jour et CE cours (`subjectId` vide = pointage journée
+/// entière, titulaire ou staff). Cf. 20260731_attendance_add_subject.sql :
+/// plusieurs profs — et un même prof sur deux cours différents — peuvent
+/// pointer la même classe le même jour sans se marcher dessus.
 final attendanceForClassProvider =
     FutureProvider.family<List<SbAttendance>, String>((ref, key) async {
   final parts = key.split('|');
@@ -547,8 +549,12 @@ final attendanceForClassProvider =
       ? DateTime.tryParse(parts[1])
       : null;
   final teacherId = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : null;
+  final subjectId = parts.length > 3 && parts[3].isNotEmpty ? parts[3] : null;
   return SupabaseDbSource.getAttendanceForClass(classId,
-      date: date, teacherId: teacherId);
+      date: date,
+      teacherId: teacherId,
+      subjectId: subjectId,
+      filterBySubject: teacherId != null);
 });
 
 final myAbsencesProvider = FutureProvider<List<SbAbsence>>((ref) async {

@@ -249,24 +249,24 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
           )),
         ]),
         const SizedBox(height: 14),
-        Row(children: [
-          if (total > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _terra.withValues(alpha: .06),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.functions_rounded, size: 14, color: _terra),
-                const SizedBox(width: 6),
-                Text('Total année : ${NumberFormat.decimalPattern("fr").format(total)} XAF',
-                    style: const TextStyle(
-                        color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
-              ]),
-            ),
-          const Spacer(),
-          FilledButton.icon(
+        LayoutBuilder(builder: (_, constraints) {
+          final totalChip = total > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _terra.withValues(alpha: .06),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.functions_rounded, size: 14, color: _terra),
+                    const SizedBox(width: 6),
+                    Text('Total année : ${NumberFormat.decimalPattern("fr").format(total)} XAF',
+                        style: const TextStyle(
+                            color: _terra, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ]),
+                )
+              : null;
+          final saveBtn = FilledButton.icon(
             onPressed: (_saving || !_canEdit) ? null : _save,
             icon: _saving
                 ? const SizedBox(width: 14, height: 14,
@@ -277,8 +277,21 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
               backgroundColor: _terra,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-          ),
-        ]),
+          );
+          // Sous ~420px, le chip de total + le bouton d'enregistrement ne
+          // tiennent plus sur une ligne (le bouton se compressait).
+          if (constraints.maxWidth < 420) {
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (totalChip != null) ...[totalChip, const SizedBox(height: 10)],
+              SizedBox(width: double.infinity, child: saveBtn),
+            ]);
+          }
+          return Row(children: [
+            if (totalChip != null) totalChip,
+            const Spacer(),
+            saveBtn,
+          ]);
+        }),
       ]),
     );
   }

@@ -133,41 +133,48 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
                   if (allowed.isEmpty) {
                     return const _NoSubjects();
                   }
-                  return Row(children: [
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<String>(
-                        value: allowed.any((c) => c.subjectId == _selectedSubjectId)
-                            ? _selectedSubjectId
-                            : null,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Matière',
-                          prefixIcon: Icon(Icons.menu_book_outlined),
-                          border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
-                        items: [
-                          for (final c in allowed)
-                            DropdownMenuItem(
-                                value: c.subjectId!, child: Text(c.name)),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _selectedSubjectId = v),
-                      ),
+                  final subjectDropdown = DropdownButtonFormField<String>(
+                    value: allowed.any((c) => c.subjectId == _selectedSubjectId)
+                        ? _selectedSubjectId
+                        : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Matière',
+                      prefixIcon: Icon(Icons.menu_book_outlined),
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: _PeriodPicker(
-                        value: period,
-                        periods: fmt.periods,
-                        labelOf: fmt.periodLabel,
-                        onChanged: (p) => setState(() => _selectedPeriod = p),
-                      ),
-                    ),
-                  ]);
+                    items: [
+                      for (final c in allowed)
+                        DropdownMenuItem(
+                            value: c.subjectId!, child: Text(c.name)),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _selectedSubjectId = v),
+                  );
+                  final periodPicker = _PeriodPicker(
+                    value: period,
+                    periods: fmt.periods,
+                    labelOf: fmt.periodLabel,
+                    onChanged: (p) => setState(() => _selectedPeriod = p),
+                  );
+                  return LayoutBuilder(builder: (_, constraints) {
+                    // Sous ~480px, les deux dropdowns côte à côte se
+                    // compressaient au point de tronquer les libellés.
+                    if (constraints.maxWidth < 480) {
+                      return Column(children: [
+                        subjectDropdown,
+                        const SizedBox(height: 12),
+                        periodPicker,
+                      ]);
+                    }
+                    return Row(children: [
+                      Expanded(flex: 3, child: subjectDropdown),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: periodPicker),
+                    ]);
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -598,59 +605,17 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
                         ),
                       ]),
                     ),
-                    DataTablePanel(
-                      columns: [
-                        'Élève',
-                        'Matricule',
-                        for (final slot in slots)
-                          '${slot.label} /${_max.toStringAsFixed(0)}',
-                        'Moy.',
-                      ],
-                      flex: [3, 2, for (final _ in slots) 1, 1],
-                      rows: [
-                        for (final s in students)
-                          [
-                            Row(children: [
-                              Avatar(name: s.fullName, size: 22),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  s.fullName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: ink,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ]),
-                            Text(s.matricule ?? '—',
-                                style: const TextStyle(
-                                    fontSize: 12, color: muted)),
-                            for (final slot in slots)
-                              _cell(s.id, slot, canSaisir: canSaisir),
-                            Builder(builder: (_) {
-                              final avg = _avg(s.id, slots, rules);
-                              if (avg == null) {
-                                return const Text('—',
-                                    style: TextStyle(
-                                        fontSize: 13, color: muted));
-                              }
-                              return Text(
-                                avg.toStringAsFixed(1),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: avg >= 14
-                                      ? _green
-                                      : avg >= 10
-                                          ? _gold
-                                          : _terra,
-                                ),
-                              );
-                            }),
-                          ],
-                      ],
+                    _GradeTable(
+                      students: students,
+                      slots: slots,
+                      max: _max,
+                      cellOf: (s, slot) => _cell(s, slot, canSaisir: canSaisir),
+                      avgOf: (s) => _avg(s, slots, rules),
+                      avgColor: (avg) => avg >= 14
+                          ? _green
+                          : avg >= 10
+                              ? _gold
+                              : _terra,
                     ),
                     const SizedBox(height: 16),
                     if (!canSaisir)
@@ -706,6 +671,125 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
       },
     );
   }
+}
+
+// ── Tableau de notes : colonne élève figée + reste défilant horizontalement ──
+// Les champs de saisie ont une largeur fixe (44px) : sous 640px, un
+// `DataTablePanel` à colonnes `flex` les écrasait. Ici la 1re colonne (nom)
+// reste visible pendant le défilement des colonnes de notes — même pattern
+// que la matrice de `tuition_tracking_page.dart`.
+class _GradeTable extends StatelessWidget {
+  final List<SbStudent> students;
+  final List<GradeSlot> slots;
+  final double max;
+  final Widget Function(String studentId, GradeSlot slot) cellOf;
+  final double? Function(String studentId) avgOf;
+  final Color Function(double avg) avgColor;
+  const _GradeTable({
+    required this.students,
+    required this.slots,
+    required this.max,
+    required this.cellOf,
+    required this.avgOf,
+    required this.avgColor,
+  });
+
+  static const _rowH = 46.0;
+  static const _headH = 40.0;
+  static const _nameW = 150.0;
+  static const _colW = 60.0;
+
+  Color _zebra(BuildContext context, int i) =>
+      i.isEven ? context.cCard : context.cSubtle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: context.cBorder),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Column(children: [
+            Container(
+              width: _nameW, height: _headH,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              color: context.cSubtle,
+              child: Text('ÉLÈVE',
+                  style: TextStyle(color: context.cMuted, fontSize: 10,
+                      fontWeight: FontWeight.w800, letterSpacing: .4)),
+            ),
+            for (int i = 0; i < students.length; i++)
+              Container(
+                width: _nameW, height: _rowH,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                color: _zebra(context, i),
+                child: Row(children: [
+                  Avatar(name: students[i].fullName, size: 20),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(students[i].fullName,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: context.cInk, fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              ),
+          ]),
+          Container(width: 1, color: context.cBorder),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  _headCell(context, 'Matr.'),
+                  for (final slot in slots)
+                    _headCell(context, '${slot.label} /${max.toStringAsFixed(0)}'),
+                  _headCell(context, 'Moy.'),
+                ]),
+                for (int i = 0; i < students.length; i++)
+                  Row(children: [
+                    _bodyCell(context, i,
+                        child: Text(students[i].matricule ?? '—',
+                            style: TextStyle(fontSize: 11.5, color: context.cMuted))),
+                    for (final slot in slots)
+                      _bodyCell(context, i, child: cellOf(students[i].id, slot)),
+                    _bodyCell(context, i, child: Builder(builder: (_) {
+                      final avg = avgOf(students[i].id);
+                      if (avg == null) {
+                        return Text('—', style: TextStyle(fontSize: 13, color: context.cMuted));
+                      }
+                      return Text(avg.toStringAsFixed(1),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                              color: avgColor(avg)));
+                    })),
+                  ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _headCell(BuildContext context, String label) => Container(
+        width: _colW, height: _headH,
+        alignment: Alignment.center,
+        color: context.cSubtle,
+        child: Text(label, textAlign: TextAlign.center,
+            style: TextStyle(color: context.cInk, fontSize: 9.5, fontWeight: FontWeight.w800)),
+      );
+
+  Widget _bodyCell(BuildContext context, int i, {required Widget child}) => Container(
+        width: _colW, height: _rowH,
+        alignment: Alignment.center,
+        color: _zebra(context, i),
+        child: child,
+      );
 }
 
 // ── Champ de saisie note ──────────────────────────────────────────────────────

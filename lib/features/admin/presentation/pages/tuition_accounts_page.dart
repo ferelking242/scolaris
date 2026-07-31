@@ -213,59 +213,78 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
                             : 'Aucun compte à afficher.',
                         style: TextStyle(color: context.cMuted))),
               )
-            : DataTablePanel(
-                columns: const [
-                  'Élève',
-                  'Classe',
-                  'Payé',
-                  'Dû à ce jour',
-                  'Statut',
-                  ''
-                ],
-                flex: const [3, 2, 2, 2, 3, 2],
-                rows: [
-                  for (final e in rows)
-                    [
-                      Text(e.s.fullName,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: context.cInk,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600)),
-                      Text(
-                          e.s.classGroup.isNotEmpty
-                              ? e.s.classGroup
-                              : '—',
-                          style:
-                              TextStyle(fontSize: 12, color: context.cMuted)),
-                      Text(_money(e.a.paid, e.a.currency),
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              color: context.cInk,
-                              fontWeight: FontWeight.w700)),
-                      Text(_money(e.a.dueToDate, e.a.currency),
-                          style:
-                              TextStyle(fontSize: 12, color: context.cMuted)),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: e.a.isUpToDate
-                            ? StatusPill.success('À jour')
-                            : StatusPill.danger(
-                                'Doit ${_money(e.a.owedNow, e.a.currency)}'),
+            : LayoutBuilder(builder: (_, constraints) {
+                // Sous ~640px, la table à colonnes flex devient illisible
+                // (montants tronqués) — on bascule sur des cartes empilées.
+                if (constraints.maxWidth < 640) {
+                  return Column(children: [
+                    for (final e in rows) ...[
+                      _StudentAccountCard(
+                        student: e.s,
+                        account: e.a,
+                        money: _money,
+                        canCollect: canCollect,
+                        onCollect: () => showTuitionPaymentDialog(
+                            context, ref, e.s.id, e.s.fullName, e.a),
                       ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: canCollect
-                            ? _MiniBtn(
-                                label: 'Encaisser',
-                                onTap: () => showTuitionPaymentDialog(
-                                    context, ref, e.s.id, e.s.fullName, e.a),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
+                      const SizedBox(height: 8),
                     ],
-                ],
-              ),
+                  ]);
+                }
+                return DataTablePanel(
+                  columns: const [
+                    'Élève',
+                    'Classe',
+                    'Payé',
+                    'Dû à ce jour',
+                    'Statut',
+                    ''
+                  ],
+                  flex: const [3, 2, 2, 2, 3, 2],
+                  rows: [
+                    for (final e in rows)
+                      [
+                        Text(e.s.fullName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: context.cInk,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600)),
+                        Text(
+                            e.s.classGroup.isNotEmpty
+                                ? e.s.classGroup
+                                : '—',
+                            style: TextStyle(
+                                fontSize: 12, color: context.cMuted)),
+                        Text(_money(e.a.paid, e.a.currency),
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                color: context.cInk,
+                                fontWeight: FontWeight.w700)),
+                        Text(_money(e.a.dueToDate, e.a.currency),
+                            style: TextStyle(
+                                fontSize: 12, color: context.cMuted)),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: e.a.isUpToDate
+                              ? StatusPill.success('À jour')
+                              : StatusPill.danger(
+                                  'Doit ${_money(e.a.owedNow, e.a.currency)}'),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: canCollect
+                              ? _MiniBtn(
+                                  label: 'Encaisser',
+                                  onTap: () => showTuitionPaymentDialog(
+                                      context, ref, e.s.id, e.s.fullName, e.a),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                  ],
+                );
+              }),
       ),
     ]);
   }
@@ -291,6 +310,110 @@ class _StatBox extends StatelessWidget {
           Text(value,
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      );
+}
+
+/// Carte mobile d'un élève (remplace la ligne de `DataTablePanel` sous 640px) :
+/// statut + montant dû en évidence, action « Encaisser » en pleine largeur.
+class _StudentAccountCard extends StatelessWidget {
+  final SbStudent student;
+  final SbTuitionAccount account;
+  final String Function(num, String) money;
+  final bool canCollect;
+  final VoidCallback onCollect;
+  const _StudentAccountCard({
+    required this.student,
+    required this.account,
+    required this.money,
+    required this.canCollect,
+    required this.onCollect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(student.fullName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: context.cInk,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700)),
+              if (student.classGroup.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(student.classGroup,
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+              ],
+            ]),
+          ),
+          const SizedBox(width: 8),
+          account.isUpToDate
+              ? StatusPill.success('À jour')
+              : StatusPill.danger('Doit ${money(account.owedNow, account.currency)}'),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: _MiniStat(
+                label: 'Payé', value: money(account.paid, account.currency)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _MiniStat(
+                label: 'Dû à ce jour',
+                value: money(account.dueToDate, account.currency)),
+          ),
+        ]),
+        if (canCollect) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onCollect,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _green,
+                side: BorderSide(color: _green.withValues(alpha: .35)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text('Encaisser',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String label, value;
+  const _MiniStat({required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: context.cSubtle,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 10, color: context.cMuted)),
+          const SizedBox(height: 2),
+          Text(value,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: context.cInk,
+                  fontWeight: FontWeight.w700)),
         ]),
       );
 }

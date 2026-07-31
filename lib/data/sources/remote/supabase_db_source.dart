@@ -617,6 +617,7 @@ class SbAttendance {
   final String studentId;
   final String? classId;
   final String? teacherId;
+  final String? subjectId;
   final DateTime? date;
   final String status;
   final String? arrivalTime;
@@ -627,6 +628,7 @@ class SbAttendance {
     required this.studentId,
     this.classId,
     this.teacherId,
+    this.subjectId,
     this.date,
     this.status = 'present',
     this.arrivalTime,
@@ -638,6 +640,7 @@ class SbAttendance {
         studentId: j['student_id'] as String? ?? '',
         classId: j['class_id'] as String?,
         teacherId: j['teacher_id'] as String?,
+        subjectId: j['subject_id'] as String?,
         date: j['absence_date'] != null
             ? DateTime.tryParse(j['absence_date'] as String)
             : null,
@@ -2371,10 +2374,13 @@ class SupabaseDbSource {
   //  parlaient pas : une absence marquée n'apparaissait nulle part.
   //  Cf. supabase/migrations/20260729_unify_attendance.sql.
   //
-  //  Un pointage est identifié par (élève, jour, PROF qui l'a fait) depuis
+  //  Un pointage est identifié par (élève, jour, PROF, MATIÈRE) depuis
   //  20260731_attendance_per_teacher.sql : au collège/lycée, plusieurs profs
-  //  prennent la même classe le même jour — sans `teacher_id` dans la clé, le
-  //  dernier qui enregistrait écrasait le pointage des autres pour la journée.
+  //  prennent la même classe le même jour, mais jamais dans le même cours —
+  //  un seul `teacher_id` ne suffisait pas non plus (un même prof peut donner
+  //  deux matières différentes à la même classe le même jour). `subject_id`
+  //  est `null` seulement pour le pointage « journée entière » du titulaire
+  //  (primaire) ou du staff (supervision), qui ne sont pas liés à un cours.
 
   static String _isoDate(DateTime d) => d.toIso8601String().split('T').first;
 
@@ -2382,6 +2388,8 @@ class SupabaseDbSource {
     String classId, {
     DateTime? date,
     String? teacherId,
+    String? subjectId,
+    bool filterBySubject = false,
   }) async {
     var q = _db
         .from('absences')
@@ -2389,6 +2397,11 @@ class SupabaseDbSource {
         .eq('class_id', classId)
         .eq('absence_date', _isoDate(date ?? DateTime.now()));
     if (teacherId != null) q = q.eq('teacher_id', teacherId);
+    if (filterBySubject) {
+      q = subjectId == null
+          ? q.isFilter('subject_id', null)
+          : q.eq('subject_id', subjectId);
+    }
     final data = await q;
     return (data as List).map((j) => SbAttendance.fromJson(j as Map<String, dynamic>)).toList();
   }
@@ -2475,27 +2488,49 @@ class SupabaseDbSource {
   }
 
   /// Enregistre l'appel pour une date donnée (défaut aujourd'hui). Un élève,
-  /// un jour, un PROF, une ligne : ce prof se corrige (upsert) sans écraser le
-  /// pointage d'un collègue sur la même classe le même jour.
+  /// un jour, un PROF, une MATIÈRE (ou aucune, pour un pointage journée
+  /// entière) : ce prof se corrige sans écraser le pointage d'un collègue —
+  /// ni même son PROPRE pointage d'une autre matière à la même classe le même
+  /// jour.
+  ///
+  /// Écrit en DELETE puis INSERT plutôt qu'un upsert : `subject_id` est
+  /// souvent `null` (titulaire/staff), et deux valeurs NULL ne sont jamais
+  /// considérées égales par Postgres — un `ON CONFLICT` sur une colonne
+  /// nullable ne détecterait donc jamais ces lignes comme un doublon à
+  /// corriger, et en créerait une nouvelle à chaque re-saisie.
   static Future<void> saveAttendance(
     List<SbAttendance> records, {
     required String schoolId,
     required String teacherId,
+    String? subjectId,
     DateTime? date,
   }) async {
     final day = _isoDate(date ?? DateTime.now());
+    final studentIds = records.map((r) => r.studentId).toList();
+    if (studentIds.isEmpty) return;
+
+    var del = _db
+        .from('absences')
+        .delete()
+        .eq('absence_date', day)
+        .eq('teacher_id', teacherId)
+        .inFilter('student_id', studentIds);
+    del = subjectId == null
+        ? del.isFilter('subject_id', null)
+        : del.eq('subject_id', subjectId);
+    await del;
+
     final rows = records.map((r) => {
       'school_id': schoolId,
       'student_id': r.studentId,
       'class_id': r.classId,
       'teacher_id': teacherId,
+      'subject_id': subjectId,
       'absence_date': day,
       'status': r.status,
       'arrival_time': r.arrivalTime,
     }).toList();
-    await _db
-        .from('absences')
-        .upsert(rows, onConflict: 'student_id,absence_date,teacher_id');
+    await _db.from('absences').insert(rows);
   }
 
   // ── Invoices ──────────────────────────────────────────────────────────────
