@@ -469,7 +469,11 @@ class _HeaderState extends ConsumerState<_Header> {
               child: _AccountPanel(
                 user: user,
                 onSettings: () {
-                  Navigator.of(context, rootNavigator: true).pop();
+                  // Le popup est empilé sur le Navigator le plus proche
+                  // (CustomPopup, rootNavigator: false) — le fermer sur le
+                  // root Navigator ciblait le mauvais stack et laissait le
+                  // popup ouvert par-dessus l'écran Profil.
+                  Navigator.of(context).maybePop();
                   widget.onSettings?.call();
                 },
               ),
@@ -564,7 +568,7 @@ class _BranchPopup extends ConsumerWidget {
     void pick(SbBranch? branch) {
       ref.read(selectedBranchProvider.notifier).state = branch;
       ref.invalidate(classesProvider);
-      Navigator.of(context, rootNavigator: true).pop();
+      Navigator.of(context).maybePop();
     }
 
     final accent = Theme.of(context).colorScheme.primary;
@@ -770,10 +774,10 @@ class _AccountPanel extends ConsumerWidget {
           _PanelItem(
             icon: Icons.settings_outlined,
             label: 'Mon profil',
-            onTap: () {
-              Navigator.of(context, rootNavigator: true).pop();
-              onSettings?.call();
-            },
+            // Le pop se fait déjà dans le callback onSettings passé par
+            // _Header (sur le bon Navigator) — un 2e pop ici ciblait en plus
+            // le root Navigator par erreur, sur un popup empilé ailleurs.
+            onTap: () => onSettings?.call(),
           ),
           Container(
               height: 1,
