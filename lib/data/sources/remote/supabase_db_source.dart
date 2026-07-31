@@ -663,6 +663,11 @@ class SbAbsence {
   final bool justified;
   final String? reason;
 
+  /// Absence prise par un prof de matière (collège/lycée) : renseigné.
+  /// Absence prise par le titulaire (pointage global du jour) : null.
+  final String? subjectId;
+  final String? subjectName;
+
   const SbAbsence({
     required this.id,
     required this.studentId,
@@ -671,17 +676,24 @@ class SbAbsence {
     this.status = 'absent',
     this.justified = false,
     this.reason,
+    this.subjectId,
+    this.subjectName,
   });
 
-  factory SbAbsence.fromJson(Map<String, dynamic> j) => SbAbsence(
-        id: j['id'] as String,
-        studentId: j['student_id'] as String? ?? '',
-        classId: j['class_id'] as String?,
-        absenceDate: j['absence_date'] != null ? DateTime.tryParse(j['absence_date'] as String) : null,
-        status: j['status'] as String? ?? 'absent',
-        justified: j['justified'] as bool? ?? false,
-        reason: j['reason'] as String?,
-      );
+  factory SbAbsence.fromJson(Map<String, dynamic> j) {
+    final subj = SbStudent._firstMap(j['subjects']);
+    return SbAbsence(
+      id: j['id'] as String,
+      studentId: j['student_id'] as String? ?? '',
+      classId: j['class_id'] as String?,
+      absenceDate: j['absence_date'] != null ? DateTime.tryParse(j['absence_date'] as String) : null,
+      status: j['status'] as String? ?? 'absent',
+      justified: j['justified'] as bool? ?? false,
+      reason: j['reason'] as String?,
+      subjectId: j['subject_id'] as String?,
+      subjectName: subj?['name'] as String?,
+    );
+  }
 
   bool get isJustified => justified;
   String? get date {
@@ -2418,7 +2430,7 @@ class SupabaseDbSource {
   static Future<List<SbAbsence>> getAbsencesForClass(String classId) async {
     final data = await _db
         .from('absences')
-        .select()
+        .select('*, subjects(name)')
         .eq('class_id', classId)
         .neq('status', 'present')
         .order('absence_date', ascending: false);
@@ -2430,7 +2442,7 @@ class SupabaseDbSource {
   static Future<List<SbAbsence>> getAbsencesForStudent(String studentId) async {
     final data = await _db
         .from('absences')
-        .select()
+        .select('*, subjects(name)')
         .eq('student_id', studentId)
         .neq('status', 'present')   // l'élève ne lit que ce qui fait défaut
         .order('absence_date', ascending: false);

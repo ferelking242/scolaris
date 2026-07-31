@@ -222,8 +222,12 @@ class _AttendanceDetail extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(typeLabel, style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w800)),
+              Text(
+                  a.subjectName != null && a.subjectName!.isNotEmpty
+                      ? '$typeLabel — ${a.subjectName}'
+                      : typeLabel,
+                  style: TextStyle(
+                      color: color, fontSize: 12, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
               Text(a.date ?? '—', style: TextStyle(
                   color: context.cInk, fontSize: 13, fontWeight: FontWeight.w700)),

@@ -632,9 +632,12 @@ class _SummaryCard extends StatelessWidget {
                     color: color, fontWeight: FontWeight.w700, fontSize: 14)),
           ),
           const SizedBox(width: 12),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 13, color: ink, fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, color: ink, fontWeight: FontWeight.w600)),
+          ),
         ]),
       );
 }
