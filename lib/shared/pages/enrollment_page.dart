@@ -31,6 +31,12 @@ class EnrollmentPage extends StatefulWidget {
   final bool isAdminMode;
   final List<SbClass>? adminClasses;
 
+  /// Effectif actuel par classe (`class_id` → nombre d'élèves actifs) —
+  /// affiché à côté du nom dans le sélecteur admin (ex. « 8ème A (12/40) »),
+  /// sur le même modèle que `admin_classes_page.dart`. `null`/classe absente
+  /// de la map ⇒ affiché comme vide (0).
+  final Map<String, int>? classStudentCounts;
+
   /// École cible des photos/documents déposés (bucket `enrollment-documents`,
   /// dossier `{schoolId}/...`). `null` désactive l'upload réel (ex. aperçu de
   /// configuration admin, où il n'y a pas de dossier à créer).
@@ -42,6 +48,7 @@ class EnrollmentPage extends StatefulWidget {
     this.onSubmit,
     this.isAdminMode = false,
     this.adminClasses,
+    this.classStudentCounts,
     this.schoolId,
   });
 
@@ -191,6 +198,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   widget.adminClasses!.isNotEmpty) ...[
                 _AdminClassPicker(
                   classes: widget.adminClasses!,
+                  studentCounts: widget.classStudentCounts ?? const {},
                   selectedId: _selectedClassId,
                   onChanged: (id) => setState(() => _selectedClassId = id),
                 ),
@@ -1101,11 +1109,13 @@ class _SuccessView extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _AdminClassPicker extends StatelessWidget {
   final List<SbClass> classes;
+  final Map<String, int> studentCounts;
   final String? selectedId;
   final ValueChanged<String?> onChanged;
 
   const _AdminClassPicker({
     required this.classes,
+    required this.studentCounts,
     required this.selectedId,
     required this.onChanged,
   });
@@ -1139,7 +1149,20 @@ class _AdminClassPicker extends StatelessWidget {
                       color: context.cMuted, fontStyle: FontStyle.italic)),
             ),
             for (final c in classes)
-              DropdownMenuItem(value: c.id, child: Text(c.name)),
+              DropdownMenuItem(
+                value: c.id,
+                child: Builder(builder: (context) {
+                  final count = studentCounts[c.id] ?? 0;
+                  final full = count >= c.maxStudents;
+                  return Text(
+                    '${c.name} ($count/${c.maxStudents})'
+                    '${full ? ' — complet' : ''}',
+                    style: TextStyle(
+                        color: full ? _terra : context.cInk,
+                        fontWeight: full ? FontWeight.w700 : FontWeight.normal),
+                  );
+                }),
+              ),
           ],
           onChanged: onChanged,
         ),

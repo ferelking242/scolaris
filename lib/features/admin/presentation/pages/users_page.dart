@@ -12,6 +12,8 @@ import '../../../../presentation/providers/db_providers.dart';
 import '../../../../presentation/providers/nav_providers.dart';
 import '../../../../shared/data/enrollment_config.dart';
 import '../../../../shared/pages/enrollment_page.dart';
+import '../../../../shared/pdf/student_card_pdf.dart';
+import '../../../../shared/pdf/users_list_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
 import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
@@ -69,6 +71,14 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
   // Fiche élève inline (id de l'utilisateur consulté).
   String? _viewId;
+  String _profileSearch = '';
+  String _profileTab = 'infos'; // infos | finances | presence | documents
+
+  static const _kStudentDocuments = [
+    (key: 'birth_certificate', label: 'Acte de naissance'),
+    (key: 'vaccination_record', label: 'Carnet de vaccination'),
+    (key: 'medical_certificate', label: 'Certificat médical'),
+  ];
 
   // ── Droits fins « Élèves & familles » ─────────────────────────────────────
   //  La base accepte `eleves.X` OU `utilisateurs.X` (cf. policies users_insert/
@@ -147,13 +157,28 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         ? EnrollmentConfig.fromJson(configJson)
         : EnrollmentConfig.defaults();
 
-    // Ouverture inline (dans le shell), pas de route plein écran.
     setState(() {
       _enrollConfig = config;
       _enrollClasses = classes;
       _enrollSchoolId = schoolId;
-      _enrolling = true;
     });
+
+    // Inscription RAPIDE par défaut (nom, sexe, naissance, classe — 4 champs) :
+    // le dossier complet (documents, tuteur, médical…) reste disponible via
+    // le lien « Dossier complet » du dialogue, mais la plupart des
+    // inscriptions faites par le secrétariat n'ont besoin que de l'essentiel.
+    if (!mounted) return;
+    final useFullForm = await showDialog<bool>(
+      context: context,
+      builder: (_) => _QuickEnrollDialog(
+        classes: classes,
+        classCounts: _classCounts(),
+        onSubmit: (data) => _saveStudent(schoolId, data),
+      ),
+    );
+    if (useFullForm == true && mounted) {
+      setState(() => _enrolling = true);
+    }
   }
 
   /// Enregistre réellement la fiche élève (users + student_profiles).
@@ -178,6 +203,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         email: s('email').isEmpty ? null : s('email'),
         phone: s('phone').isEmpty ? null : s('phone'),
         classId: classId,
+        matricule: s('matricule').isEmpty ? null : s('matricule'),
         birthDate: s('birth_date').isEmpty ? null : s('birth_date'),
         gender: s('gender').isEmpty ? null : s('gender'),
         nationality: s('nationality').isEmpty ? null : s('nationality'),
@@ -231,6 +257,121 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     }
   }
 
+  /// Imprime/exporte EXACTEMENT la liste affichée (filtres rôle/recherche/
+  /// sortis déjà appliqués en amont dans `build`) — pas « tout », comme le
+  /// fait EduNet avec ses boutons Imprimer/Exporter.
+  Future<void> _printUsers(List<SbUser> users) async {
+    await printUsersListPdf(
+      title: _isFamilies ? 'Élèves & familles' : 'Personnel',
+      users: users,
+    );
+  }
+
+  Future<void> _exportUsers(List<SbUser> users) async {
+    await exportUsersListPdf(
+      title: _isFamilies ? 'Élèves & familles' : 'Personnel',
+      users: users,
+    );
+  }
+
+  Future<void> _toggleStudentDocument(String studentId, String key, bool provided) async {
+    try {
+      await SupabaseDbSource.setStudentDocumentStatus(
+          studentId: studentId, documentKey: key, provided: provided);
+      ref.invalidate(studentsProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<(String, String)> _primaryGuardianContact(String studentId) async {
+    final guardians = await ref.read(guardiansForStudentProvider(studentId).future);
+    if (guardians.isEmpty) return ('', '');
+    final primary = guardians.firstWhere((g) => g.isPrimary, orElse: () => guardians.first);
+    return (primary.fullName, primary.phone ?? '');
+  }
+
+  Future<void> _downloadStudentCard(SbUser u, SbStudent? st) async {
+    final school = ref.read(schoolProvider).valueOrNull;
+    final (guardianName, guardianPhone) = await _primaryGuardianContact(u.id);
+    await downloadStudentCardPdf(
+        user: u, student: st, school: school,
+        guardianName: guardianName, guardianPhone: guardianPhone);
+  }
+
+  Future<void> _printStudentCard(SbUser u, SbStudent? st) async {
+    final school = ref.read(schoolProvider).valueOrNull;
+    final (guardianName, guardianPhone) = await _primaryGuardianContact(u.id);
+    await printStudentCardPdf(
+        user: u, student: st, school: school,
+        guardianName: guardianName, guardianPhone: guardianPhone);
+  }
+
+  Future<void> _editMedicalInfo(String studentId, SbStudent? st) async {
+    final bloodCtrl = TextEditingController(text: st?.bloodGroup ?? '');
+    final allergiesCtrl = TextEditingController(text: st?.allergies ?? '');
+    final vulnerabilityCtrl = TextEditingController(text: st?.vulnerability ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Informations médicales'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: bloodCtrl,
+              decoration: const InputDecoration(labelText: 'Groupe sanguin', hintText: 'Ex : O+'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: allergiesCtrl,
+              decoration: const InputDecoration(labelText: 'Allergies'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: vulnerabilityCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Vulnérabilité',
+                  hintText: 'Ex : orphelin, handicap — laisser vide si aucune'),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _terra),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    try {
+      await SupabaseDbSource.updateStudentMedical(
+        studentId: studentId,
+        bloodGroup: bloodCtrl.text,
+        allergies: allergiesCtrl.text,
+        vulnerability: vulnerabilityCtrl.text,
+      );
+      ref.invalidate(studentsProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
   void _showLimitReached() {
     showDialog(
       context: context,
@@ -260,6 +401,33 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   }
 
   // ── Fiche élève (profil inline) ─────────────────────────────────────────
+  /// Filtre les paires (label, valeur) d'un panneau selon `_profileSearch` —
+  /// recherche live sur la fiche élève, sur le modèle vu chez EduNet (chercher
+  /// une info précise sans naviguer entre les sections).
+  List<(String, String)> _filterKv(List<(String, String)> pairs) {
+    final q = _profileSearch.trim().toLowerCase();
+    if (q.isEmpty) return pairs;
+    return pairs
+        .where((p) => p.$1.toLowerCase().contains(q) || p.$2.toLowerCase().contains(q))
+        .toList();
+  }
+
+  Widget _kvPanel(String title, List<(String, String)> pairs) {
+    final filtered = _filterKv(pairs);
+    return DataPanel(
+      title: title,
+      child: filtered.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('Aucune correspondance.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted)),
+            )
+          : Column(children: [
+              for (final p in filtered) _ProfileKV(label: p.$1, value: p.$2),
+            ]),
+    );
+  }
+
   Widget _studentProfileView(SbUser u) {
     final students = ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
     SbStudent? st;
@@ -271,19 +439,44 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     final canEnable = familiesEnabled && u.authUid == null;
     final classLabel = st?.classGroup.isNotEmpty == true ? st!.classGroup : null;
 
+    // Titulaire — l'enseignant responsable de la classe, résolu depuis la
+    // liste des comptes de l'école (déjà chargée) plutôt qu'un aller-retour DB.
+    String titulaireLabel = 'Non assigné';
+    if (st?.mainTeacherId != null) {
+      final everyone = ref.watch(usersProvider).valueOrNull ?? const <SbUser>[];
+      for (final t in everyone) {
+        if (t.id == st!.mainTeacherId) { titulaireLabel = t.fullName; break; }
+      }
+    }
+
     final subParts = <String>[
       if (st?.matricule != null) 'N° ${st!.matricule}',
       if (classLabel != null) classLabel,
     ];
     final sub = subParts.isEmpty ? 'Fiche élève' : subParts.join(' · ');
 
+    // Onglets façon EduNet (Infos / Finances / Présence / Documents), avec la
+    // carte élève « toujours visible » dans une colonne latérale sur grand
+    // écran (empilée en bas sur mobile).
+    final tabs = <(String, String, IconData)>[
+      ('infos', 'Infos', Icons.person_outline_rounded),
+      ('finances', 'Finances', Icons.account_balance_wallet_outlined),
+      ('presence', 'Présence', Icons.fact_check_outlined),
+      ('documents', 'Documents', Icons.folder_outlined),
+    ];
+
     return PageScaffold(
       title: u.fullName,
       subtitle: sub,
+      actions: [
+        ActionButton(
+            label: 'Imprimer', icon: Icons.print_outlined,
+            onTap: () => _printStudentCard(u, st)),
+      ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(
           label: 'Tous les utilisateurs',
-          onTap: () => setState(() => _viewId = null),
+          onTap: () => setState(() { _viewId = null; _profileSearch = ''; }),
         ),
         const SizedBox(height: 14),
 
@@ -336,83 +529,253 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         ]),
         const SizedBox(height: 16),
 
-        // Identité.
-        DataPanel(
-          title: 'Identité',
-          child: Column(children: [
-            _ProfileKV(label: 'Matricule', value: st?.matricule ?? '—'),
-            _ProfileKV(label: 'Niveau', value: st?.niveau ?? '—'),
-            _ProfileKV(label: 'Classe', value: classLabel ?? 'Sans classe'),
-            _ProfileKV(label: 'Email', value: u.email.isEmpty ? '—' : u.email),
-          ]),
-        ),
-        const SizedBox(height: 14),
-
-        // Compte & accès.
-        DataPanel(
-          title: 'Compte & accès',
-          child: Column(children: [
-            const _ProfileKV(label: 'Rôle', value: 'Élève'),
-            _ProfileKV(
-                label: 'Statut', value: u.isActive ? 'Actif' : 'Bloqué'),
-            _ProfileKV(
-                label: 'Connexion',
-                value: u.authUid != null
-                    ? 'Compte activé'
-                    : 'Fiche sans connexion'),
-            _ProfileKV(
-                label: 'Dernière connexion',
-                value: u.lastSeenAt != null
-                    ? _relativeTime(u.lastSeenAt!)
-                    : 'Jamais'),
-          ]),
-        ),
-        const SizedBox(height: 14),
-
-        // Famille — parents/tuteurs liés (parent_student). Chaque contact ouvre
-        // sa propre fiche.
-        Builder(builder: (_) {
-          final guardians = ref.watch(guardiansForStudentProvider(u.id));
-          return DataPanel(
-            title: 'Famille',
-            child: guardians.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.all(12),
-                child: Center(
-                    child: SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))),
-              ),
-              error: (e, _) => Text('Contacts indisponibles.',
-                  style: TextStyle(fontSize: 12, color: context.cMuted)),
-              data: (list) => list.isEmpty
-                  ? Text(
-                      'Aucun parent lié. Ajoutez-en un à l\'inscription de l\'élève.',
-                      style: TextStyle(fontSize: 12.5, color: context.cMuted))
-                  : Column(
-                      children: [
-                        for (final g in list)
-                          _GuardianRow(
-                            g: g,
-                            onTap: () => setState(() => _viewId = g.parentId),
-                          ),
-                      ],
-                    ),
+        TextField(
+          onChanged: (v) => setState(() => _profileSearch = v),
+          style: TextStyle(fontSize: 13, color: context.cInk),
+          decoration: InputDecoration(
+            hintText: 'Rechercher dans la fiche…',
+            hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+            prefixIcon: Icon(Icons.search_rounded, size: 18, color: context.cMuted),
+            isDense: true,
+            filled: true,
+            fillColor: context.cSubtle,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: context.cBorder),
             ),
-          );
-        }),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _terra, width: 1.5),
+            ),
+          ),
+        ),
         const SizedBox(height: 14),
 
-        // Compte scolarité — payé / dû / à jour, et encaissement d'un versement
-        // (si le membre a le droit finance).
-        TuitionAccountCard(
-          studentId: u.id,
-          studentName: u.fullName,
-          canCollect: ref.watch(canProvider('comptabilite.enregistrer_paiement')),
+        // Onglets.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final t in tabs) ...[
+              ChoiceChip(
+                avatar: Icon(t.$3, size: 15,
+                    color: _profileTab == t.$1 ? _terra : context.cMuted),
+                label: Text(t.$2),
+                selected: _profileTab == t.$1,
+                onSelected: (_) => setState(() => _profileTab = t.$1),
+                selectedColor: _terra.withValues(alpha: .12),
+                labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: _profileTab == t.$1 ? _terra : context.cMuted,
+                  fontWeight: _profileTab == t.$1 ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ]),
         ),
+        const SizedBox(height: 16),
+
+        // Contenu de l'onglet + carte élève toujours visible à côté (grand
+        // écran) ou en dessous (mobile) — comme chez EduNet.
+        LayoutBuilder(builder: (_, constraints) {
+          final cardPreview = _StudentCardSidebar(
+            user: u, student: st,
+            onDownload: () => _downloadStudentCard(u, st),
+            onPrint: () => _printStudentCard(u, st),
+          );
+          final tabContent = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _profileTabContent(
+                u, st, classLabel, titulaireLabel),
+          );
+          if (constraints.maxWidth < 860) {
+            return Column(children: [
+              tabContent,
+              const SizedBox(height: 14),
+              cardPreview,
+            ]);
+          }
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(flex: 2, child: tabContent),
+            const SizedBox(width: 16),
+            SizedBox(width: 240, child: cardPreview),
+          ]);
+        }),
       ]),
     );
+  }
+
+  List<Widget> _profileTabContent(
+      SbUser u, SbStudent? st, String? classLabel, String titulaireLabel) {
+    switch (_profileTab) {
+      case 'finances':
+        return [
+          TuitionAccountCard(
+            studentId: u.id,
+            studentName: u.fullName,
+            canCollect: ref.watch(canProvider('comptabilite.enregistrer_paiement')),
+            title: 'Scolarité & paiements',
+          ),
+        ];
+
+      case 'presence':
+        return [
+          Builder(builder: (_) {
+            final absences = ref.watch(absencesForStudentProvider(u.id));
+            final list = absences.valueOrNull ?? const <SbAbsence>[];
+            final since30 = DateTime.now().subtract(const Duration(days: 30));
+            final recent = list.where((a) =>
+                (a.absenceDate ?? DateTime(2000)).isAfter(since30));
+            final present = recent.where((a) => a.status == 'present').length;
+            final absent = recent.where((a) => a.status == 'absent').length;
+            final late = recent.where((a) => a.status == 'late').length;
+            final total = present + absent + late;
+            final rate = total == 0 ? 0 : (present * 100 / total).round();
+            final unjustified = list.where((a) => a.status == 'absent' && !a.justified).length;
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: _StatMiniCard(icon: Icons.check_circle_outline_rounded,
+                    label: 'Présences (30j)', value: '$present', color: _green)),
+                const SizedBox(width: 8),
+                Expanded(child: _StatMiniCard(icon: Icons.cancel_outlined,
+                    label: 'Absences (30j)', value: '$absent', color: _terra)),
+                const SizedBox(width: 8),
+                Expanded(child: _StatMiniCard(icon: Icons.schedule_rounded,
+                    label: 'Retards (30j)', value: '$late', color: _gold)),
+                const SizedBox(width: 8),
+                Expanded(child: _StatMiniCard(icon: Icons.pie_chart_outline_rounded,
+                    label: 'Taux présence', value: '$rate%', color: _terra)),
+              ]),
+              const SizedBox(height: 14),
+              DataPanel(
+                title: 'Registre de présence',
+                child: absences.isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Center(child: CircularProgressIndicator()))
+                    : Column(children: [
+                        _ProfileKV(label: 'Total absences', value: '${list.length}'),
+                        _ProfileKV(
+                            label: 'Non justifiées',
+                            value: '$unjustified',
+                            highlight: unjustified > 0),
+                        if (list.isNotEmpty)
+                          _ProfileKV(
+                              label: 'Dernière',
+                              value: _relativeTime(
+                                  list.map((a) => a.absenceDate ?? DateTime(2000))
+                                      .reduce((a, b) => a.isAfter(b) ? a : b))),
+                      ]),
+              ),
+            ]);
+          }),
+        ];
+
+      case 'documents':
+        return [
+          DataPanel(
+            title: 'Documents officiels',
+            child: Column(children: [
+              for (final doc in _kStudentDocuments)
+                _DocumentRow(
+                  label: doc.label,
+                  provided: st?.documents[doc.key] ?? false,
+                  onToggle: (v) => _toggleStudentDocument(u.id, doc.key, v),
+                ),
+            ]),
+          ),
+        ];
+
+      case 'infos':
+      default:
+        return [
+          LayoutBuilder(builder: (_, c) {
+            final twoCol = c.maxWidth > 700;
+            final cards = <Widget>[
+              _kvPanel('Identité', [
+                ('Matricule', st?.matricule ?? '—'),
+                ('Niveau', st?.niveau ?? '—'),
+                ('Classe', classLabel ?? 'Sans classe'),
+                ('Titulaire', titulaireLabel),
+                ('Email', u.email.isEmpty ? '—' : u.email),
+              ]),
+              _kvPanel('Compte & accès', [
+                ('Rôle', 'Élève'),
+                ('Statut', u.isActive ? 'Actif' : 'Bloqué'),
+                ('Connexion', u.authUid != null ? 'Compte activé' : 'Fiche sans connexion'),
+                ('Dernière connexion', u.lastSeenAt != null ? _relativeTime(u.lastSeenAt!) : 'Jamais'),
+              ]),
+              DataPanel(
+                title: 'Informations médicales',
+                headerActions: [
+                  TextButton.icon(
+                    onPressed: () => _editMedicalInfo(u.id, st),
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    label: const Text('Modifier', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+                child: Builder(builder: (_) {
+                  final pairs = _filterKv([
+                    ('Groupe sanguin', st?.bloodGroup ?? '—'),
+                    ('Allergies', st?.allergies ?? 'Aucune'),
+                    ('Vulnérabilité', st?.vulnerability ?? 'Aucune'),
+                  ]);
+                  return pairs.isEmpty
+                      ? Text('Aucune correspondance.', style: TextStyle(fontSize: 12, color: context.cMuted))
+                      : Column(children: [for (final p in pairs) _ProfileKV(label: p.$1, value: p.$2)]);
+                }),
+              ),
+              Builder(builder: (_) {
+                final guardians = ref.watch(guardiansForStudentProvider(u.id));
+                return DataPanel(
+                  title: 'Parent / Tuteur',
+                  child: guardians.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Center(
+                          child: SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))),
+                    ),
+                    error: (e, _) => Text('Contacts indisponibles.',
+                        style: TextStyle(fontSize: 12, color: context.cMuted)),
+                    data: (list) => list.isEmpty
+                        ? Text(
+                            'Aucun parent lié. Ajoutez-en un à l\'inscription de l\'élève.',
+                            style: TextStyle(fontSize: 12.5, color: context.cMuted))
+                        : Column(
+                            children: [
+                              for (final g in list)
+                                _GuardianRow(
+                                  g: g,
+                                  onTap: () => setState(() => _viewId = g.parentId),
+                                ),
+                            ],
+                          ),
+                  ),
+                );
+              }),
+            ];
+            if (!twoCol) {
+              return Column(children: [
+                for (final c in cards) ...[c, const SizedBox(height: 14)],
+              ]);
+            }
+            return Column(children: [
+              for (var i = 0; i < cards.length; i += 2) ...[
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: cards[i]),
+                  const SizedBox(width: 14),
+                  Expanded(child: i + 1 < cards.length ? cards[i + 1] : const SizedBox()),
+                ]),
+                const SizedBox(height: 14),
+              ],
+            ]);
+          }),
+        ];
+    }
   }
 
   // ── Fiche parent (profil inline) ────────────────────────────────────────
@@ -818,6 +1181,19 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     }
   }
 
+  /// Effectif actuel par classe (élèves actifs, non sortis) — même calcul que
+  /// `admin_classes_page.dart`, pour afficher la capacité dans le sélecteur
+  /// de classe de l'inscription (rapide et complète).
+  Map<String, int> _classCounts() {
+    final students = ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
+    final counts = <String, int>{};
+    for (final s in students) {
+      if (s.classId == null || s.hasExited) continue;
+      counts[s.classId!] = (counts[s.classId!] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Inscription inline : remplace la liste par le formulaire (shell conservé).
@@ -825,6 +1201,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       return _InlineEnroll(
         config: _enrollConfig!,
         classes: _enrollClasses,
+        classCounts: _classCounts(),
         schoolId: _enrollSchoolId!,
         onBack: () => setState(() => _enrolling = false),
         onSubmit: (data) => _saveStudent(_enrollSchoolId!, data),
@@ -929,6 +1306,16 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               ? '${allUsers.length} élèves et parents'
               : '${allUsers.length} membres du personnel',
           actions: [
+            if (_isFamilies) ...[
+              ActionButton(
+                  label: 'Imprimer',
+                  icon: Icons.print_outlined,
+                  onTap: () => _printUsers(users)),
+              ActionButton(
+                  label: 'Exporter',
+                  icon: Icons.ios_share_rounded,
+                  onTap: () => _exportUsers(users)),
+            ],
             // Chaque écran n'offre que le geste qui lui correspond : on
             // n'INVITE pas un élève, on l'INSCRIT.
             if (_isFamilies && _canAddStudent())
@@ -945,6 +1332,22 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                   onTap: _openInvite),
           ],
           child: Column(children: [
+            if (_isFamilies) ...[
+              _FamilyStatsRow(
+                total: allUsers.length,
+                students: allUsers.where((u) => u.role == 'student').length,
+                parents: allUsers.where((u) => u.role == 'parent').length,
+                exited: allUsers.where((u) => u.hasExited).length,
+                onTapTotal: () => setState(() => _filter = 'all'),
+                onTapStudents: () => setState(() => _filter = 'student'),
+                onTapParents: () => setState(() => _filter = 'parent'),
+                onTapExited: () => setState(() {
+                  _filter = 'all';
+                  _showExited = true;
+                }),
+              ),
+              const SizedBox(height: 12),
+            ],
             _FilterRow(
               current: _filter,
               options: options,
@@ -1144,15 +1547,325 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 }
 
 /// Vue d'inscription **inline** : barre de retour + formulaire, dans le shell.
+/// Inscription RAPIDE : nom, sexe, naissance, classe — pensée pour le
+/// secrétariat qui inscrit vite un élève déjà connu (contrairement au
+/// formulaire public de pré-inscription, complet mais lent). Le lien
+/// « Dossier complet » ferme ce dialogue et bascule vers `_InlineEnroll`
+/// (l'`EnrollmentPage` à catégories multiples) pour qui veut tout saisir
+/// d'un coup (documents, tuteur, médical…).
+class _QuickEnrollDialog extends StatefulWidget {
+  final List<SbClass> classes;
+  final Map<String, int> classCounts;
+  final Future<void> Function(Map<String, dynamic> data) onSubmit;
+  const _QuickEnrollDialog({
+    required this.classes,
+    required this.classCounts,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_QuickEnrollDialog> createState() => _QuickEnrollDialogState();
+}
+
+const _boyBlue = Color(0xFF2563EB);
+const _girlPink = Color(0xFFDB2777);
+
+class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
+  final _nameCtrl = TextEditingController();
+  final _matriculeCtrl = TextEditingController();
+  final _guardianNameCtrl = TextEditingController();
+  final _guardianPhoneCtrl = TextEditingController();
+  String _gender = 'M';
+  DateTime? _birthDate;
+  String? _classId;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _matriculeCtrl.dispose();
+    _guardianNameCtrl.dispose();
+    _guardianPhoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 10),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _birthDate = picked);
+  }
+
+  Future<void> _submit() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Le nom complet est requis.');
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
+    final iso = _birthDate == null
+        ? ''
+        : '${_birthDate!.year.toString().padLeft(4, '0')}-'
+          '${_birthDate!.month.toString().padLeft(2, '0')}-'
+          '${_birthDate!.day.toString().padLeft(2, '0')}';
+    await widget.onSubmit({
+      'first_name': name,
+      'last_name': '',
+      'gender': _gender == 'M' ? 'Masculin' : 'Féminin',
+      'birth_date': iso,
+      'class_id': _classId,
+      'matricule': _matriculeCtrl.text.trim(),
+      'guardian_name': _guardianNameCtrl.text.trim(),
+      'guardian_phone': _guardianPhoneCtrl.text.trim(),
+    });
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  InputDecoration _decor(BuildContext context, String hint, {String? label}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+        labelStyle: TextStyle(fontSize: 12.5, color: context.cMuted),
+        isDense: true,
+        filled: true,
+        fillColor: context.cSubtle,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.cBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _terra, width: 1.5),
+        ),
+      );
+
+  Widget _sectionTitle(BuildContext context, IconData icon, String label) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Icon(icon, size: 14, color: context.cMuted),
+          const SizedBox(width: 6),
+          Text(label.toUpperCase(),
+              style: TextStyle(
+                  fontSize: 10.5,
+                  letterSpacing: .4,
+                  fontWeight: FontWeight.w700,
+                  color: context.cMuted)),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final genderColor = _gender == 'M' ? _boyBlue : _girlPink;
+    final initials = _nameCtrl.text.trim().isEmpty
+        ? '?'
+        : _nameCtrl.text
+            .trim()
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((w) => w[0])
+            .join()
+            .toUpperCase();
+
+    return Dialog(
+      backgroundColor: context.cCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── En-tête : avatar en direct + titre ──────────────────────
+              Row(children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: genderColor.withValues(alpha: .14), shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: Text(initials,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: genderColor)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Inscription rapide',
+                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                    Text('L\'essentiel pour créer la fiche tout de suite',
+                        style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                  ]),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                ),
+              ]),
+              const SizedBox(height: 18),
+
+              _sectionTitle(context, Icons.badge_outlined, 'Identité'),
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Ex : Fatou Mbemba', label: 'Nom complet *'),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: SegmentedButton<String>(
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: context.cSubtle,
+                      selectedBackgroundColor: genderColor.withValues(alpha: .12),
+                      selectedForegroundColor: genderColor,
+                      side: BorderSide(color: context.cBorder),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: 'M', label: Text('Garçon'), icon: Icon(Icons.male_rounded, size: 15)),
+                      ButtonSegment(value: 'F', label: Text('Fille'), icon: Icon(Icons.female_rounded, size: 15)),
+                    ],
+                    selected: {_gender},
+                    onSelectionChanged: (s) => setState(() => _gender = s.first),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: _pickBirthDate,
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: context.cSubtle,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: context.cBorder),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.cake_outlined, size: 16, color: context.cMuted),
+                    const SizedBox(width: 10),
+                    Text(
+                      _birthDate == null
+                          ? 'Date de naissance'
+                          : '${_birthDate!.day.toString().padLeft(2, '0')}/'
+                            '${_birthDate!.month.toString().padLeft(2, '0')}/'
+                            '${_birthDate!.year}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: _birthDate == null ? context.cMuted : context.cInk),
+                    ),
+                  ]),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+              _sectionTitle(context, Icons.school_outlined, 'Scolarité'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: context.cSubtle,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.cBorder),
+                ),
+                child: DropdownButton<String>(
+                  value: _classId,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  dropdownColor: context.cCard,
+                  hint: Text('Classe (optionnel)', style: TextStyle(fontSize: 13, color: context.cMuted)),
+                  style: TextStyle(fontSize: 13, color: context.cInk),
+                  items: [
+                    DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('— Aucune classe —',
+                            style: TextStyle(color: context.cMuted, fontStyle: FontStyle.italic))),
+                    for (final c in widget.classes)
+                      DropdownMenuItem(
+                        value: c.id,
+                        child: Builder(builder: (_) {
+                          final count = widget.classCounts[c.id] ?? 0;
+                          final full = count >= c.maxStudents;
+                          return Text(
+                            '${c.name} ($count/${c.maxStudents})${full ? ' — complet' : ''}',
+                            style: TextStyle(
+                                color: full ? _terra : context.cInk,
+                                fontWeight: full ? FontWeight.w700 : FontWeight.normal),
+                          );
+                        }),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _classId = v),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _matriculeCtrl,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Auto-généré si vide', label: 'Matricule (optionnel)'),
+              ),
+
+              const SizedBox(height: 18),
+              _sectionTitle(context, Icons.family_restroom_rounded, 'Tuteur (optionnel, à compléter plus tard sinon)'),
+              TextField(
+                controller: _guardianNameCtrl,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _guardianPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
+              ],
+              const SizedBox(height: 20),
+              Row(children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(true),
+                  child: const Text('Dossier complet →'),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  style: FilledButton.styleFrom(backgroundColor: _terra),
+                  icon: _saving
+                      ? const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_rounded, size: 16),
+                  label: Text(_saving ? 'Inscription…' : 'Inscrire'),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _InlineEnroll extends StatelessWidget {
   final EnrollmentConfig config;
   final List<SbClass> classes;
+  final Map<String, int> classCounts;
   final String schoolId;
   final VoidCallback onBack;
   final Future<void> Function(Map<String, dynamic>) onSubmit;
   const _InlineEnroll({
     required this.config,
     required this.classes,
+    required this.classCounts,
     required this.schoolId,
     required this.onBack,
     required this.onSubmit,
@@ -1197,6 +1910,7 @@ class _InlineEnroll extends StatelessWidget {
             isAdminMode: true,
             config: config,
             adminClasses: classes,
+            classStudentCounts: classCounts,
             schoolId: schoolId,
             onSubmit: onSubmit,
           ),
@@ -1232,10 +1946,56 @@ class _MiniChip extends StatelessWidget {
 }
 
 /// Ligne clé/valeur des panneaux de la fiche élève.
+/// Ligne de la checklist « Documents » — suivi de conformité post-inscription,
+/// indépendant de l'upload fait à la pré-inscription.
+class _DocumentRow extends StatelessWidget {
+  final String label;
+  final bool provided;
+  final ValueChanged<bool> onToggle;
+  const _DocumentRow({required this.label, required this.provided, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onToggle(!provided),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(children: [
+          Icon(
+            provided ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            size: 18,
+            color: provided ? const Color(0xFF15803D) : context.cMuted,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label, style: TextStyle(fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w600)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: provided ? const Color(0xFF15803D).withValues(alpha: .1) : context.cSubtle,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              provided ? 'Fourni' : 'Non fourni',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: provided ? const Color(0xFF15803D) : context.cMuted),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 class _ProfileKV extends StatelessWidget {
   final String label;
   final String value;
-  const _ProfileKV({required this.label, required this.value});
+  final bool highlight;
+  const _ProfileKV({required this.label, required this.value, this.highlight = false});
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1250,10 +2010,114 @@ class _ProfileKV extends StatelessWidget {
           child: Text(value,
               style: TextStyle(
                   fontSize: 12.5,
-                  color: context.cInk,
+                  color: highlight ? _terra : context.cInk,
                   fontWeight: FontWeight.w600)),
         ),
       ]),
+    );
+  }
+}
+
+/// Petite carte statistique (onglet Présence), façon `stat-card` d'EduNet.
+class _StatMiniCard extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  final Color color;
+  const _StatMiniCard(
+      {required this.icon, required this.label, required this.value, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.cCard,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: context.cBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(
+            color: context.cInk, fontSize: 16, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(color: context.cMuted, fontSize: 10)),
+      ]),
+    );
+  }
+}
+
+/// Carte élève « toujours visible » — sidebar façon EduNet (contenu latéral
+/// sur grand écran, empilé sous les onglets sur mobile). Réutilise le rendu
+/// visuel du PDF (dégradé terracotta/or, initiales) plutôt qu'un panneau texte.
+class _StudentCardSidebar extends StatelessWidget {
+  final SbUser user;
+  final SbStudent? student;
+  final VoidCallback onDownload;
+  final VoidCallback onPrint;
+  const _StudentCardSidebar(
+      {required this.user, required this.student, required this.onDownload, required this.onPrint});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = user.fullName.trim().isEmpty
+        ? '?'
+        : user.fullName.trim().split(RegExp(r'\s+')).map((w) => w[0]).take(2).join().toUpperCase();
+    return DataPanel(
+      title: 'Carte élève',
+      headerActions: [
+        IconButton(
+          onPressed: onDownload,
+          icon: const Icon(Icons.download_rounded, size: 17),
+          tooltip: 'Télécharger',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        const SizedBox(width: 10),
+        IconButton(
+          onPressed: onPrint,
+          icon: const Icon(Icons.print_outlined, size: 17),
+          tooltip: 'Imprimer',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [_terra, _gold, _terra],
+            ),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('CARTE ÉLÈVE',
+                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            const SizedBox(height: 10),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 46, height: 58,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                child: Center(child: Text(initials,
+                    style: const TextStyle(color: _terra, fontSize: 17, fontWeight: FontWeight.w900))),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(user.fullName, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(student?.matricule ?? '—',
+                      style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
+                  Text(student?.classGroup.isNotEmpty == true ? student!.classGroup : '—',
+                      style: const TextStyle(color: Colors.white70, fontSize: 9.5)),
+                ]),
+              ),
+            ]),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -1382,6 +2246,106 @@ class _TinyTag extends StatelessWidget {
       child: Text(label,
           style: TextStyle(
               fontSize: 9.5, color: color, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// Cartes stats cliquables (Total/Élèves/Parents/Sortis) — cliquer applique
+/// directement le filtre correspondant, sur le modèle vu chez EduNet
+/// (cliquer « Filles » filtre la liste sans passer par le menu déroulant).
+class _FamilyStatsRow extends StatelessWidget {
+  final int total;
+  final int students;
+  final int parents;
+  final int exited;
+  final VoidCallback onTapTotal;
+  final VoidCallback onTapStudents;
+  final VoidCallback onTapParents;
+  final VoidCallback onTapExited;
+  const _FamilyStatsRow({
+    required this.total,
+    required this.students,
+    required this.parents,
+    required this.exited,
+    required this.onTapTotal,
+    required this.onTapStudents,
+    required this.onTapParents,
+    required this.onTapExited,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (_, c) {
+      final stats = <Widget>[
+        _StatChip(icon: Icons.groups_rounded, label: 'Total', value: total,
+            color: _terra, onTap: onTapTotal),
+        _StatChip(icon: Icons.school_rounded, label: 'Élèves', value: students,
+            color: _green, onTap: onTapStudents),
+        _StatChip(icon: Icons.family_restroom_rounded, label: 'Parents',
+            value: parents, color: _gold, onTap: onTapParents),
+        _StatChip(icon: Icons.logout_rounded, label: 'Sortis', value: exited,
+            color: context.cMuted, onTap: onTapExited),
+      ];
+      final narrow = c.maxWidth < 560;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final s in stats)
+            SizedBox(width: narrow ? (c.maxWidth - 10) / 2 : (c.maxWidth - 30) / 4, child: s),
+        ],
+      );
+    });
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int value;
+  final Color color;
+  final VoidCallback onTap;
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.cCard,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: context.cBorder),
+          ),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 16, color: color),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('$value', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.cInk)),
+                Text(label, style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+              ]),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }

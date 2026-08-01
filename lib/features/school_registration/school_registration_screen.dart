@@ -440,7 +440,11 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'website_url' : _s1Website.text.trim().isEmpty ? null : _s1Website.text.trim(),
         'contact_email': _s1Email.text.trim().isEmpty ? null : _s1Email.text.trim(),
         'contact_phone': _s1Phone.text.trim().isEmpty ? null : '$_s1DialCode${_s1Phone.text.trim()}',
-        'is_active'   : true,
+        // Une école auto-inscrite depuis le site vitrine reste inactive tant
+        // que l'équipe Scolaris ne l'a pas validée (cf. platform_schools_page,
+        // onglet « À valider ») — le compte du fondateur existe déjà mais ne
+        // peut pas se connecter avant (SupabaseAuthSource._fetchProfile).
+        'is_active'   : false,
         'plan_type'   : 'free', // legacy, non utilisé par l'app (voir subscriptions.plan_code)
         'db_mode'     : 'central',
         'metadata'    : {
@@ -588,10 +592,33 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Un lien d\'activation a été envoyé à\n${_s2Email.text.trim()}.\n'
-                  'Cliquez dessus pour activer votre compte administrateur, '
-                  'puis connectez-vous pour gérer votre école.',
+                  'Cliquez dessus pour confirmer votre compte administrateur.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _gold.withOpacity(.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _gold.withOpacity(.3)),
+              ),
+              child: Column(children: [
+                const Icon(Icons.hourglass_top_rounded, color: _gold, size: 24),
+                const SizedBox(height: 6),
+                const Text('Validation par notre équipe',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Une fois votre email confirmé, notre équipe valide votre '
+                  'établissement avant l\'ouverture de l\'accès — généralement '
+                  'sous 24 heures ouvrées.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, height: 1.4, color: _muted),
                 ),
               ]),
             ),

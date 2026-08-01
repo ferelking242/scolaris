@@ -4,12 +4,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../../core/config/app_config.dart';
-import '../../../core/routing/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/sources/remote/supabase_auth_source.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import 'forgot_password_screen.dart';
 
@@ -139,6 +138,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _emailCtrl.text.trim(), _passCtrl.text);
     } on ArgumentError catch (e) {
       setState(() => _error = (e.message as String).tr());
+    } on SchoolPendingValidationException catch (e) {
+      setState(() => _error = e.schoolName.isEmpty
+          ? 'Votre établissement est en cours de validation par notre équipe.'
+          : '${e.schoolName} est en cours de validation par notre équipe — réessayez sous 24 h.');
     } catch (_) {
       setState(() => _error = 'auth.errors.failed'.tr());
     } finally {
@@ -359,10 +362,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
           const SizedBox(height: 20),
           _PrimaryBtn(label: 'Se connecter', loading: _loading, onTap: _submit),
-          const SizedBox(height: 16),
-          _dividerSmall('ou'),
-          const SizedBox(height: 16),
-          _RegisterSchoolBtn(onTap: () => context.go(AppRoutes.registerSchool)),
           const SizedBox(height: 18),
           _divider('Connexion rapide (démo · demo1234)'),
           const SizedBox(height: 10),
@@ -422,14 +421,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     const Expanded(child: Divider(color: _border, height: 1)),
   ]);
 
-  Widget _dividerSmall(String label) => Row(children: [
-    const Expanded(child: Divider(color: _border, height: 1)),
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Text(label, style: TextStyle(color: _muted.withOpacity(.6), fontSize: 12)),
-    ),
-    const Expanded(child: Divider(color: _border, height: 1)),
-  ]);
 }
 
 // ── Left Panel (African sidebar style + single Lottie) ─────────────────────
@@ -891,54 +882,6 @@ class _SubTypeChip extends StatelessWidget {
             Text(label, style: TextStyle(
                 color: selected ? _gold : _ink,
                 fontSize: 11.5, fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _RegisterSchoolBtn extends StatelessWidget {
-  final VoidCallback onTap;
-  const _RegisterSchoolBtn({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF071A0A), const Color(0xFF0D3B1E)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF1B5E20).withOpacity(.35),
-              blurRadius: 16, offset: const Offset(0, 6)),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(
-              width: 30, height: 30,
-              decoration: BoxDecoration(
-                color: _gold.withOpacity(.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add_business_outlined, size: 16, color: _gold),
-            ),
-            const SizedBox(width: 10),
-            const Text('Inscrire mon école',
-                style: TextStyle(
-                  color: _white,
-                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: .3,
-                )),
           ]),
         ),
       ),

@@ -176,6 +176,20 @@ class SbStudent {
   final String? exitReason;
   final DateTime? exitDate;
 
+  /// Enseignant responsable de la classe (`classes.main_teacher_id`) — affiché
+  /// sur la fiche élève comme raccourci ("qui contacter en premier").
+  final String? mainTeacherId;
+
+  /// Champs médicaux/sociaux structurés — stockés dans `student_profiles.metadata`
+  /// (pas de colonnes dédiées : évite une migration pour 3 champs texte).
+  final String? bloodGroup;
+  final String? allergies;
+  final String? vulnerability;
+
+  /// Suivi de conformité documentaire post-inscription (clé → fourni ou non),
+  /// distinct de l'upload fait à la pré-inscription — vit aussi dans `metadata`.
+  final Map<String, bool> documents;
+
   const SbStudent({
     required this.id,
     required this.nom,
@@ -190,6 +204,11 @@ class SbStudent {
     this.enrollmentStatus = 'active',
     this.exitReason,
     this.exitDate,
+    this.mainTeacherId,
+    this.bloodGroup,
+    this.allergies,
+    this.vulnerability,
+    this.documents = const {},
   });
 
   String get fullName => '$prenom $nom';
@@ -207,6 +226,13 @@ class SbStudent {
     final sp2  = full.split(RegExp(r'\s+'));
     final prenom = sp2.isNotEmpty ? sp2.first : '';
     final nom    = sp2.length > 1 ? sp2.sublist(1).join(' ') : '';
+    final meta = sp?['metadata'];
+    final metaMap = meta is Map<String, dynamic> ? meta : const <String, dynamic>{};
+    final docsRaw = metaMap['documents'];
+    final docs = <String, bool>{
+      if (docsRaw is Map)
+        for (final e in docsRaw.entries) e.key.toString(): e.value == true,
+    };
     return SbStudent(
       id: j['id'] as String,
       nom: nom,
@@ -223,6 +249,11 @@ class SbStudent {
       exitDate: sp?['exit_date'] != null
           ? DateTime.tryParse(sp!['exit_date'] as String)
           : null,
+      mainTeacherId: cls?['main_teacher_id'] as String?,
+      bloodGroup: metaMap['blood_group'] as String?,
+      allergies: metaMap['allergies'] as String?,
+      vulnerability: metaMap['vulnerability'] as String?,
+      documents: docs,
     );
   }
 
@@ -1867,7 +1898,7 @@ class SupabaseDbSource {
   static const String _studentSelect =
       'id, full_name, email, avatar_url, status, '
       'student_profiles(matricule, class_id, enrollment_status, exit_reason, '
-      'exit_date, classes(name, level))';
+      'exit_date, metadata, classes(name, level, main_teacher_id))';
 
   /// [includeExited] : par défaut, seuls les élèves ACTIFS (`enrollment_status
   /// = 'active'`) — un transféré/diplômé/radié ne doit pas polluer les listes
@@ -1933,6 +1964,63 @@ class SupabaseDbSource {
       'decided_by': actorId,
       'decided_by_name': actorId == null ? null : await _actorName(actorId),
     });
+  }
+
+  /// Met à jour les champs médicaux structurés (groupe sanguin, allergies,
+  /// vulnérabilité) — stockés dans `student_profiles.metadata`, pas de colonnes
+  /// dédiées. Lecture-fusion-écriture pour ne pas écraser `metadata.documents`
+  /// posé par [setStudentDocumentStatus].
+  static Future<void> updateStudentMedical({
+    required String studentId,
+    String? bloodGroup,
+    String? allergies,
+    String? vulnerability,
+  }) async {
+    final row = await _db
+        .from('student_profiles')
+        .select('metadata')
+        .eq('user_id', studentId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+      'blood_group': bloodGroup?.trim().isEmpty == true ? null : bloodGroup?.trim(),
+      'allergies': allergies?.trim().isEmpty == true ? null : allergies?.trim(),
+      'vulnerability': vulnerability?.trim().isEmpty == true ? null : vulnerability?.trim(),
+    };
+    await _db
+        .from('student_profiles')
+        .update({'metadata': metadata})
+        .eq('user_id', studentId);
+  }
+
+  /// Coche/décoche un document du suivi de conformité post-inscription (acte
+  /// de naissance, carnet de vaccination…) — checklist indépendante des
+  /// fichiers déposés à la pré-inscription (`enrollment-documents`), qui suit
+  /// simplement si le dossier PAPIER est complet, dans le temps.
+  static Future<void> setStudentDocumentStatus({
+    required String studentId,
+    required String documentKey,
+    required bool provided,
+  }) async {
+    final row = await _db
+        .from('student_profiles')
+        .select('metadata')
+        .eq('user_id', studentId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+    };
+    final docs = <String, dynamic>{
+      if (metadata['documents'] is Map) ...(metadata['documents'] as Map),
+      documentKey: provided,
+    };
+    metadata['documents'] = docs;
+    await _db
+        .from('student_profiles')
+        .update({'metadata': metadata})
+        .eq('user_id', studentId);
   }
 
   /// Annule une sortie décidée par erreur : redevient actif dans la classe

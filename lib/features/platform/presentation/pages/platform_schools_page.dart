@@ -26,11 +26,14 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
   String _filter = 'Toutes';
   bool _creating = false;
 
-  static const _filters = ['Toutes', 'Payantes', 'Essai', 'À surveiller'];
+  static const _filters = ['Toutes', 'À valider', 'Payantes', 'Essai', 'À surveiller'];
 
   List<PlatformSchool> _filtered(List<PlatformSchool> all) {
     Iterable<PlatformSchool> list = all;
     switch (_filter) {
+      case 'À valider':
+        list = list.where((s) => !s.isActive);
+        break;
       case 'Payantes':
         list = list.where((s) => s.isPaying);
         break;
@@ -167,7 +170,7 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
                   columns: const [
                     'École', 'Ville', 'Offre', 'Statut', 'Élèves', ''
                   ],
-                  flex: const [3, 2, 2, 2, 3, 1],
+                  flex: const [3, 2, 2, 2, 3, 2],
                   rows: [
                     for (final s in schools)
                       [
@@ -187,6 +190,23 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w600)),
                               ),
+                              if (!s.isActive) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: ScolarisPalette.terracotta
+                                        .withValues(alpha: .1),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: const Text('À valider',
+                                      style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: ScolarisPalette.terracotta)),
+                                ),
+                              ],
                             ]),
                           ),
                         ),
@@ -199,15 +219,24 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
                             alignment: Alignment.centerLeft,
                             child: SubStatusBadge(status: s.status)),
                         _StudentUsage(school: s),
-                        IconButton(
-                          onPressed: () => _open(s),
-                          icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                          color: context.cMuted.withValues(alpha: .5),
-                          tooltip: 'Voir la fiche',
-                          padding: EdgeInsets.zero,
-                          constraints:
-                              const BoxConstraints.tightFor(width: 32, height: 32),
-                        ),
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (!s.isActive)
+                            ActionButton(
+                              label: 'Valider',
+                              icon: Icons.check_rounded,
+                              primary: true,
+                              onTap: () => _validate(s),
+                            ),
+                          IconButton(
+                            onPressed: () => _open(s),
+                            icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                            color: context.cMuted.withValues(alpha: .5),
+                            tooltip: 'Voir la fiche',
+                            padding: EdgeInsets.zero,
+                            constraints:
+                                const BoxConstraints.tightFor(width: 32, height: 32),
+                          ),
+                        ]),
                       ],
                   ],
                 ),
@@ -217,6 +246,29 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
 
   void _open(PlatformSchool s) =>
       ref.read(selectedPlatformSchoolProvider.notifier).state = s;
+
+  /// Active une école auto-inscrite en attente de validation (cf.
+  /// `SchoolRegistrationScreen` / `SupabaseAuthSource._fetchProfile`) —
+  /// son responsable peut se connecter juste après.
+  Future<void> _validate(PlatformSchool s) async {
+    try {
+      await PlatformRepository.setSchoolActive(s.id, true);
+      ref.invalidate(platformSchoolsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('« ${s.name} » validée — le responsable peut se connecter.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.forestGreen,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de la validation : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.terracotta,
+      ));
+    }
+  }
 }
 
 /// Formulaire de création d'école — affiché **inline** (pas de route à part).

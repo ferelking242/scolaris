@@ -5,6 +5,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/app_config.dart';
 import '../../../domain/entities/user_entity.dart';
 
+/// Levée quand l'école du compte existe mais n'a pas encore été validée par
+/// l'équipe Scolaris (`schools.is_active = false`) — cas d'une école créée
+/// via le self-signup public (`SchoolRegistrationScreen`), en attente de
+/// validation dans la console plateforme (`platform_schools_page.dart`).
+class SchoolPendingValidationException implements Exception {
+  final String schoolName;
+  const SchoolPendingValidationException(this.schoolName);
+}
+
 class SupabaseAuthSource {
   final _controller = StreamController<AppUser?>.broadcast();
   AppUser? _current;
@@ -88,7 +97,15 @@ class SupabaseAuthSource {
     if (response.user == null) {
       throw ArgumentError('auth.errors.failed');
     }
-    return _fetchProfile(response.user!.id);
+    try {
+      return await _fetchProfile(response.user!.id);
+    } on SchoolPendingValidationException {
+      // La session existe côté Supabase mais l'école n'est pas validée :
+      // on la révoque tout de suite plutôt que de laisser un JWT valide
+      // traîner pour un compte qu'on refuse d'utiliser.
+      await Supabase.instance.client.auth.signOut();
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {
@@ -108,6 +125,18 @@ class SupabaseAuthSource {
       throw StateError(
           'Profil utilisateur introuvable ou inaccessible pour $authUid — '
           'vérifier la ligne `users` et son adhésion `school_members`.');
+    }
+
+    final schoolId = data['school_id'] as String?;
+    if (schoolId != null) {
+      final school = await Supabase.instance.client
+          .from('schools')
+          .select('name, is_active')
+          .eq('id', schoolId)
+          .maybeSingle();
+      if (school != null && school['is_active'] == false) {
+        throw SchoolPendingValidationException(school['name'] as String? ?? '');
+      }
     }
 
     final rawRole = data['role'] as String? ?? 'student';

@@ -122,6 +122,11 @@ class PlatformSchool {
   final String email;
   final String phone;
 
+  /// `false` tant qu'une école auto-inscrite (self-signup depuis le site
+  /// vitrine) n'a pas été validée par l'équipe Scolaris — son responsable a
+  /// un compte mais ne peut pas encore se connecter (cf. `SupabaseAuthSource`).
+  final bool isActive;
+
   const PlatformSchool({
     required this.id,
     required this.name,
@@ -138,12 +143,14 @@ class PlatformSchool {
     required this.director,
     required this.email,
     required this.phone,
+    this.isActive = true,
   });
 
   PlatformSchool copyWith({
     PlatformPlan? plan,
     SubStatus? status,
     DateTime? periodEnd,
+    bool? isActive,
   }) =>
       PlatformSchool(
         id: id,
@@ -161,6 +168,7 @@ class PlatformSchool {
         director: director,
         email: email,
         phone: phone,
+        isActive: isActive ?? this.isActive,
       );
 
   int? get studentLimit => plan.studentLimit;

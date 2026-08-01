@@ -37,7 +37,7 @@ class PlatformRepository {
     final schoolsData = await _db
         .from('schools')
         .select('id, name, city, country, metadata, created_at, contact_email, '
-            'contact_phone')
+            'contact_phone, is_active')
         .order('created_at', ascending: false);
     final subsData = await _db
         .from('subscriptions')
@@ -102,8 +102,17 @@ class PlatformRepository {
         director: '—',
         email: row['contact_email'] as String? ?? '',
         phone: row['contact_phone'] as String? ?? '',
+        isActive: row['is_active'] as bool? ?? true,
       );
     }).toList();
+  }
+
+  /// Active/désactive une école — utilisé pour valider une inscription
+  /// self-service (créée avec `is_active: false`, cf.
+  /// `SchoolRegistrationScreen`) avant que son responsable ne puisse se
+  /// connecter (cf. `SupabaseAuthSource._fetchProfile`).
+  static Future<void> setSchoolActive(String schoolId, bool active) async {
+    await _db.from('schools').update({'is_active': active}).eq('id', schoolId);
   }
 
   /// Crée une nouvelle école + son compte admin via l'Edge Function

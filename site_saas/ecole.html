@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title id="titrePage">Pré-inscription — Scolaris</title>
+<meta name="theme-color" content="#2A1207">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF6EF'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%239A2C06'/%3E%3Cstop offset='1' stop-color='%23E4610C'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='40' font-weight='700' fill='url(%23g)' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='47' cy='49' r='5' fill='%231F7A44'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vitrine.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="large">
+    <a class="logo" href="index.html"><b><span>S</span></b><i>Scolaris</i></a>
+    <nav class="nav">
+      <a href="index.html#fonctions">Fonctions</a>
+      <a href="index.html#offres">Offres</a>
+      <a href="ecoles.html">Trouver une école</a>
+      <a href="suivi.html">Suivre mon dossier</a>
+    </nav>
+    <a class="btn btn--vert btn--petit" href="index.html#inscription">Inscrire mon école</a>
+  </div>
+</header>
+
+<main>
+<section style="padding:44px 0 0">
+  <div class="large" style="max-width:760px">
+    <a href="ecoles.html" style="font-size:13.5px;color:var(--brun);text-decoration:none">← Toutes les écoles</a>
+  </div>
+</section>
+
+<div id="etatChargement" class="large" style="max-width:760px;padding:40px 0">
+  <p class="chapo">Chargement de l'établissement…</p>
+</div>
+
+<div id="introuvable" class="large" style="max-width:760px;padding:20px 0 60px" hidden>
+  <div class="carte" style="text-align:center;padding:44px 24px">
+    <h3>École introuvable</h3>
+    <p style="margin-top:8px">Vérifiez le lien reçu, ou retrouvez votre établissement dans l'annuaire.</p>
+    <a class="btn btn--vert btn--petit" style="margin-top:18px" href="ecoles.html">Voir toutes les écoles</a>
+  </div>
+</div>
+
+<div id="fermee" class="large" style="max-width:760px;padding:20px 0 60px" hidden>
+  <div class="carte" style="text-align:center;padding:44px 24px">
+    <h3 id="fermeeNom"></h3>
+    <p style="margin-top:8px">Cet établissement n'accepte pas de pré-inscription en ligne pour le moment.</p>
+    <a class="btn btn--vert btn--petit" style="margin-top:18px" href="ecoles.html">Voir les écoles ouvertes</a>
+  </div>
+</div>
+
+<div id="contenu" hidden>
+  <section style="padding:8px 0 20px">
+    <div class="large" style="max-width:760px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <span id="ficheInitiales" style="width:64px;height:64px;border-radius:18px;background:var(--chaud);color:#fff;font-weight:700;font-size:20px;display:grid;place-items:center;flex:none"></span>
+        <div style="min-width:0">
+          <h1 id="ficheNom" style="font-size:clamp(24px,4vw,32px)"></h1>
+          <p id="ficheLieu" style="margin:4px 0 0;color:var(--brun);font-size:14.5px"></p>
+        </div>
+      </div>
+      <p id="ficheDevise" class="chapo" style="margin-top:18px" hidden></p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="large" style="max-width:760px">
+      <p class="oeil">Formulaire relié au serveur Scolaris</p>
+      <h2>Pré-inscription en ligne</h2>
+      <p class="chapo">Des frais de dossier peuvent être demandés (non remboursables). L'école étudiera votre dossier puis vous contactera pour finaliser l'inscription.</p>
+
+      <div class="form-bloc">
+        <form id="formInscription" novalidate>
+          <div id="champsForm"></div>
+
+          <input class="pot" type="text" name="site_web" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+          <div class="envoi">
+            <button class="btn btn--vert" type="submit" id="btnEnvoi">Envoyer la demande</button>
+            <p class="etat" id="etat"></p>
+          </div>
+        </form>
+
+        <div class="reponse" id="reponse" role="status" aria-live="polite">
+          <h3>Demande enregistrée 🎉</h3>
+          <p>Votre numéro de suivi : <code id="refDemande">—</code></p>
+          <p>Gardez-le précieusement pour suivre la réponse de l'établissement.</p>
+          <p style="margin-top:16px"><a class="btn btn--chaud btn--petit" id="lienSuivi" href="#">Suivre mon dossier →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer class="pied sombre">
+  <div class="large">
+    <div class="bas">
+      <span>© <span id="annee"></span> Scolaris — Savoir, Héritage, Avenir.</span>
+      <span>Brazzaville · Dakar</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="scolaris-config.js"></script>
+<script src="enrollment-fields.js"></script>
+<script>
+document.getElementById("annee").textContent = new Date().getFullYear();
+
+const sb = window.supabase.createClient(SCOLARIS_CONFIG.SUPABASE_URL, SCOLARIS_CONFIG.SUPABASE_ANON_KEY);
+const params = new URLSearchParams(location.search);
+const slug = (params.get("e") || "").trim().toLowerCase();
+
+function afficher(id) { document.getElementById(id).hidden = false; }
+function cacher(id) { document.getElementById(id).hidden = true; }
+
+(async function () {
+  if (!slug) { cacher("etatChargement"); afficher("introuvable"); return; }
+
+  const { data: s, error } = await sb.from("public_schools").select("*").eq("slug", slug).maybeSingle();
+  cacher("etatChargement");
+
+  if (error || !s) { afficher("introuvable"); return; }
+
+  document.getElementById("titrePage").textContent = s.name + " — inscription en ligne";
+
+  if (!s.preregistration_open) {
+    document.getElementById("fermeeNom").textContent = s.name;
+    afficher("fermee");
+    return;
+  }
+
+  afficher("contenu");
+  document.getElementById("ficheInitiales").textContent =
+    s.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  document.getElementById("ficheNom").textContent = s.name;
+  document.getElementById("ficheLieu").textContent = [s.city, s.country].filter(Boolean).join(", ");
+  if (s.motto) {
+    const d = document.getElementById("ficheDevise");
+    d.hidden = false;
+    d.textContent = "« " + s.motto + " »";
+  }
+
+  initFormulaire(s);
+})();
+
+function initFormulaire(school) {
+  const cfg = resoudreConfig(school.enrollment_config);
+  const champsActifs = ENROLLMENT_FIELDS.filter((f) => cfg[f.id] && cfg[f.id].enabled);
+  const conteneur = document.getElementById("champsForm");
+  const categoriesVues = new Set();
+
+  for (const champ of champsActifs) {
+    if (!categoriesVues.has(champ.category)) {
+      categoriesVues.add(champ.category);
+      const titre = document.createElement("p");
+      titre.className = "categorie";
+      titre.textContent = champ.category;
+      conteneur.appendChild(titre);
+      const grille = document.createElement("div");
+      grille.className = "champs";
+      grille.dataset.categorie = champ.category;
+      conteneur.appendChild(grille);
+    }
+    const grille = conteneur.querySelector(`.champs[data-categorie="${cssEscape(champ.category)}"]`);
+    const requis = cfg[champ.id].required || champ.alwaysRequired;
+    grille.appendChild(construireChamp(champ, requis));
+  }
+
+  const form = document.getElementById("formInscription");
+  const bouton = document.getElementById("btnEnvoi");
+  const etat = document.getElementById("etat");
+  const reponse = document.getElementById("reponse");
+  document.getElementById("lienSuivi").href = "suivi.html";
+
+  function bloc(id) { return document.getElementById(id).closest("[data-champ]"); }
+  function marquer(id, ok) { const b = bloc(id); if (b) b.classList.toggle("invalide", !ok); return ok; }
+
+  function verifier() {
+    let ok = true;
+    for (const champ of champsActifs) {
+      const requis = cfg[champ.id].required || champ.alwaysRequired;
+      if (!requis) continue;
+      const el = document.getElementById("f_" + champ.id);
+      if (!el) continue;
+      const val = champ.type === "file" || champ.type === "photo" ? el.files[0] : el.value.trim();
+      if (!val) { marquer(champ.id, false); ok = false; }
+    }
+    const emailEl = document.getElementById("f_guardian_email");
+    if (emailEl && emailEl.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailEl.value.trim())) {
+      marquer("guardian_email", false); ok = false;
+    }
+    return ok;
+  }
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    etat.textContent = ""; etat.className = "etat";
+    if (form.site_web.value !== "") return; // piège à robots
+
+    if (!verifier()) {
+      etat.textContent = "Complétez les champs marqués en rouge.";
+      etat.className = "etat etat--ko";
+      return;
+    }
+
+    bouton.disabled = true; bouton.textContent = "Envoi en cours…";
+    try {
+      const sessionId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      const payload = {};
+
+      for (const champ of champsActifs) {
+        const el = document.getElementById("f_" + champ.id);
+        if (!el) continue;
+        if (champ.type === "file" || champ.type === "photo") {
+          const fichier = el.files[0];
+          if (fichier) {
+            const nomSur = fichier.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const chemin = `${school.id}/${sessionId}/${champ.id}-${nomSur}`;
+            const { error: upErr } = await sb.storage
+              .from("enrollment-documents")
+              .upload(chemin, fichier, { upsert: true });
+            if (upErr) throw new Error("Échec de l'envoi du fichier « " + champ.label + " ».");
+            payload[champ.id] = chemin;
+          }
+        } else if (champ.type === "toggle") {
+          payload[champ.id] = String(el.checked);
+        } else {
+          const v = el.value.trim();
+          if (v) payload[champ.id] = v;
+        }
+      }
+
+      const { data, error: insErr } = await sb
+        .from("enrollment_requests")
+        .insert({ school_id: school.id, api_key: school.enrollment_api_key, payload })
+        .select("reference")
+        .single();
+
+      if (insErr) throw new Error(insErr.message || "La demande n'a pas pu être envoyée.");
+
+      form.style.display = "none";
+      document.getElementById("refDemande").textContent = data.reference;
+      reponse.style.display = "block";
+      reponse.scrollIntoView({ block: "center" });
+    } catch (err) {
+      etat.textContent = err.message || "Une erreur est survenue. Réessayez dans un instant.";
+      etat.className = "etat etat--ko";
+    } finally {
+      bouton.disabled = false; bouton.textContent = "Envoyer la demande";
+    }
+  });
+
+  form.addEventListener("input", (ev) => {
+    const b = ev.target.closest("[data-champ]");
+    if (b) b.classList.remove("invalide");
+  });
+}
+
+function construireChamp(champ, requis) {
+  const wrap = document.createElement("div");
+  wrap.className = "champ" + (champ.type === "textarea" ? " champ--plein" : "");
+  wrap.setAttribute("data-champ", "");
+
+  const label = document.createElement("label");
+  label.setAttribute("for", "f_" + champ.id);
+  label.innerHTML = champ.label + (requis ? " <b>*</b>" : "");
+  wrap.appendChild(label);
+
+  let el;
+  if (champ.type === "select") {
+    el = document.createElement("select");
+    el.appendChild(new Option("Choisir…", ""));
+    for (const opt of champ.options) el.appendChild(new Option(opt, opt));
+  } else if (champ.type === "textarea") {
+    el = document.createElement("textarea");
+    el.placeholder = champ.placeholder || "";
+  } else if (champ.type === "toggle") {
+    wrap.style.flexDirection = "row";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = "10px";
+    el = document.createElement("input");
+    el.type = "checkbox";
+    el.style.width = "18px"; el.style.height = "18px";
+  } else if (champ.type === "file" || champ.type === "photo") {
+    el = document.createElement("input");
+    el.type = "file";
+    el.accept = champ.type === "photo" ? "image/*" : "image/*,.pdf";
+  } else {
+    el = document.createElement("input");
+    el.type = champ.type === "date" ? "text" : (champ.type === "email" ? "email" : (champ.type === "phone" ? "tel" : "text"));
+    el.placeholder = champ.type === "date" ? "JJ/MM/AAAA" : (champ.placeholder || "");
+  }
+  el.id = "f_" + champ.id;
+  el.name = champ.id;
+  if (requis && champ.type !== "toggle") el.required = true;
+  wrap.appendChild(el);
+
+  if (champ.hint) {
+    const hint = document.createElement("p");
+    hint.className = "indice";
+    hint.textContent = champ.hint;
+    wrap.appendChild(hint);
+  }
+
+  const erreur = document.createElement("span");
+  erreur.className = "erreur";
+  erreur.textContent = "Ce champ est requis.";
+  wrap.appendChild(erreur);
+
+  return wrap;
+}
+
+function resoudreConfig(enrollmentConfig) {
+  const cfg = {};
+  for (const f of ENROLLMENT_FIELDS) {
+    cfg[f.id] = { enabled: f.defaultEnabled || f.alwaysRequired, required: f.defaultRequired || f.alwaysRequired };
+  }
+  const stored = enrollmentConfig && enrollmentConfig.fields;
+  if (stored) {
+    for (const f of ENROLLMENT_FIELDS) {
+      if (f.alwaysRequired) continue;
+      const s = stored[f.id];
+      if (s) {
+        cfg[f.id].enabled = s.enabled === true;
+        cfg[f.id].required = s.required === true && cfg[f.id].enabled;
+      }
+    }
+  }
+  return cfg;
+}
+
+function cssEscape(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+</script>
+</body>
+</html>

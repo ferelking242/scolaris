@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivre ma demande — Scolaris</title>
+<meta name="description" content="Entrez votre numéro de suivi pour connaître la réponse de l'établissement à votre demande d'inscription.">
+<meta name="theme-color" content="#2A1207">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF6EF'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%239A2C06'/%3E%3Cstop offset='1' stop-color='%23E4610C'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='40' font-weight='700' fill='url(%23g)' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='47' cy='49' r='5' fill='%231F7A44'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vitrine.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="large">
+    <a class="logo" href="index.html"><b><span>S</span></b><i>Scolaris</i></a>
+    <nav class="nav">
+      <a href="index.html#fonctions">Fonctions</a>
+      <a href="index.html#offres">Offres</a>
+      <a href="ecoles.html">Trouver une école</a>
+      <a href="suivi.html" style="border-bottom-color:var(--braise)">Suivre mon dossier</a>
+    </nav>
+    <a class="btn btn--vert btn--petit" href="index.html#inscription">Inscrire mon école</a>
+  </div>
+</header>
+
+<main>
+<section class="heros" style="padding:56px 0 24px">
+  <div class="large" style="max-width:640px;text-align:center;margin-inline:auto">
+    <p class="devise" style="text-align:center">Familles</p>
+    <h1 class="titre" style="font-size:clamp(28px,4vw,40px)">Où en est ma demande ?</h1>
+    <p class="intro" style="max-width:48ch;margin-inline:auto;text-align:center">Entrez le numéro reçu lors du dépôt du dossier. Pas de compte, pas de mot de passe.</p>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="large" style="max-width:520px">
+    <div class="form-bloc">
+      <form id="formSuivi" novalidate>
+        <div class="champ" data-champ>
+          <label for="ref">Numéro de suivi <b>*</b></label>
+          <input id="ref" name="ref" type="text" placeholder="SCO-4F2K9A" autocapitalize="characters" required>
+          <span class="erreur">Entrez le numéro reçu à la soumission (ex. SCO-4F2K9A).</span>
+        </div>
+        <div class="envoi">
+          <button class="btn btn--vert" type="submit" id="btnChercher">Vérifier</button>
+          <p class="etat" id="etat"></p>
+        </div>
+      </form>
+
+      <div id="resultat" style="display:none;margin-top:24px"></div>
+    </div>
+
+    <p class="offres-note" style="margin-top:24px">
+      Vous n'avez pas encore déposé de demande ?
+      <a href="ecoles.html" style="color:var(--brique);font-weight:700">Trouver une école →</a>
+    </p>
+  </div>
+</section>
+</main>
+
+<footer class="pied sombre">
+  <div class="large">
+    <div class="bas">
+      <span>© <span id="annee"></span> Scolaris — Savoir, Héritage, Avenir.</span>
+      <span>Brazzaville · Dakar</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="scolaris-config.js"></script>
+<script>
+document.getElementById("annee").textContent = new Date().getFullYear();
+const sb = window.supabase.createClient(SCOLARIS_CONFIG.SUPABASE_URL, SCOLARIS_CONFIG.SUPABASE_ANON_KEY);
+
+const STATUTS = {
+  pending: { libelle: "En cours d'examen", couleur: "var(--p-or)", fond: "var(--p-or-f)" },
+  accepted: { libelle: "Acceptée", couleur: "var(--p-vert)", fond: "var(--p-vert-f)" },
+  rejected: { libelle: "Non retenue", couleur: "var(--p-rouge)", fond: "var(--p-rouge-f)" },
+};
+
+const params = new URLSearchParams(location.search);
+const refInitiale = params.get("ref");
+if (refInitiale) document.getElementById("ref").value = refInitiale.trim();
+
+const form = document.getElementById("formSuivi");
+const etat = document.getElementById("etat");
+const bouton = document.getElementById("btnChercher");
+const resultat = document.getElementById("resultat");
+
+form.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  etat.textContent = ""; etat.className = "etat";
+  resultat.style.display = "none";
+  const champ = document.getElementById("ref");
+  const ref = champ.value.trim().toUpperCase();
+  const bloc = champ.closest("[data-champ]");
+
+  if (!ref) { bloc.classList.add("invalide"); return; }
+  bloc.classList.remove("invalide");
+
+  bouton.disabled = true; bouton.textContent = "Recherche…";
+  try {
+    // Lecture via une fonction publique dédiée (aucune policy SELECT anonyme
+    // sur enrollment_requests : la table contient des données personnelles,
+    // seul le statut par référence exacte doit être exposé publiquement).
+    const { data, error } = await sb.rpc("get_enrollment_status", { p_reference: ref });
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      etat.textContent = "Aucune demande ne correspond à ce numéro. Vérifiez la saisie.";
+      etat.className = "etat etat--ko";
+      return;
+    }
+
+    const d = Array.isArray(data) ? data[0] : data;
+    const s = STATUTS[d.status] || { libelle: d.status, couleur: "var(--brun)", fond: "var(--bord)" };
+
+    resultat.style.display = "block";
+    resultat.innerHTML = `
+      <div style="border:1.5px solid var(--bord);border-radius:16px;padding:20px 22px">
+        <p style="margin:0 0 6px;font-size:13px;color:var(--brun)">Référence <code style="font-weight:700;color:var(--encre)">${ref}</code></p>
+        <p style="margin:0 0 4px;font-size:15px;color:var(--brun)">${escapeHtml(d.school_name || "")}</p>
+        <span style="display:inline-block;margin-top:8px;font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;background:${s.fond};color:${s.couleur}">${s.libelle}</span>
+        ${d.note ? `<p style="margin-top:14px;font-size:14px;color:var(--brun)">${escapeHtml(d.note)}</p>` : ""}
+      </div>
+    `;
+  } catch (err) {
+    etat.textContent = "La vérification a échoué. Réessayez dans un instant.";
+    etat.className = "etat etat--ko";
+  } finally {
+    bouton.disabled = false; bouton.textContent = "Vérifier";
+  }
+});
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>
