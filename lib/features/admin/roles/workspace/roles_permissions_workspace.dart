@@ -105,7 +105,16 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
       // dès que l'école est connue.
       if (schoolId == null) return;
 
-      final catalog  = await StaffRolesSource.fetchPermissionCatalog();
+      final rawCatalog = await StaffRolesSource.fetchPermissionCatalog();
+      // Ne propose que les catégories dont le module est actif pour l'école
+      // (cf. AdminHome/TeacherHome/StudentHome, même filtre) — inutile de
+      // pouvoir cocher « Notes » si le module Académique n'est pas activé.
+      final school = ref.read(schoolProvider).valueOrNull;
+      final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+      final catalog = rawCatalog.where((m) {
+        final module = kPermissionModuleMap[m.key];
+        return module == null || enabledModules == null || enabledModules.contains(module);
+      }).toList();
       final existing = await StaffRolesSource.fetchStaffRoles(schoolId);
 
       final templates =

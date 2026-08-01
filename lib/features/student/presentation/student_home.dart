@@ -58,20 +58,24 @@ class StudentHome extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final level = ref.watch(studentSchoolLevelProvider).valueOrNull
         ?? SchoolLevel.lycee;
+    // Modules choisis par l'école à l'inscription (cf. AdminHome, même logique).
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
     return ResponsiveRoleShell(
       role: UserRole.student,
       title: 'Scolaris',
-      groups: _groups(level: level),
+      groups: _groups(level: level, enabledModules: enabledModules),
     );
   }
 
-  List<RoleNavGroup> _groups({required SchoolLevel level}) {
+  List<RoleNavGroup> _groups({required SchoolLevel level, required Set<String>? enabledModules}) {
     final isPrimaire = level == SchoolLevel.primaire;
     final isUniv     = level == SchoolLevel.universite ||
                        level == SchoolLevel.master     ||
                        level == SchoolLevel.doctorat;
     final Widget dashboard =
         isPrimaire ? const PrimaryDashboard() : const _StudentDashboard();
+    bool moduleOn(String m) => enabledModules == null || enabledModules.contains(m);
 
     return [
       RoleNavGroup(labelKey: 'sections.setup', entries: [
@@ -82,28 +86,31 @@ class StudentHome extends ConsumerWidget {
             labelKey: 'nav.courses', page: CoursesPage()),
       ]),
       RoleNavGroup(labelKey: 'sections.activity', entries: [
-        const RoleNavEntry(icon: Icons.grading_outlined,
-            activeIcon: Icons.grading_rounded,
-            labelKey: 'nav.grades', page: GradesPage()),
-        const RoleNavEntry(icon: Icons.calendar_month_outlined,
-            activeIcon: Icons.calendar_month_rounded,
-            labelKey: 'nav.schedule', page: SchedulePage()),
-        const RoleNavEntry(icon: Icons.fact_check_outlined,
-            activeIcon: Icons.fact_check_rounded,
-            labelKey: 'nav.attendance', page: AttendancePage()),
+        if (moduleOn('academic'))
+          const RoleNavEntry(icon: Icons.grading_outlined,
+              activeIcon: Icons.grading_rounded,
+              labelKey: 'nav.grades', page: GradesPage()),
+        if (moduleOn('academic'))
+          const RoleNavEntry(icon: Icons.calendar_month_outlined,
+              activeIcon: Icons.calendar_month_rounded,
+              labelKey: 'nav.schedule', page: SchedulePage()),
+        if (moduleOn('attendance'))
+          const RoleNavEntry(icon: Icons.fact_check_outlined,
+              activeIcon: Icons.fact_check_rounded,
+              labelKey: 'nav.attendance', page: AttendancePage()),
         // Bibliothèque désactivée temporairement (demande explicite) — à
         // réactiver plus tard. Ne pas supprimer _gatedLibraryPage/LibraryPage.
         // const RoleNavEntry(icon: Icons.local_library_outlined,
         //     activeIcon: Icons.local_library_rounded,
         //     labelKey: 'nav.library', page: _gatedLibraryPage),
       ]),
-      if (isPrimaire)
+      if (isPrimaire && moduleOn('academic'))
         const RoleNavGroup(labelKey: 'sections.primary_tools', entries: [
           RoleNavEntry(icon: Icons.import_contacts_outlined,
               activeIcon: Icons.import_contacts_rounded,
               labelKey: 'nav.cahier_liaison', page: CahierLiaisonPage()),
         ]),
-      if (isUniv)
+      if (isUniv && moduleOn('academic'))
         const RoleNavGroup(labelKey: 'sections.university', entries: [
           RoleNavEntry(icon: Icons.workspace_premium_outlined,
               activeIcon: Icons.workspace_premium_rounded,
@@ -116,11 +123,12 @@ class StudentHome extends ConsumerWidget {
               labelKey: 'nav.carte_etudiante', page: CarteEtudiantePage()),
         ]),
       if (!isPrimaire)
-        const RoleNavGroup(labelKey: 'sections.finance', entries: [
-          RoleNavEntry(icon: Icons.account_balance_wallet_outlined,
-              activeIcon: Icons.account_balance_wallet_rounded,
-              labelKey: 'nav.my_payments', page: StudentPaymentsPage()),
-          RoleNavEntry(icon: Icons.folder_outlined,
+        RoleNavGroup(labelKey: 'sections.finance', entries: [
+          if (moduleOn('finance'))
+            const RoleNavEntry(icon: Icons.account_balance_wallet_outlined,
+                activeIcon: Icons.account_balance_wallet_rounded,
+                labelKey: 'nav.my_payments', page: StudentPaymentsPage()),
+          const RoleNavEntry(icon: Icons.folder_outlined,
               activeIcon: Icons.folder_rounded,
               labelKey: 'nav.documents', page: StudentDocumentsPage()),
         ]),

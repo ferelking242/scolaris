@@ -1212,6 +1212,11 @@ class SbSchool {
   /// garderie, primaire, college, lycee, universite, technique, superieur, special.
   final List<String> types;
 
+  /// Modules choisis à l'inscription (metadata.modules) : academic, attendance,
+  /// finance, enrollment. Vide = école créée avant ce choix → tous les modules
+  /// restent actifs (cf. `AdminHome._allGroups`, filtrage par `RoleNavEntry.module`).
+  final List<String> modules;
+
   /// Système éducatif choisi à l'inscription (metadata.educational_system) :
   /// francophone, anglophone, arabophone, lmd, grande_ecole.
   /// Attention : ce n'est PAS `class_levels.system_type` — la traduction dépend
@@ -1264,6 +1269,7 @@ class SbSchool {
     this.accentColor,
     this.academicYear,
     this.types = const [],
+    this.modules = const [],
     this.educationalSystem,
     this.currency = 'XAF',
     this.gradingScale = 'numeric_20',
@@ -1319,6 +1325,7 @@ class SbSchool {
   factory SbSchool.fromJson(Map<String, dynamic> j) {
     final meta = j['metadata'];
     final rawTypes = meta is Map ? meta['types'] : null;
+    final rawModules = meta is Map ? meta['modules'] : null;
     return SbSchool(
       id: j['id'] as String,
       name: j['name'] as String? ?? '',
@@ -1349,6 +1356,9 @@ class SbSchool {
       types: rawTypes is List
           ? rawTypes.map((e) => e.toString()).toList()
           : const [],
+      modules: rawModules is List
+          ? rawModules.map((e) => e.toString()).toList()
+          : const [],
     );
   }
 }
@@ -1361,6 +1371,14 @@ class SbPlan {
   final List<String> features;
   final int sortOrder;
 
+  /// Franchise d'élèves incluse dans le prix de base, avant supplément de
+  /// taille (cf. `plan_size_surcharges`). Distinct de [maxStudents] — qui
+  /// n'est plus utilisé comme plafond dur depuis les offres par modules.
+  final int? includedStudents;
+
+  /// Nombre de modules (cf. `kAppModules`) inclus dans cette offre.
+  final int? maxModules;
+
   const SbPlan({
     required this.code,
     required this.name,
@@ -1368,10 +1386,14 @@ class SbPlan {
     this.maxStudents,
     this.features = const [],
     this.sortOrder = 0,
+    this.includedStudents,
+    this.maxModules,
   });
 
   bool get isUnlimited => maxStudents == null;
-  String get limitLabel => maxStudents == null ? 'Illimité' : 'Jusqu\'à $maxStudents élèves';
+  String get limitLabel => includedStudents == null
+      ? 'Illimité'
+      : 'Jusqu\'à $includedStudents élèves inclus';
 
   factory SbPlan.fromJson(Map<String, dynamic> j) => SbPlan(
         code: j['code'] as String,
@@ -1380,6 +1402,38 @@ class SbPlan {
         maxStudents: j['max_students'] as int?,
         features: (j['features'] as List?)?.map((e) => e.toString()).toList() ?? const [],
         sortOrder: j['sort_order'] as int? ?? 0,
+        includedStudents: j['included_students'] as int?,
+        maxModules: j['max_modules'] as int?,
+      );
+}
+
+/// Supplément mensuel selon le nombre réel d'élèves, par tranche — au-delà de
+/// la franchise du palier (`SbPlan.includedStudents`). `surcharge == null` =
+/// tranche "sur devis" (contacter le support), pas un montant à zéro.
+class SbPlanSizeSurcharge {
+  final String planCode;
+  final int minStudents;
+  final int? maxStudents; // null = tranche ouverte
+  final double? surcharge; // null = sur devis
+  final String currency;
+
+  const SbPlanSizeSurcharge({
+    required this.planCode,
+    required this.minStudents,
+    this.maxStudents,
+    this.surcharge,
+    required this.currency,
+  });
+
+  bool matches(int studentCount) =>
+      studentCount >= minStudents && (maxStudents == null || studentCount <= maxStudents!);
+
+  factory SbPlanSizeSurcharge.fromJson(Map<String, dynamic> j) => SbPlanSizeSurcharge(
+        planCode: j['plan_code'] as String,
+        minStudents: (j['min_students'] as num).toInt(),
+        maxStudents: (j['max_students'] as num?)?.toInt(),
+        surcharge: (j['surcharge'] as num?)?.toDouble(),
+        currency: j['currency'] as String? ?? 'XAF',
       );
 }
 
@@ -3363,6 +3417,11 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbPlanPrice.fromJson(j as Map<String, dynamic>)).toList();
   }
 
+  static Future<List<SbPlanSizeSurcharge>> getPlanSizeSurcharges({String country = 'CG'}) async {
+    final data = await _db.from('plan_size_surcharges').select().eq('country', country).eq('is_active', true);
+    return (data as List).map((j) => SbPlanSizeSurcharge.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
   static Future<SbSubscription?> getSubscription(String schoolId) async {
     final data = await _db
         .from('subscriptions')
@@ -4327,6 +4386,18 @@ class SupabaseDbSource {
       };
     }
     await _db.from('schools').update(update).eq('id', id);
+  }
+
+  /// Modules choisis (Académique/Présences/Finances/Inscriptions) — modifiable
+  /// après l'inscription, cf. `AdminSubscriptionPage`. Lecture-fusion-écriture
+  /// pour ne pas écraser `types` / `educational_system` déjà présents.
+  static Future<void> updateSchoolModules(String schoolId, List<String> modules) async {
+    final row = await _db.from('schools').select('metadata').eq('id', schoolId).maybeSingle();
+    final metadata = <String, dynamic>{
+      ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
+      'modules': modules,
+    };
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId);
   }
 
   /// Slug + statut d'ouverture de la pré-inscription — pour le panneau admin

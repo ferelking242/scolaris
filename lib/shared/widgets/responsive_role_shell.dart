@@ -16,12 +16,19 @@ class RoleNavEntry {
   /// `null` = visible par tout membre ayant accès au shell (ex. tableau de bord).
   final String? permission;
 
+  /// Module optionnel choisi par l'école à l'inscription (cf.
+  /// `school_registration_screen.dart` → `schools.metadata.modules`).
+  /// `null` = fonctionnalité « core », toujours visible quels que soient les
+  /// modules choisis par l'école.
+  final String? module;
+
   const RoleNavEntry({
     required this.icon,
     this.activeIcon,
     required this.labelKey,
     required this.page,
     this.permission,
+    this.module,
   });
 }
 

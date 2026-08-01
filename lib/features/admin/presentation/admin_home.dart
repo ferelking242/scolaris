@@ -96,11 +96,11 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'nav.enrollment',
           page: PermissionGuard(permission: StaffPermissions.students, child: EnrollmentConfigPage()),
-          permission: StaffPermissions.students),
+          permission: StaffPermissions.students, module: 'enrollment'),
       RoleNavEntry(icon: Icons.fact_check_outlined, activeIcon: Icons.fact_check_rounded,
           labelKey: 'Pré-inscriptions',
           page: PermissionGuard(permission: StaffPermissions.students, child: PreRegQueuePage()),
-          permission: StaffPermissions.students),
+          permission: StaffPermissions.students, module: 'enrollment'),
       // Fin d'année : passage de classe ET sortie d'élève (transfert/diplôme/
       // radiation) — la même décision annuelle, cf. class_promotion_page.dart.
       RoleNavEntry(icon: Icons.move_up_outlined, activeIcon: Icons.move_up_rounded,
@@ -112,7 +112,7 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.payments_outlined, activeIcon: Icons.payments_rounded,
           labelKey: 'nav.billing',
           page: PermissionGuard(permission: StaffPermissions.finance, child: AdminBillingPage()),
-          permission: StaffPermissions.finance),
+          permission: StaffPermissions.finance, module: 'finance'),
       RoleNavEntry(icon: Icons.workspace_premium_outlined, activeIcon: Icons.workspace_premium_rounded,
           labelKey: 'nav.subscription',
           page: PermissionGuard(permission: StaffPermissions.schoolConfig, child: AdminSubscriptionPage()),
@@ -123,23 +123,23 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.grade_outlined, activeIcon: Icons.grade_rounded,
           labelKey: 'nav.grades',
           page: PermissionGuard(permission: StaffPermissions.grades, child: AdminGradesPage()),
-          permission: StaffPermissions.grades),
+          permission: StaffPermissions.grades, module: 'academic'),
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'Présences',
           page: PermissionGuard(permission: StaffPermissions.attendance, child: AdminAttendancePage()),
-          permission: StaffPermissions.attendance),
+          permission: StaffPermissions.attendance, module: 'attendance'),
       RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
           labelKey: 'nav.reports',
           page: PermissionGuard(permission: StaffPermissions.reports, child: AdminReportsPage()),
-          permission: StaffPermissions.reports),
+          permission: StaffPermissions.reports, module: 'academic'),
       RoleNavEntry(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded,
           labelKey: 'Statistiques de classe',
           page: PermissionGuard(permission: StaffPermissions.reports, child: AdminClassStatsPage()),
-          permission: StaffPermissions.reports),
+          permission: StaffPermissions.reports, module: 'academic'),
       RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
           labelKey: 'nav.timetable',
           page: PermissionGuard(permission: StaffPermissions.timetable, child: TimetablePage()),
-          permission: StaffPermissions.timetable),
+          permission: StaffPermissions.timetable, module: 'academic'),
       // "Récompenses" (catalogue de badges) retiré du menu admin pour
       // l'instant — demande explicite, cf. student_home.dart.
       // Bibliothèque désactivée temporairement (demande explicite) — à
@@ -176,12 +176,21 @@ class AdminHome extends ConsumerWidget {
     // depuis « Rôles & permissions ». Cf. RoleSetupScreen, conservé mais plus
     // branché en écran bloquant.
 
+    // Modules choisis par l'école à l'inscription (schools.metadata.modules).
+    // `null` = école créée avant l'existence de ce choix → tous les modules
+    // restent actifs (pas de régression pour les écoles existantes).
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+
     // Menu dynamique : on ne garde que les entrées dont la permission est
-    // satisfaite (null = toujours visible). Les groupes vides sont retirés.
+    // satisfaite (null = toujours visible) ET dont le module est actif pour
+    // l'école (null = fonctionnalité core, toujours visible). Les groupes
+    // vides sont retirés.
     final groups = <RoleNavGroup>[];
     for (final g in _allGroups) {
       final entries = g.entries
           .where((e) => e.permission == null || (user?.can(e.permission!) ?? false))
+          .where((e) => e.module == null || enabledModules == null || enabledModules.contains(e.module))
           .toList();
       if (entries.isNotEmpty) {
         groups.add(RoleNavGroup(labelKey: g.labelKey, entries: entries));

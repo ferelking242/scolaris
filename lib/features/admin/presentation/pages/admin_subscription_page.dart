@@ -1,39 +1,24 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
+import '../../../../shared/data/features_catalog.dart' show kAppModules;
 import '../../../../shared/pdf/subscription_receipt_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 /// Libellés lisibles des clés de fonctionnalités stockées en base (`plans.features`).
 const _featureLabels = <String, String>{
-  'eleves': 'Gestion des élèves',
-  'classes': 'Classes & niveaux',
-  'matieres': 'Matières',
-  'notes': 'Notes & carnet',
-  'bulletins': 'Bulletins',
-  'presences': 'Présences & appel',
-  'emploi_du_temps': 'Emploi du temps',
-  'portail_parents': 'Portail Parents (comptes + login)',
-  'messagerie': 'Messagerie',
-  'annonces': 'Annonces',
-  'finance': 'Finance & paiement en ligne',
-  'bibliotheque': 'Bibliothèque',
-  'surveillance': 'Surveillance & discipline',
-  'rapports': 'Rapports & exports',
-  'multi_etablissements': 'Multi-établissements',
-  'marque_blanche': 'Marque blanche',
-  'hors_ligne': 'Mode hors-ligne',
-  'support_dedie': 'Support dédié',
-  'export_api': 'Export & API',
-  'analytics': 'Analytics avancées',
+  '1_module_au_choix': '1 module au choix (Académique, Présences, Finances ou Inscriptions)',
+  'jusqu_a_3_modules': 'Jusqu\'à 3 modules au choix',
+  '4_modules': 'Les 4 modules (Académique, Présences, Finances, Inscriptions)',
+  'rapport_premium': 'Rapport Premium (tendances de recouvrement)',
 };
 
-/// Noms d'offres pour les clés d'héritage ('simple'/'pro' en tête de liste
-/// signifient « tout le plan inférieur inclus »).
-const _planNames = <String, String>{'simple': 'Simple', 'pro': 'Pro', 'max': 'Max'};
+/// Noms d'offres, alignés sur les modules (cf. 20260801_offer_tiers.sql).
+const _planNames = <String, String>{'simple': 'Essentiel', 'pro': 'Croissance', 'max': 'Complet'};
 
 /// Page Admin « Mon abonnement » : offre actuelle, usage élèves, choix d'offre.
 /// L'ÉCOLE paie Scolaris (SaaS). À ne pas confondre avec la facturation des
@@ -58,6 +43,7 @@ class AdminSubscriptionPage extends ConsumerWidget {
     final plansAsync = ref.watch(plansProvider);
     final pricesAsync = ref.watch(planPricesProvider);
     final countAsync = ref.watch(studentCountProvider);
+    final surchargesAsync = ref.watch(planSizeSurchargesProvider);
 
     final loading = subAsync.isLoading || plansAsync.isLoading || pricesAsync.isLoading;
     if (loading) {
@@ -86,8 +72,12 @@ class AdminSubscriptionPage extends ConsumerWidget {
     }
 
     final currentPlan = sub?.planCode;
-    final currentLimit =
-        plans.where((p) => p.code == currentPlan).map((p) => p.maxStudents).firstOrNull;
+    final currentPlanObj = plans.where((p) => p.code == currentPlan).firstOrNull;
+    final currentLimit = currentPlanObj?.includedStudents;
+    final surcharges = surchargesAsync.value ?? const <SbPlanSizeSurcharge>[];
+    final currentSurcharge = currentPlan == null
+        ? null
+        : surcharges.where((s) => s.planCode == currentPlan && s.matches(count)).firstOrNull;
     final fmt = NumberFormat.decimalPattern('fr');
 
     return PageScaffold(
@@ -99,6 +89,18 @@ class AdminSubscriptionPage extends ConsumerWidget {
         DataPanel(
           title: 'Utilisation — élèves',
           child: _UsageBar(count: count, limit: currentLimit, fmt: fmt),
+        ),
+        if (currentSurcharge != null) ...[
+          const SizedBox(height: 14),
+          DataPanel(
+            title: 'Supplément de taille',
+            child: _SizeSurchargeRow(surcharge: currentSurcharge, fmt: fmt),
+          ),
+        ],
+        const SizedBox(height: 14),
+        const DataPanel(
+          title: 'Modules actifs',
+          child: _ModulesPanel(),
         ),
         const SizedBox(height: 14),
         DataPanel(
@@ -576,8 +578,104 @@ class _UsageBar extends StatelessWidget {
       ),
       if (near) ...[
         const SizedBox(height: 8),
-        Text('Vous approchez de la limite de votre offre. Passez à l\'offre supérieure.',
+        Text('Vous approchez de la franchise incluse dans votre offre — un supplément de taille s\'applique au-delà.',
             style: TextStyle(fontSize: 12, color: barColor, fontWeight: FontWeight.w600)),
+      ],
+    ]);
+  }
+}
+
+/// Ligne « Supplément de taille » — le nombre réel d'élèves dépasse la
+/// franchise incluse dans l'offre (cf. `plan_size_surcharges`). Purement
+/// informatif : la facturation reste manuelle (pas de prélèvement automatique).
+class _SizeSurchargeRow extends StatelessWidget {
+  final SbPlanSizeSurcharge surcharge;
+  final NumberFormat fmt;
+  const _SizeSurchargeRow({required this.surcharge, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final devis = surcharge.surcharge == null;
+    final free = surcharge.surcharge == 0;
+    final label = surcharge.maxStudents == null
+        ? '${fmt.format(surcharge.minStudents)}+ élèves'
+        : '${fmt.format(surcharge.minStudents)} – ${fmt.format(surcharge.maxStudents)} élèves';
+    final valueText = devis
+        ? 'Sur devis — contactez le support'
+        : free
+            ? 'Inclus (0 F)'
+            : '+ ${fmt.format(surcharge.surcharge)} ${surcharge.currency} / mois';
+    final color = devis ? const Color(0xFFC17F24) : free ? const Color(0xFF15803D) : context.cInk;
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text('Tranche actuelle : $label', style: TextStyle(fontSize: 13, color: context.cMuted)),
+      Text(valueText, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+    ]);
+  }
+}
+
+/// Modules actifs de l'école — modifiable après l'inscription (décision
+/// utilisateur explicite). Décocher/cocher change ce qui apparaît dans le
+/// tableau de bord de tout le monde (admin/enseignants/parents), cf. la
+/// même logique de filtrage que dans `AdminHome`/`TeacherHome`/`StudentHome`.
+class _ModulesPanel extends ConsumerStatefulWidget {
+  const _ModulesPanel();
+  @override
+  ConsumerState<_ModulesPanel> createState() => _ModulesPanelState();
+}
+
+class _ModulesPanelState extends ConsumerState<_ModulesPanel> {
+  Set<String>? _draft;
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final saved = (school?.modules.isNotEmpty ?? false) ? school!.modules.toSet() : kAppModules.map((m) => m.id).toSet();
+    final selected = _draft ?? saved;
+    final dirty = _draft != null && !setEquals(_draft, saved);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final m in kAppModules)
+        CheckboxListTile(
+          value: selected.contains(m.id),
+          onChanged: school == null ? null : (v) => setState(() {
+            final next = Set<String>.from(selected);
+            if (v == true) { next.add(m.id); } else { next.remove(m.id); }
+            _draft = next;
+          }),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          title: Text(m.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+          subtitle: Text(m.description, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ),
+      if (dirty) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: Text(
+            selected.isEmpty
+                ? 'Aucun module actif : seules les fonctionnalités essentielles resteront visibles.'
+                : 'Le prix de votre offre peut changer selon le nombre de modules actifs.',
+            style: TextStyle(fontSize: 11.5, color: context.cMuted))),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () => setState(() => _draft = null),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: _saving || school == null ? null : () async {
+              setState(() => _saving = true);
+              try {
+                await SupabaseDbSource.updateSchoolModules(school.id, selected.toList());
+                ref.invalidate(schoolProvider);
+                if (mounted) setState(() => _draft = null);
+              } finally {
+                if (mounted) setState(() => _saving = false);
+              }
+            },
+            child: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+          ),
+        ]),
       ],
     ]);
   }

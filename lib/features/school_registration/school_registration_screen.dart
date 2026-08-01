@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/countries.dart';
+import '../../shared/data/features_catalog.dart' show kAppModules;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
@@ -276,61 +277,41 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   String? _globalError;
   bool _showRightPanel = true;
 
-  // ── Step 1 ──
+  // ── Step 1 — École ──
   final _s1Form    = GlobalKey<FormState>();
   final _s1Name    = TextEditingController();
-  final _s1Motto   = TextEditingController();
-  final _s1Year    = TextEditingController();
   final _s1Country = TextEditingController(text: 'Congo');
   final _s1City    = TextEditingController();
   final _s1Address = TextEditingController();
-  final _s1MapLink = TextEditingController();
   final _s1Email   = TextEditingController();
-  final _s1Website = TextEditingController();
   final _s1Phone   = TextEditingController();
-  // Social
-  final _s1Facebook  = TextEditingController();
-  final _s1Instagram = TextEditingController();
-  final _s1WhatsApp  = TextEditingController();
-  final _s1Twitter   = TextEditingController();
-  final _s1LinkedIn  = TextEditingController();
-  final _s1YouTube   = TextEditingController();
   String _s1DialCode = '+242', _s1DialFlag = '🇨🇬';
   Set<String> _types = {'lycee'};
-  List<SchoolBranch> _branches = [];
 
-  // ── Step 2 ──
+  /// Modules choisis par l'école (cf. `kAppModules`) — décide ce qui apparaît
+  /// dans son tableau de bord ensuite (`AdminHome`). Tout coché par défaut :
+  /// c'est un DÉ-cochage, pas une découverte à l'aveugle.
+  Set<String> _modules = kAppModules.map((m) => m.id).toSet();
+
+  // ── Step 2 — Administrateur ──
   final _s2Form   = GlobalKey<FormState>();
   final _s2Name   = TextEditingController();
-  final _s2Title  = TextEditingController(text: 'Fondateur');
   final _s2Email  = TextEditingController();
   final _s2Phone  = TextEditingController();
   final _s2Pass   = TextEditingController();
   final _s2PassConfirm = TextEditingController();
-  final _s2Bio    = TextEditingController();
-  // Social
-  final _s2Facebook  = TextEditingController();
-  final _s2WhatsApp  = TextEditingController();
-  final _s2Instagram = TextEditingController();
-  final _s2LinkedIn  = TextEditingController();
   String _s2DialCode = '+242', _s2DialFlag = '🇨🇬';
   bool _s2Obscure = true;
   bool _s2ObscureConfirm = true;
-  int _s2BannerIdx = 0, _s2AvatarIdx = 0;
 
-  // ── Step 3 ──
-  String _s3System = 'francophone';
-
-  // ── Step 4 ──
+  // Système éducatif et structure de classes ne sont plus des étapes : on
+  // prend le défaut francophone et on génère les séries en silence à la
+  // soumission (modifiables ensuite dans le dashboard) — l'inscription ne
+  // doit pas demander des choix que l'école peut faire plus tard.
+  static const _s3System = 'francophone';
   List<SchoolSeries> _series = [];
-  final _newSeriesNameCtrl = TextEditingController();
-  final _newSeriesCodeCtrl = TextEditingController();
-  final _newSeriesDescCtrl = TextEditingController();
 
-  static const _stepLabels = [
-    'École','Administrateur','Système éducatif',
-    'Structure & Séries','Récapitulatif',
-  ];
+  static const _stepLabels = ['École', 'Administrateur', 'Récapitulatif'];
 
   @override
   void initState() { super.initState(); _series = _defaultSeries(_s3System, _types); }
@@ -338,11 +319,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   @override
   void dispose() {
     for (final c in [
-      _s1Name,_s1Motto,_s1Year,_s1Country,_s1City,_s1Address,_s1MapLink,_s1Email,_s1Website,_s1Phone,
-      _s1Facebook,_s1Instagram,_s1WhatsApp,_s1Twitter,_s1LinkedIn,_s1YouTube,
-      _s2Name,_s2Title,_s2Email,_s2Phone,_s2Pass,_s2PassConfirm,_s2Bio,
-      _s2Facebook,_s2WhatsApp,_s2Instagram,_s2LinkedIn,
-      _newSeriesNameCtrl,_newSeriesCodeCtrl,_newSeriesDescCtrl,
+      _s1Name,_s1Country,_s1City,_s1Address,_s1Email,_s1Phone,
+      _s2Name,_s2Email,_s2Phone,_s2Pass,_s2PassConfirm,
     ]) { c.dispose(); }
     super.dispose();
   }
@@ -369,28 +347,17 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       }
       return true;
     }
-    if (_step == 3) {
-      final active = _series.where((s) => s.isActive);
-      if (active.isEmpty) {
-        setState(() => _globalError = 'Activez au moins une série.');
-        return false;
-      }
-      if (active.every((s) => s.classes.isEmpty)) {
-        setState(() => _globalError = 'Ajoutez au moins une classe à une série active.');
-        return false;
-      }
-    }
     return true;
   }
 
   void _next() {
     setState(() => _globalError = null);
     if (!_validateStep()) return;
-    if (_step == 2) _series = _defaultSeries(_s3System, _types);
-    setState(() => _step = (_step + 1).clamp(0, 4));
+    if (_step == 1) _series = _defaultSeries(_s3System, _types);
+    setState(() => _step = (_step + 1).clamp(0, 2));
   }
 
-  void _prev() => setState(() { _step = (_step - 1).clamp(0, 4); _globalError = null; });
+  void _prev() => setState(() { _step = (_step - 1).clamp(0, 2); _globalError = null; });
 
   // Remplissage rapide pour les tests manuels (debug uniquement).
   void _fillTestData() {
@@ -410,7 +377,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       _s2Pass.text  = 'Test1234!';
       _s2PassConfirm.text = 'Test1234!';
 
-      _s3System = 'francophone';
       _series = _defaultSeries(_s3System, _types);
     });
   }
@@ -437,7 +403,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'country'     : countryCodeOf(_s1Country.text),
         'city'        : _s1City.text.trim(),
         'address'     : _s1Address.text.trim(),
-        'website_url' : _s1Website.text.trim().isEmpty ? null : _s1Website.text.trim(),
         'contact_email': _s1Email.text.trim().isEmpty ? null : _s1Email.text.trim(),
         'contact_phone': _s1Phone.text.trim().isEmpty ? null : '$_s1DialCode${_s1Phone.text.trim()}',
         // Une école auto-inscrite depuis le site vitrine reste inactive tant
@@ -450,17 +415,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'metadata'    : {
           'types'              : _types.toList(),
           'educational_system' : _s3System,
-          'motto'              : _s1Motto.text.trim(),
-          'year_founded'       : _s1Year.text.trim(),
-          'map_link'           : _s1MapLink.text.trim(),
-          'social': {
-            if (_s1Facebook.text.trim().isNotEmpty)  'facebook' : _s1Facebook.text.trim(),
-            if (_s1Instagram.text.trim().isNotEmpty) 'instagram': _s1Instagram.text.trim(),
-            if (_s1WhatsApp.text.trim().isNotEmpty)  'whatsapp' : _s1WhatsApp.text.trim(),
-            if (_s1Twitter.text.trim().isNotEmpty)   'twitter'  : _s1Twitter.text.trim(),
-            if (_s1LinkedIn.text.trim().isNotEmpty)  'linkedin' : _s1LinkedIn.text.trim(),
-            if (_s1YouTube.text.trim().isNotEmpty)   'youtube'  : _s1YouTube.text.trim(),
-          },
+          // Modules choisis à l'inscription — décide ce qui apparaît dans le
+          // tableau de bord de l'école (cf. AdminHome, filtrage par module).
+          'modules'            : _modules.toList(),
         },
       });
       schoolCreated = true;
@@ -469,7 +426,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       // L'école existe déjà ci-dessus → le trigger handle_new_user peut créer
       // users + profiles (FK school_id satisfaite) à partir des métadonnées.
       // Le trigger trg_new_school_trial (DB) crée automatiquement la ligne
-      // subscriptions (plan simple, trial 14j) à l'insert de schools ci-dessus.
+      // subscriptions (essai 14j), sur l'offre déduite de metadata.modules —
+      // cf. _planForModuleCount() ci-dessus, même calcul que le bandeau de
+      // prix affiché à l'écran précédent.
       await sb.auth.signUp(
         email: _s2Email.text.trim(),
         password: _s2Pass.text,
@@ -477,28 +436,15 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           'full_name' : _s2Name.text.trim(),
           'role'      : 'admin',
           'school_id' : schoolId,
-          'banner_idx': _s2BannerIdx,
-          'avatar_idx': _s2AvatarIdx,
         },
       );
-
-      for (final b in _branches) {
-        if (b.city.isNotEmpty || b.address.isNotEmpty) {
-          await sb.from('school_branches').insert({
-            'school_id': schoolId,
-            'name'     : b.name.isEmpty ? null : b.name,
-            'city'     : b.city,
-            'address'  : b.address,
-          });
-        }
-      }
 
       await sb.from('school_founders').insert({
         'school_id' : schoolId,
         'full_name' : _s2Name.text.trim(),
         'email'     : _s2Email.text.trim(),
         'phone'     : _s2Phone.text.trim().isEmpty ? null : '$_s2DialCode${_s2Phone.text.trim()}',
-        'role_label': _s2Title.text.trim().isEmpty ? 'Fondateur' : _s2Title.text.trim(),
+        'role_label': 'Fondateur',
       });
 
       for (final s in _series.where((s) => s.isActive)) {
@@ -664,7 +610,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   }
 
   Widget _buildWide() {
-    final showSidePanel = _step == 3 && _showRightPanel;
     return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // ── Left sidebar ───────────────────────────────────────────────────────
       SizedBox(
@@ -733,54 +678,12 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                   _BottomNav(
                     step: _step, total: _stepLabels.length,
                     onPrev: _step > 0 ? _prev : null,
-                    onNext: _step < 4 ? _next : null,
-                    onSubmit: _step == 4 ? _submit : null,
+                    onNext: _step < 2 ? _next : null,
+                    onSubmit: _step == 2 ? _submit : null,
                     submitting: _submitting, error: _globalError,
                   ),
                 ]),
               ),
-
-              // ── Right action panel (Step 4 only) ──────────────────────────
-              if (_step == 3)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeInOut,
-                  width: _showRightPanel ? 260 : 28,
-                  child: _showRightPanel
-                      ? _RightActionsPanel(
-                          onAddSeries: () => _showAddSeriesSheet(),
-                          onReset: () => _confirmResetStructure(),
-                          onTogglePanel: () => setState(() => _showRightPanel = false),
-                          series: _series,
-                          onToggleSeriesActive: (i, v) => setState(() => _series[i].isActive = v),
-                        )
-                      : MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _showRightPanel = true),
-                            child: Container(
-                              width: 28,
-                              decoration: BoxDecoration(
-                                color: _cream,
-                                border: Border(left: BorderSide(color: _border)),
-                              ),
-                              child: Center(
-                                child: RotatedBox(
-                                  quarterTurns: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: _terra, borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text('Actions', style: TextStyle(
-                                        color: _white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
             ]),
           ),
         ),
@@ -794,8 +697,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       _BottomNav(
         step: _step, total: _stepLabels.length,
         onPrev: _step > 0 ? _prev : null,
-        onNext: _step < 4 ? _next : null,
-        onSubmit: _step == 4 ? _submit : null,
+        onNext: _step < 2 ? _next : null,
+        onSubmit: _step == 2 ? _submit : null,
         submitting: _submitting, error: _globalError,
       ),
     ]);
@@ -806,8 +709,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       case 0: return _buildStep1();
       case 1: return _buildStep2();
       case 2: return _buildStep3();
-      case 3: return _buildStep4();
-      case 4: return _buildStep6();
       default: return const SizedBox.shrink();
     }
   }
@@ -853,21 +754,13 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             // ── Identité ────────────────────────────────────────────────────
             _SectionDivider(label: 'Identité de l\'école', icon: Icons.school_outlined),
             const SizedBox(height: 14),
-            _TwoCol(
-              left: _SField(ctrl: _s1Name, label: 'Nom officiel', required: true,
-                  hint: 'Collège Saint-Joseph', icon: Icons.school_outlined,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Nom requis';
-                    if (v.trim().length < 3) return 'Minimum 3 caractères';
-                    return null;
-                  }),
-              right: _SField(ctrl: _s1Motto, label: 'Devise / Slogan',
-                  hint: 'Savoir, Héritage, Avenir', icon: Icons.format_quote_outlined),
-            ),
-            const SizedBox(height: 14),
-            _SField(ctrl: _s1Year, label: 'Année de création',
-                hint: '2005', icon: Icons.calendar_today_outlined,
-                keyboard: TextInputType.number),
+            _SField(ctrl: _s1Name, label: 'Nom officiel', required: true,
+                hint: 'Collège Saint-Joseph', icon: Icons.school_outlined,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Nom requis';
+                  if (v.trim().length < 3) return 'Minimum 3 caractères';
+                  return null;
+                }),
             const SizedBox(height: 28),
 
             // ── Localisation ────────────────────────────────────────────────
@@ -887,10 +780,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             _SField(ctrl: _s1Address, label: 'Adresse postale', required: true,
                 hint: 'Rue Pasteur, Quartier Moungali…', icon: Icons.map_outlined,
                 validator: (v) => (v?.trim().isEmpty ?? true) ? 'Adresse requise' : null),
-            const SizedBox(height: 14),
-            _SField(ctrl: _s1MapLink, label: 'Lien Google Maps (optionnel)',
-                hint: 'https://maps.google.com/?q=…', icon: Icons.pin_drop_outlined,
-                keyboard: TextInputType.url),
             const SizedBox(height: 28),
 
             // ── Contact ──────────────────────────────────────────────────────
@@ -907,44 +796,20 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                   hint: 'contact@ecole.com', icon: Icons.mail_outline,
                   keyboard: TextInputType.emailAddress),
             ),
-            const SizedBox(height: 14),
-            _SField(ctrl: _s1Website, label: 'Site web officiel',
-                hint: 'https://ecole.com', icon: Icons.language_outlined,
-                keyboard: TextInputType.url),
             const SizedBox(height: 28),
 
-            // ── Réseaux sociaux ─────────────────────────────────────────────
-            _SectionDivider(label: 'Réseaux sociaux', icon: Icons.public_outlined,
-                sub: 'Optionnel — liens visibles pour les parents et étudiants'),
+            // ── Modules ──────────────────────────────────────────────────────
+            _SectionDivider(label: 'Ce que vous voulez gérer', icon: Icons.widgets_outlined,
+                sub: 'Décochez ce dont vous n\'avez pas besoin — modifiable plus tard dans les paramètres.'),
+            const SizedBox(height: 12),
+            _ModulesGrid(
+              selected: _modules,
+              onToggle: (id) => setState(() {
+                if (_modules.contains(id)) { _modules.remove(id); } else { _modules.add(id); }
+              }),
+            ),
             const SizedBox(height: 14),
-            _SocialField(ctrl: _s1Facebook,  platform: 'Facebook',  icon: Icons.facebook_outlined, hint: 'https://facebook.com/votre-ecole'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s1Instagram, platform: 'Instagram', icon: Icons.camera_alt_outlined, hint: 'https://instagram.com/votre-ecole'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s1WhatsApp,  platform: 'WhatsApp',  icon: Icons.chat_outlined, hint: '+242 06 xxx xx xx'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s1Twitter,   platform: 'X / Twitter',icon: Icons.alternate_email_outlined, hint: 'https://x.com/votre-ecole'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s1LinkedIn,  platform: 'LinkedIn',  icon: Icons.work_outline_rounded, hint: 'https://linkedin.com/school/…'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s1YouTube,   platform: 'YouTube',   icon: Icons.play_circle_outline_rounded, hint: 'https://youtube.com/@votre-ecole'),
-            const SizedBox(height: 28),
-
-            // ── Filiales ────────────────────────────────────────────────────
-            _SectionDivider(label: 'Filiales / Autres campus', icon: Icons.add_business_outlined,
-                sub: 'Même école dans une autre ville avec ses propres coordonnées.'),
-            const SizedBox(height: 14),
-            ..._branches.asMap().entries.map((e) => _BranchCard(
-              index: e.key, branch: e.value,
-              onRemove: () => setState(() => _branches.removeAt(e.key)),
-              onPickDial: () => _pickDialCode(onPick: (f,c) => setState((){
-                _branches[e.key].countryFlag = f; _branches[e.key].dialCode = c;
-              })),
-              onChange: () => setState(() {}),
-            )),
-            const SizedBox(height: 10),
-            _OutlineBtn(label: '+ Ajouter une filiale', icon: Icons.add_business_outlined,
-                onTap: () => setState(() => _branches.add(SchoolBranch()))),
+            _PricePreviewBanner(moduleCount: _modules.length),
             const SizedBox(height: 28),
           ]),
         ),
@@ -958,8 +823,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   Widget _buildStep2() {
     final initials = _s2Name.text.trim().split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0]).join().toUpperCase();
     final dispInitials = initials.isNotEmpty ? initials : 'AD';
-    final bannerColors = _kBannerThemes[_s2BannerIdx];
-    final avatarColors = _kAvatarColors[_s2AvatarIdx];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _StepHero(
@@ -977,90 +840,19 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           key: _s2Form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // ── Facebook-style profile header ─────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(clipBehavior: Clip.none, children: [
-                // Banner
-                Container(
-                  width: double.infinity, height: 180,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: bannerColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  ),
-                  child: Stack(children: [
-                    Positioned.fill(child: CustomPaint(painter: _HexPatternPainter())),
-                    // Banner edit button
-                    Positioned(top: 12, right: 12,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () => _showMediaSheet(
-                            title: 'Bannière',
-                            onColorSelected: (i) => setState(() => _s2BannerIdx = i),
-                            colorCount: _kBannerThemes.length,
-                            gradients: _kBannerThemes,
-                            selectedIdx: _s2BannerIdx,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(.4),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: const [
-                              Icon(Icons.camera_alt_outlined, size: 13, color: _white),
-                              SizedBox(width: 5),
-                              Text('Modifier la bannière', style: TextStyle(color: _white, fontSize: 11, fontWeight: FontWeight.w600)),
-                            ]),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ]),
+            Center(
+              child: Container(
+                width: 84, height: 84,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [_terra, _orange]),
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 12)],
                 ),
-                // Profile circle — positioned bottom-left, cuts banner
-                Positioned(
-                  left: 24, bottom: -50,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                    onTap: () => _showMediaSheet(
-                      title: 'Photo de profil',
-                      onColorSelected: (i) => setState(() => _s2AvatarIdx = i),
-                      colorCount: _kAvatarColors.length,
-                      gradients: _kAvatarColors,
-                      selectedIdx: _s2AvatarIdx,
-                    ),
-                    child: Stack(clipBehavior: Clip.none, children: [
-                      Container(
-                        width: 100, height: 100,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: avatarColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _cream, width: 4),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.2), blurRadius: 14)],
-                        ),
-                        child: Center(child: Text(dispInitials,
-                            style: const TextStyle(color: _white, fontSize: 32, fontWeight: FontWeight.w900))),
-                      ),
-                      Positioned(right: 0, bottom: 0,
-                        child: Container(
-                          width: 32, height: 32,
-                          decoration: BoxDecoration(
-                            color: _terra, shape: BoxShape.circle,
-                            border: Border.all(color: _cream, width: 2),
-                          ),
-                          child: const Icon(Icons.camera_alt_rounded, size: 15, color: _white),
-                        ),
-                      ),
-                    ]),
-                    ),
-                  ),
-                ),
-              ]),
+                child: Center(child: Text(dispInitials,
+                    style: const TextStyle(color: _white, fontSize: 28, fontWeight: FontWeight.w900))),
+              ),
             ),
-
-            const SizedBox(height: 64),
+            const SizedBox(height: 20),
 
             _InfoBanner(
               icon: Icons.info_outline_rounded, color: _gold,
@@ -1072,18 +864,10 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             // ── Identité ────────────────────────────────────────────────────
             _SectionDivider(label: 'Informations personnelles', icon: Icons.badge_outlined),
             const SizedBox(height: 14),
-            _TwoCol(
-              left: _SField(ctrl: _s2Name, label: 'Nom complet', required: true,
-                  hint: 'Jean-Baptiste Ondo', icon: Icons.badge_outlined,
-                  validator: (v) => (v?.trim().isEmpty ?? true) ? 'Nom requis' : null,
-                  onChanged: (_) => setState(() {})),
-              right: _SField(ctrl: _s2Title, label: 'Titre / Fonction',
-                  hint: 'Directeur, Fondateur…', icon: Icons.work_outline_rounded),
-            ),
-            const SizedBox(height: 14),
-            _SField(ctrl: _s2Bio, label: 'Biographie / Description',
-                hint: 'Passionné d\'éducation depuis 20 ans…', icon: Icons.notes_outlined,
-                maxLines: 3),
+            _SField(ctrl: _s2Name, label: 'Nom complet', required: true,
+                hint: 'Jean-Baptiste Ondo', icon: Icons.badge_outlined,
+                validator: (v) => (v?.trim().isEmpty ?? true) ? 'Nom requis' : null,
+                onChanged: (_) => setState(() {})),
             const SizedBox(height: 24),
 
             // ── Coordonnées ─────────────────────────────────────────────────
@@ -1144,19 +928,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
               ),
             ),
             const SizedBox(height: 28),
-
-            // ── Réseaux sociaux ─────────────────────────────────────────────
-            _SectionDivider(label: 'Réseaux sociaux (admin)', icon: Icons.share_outlined,
-                sub: 'Contact professionnel visible dans l\'annuaire'),
-            const SizedBox(height: 14),
-            _SocialField(ctrl: _s2Facebook,  platform: 'Facebook',  icon: Icons.facebook_outlined, hint: 'https://facebook.com/profil'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s2WhatsApp,  platform: 'WhatsApp',  icon: Icons.chat_outlined, hint: '+242 06 xxx xx xx'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s2Instagram, platform: 'Instagram', icon: Icons.camera_alt_outlined, hint: 'https://instagram.com/profil'),
-            const SizedBox(height: 10),
-            _SocialField(ctrl: _s2LinkedIn,  platform: 'LinkedIn',  icon: Icons.work_outline_rounded, hint: 'https://linkedin.com/in/profil'),
-            const SizedBox(height: 28),
           ]),
         ),
       ),
@@ -1164,136 +935,38 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // STEP 3 — Système éducatif
+  // STEP 3 — Récapitulatif
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildStep3() {
-    final compatible = _kSystems.where((s) => s.compatibleTypes.any((t) => _types.contains(t))).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _StepHero(
-        lottie: 'assets/lottie/school_register.json',
-        icon: Icons.menu_book_outlined,
-        title: 'Système éducatif',
-        subtitle: 'Choisissez le référentiel pédagogique de votre établissement.',
-        onBack: _prev,
-        step: _step, total: _stepLabels.length,
-      ),
-
-      Padding(
-        padding: const EdgeInsets.fromLTRB(32, 28, 32, 28),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: _green.withOpacity(.06),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _green.withOpacity(.15)),
-            ),
-            child: Row(children: [
-              Icon(Icons.info_outline_rounded, size: 14, color: _green),
-              const SizedBox(width: 8),
-              Expanded(child: Text(
-                '${_types.length} type(s) sélectionné(s) : ${_types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(', ')}',
-                style: TextStyle(fontSize: 12, color: _green, fontWeight: FontWeight.w600),
-              )),
-            ]),
-          ),
-          const SizedBox(height: 20),
-
-          if (compatible.isEmpty)
-            _InfoBanner(icon: Icons.warning_amber_rounded, color: _orange,
-                text: 'Aucun système compatible. Revenez à l\'étape 1 et sélectionnez vos types d\'établissement.')
-          else
-            ...compatible.map((sys) => _SystemCard(
-              sys: sys, selected: _s3System == sys.id,
-              onTap: () => setState(() => _s3System = sys.id),
-              onInfo: () => _showSystemInfo(sys),
-            )),
-
-          if (_s3System == 'autre') ...[
-            const SizedBox(height: 16),
-            _InfoBanner(
-              icon: Icons.support_agent_outlined, color: _terra,
-              text: 'Votre système nécessite une configuration spécifique.\n'
-                  '📧 scolaris.dev@gmail.com  ·  📱 WhatsApp : +242 065 702 018',
-            ),
-          ],
-        ]),
-      ),
-    ]);
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // STEP 4 — Structure & Séries
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildStep4() {
-    final typeLabels = _types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(' + ');
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _StepHero(
-        lottie: 'assets/lottie/teacher.json',
-        icon: Icons.account_tree_outlined,
-        title: 'Structure & Séries',
-        subtitle: 'Configurez les filières, séries et classes de votre établissement.',
-        onBack: _prev,
-        step: _step, total: _stepLabels.length,
-      ),
-
-      Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-          // Types badge
-          Wrap(spacing: 8, runSpacing: 6,
-            children: _types.map((t) {
-              final info = _kSchoolTypes.firstWhere((st) => st.id == t);
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _terra.withOpacity(.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _terra.withOpacity(.2)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(info.icon, size: 13, color: _terra),
-                  const SizedBox(width: 5),
-                  Text(info.label, style: const TextStyle(fontSize: 12, color: _terra, fontWeight: FontWeight.w600)),
-                ]),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-
-          _InfoBanner(
-            icon: Icons.auto_awesome_outlined, color: _green,
-            text: 'Structure générée pour : $typeLabels. Activez/désactivez, ajoutez et personnalisez librement.',
-          ),
-          const SizedBox(height: 20),
-
-          if (_series.isEmpty)
-            _InfoBanner(icon: Icons.warning_amber_rounded, color: _orange,
-                text: 'Aucune série. Utilisez le panneau Actions → pour en créer.')
-          else
-            ..._series.asMap().entries.map((e) => _SeriesCard(
-              series: e.value,
-              onToggle: (v) => setState(() => _series[e.key].isActive = v),
-              onRemove: () => setState(() => _series.removeAt(e.key)),
-              onAddClass: (cls) => setState(() => _series[e.key].classes.add(cls)),
-              onInsertClass: (idx, cls) => setState(() => _series[e.key].classes.insert(idx + 1, cls)),
-              onRemoveClass: (ci) => setState(() => _series[e.key].classes.removeAt(ci)),
-              onChange: () => setState(() {}),
-            )),
-        ]),
-      ),
-    ]);
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // STEP 5 — Récapitulatif
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildStep6() {
-    final sysName = _kSystems.firstWhere((s) => s.id == _s3System).title;
     final isWide = MediaQuery.sizeOf(context).width > 860;
+    final moduleLabels = _modules.isEmpty
+        ? 'Aucun (uniquement les fonctionnalités essentielles)'
+        : _modules.map((id) => kAppModules.firstWhere((m) => m.id == id).label).join(' · ');
 
-    Widget content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    final schoolCard = _RecapCard(title: 'Informations école', icon: Icons.business_outlined, color: _terra,
+      items: [
+        ('Nom', _s1Name.text.trim()),
+        ('Pays / Ville', '${_s1Country.text.trim()} — ${_s1City.text.trim()}'),
+        ('Adresse', _s1Address.text.trim()),
+        if (_s1Email.text.isNotEmpty) ('Email', _s1Email.text.trim()),
+        if (_s1Phone.text.isNotEmpty) ('Tél.', '$_s1DialCode ${_s1Phone.text.trim()}'),
+      ]);
+    final typesCard = _RecapCard(title: 'Types d\'établissement', icon: Icons.category_outlined, color: _orange,
+      items: [('Types', _types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(' · '))]);
+    final plan = _planForModuleCount(_modules.length);
+    final modulesCard = _RecapCard(title: 'Modules activés', icon: Icons.widgets_outlined, color: _gold,
+      items: [
+        ('Modules', moduleLabels),
+        ('Offre', '${plan.name} — ${plan.priceMonthly} F/mois (essai 14j gratuit)'),
+      ]);
+    final adminCard = _RecapCard(title: 'Administrateur', icon: Icons.person_outline_rounded, color: _green,
+      items: [
+        ('Nom', _s2Name.text.trim()),
+        ('Email', _s2Email.text.trim()),
+        ('Rôle', 'Fondateur — accès total'),
+      ]);
+
+    final content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _InfoBanner(
         icon: Icons.info_outline_rounded, color: _green,
         text: 'Vérifiez toutes les informations avant de créer votre école. '
@@ -1304,74 +977,18 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       if (isWide)
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: Column(children: [
-            _RecapCard(title: 'Informations école', icon: Icons.business_outlined, color: _terra,
-              items: [
-                ('Nom', _s1Name.text.trim()),
-                if (_s1Motto.text.isNotEmpty) ('Devise', _s1Motto.text.trim()),
-                ('Pays / Ville', '${_s1Country.text.trim()} — ${_s1City.text.trim()}'),
-                ('Adresse', _s1Address.text.trim()),
-                if (_s1Email.text.isNotEmpty) ('Email', _s1Email.text.trim()),
-                if (_s1Phone.text.isNotEmpty) ('Tél.', '$_s1DialCode ${_s1Phone.text.trim()}'),
-              ]),
-            const SizedBox(height: 12),
-            _RecapCard(title: 'Types d\'établissement', icon: Icons.category_outlined, color: _orange,
-              items: [('Types', _types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(' · '))]),
-            const SizedBox(height: 12),
-            _RecapCard(title: 'Système éducatif', icon: Icons.menu_book_outlined, color: _gold,
-              items: [('Système', sysName)]),
+            schoolCard, const SizedBox(height: 12), typesCard,
           ])),
           const SizedBox(width: 16),
           Expanded(child: Column(children: [
-            _RecapCard(title: 'Administrateur', icon: Icons.person_outline_rounded, color: _green,
-              items: [
-                ('Nom', _s2Name.text.trim()),
-                ('Titre', _s2Title.text.trim().isEmpty ? 'Fondateur' : _s2Title.text.trim()),
-                ('Email', _s2Email.text.trim()),
-                ('Rôle', 'Fondateur — accès total'),
-              ]),
-            const SizedBox(height: 12),
-            _RecapCard(
-              title: 'Séries actives (${_series.where((s) => s.isActive).length})',
-              icon: Icons.account_tree_outlined, color: _terra,
-              items: _series.where((s) => s.isActive).map((s) =>
-                (s.name, '${s.classes.length} classe(s)${s.classes.isNotEmpty ? " : ${s.classes.take(3).join(', ')}${s.classes.length > 3 ? '…' : ''}" : ''}')).toList(),
-            ),
-            if (_branches.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _RecapCard(title: 'Filiales', icon: Icons.add_business_outlined, color: _muted,
-                items: _branches.where((b) => b.city.isNotEmpty).map((b) => (b.city, b.address)).toList()),
-            ],
+            adminCard, const SizedBox(height: 12), modulesCard,
           ])),
         ])
       else
         Column(children: [
-          _RecapCard(title: 'Types d\'établissement', icon: Icons.category_outlined, color: _terra,
-            items: [('Types', _types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(' · '))]),
-          const SizedBox(height: 10),
-          _RecapCard(title: 'Informations école', icon: Icons.business_outlined, color: _terra,
-            items: [
-              ('Nom', _s1Name.text.trim()),
-              ('Pays / Ville', '${_s1Country.text.trim()} — ${_s1City.text.trim()}'),
-              ('Adresse', _s1Address.text.trim()),
-              if (_s1Email.text.isNotEmpty) ('Email', _s1Email.text.trim()),
-            ]),
-          const SizedBox(height: 10),
-          _RecapCard(title: 'Administrateur', icon: Icons.person_outline_rounded, color: _orange,
-            items: [
-              ('Nom', _s2Name.text.trim()),
-              ('Email', _s2Email.text.trim()),
-              ('Rôle', 'Fondateur — accès total'),
-            ]),
-          const SizedBox(height: 10),
-          _RecapCard(title: 'Système éducatif', icon: Icons.menu_book_outlined, color: _gold,
-            items: [('Système', sysName)]),
-          const SizedBox(height: 10),
-          _RecapCard(
-            title: 'Séries actives (${_series.where((s) => s.isActive).length})',
-            icon: Icons.account_tree_outlined, color: _green,
-            items: _series.where((s) => s.isActive).map((s) =>
-              (s.name, '${s.classes.length} classe(s)${s.classes.isNotEmpty ? " : ${s.classes.take(3).join(', ')}${s.classes.length > 3 ? '…' : ''}" : ''}')).toList(),
-          ),
+          schoolCard, const SizedBox(height: 10), typesCard,
+          const SizedBox(height: 10), adminCard,
+          const SizedBox(height: 10), modulesCard,
         ]),
     ]);
 
@@ -1389,148 +1006,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   }
 
   // ── Sheets / dialogs ──────────────────────────────────────────────────────
-  void _showAddSeriesSheet() {
-    _newSeriesNameCtrl.clear();
-    _newSeriesCodeCtrl.clear();
-    _newSeriesDescCtrl.clear();
-    showModalBottomSheet(
-      context: context, backgroundColor: _cream, isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
-        padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
-          const Text('Nouvelle série', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
-          const SizedBox(height: 16),
-          _TwoCol(
-            left: _SField(ctrl: _newSeriesNameCtrl, label: 'Nom', hint: 'Terminale', icon: Icons.label_outline),
-            right: _SField(ctrl: _newSeriesCodeCtrl, label: 'Code', hint: 'Tle', icon: Icons.tag_outlined),
-          ),
-          const SizedBox(height: 12),
-          _SField(ctrl: _newSeriesDescCtrl, label: 'Description', hint: 'Baccalauréat séries A/C/D', icon: Icons.notes_outlined),
-          const SizedBox(height: 16),
-          SizedBox(width: double.infinity,
-            child: _PrimaryBtn(
-              label: 'Créer la série', loading: false, icon: Icons.add_circle_outline,
-              onTap: () {
-                if (_newSeriesNameCtrl.text.isEmpty) return;
-                setState(() {
-                  _series.add(SchoolSeries(
-                    name: _newSeriesNameCtrl.text.trim(),
-                    code: _newSeriesCodeCtrl.text.trim().isNotEmpty
-                        ? _newSeriesCodeCtrl.text.trim()
-                        : _newSeriesNameCtrl.text.trim().substring(0, math.min(3, _newSeriesNameCtrl.text.trim().length)).toUpperCase(),
-                    description: _newSeriesDescCtrl.text.trim(),
-                    classes: [],
-                  ));
-                });
-                Navigator.pop(context);
-              },
-            )),
-        ]),
-      ),
-    );
-  }
-
-  void _confirmResetStructure() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Réinitialiser la structure ?', style: TextStyle(fontWeight: FontWeight.w900, color: _ink, fontSize: 16)),
-        content: const Text('Toutes les séries et classes seront supprimées. Vous repartirez de zéro.',
-            style: TextStyle(color: _muted, fontSize: 13)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler', style: TextStyle(color: _muted))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: _white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-            onPressed: () { setState(() => _series.clear()); Navigator.pop(context); },
-            child: const Text('Réinitialiser'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showMediaSheet({
-    required String title,
-    required void Function(int) onColorSelected,
-    required int colorCount,
-    required List<List<Color>> gradients,
-    required int selectedIdx,
-  }) {
-    showModalBottomSheet(
-      context: context, backgroundColor: _cream, isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 36, height: 4,
-                decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
-            const SizedBox(height: 20),
-            // Options
-            Row(children: [
-              _MediaOptionBtn(icon: Icons.camera_alt_outlined, label: 'Prendre une photo',
-                  onTap: () { Navigator.pop(ctx); _showCameraUnavailable(); }),
-              const SizedBox(width: 10),
-              _MediaOptionBtn(icon: Icons.photo_library_outlined, label: 'Depuis la galerie',
-                  onTap: () { Navigator.pop(ctx); _showGalleryUnavailable(); }),
-            ]),
-            const SizedBox(height: 20),
-            const Text('Banque de thèmes', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10, runSpacing: 10,
-              children: List.generate(colorCount, (i) => MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () {
-                    onColorSelected(i);
-                    setSt(() {});
-                    setState(() {});
-                    Navigator.pop(ctx);
-                  },
-                  child: Container(
-                    width: 64, height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: gradients[i], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                      borderRadius: BorderRadius.circular(14),
-                      border: i == selectedIdx ? Border.all(color: _terra, width: 3) : Border.all(color: _border),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 6)],
-                    ),
-                    child: i == selectedIdx
-                        ? const Icon(Icons.check_rounded, color: _white, size: 26) : null,
-                  ),
-                ),
-              )),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  void _showCameraUnavailable() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Caméra disponible uniquement sur l\'application mobile Scolaris'),
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
-
-  void _showGalleryUnavailable() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Import galerie disponible sur l\'application mobile Scolaris'),
-      behavior: SnackBarBehavior.floating,
-    ));
-  }
-
   void _pickDialCode({required void Function(String flag, String code) onPick}) {
     showModalBottomSheet(
       context: context, backgroundColor: _cream, isScrollControlled: true,
@@ -1561,58 +1036,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
     );
   }
 
-  void _showSystemInfo(_SysInfo sys) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
-          child: Column(children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [_g0, _g2]),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(children: [
-                Text(sys.flag, style: const TextStyle(fontSize: 32)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(sys.title, style: const TextStyle(color: _white, fontSize: 18, fontWeight: FontWeight.w900)),
-                  Text('Langue : ${sys.language}', style: TextStyle(color: _white.withOpacity(.6), fontSize: 12)),
-                ])),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(onTap: () => Navigator.pop(context),
-                    child: Container(width: 32, height: 32,
-                      decoration: BoxDecoration(color: _white.withOpacity(.15), shape: BoxShape.circle),
-                      child: const Icon(Icons.close_rounded, color: _white, size: 16))),
-                ),
-              ]),
-            ),
-            Expanded(child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _InfoDialogSection(icon: Icons.history_edu_outlined, title: 'Origine', text: sys.origin),
-                _InfoDialogSection(icon: Icons.public_outlined, title: 'Pays pratiquants', text: sys.countries),
-                _InfoDialogSection(icon: Icons.account_tree_outlined, title: 'Structure', list: sys.structure),
-                _InfoDialogSection(icon: Icons.workspace_premium_outlined, title: 'Diplômes', list: sys.diplomas),
-              ]),
-            )),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: SizedBox(width: double.infinity,
-                child: _PrimaryBtn(
-                  label: 'Sélectionner ${sys.title}', loading: false,
-                  onTap: () { setState(() => _s3System = sys.id); Navigator.pop(context); },
-                )),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1972,6 +1395,107 @@ class _StepProgressRing extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 // SCHOOL TYPE GRID — no emoji, pro icons
 // ═════════════════════════════════════════════════════════════════════════════
+/// Déduit l'offre (code DB, nom, prix mensuel XAF) du nombre de modules
+/// cochés — cf. `supabase/migrations/20260801_offer_tiers.sql`. Prix codés en
+/// dur ici (pas de lecture de `plan_prices`) : l'inscription est encore
+/// anonyme à ce stade, or la table n'autorise la lecture qu'aux authentifiés.
+/// Reste la SEULE source à mettre à jour si les tarifs changent côté DB.
+({String code, String name, int priceMonthly}) _planForModuleCount(int count) {
+  if (count <= 1) return (code: 'simple', name: 'Essentiel', priceMonthly: 8900);
+  if (count <= 3) return (code: 'pro', name: 'Croissance', priceMonthly: 17900);
+  return (code: 'max', name: 'Complet', priceMonthly: 29900);
+}
+
+/// Bandeau d'aperçu tarifaire — se met à jour en direct pendant que l'admin
+/// coche/décoche des modules, pour que le prix ne soit jamais une surprise à
+/// la fin de l'inscription (décision utilisateur explicite).
+class _PricePreviewBanner extends StatelessWidget {
+  final int moduleCount;
+  const _PricePreviewBanner({required this.moduleCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = _planForModuleCount(moduleCount);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _gold.withOpacity(.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _gold.withOpacity(.25)),
+      ),
+      child: Row(children: [
+        Icon(Icons.sell_outlined, size: 18, color: _gold),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Offre ${plan.name} — ${plan.priceMonthly} F/mois. Essai gratuit de 14 jours, sans engagement.',
+            style: TextStyle(fontSize: 12.5, color: _ink, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODULES GRID — ce que l'école veut gérer (cf. kAppModules)
+// ═════════════════════════════════════════════════════════════════════════════
+class _ModulesGrid extends StatelessWidget {
+  final Set<String> selected;
+  final void Function(String) onToggle;
+  const _ModulesGrid({required this.selected, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final cols = w > 700 ? 2 : 1;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 3.4,
+      ),
+      itemCount: kAppModules.length,
+      itemBuilder: (_, i) {
+        final m = kAppModules[i];
+        final sel = selected.contains(m.id);
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => onToggle(m.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: sel ? _terra.withOpacity(.07) : _white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: sel ? _terra : _border, width: sel ? 1.5 : 1),
+              ),
+              child: Row(children: [
+                Icon(m.icon, size: 20, color: sel ? _terra : _muted),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(m.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
+                        color: sel ? _terra : _ink)),
+                    Text(m.description, style: TextStyle(fontSize: 10.5, color: sel ? _terra.withOpacity(.7) : _muted),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+                Checkbox(
+                  value: sel,
+                  onChanged: (_) => onToggle(m.id),
+                  activeColor: _terra,
+                ),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SchoolTypeGrid extends StatelessWidget {
   final Set<String> selected;
   final void Function(String) onToggle;

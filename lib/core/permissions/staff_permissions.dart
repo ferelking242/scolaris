@@ -19,12 +19,18 @@ class StaffPermission {
   /// Réservé à la Direction (ne pas proposer dans les presets restreints).
   final bool sensitive;
 
+  /// Module dont dépend cette permission (cf. `kAppModules`) — `null` =
+  /// fonctionnalité core, toujours proposée quels que soient les modules
+  /// choisis par l'école à l'inscription.
+  final String? module;
+
   const StaffPermission({
     required this.key,
     required this.label,
     required this.description,
     required this.icon,
     this.sensitive = false,
+    this.module,
   });
 }
 
@@ -73,12 +79,14 @@ class StaffPermissions {
       label: 'Notes & bulletins',
       description: 'Consulter/saisir les notes, générer les bulletins',
       icon: Icons.grade_outlined,
+      module: 'academic',
     ),
     StaffPermission(
       key: attendance,
       label: 'Présences',
       description: 'Appel, absences et retards',
       icon: Icons.how_to_reg_outlined,
+      module: 'attendance',
     ),
     StaffPermission(
       key: discipline,
@@ -91,18 +99,21 @@ class StaffPermissions {
       label: 'Finances',
       description: 'Factures, encaissements, paiements',
       icon: Icons.payments_outlined,
+      module: 'finance',
     ),
     StaffPermission(
       key: reports,
       label: 'Rapports',
       description: 'Statistiques et exports',
       icon: Icons.summarize_outlined,
+      module: 'academic',
     ),
     StaffPermission(
       key: timetable,
       label: 'Emploi du temps',
       description: 'Créer et publier les horaires',
       icon: Icons.table_chart_outlined,
+      module: 'academic',
     ),
     StaffPermission(
       key: staffManage,
@@ -131,6 +142,13 @@ class StaffPermissions {
       if (p.key == key) return p;
     }
     return null;
+  }
+
+  /// Permissions à proposer compte tenu des modules actifs de l'école
+  /// (`null` = école créée avant ce système → tout proposer).
+  static List<StaffPermission> availableFor(Set<String>? enabledModules) {
+    if (enabledModules == null) return all;
+    return all.where((p) => p.module == null || enabledModules.contains(p.module)).toList();
   }
 
   /// Modèles de départ (presets). L'admin part de l'un d'eux puis ajuste les

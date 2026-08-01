@@ -778,6 +778,12 @@ final planPricesProvider = FutureProvider<List<SbPlanPrice>>((ref) async {
   return SupabaseDbSource.getPlanPrices();
 });
 
+/// Supplément de taille par tranche d'élèves (défaut Congo) — cf.
+/// `SbPlanSizeSurcharge`, appliqué au-delà de `SbPlan.includedStudents`.
+final planSizeSurchargesProvider = FutureProvider<List<SbPlanSizeSurcharge>>((ref) async {
+  return SupabaseDbSource.getPlanSizeSurcharges();
+});
+
 /// L'abonnement de l'école courante (null si aucun).
 final subscriptionProvider = FutureProvider<SbSubscription?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);

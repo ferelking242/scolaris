@@ -14,6 +14,18 @@ class SbSubPermission {
   const SbSubPermission({required this.key, required this.label});
 }
 
+/// Rattache chaque catégorie de `permission_catalog` à un module (cf.
+/// `kAppModules`) — `null`/absent = fonctionnalité core, jamais masquée. Sert
+/// à ce que « Rôles & permissions » ne propose pas de cocher des droits sur
+/// des fonctionnalités que l'école n'a pas activées à l'inscription.
+const Map<String, String> kPermissionModuleMap = {
+  'notes': 'academic',
+  'emploi_du_temps': 'academic',
+  'rapports': 'academic',
+  'presences': 'attendance',
+  'comptabilite': 'finance',
+};
+
 /// Modèle de rôle prédéfini (catalogue global, par cycle scolaire).
 class SbRoleTemplate {
   final String id;

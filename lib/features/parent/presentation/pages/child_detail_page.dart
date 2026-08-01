@@ -39,6 +39,15 @@ class ChildDetailPage extends ConsumerWidget {
     final level = SchoolLevel.fromClassName(child.classe ?? child.niveau);
     final isPrimaire = level == SchoolLevel.primaire;
 
+    // Modules choisis par l'école à l'inscription (cf. AdminHome, même logique) :
+    // un parent d'une école « Finances seulement » ne voit ni notes ni présences.
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+    bool moduleOn(String m) => enabledModules == null || enabledModules.contains(m);
+    final academicOn = moduleOn('academic');
+    final attendanceOn = moduleOn('attendance');
+    final financeOn = moduleOn('finance');
+
     final grades   = ref.watch(gradesForStudentProvider(child.id));
     final absences = ref.watch(absencesForStudentProvider(child.id));
     final invoices = ref.watch(invoicesForStudentProvider(child.id));
@@ -94,32 +103,37 @@ class ChildDetailPage extends ConsumerWidget {
 
         // ── Résumé ────────────────────────────────────────────────────────
         Row(children: [
-          Expanded(child: _StatCard(
-            icon: Icons.star_rounded,
-            label: 'Moyenne',
-            value: moyenne?.toStringAsFixed(1) ?? '—',
-            suffix: moyenne != null ? '/20' : '',
-            color: _gold,
-            loading: grades.isLoading,
-          )),
-          const SizedBox(width: 10),
-          Expanded(child: _StatCard(
-            icon: Icons.event_busy_rounded,
-            label: 'Absences',
-            value: '${absenceList.length}',
-            suffix: absenceList.length > 1 ? ' jours' : ' jour',
-            color: absenceList.isEmpty ? _green : _terra,
-            loading: absences.isLoading,
-          )),
-          const SizedBox(width: 10),
-          Expanded(child: _StatCard(
-            icon: Icons.account_balance_wallet_rounded,
-            label: 'Scolarité',
-            value: scolariteValue,
-            suffix: scolariteSuffix,
-            color: scolariteColor,
-            loading: acctLoading && invoices.isLoading,
-          )),
+          if (academicOn) ...[
+            Expanded(child: _StatCard(
+              icon: Icons.star_rounded,
+              label: 'Moyenne',
+              value: moyenne?.toStringAsFixed(1) ?? '—',
+              suffix: moyenne != null ? '/20' : '',
+              color: _gold,
+              loading: grades.isLoading,
+            )),
+            const SizedBox(width: 10),
+          ],
+          if (attendanceOn) ...[
+            Expanded(child: _StatCard(
+              icon: Icons.event_busy_rounded,
+              label: 'Absences',
+              value: '${absenceList.length}',
+              suffix: absenceList.length > 1 ? ' jours' : ' jour',
+              color: absenceList.isEmpty ? _green : _terra,
+              loading: absences.isLoading,
+            )),
+            const SizedBox(width: 10),
+          ],
+          if (financeOn)
+            Expanded(child: _StatCard(
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'Scolarité',
+              value: scolariteValue,
+              suffix: scolariteSuffix,
+              color: scolariteColor,
+              loading: acctLoading && invoices.isLoading,
+            )),
         ]),
         const SizedBox(height: 20),
 
@@ -127,43 +141,48 @@ class ChildDetailPage extends ConsumerWidget {
         Text('Sa scolarité', style: TextStyle(
             color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        _NavTile(
-          icon: Icons.account_balance_wallet_rounded, color: _orange,
-          title: 'Scolarité & paiements',
-          subtitle: acc == null
-              ? 'Compte, factures et règlements'
-              : (acc.isUpToDate
-                  ? 'À jour'
-                  : 'Doit ${NumberFormat.decimalPattern("fr").format(acc.owedNow)} ${acc.currency}'),
-          onTap: () => _push(context, ChildPaymentsPage(child: child)),
-        ),
-        const SizedBox(height: 8),
-        _NavTile(
-          icon: Icons.grading_rounded, color: _gold,
-          title: 'Notes',
-          subtitle: gradeList.isEmpty
-              ? 'Aucune note pour l\'instant'
-              : '${gradeList.length} note(s)',
-          onTap: () => _push(context, GradesPage(
-              studentId: child.id, title: 'Notes de ${child.prenom}')),
-        ),
-        const SizedBox(height: 8),
-        _NavTile(
-          icon: Icons.calendar_month_rounded, color: _terra,
-          title: 'Emploi du temps',
-          subtitle: child.classe ?? 'Classe non renseignée',
-          onTap: () => _push(context, SchedulePage(studentId: child.id)),
-        ),
-        const SizedBox(height: 8),
-        _NavTile(
-          icon: Icons.fact_check_rounded, color: _green,
-          title: 'Présences',
-          subtitle: absenceList.isEmpty
-              ? 'Aucune absence'
-              : '${absenceList.length} événement(s)',
-          onTap: () => _push(context, AttendancePage(
-              studentId: child.id, title: 'Présences de ${child.prenom}')),
-        ),
+        if (financeOn) ...[
+          _NavTile(
+            icon: Icons.account_balance_wallet_rounded, color: _orange,
+            title: 'Scolarité & paiements',
+            subtitle: acc == null
+                ? 'Compte, factures et règlements'
+                : (acc.isUpToDate
+                    ? 'À jour'
+                    : 'Doit ${NumberFormat.decimalPattern("fr").format(acc.owedNow)} ${acc.currency}'),
+            onTap: () => _push(context, ChildPaymentsPage(child: child)),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (academicOn) ...[
+          _NavTile(
+            icon: Icons.grading_rounded, color: _gold,
+            title: 'Notes',
+            subtitle: gradeList.isEmpty
+                ? 'Aucune note pour l\'instant'
+                : '${gradeList.length} note(s)',
+            onTap: () => _push(context, GradesPage(
+                studentId: child.id, title: 'Notes de ${child.prenom}')),
+          ),
+          const SizedBox(height: 8),
+          _NavTile(
+            icon: Icons.calendar_month_rounded, color: _terra,
+            title: 'Emploi du temps',
+            subtitle: child.classe ?? 'Classe non renseignée',
+            onTap: () => _push(context, SchedulePage(studentId: child.id)),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (attendanceOn)
+          _NavTile(
+            icon: Icons.fact_check_rounded, color: _green,
+            title: 'Présences',
+            subtitle: absenceList.isEmpty
+                ? 'Aucune absence'
+                : '${absenceList.length} événement(s)',
+            onTap: () => _push(context, AttendancePage(
+                studentId: child.id, title: 'Présences de ${child.prenom}')),
+          ),
         // Pas de bulletin : retiré des espaces élève ET parent (décision
         // utilisateur). Le bulletin reste produit et publié côté admin.
 
@@ -187,21 +206,23 @@ class ChildDetailPage extends ConsumerWidget {
         const SizedBox(height: 22),
 
         // ── Dernières notes ───────────────────────────────────────────────
-        Text('Dernières notes', style: TextStyle(
-            color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 10),
-        if (grades.isLoading)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(20),
-            child: CircularProgressIndicator(),
-          ))
-        else if (recent.isEmpty)
-          _Empty(label: 'Aucune note enregistrée pour ${child.prenom}.')
-        else
-          for (final g in recent) ...[
-            _GradeRow(grade: g),
-            const SizedBox(height: 8),
-          ],
+        if (academicOn) ...[
+          Text('Dernières notes', style: TextStyle(
+              color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          if (grades.isLoading)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ))
+          else if (recent.isEmpty)
+            _Empty(label: 'Aucune note enregistrée pour ${child.prenom}.')
+          else
+            for (final g in recent) ...[
+              _GradeRow(grade: g),
+              const SizedBox(height: 8),
+            ],
+        ],
       ]),
     );
   }

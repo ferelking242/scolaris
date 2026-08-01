@@ -29,6 +29,11 @@ class TeacherHome extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool can(String g) => ref.watch(canProvider(g));
 
+    // Modules choisis par l'école à l'inscription (cf. AdminHome, même logique).
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+    bool moduleOn(String m) => enabledModules == null || enabledModules.contains(m);
+
     return ResponsiveRoleShell(
       role: UserRole.teacher,
       title: 'Scolaris',
@@ -52,13 +57,13 @@ class TeacherHome extends ConsumerWidget {
               page: TeacherProgramPage()),
         ]),
         RoleNavGroup(labelKey: 'sections.activity', entries: [
-          if (can('notes.voir'))
+          if (can('notes.voir') && moduleOn('academic'))
             const RoleNavEntry(
                 icon: Icons.grading_outlined,
                 activeIcon: Icons.grading_rounded,
                 labelKey: 'nav.grades',
                 page: GradebookPage()),
-          if (can('presences.voir'))
+          if (can('presences.voir') && moduleOn('attendance'))
             const RoleNavEntry(
                 icon: Icons.fact_check_outlined,
                 activeIcon: Icons.fact_check_rounded,

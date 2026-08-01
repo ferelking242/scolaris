@@ -2873,6 +2873,13 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
     return p.toSet();
   }
 
+  /// Modules actifs de l'école — décide quelles permissions proposer
+  /// (cf. `StaffPermissions.availableFor`).
+  Set<String>? get _enabledModules {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    return school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+  }
+
   /// Présélectionne le rôle que l'employé porte déjà. Les comptes créés avant la
   /// bascule RBAC n'en ont aucun (staffRoleId null) : ils restent en « accès
   /// personnalisé » jusqu'à ce qu'on leur en attribue un.
@@ -3120,7 +3127,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                 ),
                 const SizedBox(height: 6),
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final p in StaffPermissions.all)
+                  for (final p in StaffPermissions.availableFor(_enabledModules))
                     FilterChip(
                       label: Text(p.label, style: const TextStyle(fontSize: 12)),
                       avatar: Icon(p.icon,
@@ -3462,6 +3469,13 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   bool _loading = false;
   String? _error;
 
+  /// Modules actifs de l'école — décide quelles permissions proposer
+  /// (cf. `StaffPermissions.availableFor`).
+  Set<String>? get _enabledModules {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    return school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
+  }
+
   /// Rôle choisi. Le droit est porté par le RÔLE, pas par la personne : deux
   /// comptables partagent le même rôle, et le modifier plus tard les met à jour
   /// tous les deux. Un rôle sur-mesure se crée dans « Rôles & permissions ».
@@ -3734,7 +3748,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 // droit suit le rôle) ; ça se fait dans « Rôles & permissions »,
                 // et ça s'applique à tous ceux qui portent ce rôle.
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final p in StaffPermissions.all)
+                  for (final p in StaffPermissions.availableFor(_enabledModules))
                     FilterChip(
                       label: Text(p.label, style: const TextStyle(fontSize: 12)),
                       avatar: Icon(p.icon,

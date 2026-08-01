@@ -83,6 +83,54 @@ enum SchoolLevel {
   }
 }
 
+// ── Modules choisis par l'école à l'inscription ──────────────────────────────
+//
+// Distinct du catalogue de features ci-dessous (qui gate par rôle/plan) : ici,
+// c'est l'ÉCOLE elle-même qui choisit à l'inscription ce qu'elle veut gérer
+// (ex. une école ne voulant que la facturation ne voit ni notes, ni présences,
+// ni inscriptions dans son tableau de bord). Stocké dans `schools.metadata.modules`.
+// Les fonctionnalités « core » (utilisateurs, classes, tableau de bord…) ne sont
+// pas des modules : elles restent toujours visibles, quel que soit le choix.
+class AppModule {
+  final String id;
+  final String label;
+  final String description;
+  final IconData icon;
+  const AppModule({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+}
+
+const List<AppModule> kAppModules = [
+  AppModule(
+    id: 'academic',
+    label: 'Académique',
+    description: 'Notes, bulletins, emploi du temps, statistiques de classe',
+    icon: Icons.grade_outlined,
+  ),
+  AppModule(
+    id: 'attendance',
+    label: 'Présences',
+    description: 'Appel numérique, absences, retards',
+    icon: Icons.how_to_reg_outlined,
+  ),
+  AppModule(
+    id: 'finance',
+    label: 'Finances',
+    description: 'Facturation, paiements, comptabilité',
+    icon: Icons.account_balance_wallet_outlined,
+  ),
+  AppModule(
+    id: 'enrollment',
+    label: 'Inscriptions',
+    description: 'Campagnes d\'inscription, dossiers, pré-inscriptions en ligne',
+    icon: Icons.how_to_reg_rounded,
+  ),
+];
+
 // ── Catégories de features ────────────────────────────────────────────────────
 enum FeatureCategory {
   core,
