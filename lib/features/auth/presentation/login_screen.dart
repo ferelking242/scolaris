@@ -181,13 +181,78 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildMobileLayout(BuildContext context, Size size) {
-    return SafeArea(
-      child: Column(
-        children: [
-          const _MobileHeader(),
-          Expanded(child: _buildFormPanel(context, showBrand: false)),
-        ],
-      ),
+    return Stack(
+      children: [
+        // Fond dégradé terracotta plein écran + motif africain discret
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1A0A00), Color(0xFF8B1A00), Color(0xFFC17F24)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: CustomPaint(painter: _AfricanPatternPainter()),
+          ),
+        ),
+
+        SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // En-tête : retour + logo + nom
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 20, 18),
+                child: Row(
+                  children: [
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _white, size: 18),
+                    ),
+                    const Spacer(),
+                    _LogoImg(size: 28),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text('Scolaris',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: _white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: .4)),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Bonjour 👋', style: TextStyle(
+                        color: _white, fontSize: 26, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text('Connectez-vous à votre espace',
+                        style: TextStyle(color: _white.withOpacity(.85), fontSize: 14)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Vague blanche contenant le formulaire
+              Expanded(
+                child: ClipPath(
+                  clipper: _WaveClipper(),
+                  child: Container(
+                    color: const Color(0xFFFDFAF7),
+                    child: _buildFormPanel(context, showBrand: false),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -207,37 +272,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 24),
               ],
 
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => setState(() {
-                    _demoTapCount++;
-                    if (_demoTapCount == 2) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('🔒 Encore une fois…'),
-                        duration: Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ));
-                    } else if (_demoTapCount == 3) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('🔓 Section développeur déverrouillée'),
-                        duration: Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ));
-                    }
-                  }),
-                  child: Text('Connexion', style: TextStyle(
-                    fontSize: showBrand ? 28 : 22,
-                    fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
-                  )),
-                ),
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => setState(() {
+                  _demoTapCount++;
+                  if (_demoTapCount == 2) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔒 Encore une fois…'),
+                      duration: Duration(seconds: 1),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  } else if (_demoTapCount == 3) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🔓 Section développeur déverrouillée'),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }),
+                child: showBrand
+                    ? Text('Connexion', style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                      ))
+                    : const SizedBox(height: 6, width: double.infinity),
               ),
               if (showBrand) ...[
                 const SizedBox(height: 3),
                 Text('Accédez à votre espace Scolaris',
                     style: TextStyle(color: _muted, fontSize: 13)),
               ],
-              SizedBox(height: showBrand ? 20 : 14),
+              SizedBox(height: showBrand ? 20 : 4),
 
               Container(
                 width: double.infinity,
@@ -329,14 +394,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Row(children: [
             _fieldLabel('Mot de passe'),
             const Spacer(),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
-                child: const Text('Mot de passe oublié ?',
-                    style: TextStyle(color: _terra, fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+            Flexible(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                  child: const Text('Mot de passe oublié ?',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: _terra, fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ),
               ),
             ),
           ]),
@@ -560,37 +628,6 @@ class _LogoImg extends StatelessWidget {
   }
 }
 
-// ── Mobile Header ──────────────────────────────────────────────────────────
-class _MobileHeader extends StatelessWidget {
-  const _MobileHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A0A00), Color(0xFF8B1A00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-      child: Row(children: [
-        _LogoImg(size: 34),
-        const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          const Text('Scolaris',
-              style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: .5)),
-          Text(AppConfig.appTagline,
-              style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
-        ]),
-      ]),
-    );
-  }
-}
-
 // ── Brand Mark (right panel top) ───────────────────────────────────────────
 class _BrandMark extends StatelessWidget {
   @override
@@ -607,6 +644,24 @@ class _BrandMark extends StatelessWidget {
       ]),
     ]);
   }
+}
+
+// ── Wave Clipper (forme incurvée façon maquette) ───────────────────────────
+class _WaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path()
+      ..lineTo(0, 40)
+      ..quadraticBezierTo(size.width * 0.28, 0, size.width * 0.62, 18)
+      ..quadraticBezierTo(size.width * 0.86, 32, size.width, 4)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_) => false;
 }
 
 // ── African Pattern Painter ────────────────────────────────────────────────
