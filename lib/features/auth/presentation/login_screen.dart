@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,10 +36,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passCtrl  = TextEditingController(text: 'demo1234');
   bool _loading  = false;
   bool _obscure  = true;
+  bool _remember = false;
   String? _error;
   String _selectedRole    = 'student';
   String? _selectedSubtype = 'lycee';
   int  _demoTapCount  = 0;
+
+  // ── Sélecteur de design mobile (test A/B, à retirer une fois le choix fait) ──
+  int _mobileDesign = 1; // 0 = classique, 1 = vague, 2 = carte, 3 = retour, 4 = diagonale
+  static const _mobileDesignNames = ['Classique', 'Vague', 'Carte', 'Retour', 'Diagonale'];
+
+  void _handleTitleTap(BuildContext context) {
+    setState(() {
+      _demoTapCount++;
+      if (_demoTapCount == 2) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('🔒 Encore une fois…'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else if (_demoTapCount == 3) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('🔓 Section développeur déverrouillée'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    });
+  }
+
+  void _pickMobileDesign(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text('Choisir un design de connexion',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _ink)),
+              ),
+              for (int i = 0; i < _mobileDesignNames.length; i++)
+                ListTile(
+                  leading: Icon(
+                    _mobileDesign == i ? Icons.radio_button_checked : Icons.radio_button_off,
+                    color: _terra,
+                  ),
+                  title: Text(_mobileDesignNames[i]),
+                  onTap: () {
+                    setState(() => _mobileDesign = i);
+                    Navigator.pop(ctx);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   static const _roles = [
     ('student',      Icons.school_outlined,               'Étudiant'),
@@ -183,6 +244,81 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildMobileLayout(BuildContext context, Size size) {
     return Stack(
       children: [
+        switch (_mobileDesign) {
+          0 => _buildMobileClassic(context),
+          2 => _buildMobileCard(context),
+          3 => _buildMobileWelcomeBack(context),
+          4 => _buildMobileDiagonal(context),
+          _ => _buildMobileWave(context),
+        },
+
+        // Bouton flottant de test : bascule entre les designs de login
+        Positioned(
+          top: 8, right: 8,
+          child: SafeArea(
+            child: Material(
+              color: Colors.black.withOpacity(.35),
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'Changer de design (${_mobileDesignNames[_mobileDesign]})',
+                icon: const Icon(Icons.palette_outlined, color: Colors.white, size: 20),
+                onPressed: () => _pickMobileDesign(context),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Design 1 : classique (en-tête bandeau + carte) ─────────────────────────
+  Widget _buildMobileClassic(BuildContext context) {
+    return Container(
+      color: _cream,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1A0A00), Color(0xFF8B1A00)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              child: Row(children: [
+                _LogoImg(size: 34),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Scolaris',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: _white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: .5)),
+                      Text(AppConfig.appTagline,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: _gold.withOpacity(.85), fontSize: 10, fontStyle: FontStyle.italic)),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+            Expanded(child: _buildFormPanel(context, showBrand: false)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Design 2 : vague (fond dégradé + panneau blanc courbe) ──────────────────
+  Widget _buildMobileWave(BuildContext context) {
+    return Stack(
+      children: [
         // Fond dégradé terracotta plein écran + motif africain discret
         Positioned.fill(
           child: Container(
@@ -256,6 +392,494 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+  // ── Design 3 : carte flottante (dégradé + panneau blanc accroché) ──────────
+  Widget _buildMobileCard(BuildContext context) {
+    return Container(
+      color: _cream,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: const LinearGradient(
+                colors: [_gold, _orange, _terra],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(color: _terra.withOpacity(.35), blurRadius: 28, offset: const Offset(0, 14)),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: CustomPaint(painter: _BubblesPainter())),
+                  Column(
+                    children: [
+                      const SizedBox(height: 30),
+                      _LogoImg(size: 54),
+                      const SizedBox(height: 10),
+                      Text('Scolaris', style: TextStyle(
+                          color: _white, fontWeight: FontWeight.w900, fontSize: 19, letterSpacing: .4)),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                          ),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(26, 28, 26, 22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _handleTitleTap(context),
+                                  child: const Text('Bonjour !', style: TextStyle(
+                                      color: _terra, fontSize: 26, fontWeight: FontWeight.w900)),
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Connectez-vous à votre espace',
+                                    style: TextStyle(color: _muted, fontSize: 13)),
+                                const SizedBox(height: 22),
+                                _PillField(
+                                  controller: _emailCtrl,
+                                  hint: 'Adresse e-mail',
+                                  icon: Icons.mail_outline_rounded,
+                                  keyboard: TextInputType.emailAddress,
+                                ),
+                                const SizedBox(height: 14),
+                                _PillField(
+                                  controller: _passCtrl,
+                                  hint: 'Mot de passe',
+                                  icon: Icons.lock_outline_rounded,
+                                  obscure: _obscure,
+                                  suffix: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                                    icon: Icon(_obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                        size: 18, color: _muted),
+                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                  ),
+                                ),
+                                if (_error != null) ...[
+                                  const SizedBox(height: 12),
+                                  _ErrorBanner(message: _error!),
+                                ],
+                                const SizedBox(height: 22),
+                                SizedBox(
+                                  height: 54,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(colors: [_gold, _orange]),
+                                      borderRadius: BorderRadius.circular(999),
+                                      boxShadow: [
+                                        BoxShadow(color: _orange.withOpacity(.4),
+                                            blurRadius: 16, offset: const Offset(0, 6)),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(999),
+                                        onTap: _loading ? null : _submit,
+                                        child: Center(
+                                          child: _loading
+                                              ? const SizedBox(width: 22, height: 22,
+                                                  child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+                                              : const Text('Se connecter', style: TextStyle(
+                                                  color: _white, fontSize: 15,
+                                                  fontWeight: FontWeight.w800, letterSpacing: .3)),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Center(
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: () => Navigator.push(context,
+                                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                                      child: const Text('Mot de passe oublié ?',
+                                          style: TextStyle(color: _terra, fontSize: 12.5,
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
+                                ),
+                                if (_demoTapCount >= 3) ...[
+                                  const SizedBox(height: 20),
+                                  _divider('Comptes démo — accès rapide'),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 7, runSpacing: 7,
+                                    children: [
+                                      for (final r in _roles)
+                                        _RoleChip(
+                                          label: r.$3, icon: r.$2,
+                                          selected: _selectedRole == r.$1,
+                                          onTap: () => _selectRole(r.$1),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _divider('Écoles — Connexion rapide'),
+                                  const SizedBox(height: 12),
+                                  _SchoolsQuickLogin(onTap: _fillAndLogin),
+                                  const SizedBox(height: 8),
+                                  Center(
+                                    child: Text('Mot de passe universel : demo1234',
+                                        style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Design 4 : "Content de vous revoir" (illustration + carte plate) ───────
+  Widget _buildMobileWelcomeBack(BuildContext context) {
+    return Container(
+      color: _cream,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 96, height: 96,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [_gold, _orange]),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: _orange.withOpacity(.30), blurRadius: 22, offset: const Offset(0, 10)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.lock_person_rounded, color: _white, size: 42),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _handleTitleTap(context),
+                child: const Text('Content de vous revoir !',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
+              ),
+              const SizedBox(height: 6),
+              Text('Connectez-vous pour accéder à votre espace Scolaris',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: _muted)),
+              const SizedBox(height: 26),
+              Center(
+                child: Text('CONNEXION', style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w800, color: _muted, letterSpacing: 1.2)),
+              ),
+              const SizedBox(height: 14),
+              _fieldLabel('Adresse e-mail'),
+              const SizedBox(height: 6),
+              _STextField(
+                controller: _emailCtrl,
+                hint: 'nom@ecole.com',
+                icon: Icons.mail_outline_rounded,
+                keyboard: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 14),
+              _fieldLabel('Mot de passe'),
+              const SizedBox(height: 6),
+              _STextField(
+                controller: _passCtrl,
+                hint: '••••••••',
+                icon: Icons.lock_outline_rounded,
+                obscure: _obscure,
+                suffix: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                  icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 18, color: _muted),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                _ErrorBanner(message: _error!),
+              ],
+              const SizedBox(height: 10),
+              Row(children: [
+                SizedBox(
+                  width: 22, height: 22,
+                  child: Checkbox(
+                    value: _remember,
+                    activeColor: _terra,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (v) => setState(() => _remember = v ?? false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('Se souvenir de moi', style: TextStyle(fontSize: 12, color: _muted)),
+                const Spacer(),
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                    child: const Text('Mot de passe oublié ?',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _terra, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 18),
+              _PrimaryBtn(label: 'Se connecter', loading: _loading, onTap: _submit),
+              const SizedBox(height: 18),
+              _divider('Ou se connecter avec'),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  _SocialCircle(icon: Icons.school_rounded, color: Color(0xFF8B1A00)),
+                  SizedBox(width: 14),
+                  _SocialCircle(icon: Icons.family_restroom_rounded, color: Color(0xFFC17F24)),
+                  SizedBox(width: 14),
+                  _SocialCircle(icon: Icons.menu_book_rounded, color: Color(0xFF1B5E20)),
+                ],
+              ),
+              if (_demoTapCount >= 3) ...[
+                const SizedBox(height: 22),
+                _divider('Comptes démo — accès rapide'),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 7, runSpacing: 7,
+                  children: [
+                    for (final r in _roles)
+                      _RoleChip(
+                        label: r.$3, icon: r.$2,
+                        selected: _selectedRole == r.$1,
+                        onTap: () => _selectRole(r.$1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _divider('Écoles — Connexion rapide'),
+                const SizedBox(height: 12),
+                _SchoolsQuickLogin(onTap: _fillAndLogin),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text('Mot de passe universel : demo1234',
+                      style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Center(
+                child: Text.rich(TextSpan(
+                  style: TextStyle(fontSize: 12.5, color: _muted),
+                  children: [
+                    const TextSpan(text: 'Pas encore de compte ? '),
+                    TextSpan(
+                      text: 'Créer un compte',
+                      style: const TextStyle(color: _terra, fontWeight: FontWeight.w700),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () {},
+                    ),
+                  ],
+                )),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Design 5 : diagonale (dégradé + rayures + panneau blanc) ───────────────
+  Widget _buildMobileDiagonal(BuildContext context) {
+    return Container(
+      color: _cream,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: const LinearGradient(
+                colors: [_terra, _orange, _gold],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              boxShadow: [
+                BoxShadow(color: _terra.withOpacity(.35), blurRadius: 28, offset: const Offset(0, 14)),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: CustomPaint(painter: _DiagonalStripesPainter())),
+                  Column(
+                    children: [
+                      const SizedBox(height: 30),
+                      _LogoImg(size: 54),
+                      const SizedBox(height: 10),
+                      Text('Scolaris', style: TextStyle(
+                          color: _white, fontWeight: FontWeight.w900, fontSize: 19, letterSpacing: .4)),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                          ),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(26, 28, 26, 22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _handleTitleTap(context),
+                                  child: const Text('Bonjour !', style: TextStyle(
+                                      color: _terra, fontSize: 26, fontWeight: FontWeight.w900)),
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Connectez-vous à votre espace',
+                                    style: TextStyle(color: _muted, fontSize: 13)),
+                                const SizedBox(height: 22),
+                                _PillField(
+                                  controller: _emailCtrl,
+                                  hint: 'Adresse e-mail',
+                                  icon: Icons.mail_outline_rounded,
+                                  keyboard: TextInputType.emailAddress,
+                                ),
+                                const SizedBox(height: 14),
+                                _PillField(
+                                  controller: _passCtrl,
+                                  hint: 'Mot de passe',
+                                  icon: Icons.lock_outline_rounded,
+                                  obscure: _obscure,
+                                  suffix: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                                    icon: Icon(_obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                        size: 18, color: _muted),
+                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                  ),
+                                ),
+                                if (_error != null) ...[
+                                  const SizedBox(height: 12),
+                                  _ErrorBanner(message: _error!),
+                                ],
+                                const SizedBox(height: 22),
+                                SizedBox(
+                                  height: 54,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(colors: [_terra, _orange]),
+                                      borderRadius: BorderRadius.circular(999),
+                                      boxShadow: [
+                                        BoxShadow(color: _terra.withOpacity(.4),
+                                            blurRadius: 16, offset: const Offset(0, 6)),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(999),
+                                        onTap: _loading ? null : _submit,
+                                        child: Center(
+                                          child: _loading
+                                              ? const SizedBox(width: 22, height: 22,
+                                                  child: CircularProgressIndicator(strokeWidth: 2.2, color: _white))
+                                              : const Text('Se connecter', style: TextStyle(
+                                                  color: _white, fontSize: 15,
+                                                  fontWeight: FontWeight.w800, letterSpacing: .3)),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Center(
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: () => Navigator.push(context,
+                                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                                      child: const Text('Mot de passe oublié ?',
+                                          style: TextStyle(color: _terra, fontSize: 12.5,
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                  ),
+                                ),
+                                if (_demoTapCount >= 3) ...[
+                                  const SizedBox(height: 20),
+                                  _divider('Comptes démo — accès rapide'),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 7, runSpacing: 7,
+                                    children: [
+                                      for (final r in _roles)
+                                        _RoleChip(
+                                          label: r.$3, icon: r.$2,
+                                          selected: _selectedRole == r.$1,
+                                          onTap: () => _selectRole(r.$1),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _divider('Écoles — Connexion rapide'),
+                                  const SizedBox(height: 12),
+                                  _SchoolsQuickLogin(onTap: _fillAndLogin),
+                                  const SizedBox(height: 8),
+                                  Center(
+                                    child: Text('Mot de passe universel : demo1234',
+                                        style: TextStyle(color: _muted.withOpacity(.55), fontSize: 11)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFormPanel(BuildContext context, {bool showBrand = true}) {
     return Container(
       color: const Color(0xFFFDFAF7),
@@ -273,29 +897,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
 
               GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () => setState(() {
-                  _demoTapCount++;
-                  if (_demoTapCount == 2) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('🔒 Encore une fois…'),
-                      duration: Duration(seconds: 1),
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  } else if (_demoTapCount == 3) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('🔓 Section développeur déverrouillée'),
-                      duration: Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  }
-                }),
-                child: showBrand
-                    ? Text('Connexion', style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
-                      ))
-                    : const SizedBox(height: 6, width: double.infinity),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _handleTitleTap(context),
+                child: Text('Connexion', style: TextStyle(
+                    fontSize: showBrand ? 28 : 22,
+                    fontWeight: FontWeight.w900, color: _ink, letterSpacing: -.3,
+                  )),
               ),
               if (showBrand) ...[
                 const SizedBox(height: 3),
@@ -760,6 +1367,108 @@ class _STextField extends StatelessWidget {
           borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.8),
         ),
       ),
+    );
+  }
+}
+
+// ── Champ pilule (design "Carte") ──────────────────────────────────────────
+class _PillField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool obscure;
+  final Widget? suffix;
+  final TextInputType? keyboard;
+  const _PillField({
+    required this.controller, required this.hint, required this.icon,
+    this.obscure = false, this.suffix, this.keyboard,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboard,
+      style: const TextStyle(fontSize: 14, color: _ink),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: _muted.withOpacity(.55), fontSize: 14),
+        prefixIcon: Icon(icon, size: 18, color: _muted),
+        prefixIconConstraints: const BoxConstraints.tightFor(width: 44),
+        suffixIcon: suffix,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        filled: true,
+        fillColor: const Color(0xFFF5F0EC),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(999),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(999),
+          borderSide: const BorderSide(color: _terra, width: 1.8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(999),
+          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(999),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.8),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bulles décoratives (design "Carte") ─────────────────────────────────────
+class _BubblesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint();
+    p.color = _white.withOpacity(.10);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.16), 46, p);
+    p.color = _white.withOpacity(.08);
+    canvas.drawCircle(Offset(size.width * 0.14, size.height * 0.30), 30, p);
+    p.color = _white.withOpacity(.14);
+    canvas.drawCircle(Offset(size.width * 0.72, size.height * 0.32), 16, p);
+    p.color = _white.withOpacity(.07);
+    canvas.drawCircle(Offset(size.width * 0.05, size.height * 0.08), 20, p);
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
+}
+
+// ── Rayures diagonales (design "Diagonale") ─────────────────────────────────
+class _DiagonalStripesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _white.withOpacity(.08)
+      ..strokeWidth = 2.2;
+    for (double x = -size.height; x < size.width; x += 26) {
+      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
+}
+
+// ── Bouton "réseau social" décoratif (design "Retour") ──────────────────────
+class _SocialCircle extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _SocialCircle({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44, height: 44,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Icon(icon, color: Colors.white, size: 20),
     );
   }
 }
