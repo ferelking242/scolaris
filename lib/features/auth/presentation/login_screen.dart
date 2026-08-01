@@ -395,25 +395,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // ── Design 3 : carte flottante (dégradé + panneau blanc accroché) ──────────
   Widget _buildMobileCard(BuildContext context) {
     return Container(
-      color: _cream,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_gold, _orange, _terra],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              gradient: const LinearGradient(
-                colors: [_gold, _orange, _terra],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(color: _terra.withOpacity(.35), blurRadius: 28, offset: const Offset(0, 14)),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: Stack(
+        bottom: false,
+        child: Stack(
                 children: [
                   Positioned.fill(child: CustomPaint(painter: _BubblesPainter())),
                   Column(
@@ -549,9 +540,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -719,25 +707,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // ── Design 5 : diagonale (dégradé + rayures + panneau blanc) ───────────────
   Widget _buildMobileDiagonal(BuildContext context) {
     return Container(
-      color: _cream,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_terra, _orange, _gold],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              gradient: const LinearGradient(
-                colors: [_terra, _orange, _gold],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
-              boxShadow: [
-                BoxShadow(color: _terra.withOpacity(.35), blurRadius: 28, offset: const Offset(0, 14)),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: Stack(
+        bottom: false,
+        child: Stack(
                 children: [
                   Positioned.fill(child: CustomPaint(painter: _DiagonalStripesPainter())),
                   Column(
@@ -873,9 +852,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
