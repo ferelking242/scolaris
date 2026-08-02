@@ -13,10 +13,11 @@ const _muted = Color(0xFF7A5C44);
 /// Ouvre le paiement en ligne (Mobile Money) d'une facture.
 ///
 /// - Réservé aux offres **Pro / Max** (sinon message d'information).
-/// - **Simulation** tant que les agrégateurs ne sont pas branchés : aucun
-///   encaissement réel n'a lieu côté opérateur ; on enregistre simplement le
-///   paiement en base et la facture passe à « payé ». Le jour où un agrégateur
-///   est branché, seule la partie « confirmation opérateur » change.
+/// - **Pas d'agrégateur branché** : le parent envoie l'argent lui-même (USSD,
+///   hors app) vers le numéro marchand de l'école, puis saisit ici la
+///   référence reçue par SMS. Le versement est enregistré en attente — le
+///   solde ne bouge qu'après vérification par l'admin. Le jour où un
+///   agrégateur est branché, seule la confirmation devient automatique.
 /// [suggestedAmount] : pré-remplit le montant à payer quand il n'y a qu'une
 /// seule facture (ex. le dû à ce jour d'un compte de scolarité). Le parent peut
 /// le modifier — pour régler une tranche, tout le solde, ou un acompte.
@@ -73,7 +74,7 @@ class _PaymentSheet extends StatefulWidget {
 }
 
 class _PaymentSheetState extends State<_PaymentSheet> {
-  final _phone = TextEditingController();
+  final _reference = TextEditingController();
   // Montant éditable quand il n'y a qu'une facture (scolarité, un frais).
   late final TextEditingController _amount;
   String _operator = 'mtn';
@@ -100,7 +101,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
 
   @override
   void dispose() {
-    _phone.dispose();
+    _reference.dispose();
     _amount.dispose();
     super.dispose();
   }
@@ -111,9 +112,9 @@ class _PaymentSheetState extends State<_PaymentSheet> {
       : widget.invoices.fold<double>(0, (a, b) => a + b.balance);
 
   Future<void> _pay() async {
-    final phone = _phone.text.trim();
-    if (phone.length < 6) {
-      setState(() => _error = 'Entrez un numéro Mobile Money valide.');
+    final reference = _reference.text.trim();
+    if (reference.isEmpty) {
+      setState(() => _error = 'Entrez la référence reçue par SMS après votre envoi.');
       return;
     }
     if (_single) {
@@ -135,15 +136,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     });
     final navigator = Navigator.of(context);
     try {
-      // Simulation de la confirmation opérateur (remplacé plus tard par
-      // l'appel réel à l'agrégateur).
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
       // `payment_method` doit rester une des valeurs autorisées par la
       // contrainte CHECK de `payments` (cash | mobile_money | bank_transfer |
-      // cheque | other) ; l'opérateur (MTN/Airtel) est conservé dans `reference`.
+      // cheque | other). Statut `pending` côté serveur (cf. record-online-
+      // payment) — le solde ne bouge qu'après vérification par l'admin.
       const method = 'mobile_money';
-      final operatorLabel = _operator == 'mtn' ? 'MTN' : 'Airtel';
-      final ref = 'SIM-$operatorLabel-${DateTime.now().millisecondsSinceEpoch}';
       // Écriture SERVEUR (Edge Function) : les familles sont en lecture seule
       // sur `payments`. La fonction vérifie le lien famille↔élève puis écrit.
       if (_single) {
@@ -152,7 +149,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           invoiceId: inv.id,
           amount: _total, // partiel possible → cascade sur le compte
           method: method,
-          reference: ref,
+          reference: reference,
         );
       } else {
         for (final inv in widget.invoices) {
@@ -160,7 +157,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             invoiceId: inv.id,
             amount: inv.balance, // le reste dû, pas le montant d'origine
             method: method,
-            reference: ref,
+            reference: reference,
           );
         }
       }
@@ -195,6 +192,9 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     final label = _single
         ? (invs.first.description ?? 'Frais de scolarité')
         : '${invs.length} factures';
+    final school = widget.ref.read(schoolProvider).valueOrNull;
+    final merchantNumber =
+        _operator == 'mtn' ? school?.mobileMoneyMtn : school?.mobileMoneyAirtel;
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -211,15 +211,21 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               borderRadius: BorderRadius.circular(2)),
         ),
         const SizedBox(height: 16),
-        // Bandeau démo
+        // Bandeau : paiement manuel (pas d'agrégateur branché)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFC17F24).withValues(alpha: .12),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Text('Démo — simulation (agrégateur non branché)',
-              style: TextStyle(
+          child: Text(
+              merchantNumber != null
+                  ? 'Envoyez ce montant via Mobile Money au $merchantNumber, '
+                      'puis saisissez la référence reçue par SMS ci-dessous.'
+                  : 'L\'école n\'a pas encore renseigné son numéro Mobile '
+                      'Money — contactez-la pour connaître où envoyer le paiement.',
+              style: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFF8A5A12),
                   fontWeight: FontWeight.w700)),
@@ -286,12 +292,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
         ),
         const SizedBox(height: 14),
         TextField(
-          controller: _phone,
-          keyboardType: TextInputType.phone,
+          controller: _reference,
+          onChanged: (_) => setState(() => _error = null),
           decoration: const InputDecoration(
-            labelText: 'Numéro Mobile Money',
-            hintText: 'Ex : 06 000 00 00',
-            prefixIcon: Icon(Icons.phone_iphone_rounded),
+            labelText: 'Référence de transaction (reçue par SMS)',
+            prefixIcon: Icon(Icons.confirmation_number_outlined),
           ),
         ),
         if (_error != null) ...[
@@ -312,13 +317,14 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                     height: 20,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : Text('Payer $amount',
+                : Text('J\'ai envoyé $amount',
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w700)),
           ),
         ),
         const SizedBox(height: 8),
-        const Text('Vous recevrez une demande de confirmation sur votre téléphone.',
+        const Text(
+            'L\'école vérifiera votre versement avant de le valider sur la facture.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, color: _muted)),
       ]),

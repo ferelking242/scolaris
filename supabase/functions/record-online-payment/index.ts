@@ -13,10 +13,13 @@
 //   • Il est SOIT l'élève lui-même, SOIT un parent lié via `parent_student`.
 //   • Le montant ne dépasse pas le reste dû de la facture.
 //
-// ⚠️ ÉTAT ACTUEL — SIMULATION : tant que l'agrégateur Mobile Money n'est pas
-// branché, cette fonction enregistre le versement sur simple demande (pas de
-// preuve d'encaissement réel). En production, l'insert ne doit se faire QUE sur
-// CONFIRMATION de l'opérateur (webhook agrégateur) — voir le TODO plus bas.
+// ⚠️ PAS D'AGRÉGATEUR BRANCHÉ : la famille envoie l'argent elle-même (USSD,
+// hors app) vers le numéro marchand Mobile Money de l'école, puis saisit ici
+// la référence reçue par SMS. Le versement est inséré en statut `pending` —
+// il NE compte PAS dans le solde de la facture tant que l'admin ne l'a pas
+// vérifié sur son propre relevé marchand et confirmé (cf. confirmPayment
+// dans supabase_db_source.dart). Le jour où un agrégateur est branché, cette
+// fonction peut confirmer directement sur webhook au lieu de laisser `pending`.
 // L'offre « simple » ne propose pas le paiement en ligne : la famille règle à la
 // caisse et l'admin encaisse (côté staff, l'écriture directe est autorisée).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,32 +116,25 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // ── TODO agrégateur : ICI, en production, on VÉRIFIE d'abord la confirmation
-    // de l'opérateur (webhook / statut de transaction) AVANT d'insérer. Sans ça,
-    // ne pas exposer cette fonction comme un vrai encaissement. ──────────────
+    if (!reference) {
+      return json({ error: "Référence de transaction manquante." }, 400);
+    }
 
-    // 7. Enregistrer le paiement (service_role → bypass RLS famille).
+    // 7. Enregistrer le versement en ATTENTE de vérification (service_role →
+    // bypass RLS famille) — pas d'agrégateur pour confirmer automatiquement.
     const { error: insErr } = await admin.from("payments").insert({
       invoice_id: invoiceId,
       student_id: studentId,
       amount,
       payment_date: new Date().toISOString().split("T")[0],
       payment_method: method,
-      ...(reference ? { reference } : {}),
+      reference,
+      status: "pending",
     });
     if (insErr) return json({ error: insErr.message }, 400);
 
-    // 8. Recalculer le statut de la facture (soldée ?).
-    const newPaid = alreadyPaid + amount;
-    await admin
-      .from("invoices")
-      .update({
-        status: newPaid >= due - 0.01 ? "paid" : "pending",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", invoiceId);
-
-    return json({ ok: true, paid: newPaid, balance: Math.max(0, due - newPaid) });
+    // Le solde de la facture ne bouge pas tant que l'admin n'a pas confirmé.
+    return json({ ok: true, pending: true, balance });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

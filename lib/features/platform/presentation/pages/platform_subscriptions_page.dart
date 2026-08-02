@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
+import '../../data/platform_repository.dart';
 import '../../data/platform_school_aggregates.dart';
 import '../platform_providers.dart';
 import '../widgets/platform_charts.dart';
@@ -42,6 +43,10 @@ class PlatformSubscriptionsPage extends ConsumerWidget {
     final now = DateTime.now();
 
     return Column(children: [
+      // ── Versements en attente de vérification ───────────────────────────
+      const _PendingSubscriptionPaymentsPanel(),
+      const SizedBox(height: 14),
+
       // ── Bandeau revenu ─────────────────────────────────────────────────
       Container(
         width: double.infinity,
@@ -152,6 +157,141 @@ class PlatformSubscriptionsPage extends ConsumerWidget {
                 ],
               ),
       ),
+    ]);
+  }
+}
+
+/// File des versements Mobile Money reçus des écoles (pas d'agrégateur
+/// branché) — à vérifier sur le relevé marchand Scolaris avant de confirmer.
+class _PendingSubscriptionPaymentsPanel extends ConsumerWidget {
+  const _PendingSubscriptionPaymentsPanel();
+
+  Future<void> _confirm(BuildContext context, WidgetRef ref, PlatformPendingPayment p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Confirmer ce versement ?'),
+        content: Text(
+            'Vérifiez d\'abord sur le relevé marchand Scolaris que '
+            '${groupThousands(p.amount.round())} ${p.currency} de « ${p.schoolName} » '
+            'est bien arrivé (réf. ${p.reference ?? "—"}) avant de confirmer — '
+            'ça active immédiatement leur offre ${p.planCode.toUpperCase()}.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF15803D)),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await PlatformRepository.confirmSubscriptionPayment(p.id);
+      ref.invalidate(platformPendingPaymentsProvider);
+      ref.invalidate(platformSchoolsProvider);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        backgroundColor: ScolarisPalette.terracotta,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _reject(BuildContext context, WidgetRef ref, PlatformPendingPayment p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Rejeter ce versement ?'),
+        content: Text(
+            'La référence ${p.reference ?? "—"} de « ${p.schoolName} » sera '
+            'marquée invalide — rien ne s\'active.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Retour')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: ScolarisPalette.terracotta),
+            child: const Text('Rejeter'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await PlatformRepository.rejectSubscriptionPayment(p.id);
+    ref.invalidate(platformPendingPaymentsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(platformPendingPaymentsProvider);
+    return pendingAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+        return DataPanel(
+          title: 'Versements à vérifier (${items.length})',
+          child: Column(children: [
+            for (var i = 0; i < items.length; i++) ...[
+              _PendingPaymentRow(
+                payment: items[i],
+                onConfirm: () => _confirm(context, ref, items[i]),
+                onReject: () => _reject(context, ref, items[i]),
+              ),
+              if (i < items.length - 1) Divider(height: 16, color: context.cBorder),
+            ],
+          ]),
+        );
+      },
+    );
+  }
+}
+
+class _PendingPaymentRow extends StatelessWidget {
+  final PlatformPendingPayment payment;
+  final VoidCallback onConfirm;
+  final VoidCallback onReject;
+  const _PendingPaymentRow({
+    required this.payment,
+    required this.onConfirm,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = payment;
+    final periodLabel = p.period == 'annual' ? 'annuel' : 'mensuel';
+    final providerLabel = p.provider == 'mtn' ? 'MTN' : p.provider == 'airtel' ? 'Airtel' : '—';
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(p.schoolName,
+              style: TextStyle(color: context.cInk, fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(
+              'Offre ${p.planCode.toUpperCase()} · $periodLabel · '
+              '${groupThousands(p.amount.round())} ${p.currency} · $providerLabel · '
+              'réf. ${p.reference ?? "—"}',
+              style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ]),
+      ),
+      IconButton(
+          tooltip: 'Confirmer',
+          icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+          color: const Color(0xFF15803D),
+          onPressed: onConfirm),
+      IconButton(
+          tooltip: 'Rejeter',
+          icon: const Icon(Icons.close_rounded, size: 20),
+          color: ScolarisPalette.terracotta,
+          onPressed: onReject),
     ]);
   }
 }

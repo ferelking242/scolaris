@@ -636,6 +636,14 @@ final invoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
   return SupabaseDbSource.getInvoices(schoolId: schoolId);
 });
 
+/// Versements Mobile Money envoyés par des familles, pas encore vérifiés par
+/// l'admin (référence saisie, en attente — cf. `payments.status`).
+final pendingPaymentsProvider = FutureProvider<List<SbPayment>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return [];
+  return SupabaseDbSource.getPendingPayments(schoolId);
+});
+
 final myInvoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
   final session = ref.watch(authSessionProvider);
   if (session == null) return [];

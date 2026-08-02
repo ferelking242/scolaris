@@ -284,6 +284,47 @@ class PlatformRepository {
     }).toList();
   }
 
+  /// Versements d'abonnement en attente de vérification, TOUTES écoles
+  /// confondues — l'école a envoyé l'argent elle-même (USSD, hors app) vers
+  /// le numéro marchand Scolaris et saisi la référence reçue par SMS ; rien
+  /// n'est encore activé (cf. 20260804_platform_subscription_payments.sql).
+  static Future<List<PlatformPendingPayment>> getPendingSubscriptionPayments() async {
+    final data = await _db
+        .from('subscription_payments')
+        .select('id, school_id, plan_code, period, amount, currency, provider, '
+            'reference, created_at, schools(name)')
+        .eq('status', 'pending')
+        .order('created_at', ascending: true);
+    return (data as List).map((r) {
+      final row = r as Map<String, dynamic>;
+      final school = row['schools'];
+      return PlatformPendingPayment(
+        id: row['id'] as String,
+        schoolName: (school is Map ? school['name'] as String? : null) ?? '—',
+        planCode: row['plan_code'] as String? ?? '—',
+        period: row['period'] as String? ?? 'monthly',
+        amount: (row['amount'] as num?)?.toDouble() ?? 0,
+        currency: row['currency'] as String? ?? 'XAF',
+        provider: row['provider'] as String?,
+        reference: row['reference'] as String?,
+        createdAt: _parseDate(row['created_at']) ?? DateTime.now(),
+      );
+    }).toList();
+  }
+
+  /// Vérifié sur le relevé marchand : active l'offre ET solde le versement,
+  /// via la fonction dédiée (jamais une écriture directe — cf. migration).
+  static Future<void> confirmSubscriptionPayment(String paymentId) async {
+    await _db.rpc('platform_confirm_subscription_payment',
+        params: {'p_payment_id': paymentId});
+  }
+
+  /// Référence invalide/introuvable — reste tracée, n'active rien.
+  static Future<void> rejectSubscriptionPayment(String paymentId) async {
+    await _db.rpc('platform_reject_subscription_payment',
+        params: {'p_payment_id': paymentId});
+  }
+
   /// Historique réel des événements d'une école (création, changement de
   /// statut/offre, prolongation d'essai, paiement) — alimenté par des
   /// triggers DB (cf. 20260764_platform_events.sql), jamais par le client.

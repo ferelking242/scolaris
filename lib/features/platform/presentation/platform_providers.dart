@@ -20,6 +20,10 @@ final platformSchoolsProvider =
 final platformTotalStudentsProvider =
     FutureProvider<int>((ref) => PlatformRepository.getTotalStudents());
 
+/// Versements d'abonnement en attente de vérification, toutes écoles.
+final platformPendingPaymentsProvider = FutureProvider<List<PlatformPendingPayment>>(
+    (ref) => PlatformRepository.getPendingSubscriptionPayments());
+
 /// Tarifs réels des offres (Congo/XAF/mensuel) — page Réglages.
 final platformPlanSettingsProvider = FutureProvider<
     Map<PlatformPlan, ({int price, int? limit})>>(

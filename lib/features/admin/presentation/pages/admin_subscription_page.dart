@@ -20,6 +20,17 @@ const _featureLabels = <String, String>{
 /// Noms d'offres, alignés sur les modules (cf. 20260801_offer_tiers.sql).
 const _planNames = <String, String>{'simple': 'Essentiel', 'pro': 'Croissance', 'max': 'Complet'};
 
+/// Numéros marchands Mobile Money DE SCOLARIS (pas de l'école) — où les
+/// écoles envoient leur règlement d'abonnement tant qu'aucun agrégateur n'est
+/// branché. ⚠️ À REMPLACER par les vrais numéros marchands avant le lancement.
+const _scolarisMomoMtn = '06 000 00 00';
+const _scolarisMomoAirtel = '05 000 00 00';
+
+/// Contact Scolaris (WhatsApp/appel) — pour toute question sur l'abonnement
+/// ou pour signaler un versement (dépannage si l'école ne trouve pas la
+/// référence, doute sur le montant…). ⚠️ À REMPLACER avant le lancement.
+const _scolarisContactPhone = '06 000 00 00';
+
 /// Page Admin « Mon abonnement » : offre actuelle, usage élèves, choix d'offre.
 /// L'ÉCOLE paie Scolaris (SaaS). À ne pas confondre avec la facturation des
 /// élèves (frais de scolarité) — voir AdminBillingPage.
@@ -199,7 +210,15 @@ class _ChoosePlanDialog extends ConsumerStatefulWidget {
 class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
   bool _yearly = false;
   bool _processing = false;
+  String _operator = 'mtn';
+  final _reference = TextEditingController();
   final _fmt = NumberFormat.decimalPattern('fr');
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    super.dispose();
+  }
 
   // Prix plein de la nouvelle offre (stocké en DB pour les renouvellements futurs)
   double? get _fullPrice {
@@ -235,57 +254,36 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
 
   Future<void> _pay() async {
     final schoolId = ref.read(currentSchoolIdProvider);
-    final full = _fullPrice;
     final charge = _chargeNow;
-    if (schoolId == null || full == null || charge == null) return;
+    final subId = widget.currentSub?.id;
+    final ref_ = _reference.text.trim();
+    if (schoolId == null || charge == null || subId == null || subId.isEmpty) return;
+    if (ref_.isEmpty) return;
     setState(() => _processing = true);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 1100)); // démo
-      await SupabaseDbSource.activateSubscription(
+      // Pas d'activation immédiate : l'école a envoyé l'argent elle-même
+      // (USSD, hors app) vers le numéro marchand Scolaris — le versement
+      // reste `pending` jusqu'à vérification manuelle du versement.
+      await SupabaseDbSource.submitSubscriptionPayment(
+        subscriptionId: subId,
         schoolId: schoolId,
         planCode: widget.plan.code,
         period: _yearly ? 'annual' : 'monthly',
-        price: full, // prix plein pour les renouvellements suivants
+        amount: charge,
         currency: widget.currency,
-        creditBalance: _newCreditBalance,
+        reference: ref_,
+        provider: _operator,
       );
-      // Trace le versement (source du reçu). Le crédit appliqué = ce qui a été
-      // déduit du prix plein ; l'id d'abonnement vient de l'école (une ligne
-      // par école, seedée à l'inscription).
-      SbSubscriptionPayment? payment;
-      final subId = widget.currentSub?.id;
-      if (subId != null && subId.isNotEmpty) {
-        payment = await SupabaseDbSource.recordSubscriptionPayment(
-          subscriptionId: subId,
-          schoolId: schoolId,
-          planCode: widget.plan.code,
-          period: _yearly ? 'annual' : 'monthly',
-          amount: charge,
-          currency: widget.currency,
-          creditApplied: (full - charge).clamp(0.0, full),
-        );
-      }
-      ref.invalidate(subscriptionProvider);
       ref.invalidate(subscriptionPaymentsProvider);
-      ref.invalidate(studentCountProvider);
-      ref.invalidate(onlinePaymentEnabledProvider);
       if (mounted) navigator.pop();
-      final school = ref.read(schoolProvider).valueOrNull;
-      final planName = widget.plan.name;
-      messenger.showSnackBar(SnackBar(
-        backgroundColor: const Color(0xFF15803D),
+      messenger.showSnackBar(const SnackBar(
+        backgroundColor: Color(0xFFC17F24),
         behavior: SnackBarBehavior.floating,
-        content: Text('Offre $planName activée !'),
-        action: payment != null
-            ? SnackBarAction(
-                label: 'Reçu',
-                textColor: Colors.white,
-                onPressed: () => printSubscriptionReceipt(
-                    school: school, payment: payment!, planName: planName),
-              )
-            : null,
+        content: Text('Versement enregistré — en attente de vérification. '
+            'Votre offre s\'active dès que le paiement est confirmé.'),
+        duration: Duration(seconds: 4),
       ));
     } catch (e) {
       if (mounted) {
@@ -313,15 +311,18 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
       content: SizedBox(
         width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Bandeau démo
+          // Bandeau : paiement manuel (pas d'agrégateur branché)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFC17F24).withValues(alpha: .12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text('Démo — simulation (agrégateur non branché)',
+            child: const Text(
+                'Envoyez le montant via Mobile Money au numéro ci-dessous, '
+                'puis saisissez la référence reçue par SMS. Votre offre '
+                's\'active dès vérification du versement.',
                 style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFF8A5A12),
@@ -414,6 +415,34 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
                   style: TextStyle(fontSize: 12, color: context.cMuted)),
             ),
           ],
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', _scolarisMomoMtn, c)),
+            const SizedBox(width: 10),
+            Expanded(child: _operatorBtn('airtel', 'Airtel Money', _scolarisMomoAirtel, c)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reference,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Référence de transaction (reçue par SMS)',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Icon(Icons.support_agent_rounded, size: 14, color: context.cMuted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                  'Une question, un souci avec le versement ? Contactez '
+                  'Scolaris au $_scolarisContactPhone (WhatsApp).',
+                  style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+            ),
+          ]),
         ]),
       ),
       actions: [
@@ -422,16 +451,45 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
           child: const Text('Annuler'),
         ),
         FilledButton(
-          onPressed: _processing || charge == null ? null : _pay,
+          onPressed: _processing || charge == null || _reference.text.trim().isEmpty
+              ? null
+              : _pay,
           style: FilledButton.styleFrom(backgroundColor: c),
           child: _processing
               ? const SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text('Payer ${charge != null ? _fmt.format(charge) : ""} ${widget.currency}'),
+              : const Text('Confirmer mon versement'),
         ),
       ],
+    );
+  }
+
+  Widget _operatorBtn(String value, String label, String number, Color c) {
+    final sel = _operator == value;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _operator = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Column(children: [
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: sel ? c : context.cInk)),
+            const SizedBox(height: 2),
+            Text(number, style: TextStyle(fontSize: 11, color: context.cMuted)),
+          ]),
+        ),
+      ),
     );
   }
 

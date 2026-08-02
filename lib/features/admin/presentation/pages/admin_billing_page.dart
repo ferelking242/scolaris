@@ -429,10 +429,16 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
               icon: Icons.phone_android_rounded,
               bullets: [
                 'MTN Mobile Money, Airtel Money',
-                'Confirmation automatique en temps réel',
-                'Reçus envoyés par SMS',
+                'Référence vérifiée manuellement (pas d\'agrégateur branché)',
+                'Reçus dès validation',
               ],
             ),
+            if (ref.watch(onlinePaymentEnabledProvider).valueOrNull == true) ...[
+              const SizedBox(height: 14),
+              const _MobileMoneyNumbersPanel(),
+              const SizedBox(height: 14),
+              const _PendingPaymentsPanel(),
+            ],
           ]),
         );
       },
@@ -886,4 +892,241 @@ class _StatBox extends StatelessWidget {
                   fontSize: 20, fontWeight: FontWeight.w800, color: color)),
         ]),
       );
+}
+
+/// Numéros marchands Mobile Money DE L'ÉCOLE — affichés aux familles dans le
+/// bottom sheet de paiement. Lecture-fusion-écriture sur `schools.metadata`.
+class _MobileMoneyNumbersPanel extends ConsumerStatefulWidget {
+  const _MobileMoneyNumbersPanel();
+  @override
+  ConsumerState<_MobileMoneyNumbersPanel> createState() =>
+      _MobileMoneyNumbersPanelState();
+}
+
+class _MobileMoneyNumbersPanelState
+    extends ConsumerState<_MobileMoneyNumbersPanel> {
+  final _mtn = TextEditingController();
+  final _airtel = TextEditingController();
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _mtn.dispose();
+    _airtel.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    if (school != null && !_loaded) {
+      _mtn.text = school.mobileMoneyMtn ?? '';
+      _airtel.text = school.mobileMoneyAirtel ?? '';
+      _loaded = true;
+    }
+    return DataPanel(
+      title: 'Numéros Mobile Money de l\'école',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+            'Les familles y envoient leur paiement (USSD, hors app) avant de '
+            'saisir la référence reçue par SMS.',
+            style: TextStyle(fontSize: 12, color: context.cMuted)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _mtn,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Numéro MTN MoMo',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _airtel,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Numéro Airtel Money',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ActionButton(
+            label: _saving ? 'Enregistrement…' : 'Enregistrer',
+            icon: Icons.save_rounded,
+            primary: true,
+            onTap: _saving || school == null
+                ? null
+                : () async {
+                    setState(() => _saving = true);
+                    try {
+                      await SupabaseDbSource.updateSchoolMobileMoneyNumbers(
+                        schoolId: school.id,
+                        mtn: _mtn.text,
+                        airtel: _airtel.text,
+                      );
+                      ref.invalidate(schoolProvider);
+                    } finally {
+                      if (mounted) setState(() => _saving = false);
+                    }
+                  },
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// File des versements Mobile Money envoyés par des familles, en attente de
+/// vérification (référence saisie, pas encore confirmée par l'admin).
+class _PendingPaymentsPanel extends ConsumerWidget {
+  const _PendingPaymentsPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingPaymentsProvider);
+    final fmt = NumberFormat.decimalPattern('fr');
+
+    Future<void> confirm(SbPayment p) async {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Confirmer ce versement ?'),
+          content: Text(
+              'Vérifiez d\'abord sur votre relevé marchand que ${fmt.format(p.amount)} '
+              'est bien arrivé (réf. ${p.reference ?? "—"}) avant de confirmer pour '
+              '${p.studentName ?? "cet élève"}.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: _green),
+              child: const Text('Confirmer'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      try {
+        await SupabaseDbSource.confirmPayment(p.id);
+        ref.invalidate(pendingPaymentsProvider);
+        ref.invalidate(invoicesProvider);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Échec : $e'),
+          backgroundColor: _terra,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+
+    Future<void> reject(SbPayment p) async {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Rejeter ce versement ?'),
+          content: Text(
+              'La référence ${p.reference ?? "—"} sera marquée invalide — le '
+              'versement ne comptera jamais dans le solde.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false),
+                child: const Text('Retour')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: _terra),
+              child: const Text('Rejeter'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      await SupabaseDbSource.rejectPayment(p.id);
+      ref.invalidate(pendingPaymentsProvider);
+    }
+
+    return DataPanel(
+      title: 'Paiements Mobile Money à vérifier',
+      child: pendingAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+        data: (items) {
+          if (items.isEmpty) {
+            return Text(
+                'Aucun versement en attente. Les paiements envoyés par les '
+                'familles apparaîtront ici pour vérification.',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted));
+          }
+          return Column(children: [
+            for (var i = 0; i < items.length; i++) ...[
+              _PendingPaymentRow(
+                payment: items[i],
+                fmt: fmt,
+                onConfirm: () => confirm(items[i]),
+                onReject: () => reject(items[i]),
+              ),
+              if (i < items.length - 1) Divider(height: 16, color: context.cBorder),
+            ],
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _PendingPaymentRow extends StatelessWidget {
+  final SbPayment payment;
+  final NumberFormat fmt;
+  final VoidCallback onConfirm;
+  final VoidCallback onReject;
+  const _PendingPaymentRow({
+    required this.payment,
+    required this.fmt,
+    required this.onConfirm,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = payment;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(p.studentName ?? 'Élève',
+              style: TextStyle(color: context.cInk, fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text('${fmt.format(p.amount)} · réf. ${p.reference ?? "—"}',
+              style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ]),
+      ),
+      IconButton(
+          tooltip: 'Confirmer',
+          icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+          color: _green,
+          onPressed: onConfirm),
+      IconButton(
+          tooltip: 'Rejeter',
+          icon: const Icon(Icons.close_rounded, size: 20),
+          color: _terra,
+          onPressed: onReject),
+    ]);
+  }
 }

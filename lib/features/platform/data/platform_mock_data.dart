@@ -62,6 +62,32 @@ class PlatformPayment {
   });
 }
 
+/// Un versement d'abonnement en attente de vérification (référence Mobile
+/// Money saisie par l'école, pas encore confirmée) — cf.
+/// `PlatformRepository.getPendingSubscriptionPayments`.
+class PlatformPendingPayment {
+  final String id;
+  final String schoolName;
+  final String planCode;
+  final String period; // 'monthly' | 'annual'
+  final double amount;
+  final String currency;
+  final String? provider; // 'mtn' | 'airtel'
+  final String? reference;
+  final DateTime createdAt;
+  const PlatformPendingPayment({
+    required this.id,
+    required this.schoolName,
+    required this.planCode,
+    required this.period,
+    required this.amount,
+    required this.currency,
+    this.provider,
+    this.reference,
+    required this.createdAt,
+  });
+}
+
 /// Un évènement du cycle de vie de l'abonnement (timeline).
 class SubEvent {
   final DateTime date;

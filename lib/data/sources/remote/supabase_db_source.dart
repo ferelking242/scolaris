@@ -1009,13 +1009,18 @@ class SbInvoice {
     );
   }
 
-  // Somme des encaissements embarqués (`payments(amount)`). Absent/null → 0,
-  // pour rester compatible avec les requêtes qui ne les embarquent pas.
+  // Somme des encaissements embarqués (`payments(amount,status)`). Absent/null
+  // → 0, pour rester compatible avec les requêtes qui ne les embarquent pas.
+  // Exclut les versements `pending` (référence Mobile Money pas encore
+  // vérifiée par l'admin) — un versement en attente ne doit pas faire passer
+  // la facture à « payé ».
   static double _sumPayments(dynamic payments) {
     if (payments is! List) return 0;
     var total = 0.0;
     for (final p in payments) {
       if (p is Map<String, dynamic>) {
+        final status = p['status'] as String? ?? 'confirmed';
+        if (status != 'confirmed') continue;
         total += (p['amount'] as num?)?.toDouble() ?? 0;
       }
     }
@@ -1027,30 +1032,42 @@ class SbPayment {
   final String id;
   final String? invoiceId;
   final String? studentId;
+  final String? studentName;
   final double amount;
   final DateTime? paymentDate;
   final String? paymentMethod;
   final String? reference;
+  final String status; // 'pending' | 'confirmed' | 'rejected'
 
   const SbPayment({
     required this.id,
     this.invoiceId,
     this.studentId,
+    this.studentName,
     required this.amount,
     this.paymentDate,
     this.paymentMethod,
     this.reference,
+    this.status = 'confirmed',
   });
 
-  factory SbPayment.fromJson(Map<String, dynamic> j) => SbPayment(
-        id: j['id'] as String,
-        invoiceId: j['invoice_id'] as String?,
-        studentId: j['student_id'] as String?,
-        amount: (j['amount'] as num?)?.toDouble() ?? 0,
-        paymentDate: j['payment_date'] != null ? DateTime.tryParse(j['payment_date'] as String) : null,
-        paymentMethod: j['payment_method'] as String?,
-        reference: j['reference'] as String?,
-      );
+  factory SbPayment.fromJson(Map<String, dynamic> j) {
+    final u = j['users'];
+    final studentMap = u is Map<String, dynamic>
+        ? u
+        : (u is List && u.isNotEmpty ? u.first as Map<String, dynamic> : null);
+    return SbPayment(
+      id: j['id'] as String,
+      invoiceId: j['invoice_id'] as String?,
+      studentId: j['student_id'] as String?,
+      studentName: (studentMap?['full_name'] as String?)?.trim(),
+      amount: (j['amount'] as num?)?.toDouble() ?? 0,
+      paymentDate: j['payment_date'] != null ? DateTime.tryParse(j['payment_date'] as String) : null,
+      paymentMethod: j['payment_method'] as String?,
+      reference: j['reference'] as String?,
+      status: j['status'] as String? ?? 'confirmed',
+    );
+  }
 }
 
 class SbUser {
@@ -1259,6 +1276,13 @@ class SbSchool {
   /// école de plus qui veut son propre papier ne doit pas coûter une migration.
   final String bulletinTemplate;
 
+  /// Numéros marchands Mobile Money de l'école (metadata.mobile_money.mtn /
+  /// .airtel) — affichés aux familles pour le paiement à distance sans
+  /// agrégateur : elles envoient l'argent elles-mêmes (USSD) vers ce numéro,
+  /// puis saisissent la référence reçue par SMS dans l'app.
+  final String? mobileMoneyMtn;
+  final String? mobileMoneyAirtel;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -1279,6 +1303,8 @@ class SbSchool {
     this.bulletinDevoirs = 3,
     this.bulletinCompoWeight = 0.5,
     this.bulletinTemplate = 'standard',
+    this.mobileMoneyMtn,
+    this.mobileMoneyAirtel,
   });
 
   SchoolFormat get format => SchoolFormat(
@@ -1359,6 +1385,12 @@ class SbSchool {
       modules: rawModules is List
           ? rawModules.map((e) => e.toString()).toList()
           : const [],
+      mobileMoneyMtn: meta is Map && meta['mobile_money'] is Map
+          ? (meta['mobile_money']['mtn'] as String?)
+          : null,
+      mobileMoneyAirtel: meta is Map && meta['mobile_money'] is Map
+          ? (meta['mobile_money']['airtel'] as String?)
+          : null,
     );
   }
 }
@@ -2688,7 +2720,7 @@ class SupabaseDbSource {
   static Future<List<SbInvoice>> getInvoices({String? schoolId}) async {
     var q = _db
         .from('invoices')
-        .select('*, users!student_id(full_name), payments(amount)');
+        .select('*, users!student_id(full_name), payments(amount,status)');
     if (schoolId != null) q = q.eq('school_id', schoolId);
     final data = await q.order('created_at', ascending: false);
     return (data as List).map((j) => SbInvoice.fromJson(j as Map<String, dynamic>)).toList();
@@ -2764,22 +2796,24 @@ class SupabaseDbSource {
     }).eq('id', invoiceId);
   }
 
-  /// Paiement en ligne DEMANDÉ par une famille (élève/parent). Les familles sont
-  /// en lecture seule sur `payments` (sécurité : pas d'auto-déclaration de
-  /// paiement) → l'écriture passe par l'Edge Function `record-online-payment`,
-  /// qui vérifie le lien famille↔élève puis écrit côté serveur. Réservé aux
-  /// offres avec paiement en ligne ; l'offre simple règle à la caisse.
+  /// Un parent/élève déclare avoir envoyé l'argent (référence Mobile Money
+  /// reçue par SMS après un transfert USSD manuel vers le numéro marchand de
+  /// l'école — pas d'agrégateur branché). Les familles sont en lecture seule
+  /// sur `payments` (sécurité : pas d'auto-déclaration de paiement confirmé)
+  /// → l'écriture passe par l'Edge Function `record-online-payment`, qui
+  /// vérifie le lien famille↔élève puis écrit `status: 'pending'` côté
+  /// serveur. Le solde ne bouge qu'une fois l'admin passé par [confirmPayment].
   static Future<void> recordOnlinePayment({
     required String invoiceId,
     required double amount,
+    required String reference,
     String method = 'mobile_money',
-    String? reference,
   }) async {
     final res = await _db.functions.invoke('record-online-payment', body: {
       'invoiceId': invoiceId,
       'amount': amount,
       'method': method,
-      if (reference != null && reference.isNotEmpty) 'reference': reference,
+      'reference': reference,
     });
     _throwIfFnError(res);
   }
@@ -2793,7 +2827,7 @@ class SupabaseDbSource {
   static Future<List<SbInvoice>> getInvoicesForStudent(String studentId) async {
     final data = await _db
         .from('invoices')
-        .select('*, payments(amount)')
+        .select('*, payments(amount,status)')
         .eq('student_id', studentId)
         .order('created_at', ascending: false);
     return (data as List).map((j) => SbInvoice.fromJson(j as Map<String, dynamic>)).toList();
@@ -2809,6 +2843,49 @@ class SupabaseDbSource {
         .eq('student_id', studentId)
         .order('payment_date', ascending: false);
     return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  /// Versements Mobile Money envoyés par une famille (référence saisie) et pas
+  /// encore vérifiés par l'admin — la file « Paiements à vérifier ».
+  static Future<List<SbPayment>> getPendingPayments(String schoolId) async {
+    final data = await _db
+        .from('payments')
+        .select('*, users!student_id(full_name), invoices!inner(school_id)')
+        .eq('status', 'pending')
+        .eq('invoices.school_id', schoolId)
+        .order('created_at', ascending: false);
+    return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  /// L'admin a vérifié sur son relevé marchand que l'argent est bien arrivé :
+  /// le versement compte enfin dans le solde de la facture.
+  static Future<void> confirmPayment(String paymentId) async {
+    final row = await _db
+        .from('payments')
+        .select('invoice_id')
+        .eq('id', paymentId)
+        .single();
+    await _db.from('payments').update({'status': 'confirmed'}).eq('id', paymentId);
+
+    final invoiceId = row['invoice_id'] as String?;
+    if (invoiceId == null) return;
+    final inv = await _db
+        .from('invoices')
+        .select('amount, payments(amount,status)')
+        .eq('id', invoiceId)
+        .single();
+    final due = (inv['amount'] as num?)?.toDouble() ?? 0;
+    final paid = SbInvoice._sumPayments(inv['payments']);
+    await _db.from('invoices').update({
+      'status': paid >= due - 0.01 ? 'paid' : 'pending',
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', invoiceId);
+  }
+
+  /// Référence introuvable/invalide sur le relevé marchand : le versement ne
+  /// comptera jamais, mais reste tracé (pas de suppression silencieuse).
+  static Future<void> rejectPayment(String paymentId) async {
+    await _db.from('payments').update({'status': 'rejected'}).eq('id', paymentId);
   }
 
   // ── Frais de scolarité (grille + génération de l'échéancier) ────────────────
@@ -3398,6 +3475,29 @@ class SupabaseDbSource {
         .eq('id', schoolId);
   }
 
+  /// Enregistre les numéros marchands Mobile Money de l'école — lecture-fusion
+  /// -écriture pour ne pas écraser le reste de `metadata` (types, modules…).
+  static Future<void> updateSchoolMobileMoneyNumbers({
+    required String schoolId,
+    String? mtn,
+    String? airtel,
+  }) async {
+    final row = await _db
+        .from('schools')
+        .select('metadata')
+        .eq('id', schoolId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+      'mobile_money': {
+        'mtn': mtn?.trim().isEmpty == true ? null : mtn?.trim(),
+        'airtel': airtel?.trim().isEmpty == true ? null : airtel?.trim(),
+      },
+    };
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId);
+  }
+
   static Future<SbSchool?> getFirstSchool() async {
     final data = await _db.from('schools').select().limit(1).maybeSingle();
     return data != null ? SbSchool.fromJson(data) : null;
@@ -3497,6 +3597,35 @@ class SupabaseDbSource {
         .select()
         .single();
     return SbSubscriptionPayment.fromJson(data);
+  }
+
+  /// Pas d'agrégateur branché : l'école envoie elle-même l'argent (USSD) vers
+  /// le numéro marchand Mobile Money de Scolaris, puis saisit la référence
+  /// reçue par SMS. Insère en `pending` — n'active RIEN sur `subscriptions`.
+  /// L'activation n'a lieu qu'à la vérification manuelle du versement (pour
+  /// l'instant : côté Supabase, en attendant une file dédiée côté plateforme).
+  static Future<void> submitSubscriptionPayment({
+    required String subscriptionId,
+    required String schoolId,
+    required String planCode,
+    required String period, // 'monthly' | 'annual'
+    required double amount, // prix plein (pas de report de crédit tant que non confirmé)
+    required String currency,
+    required String reference,
+    String? provider, // 'mtn' | 'airtel'
+  }) async {
+    await _db.from('subscription_payments').insert({
+      'subscription_id': subscriptionId,
+      'school_id': schoolId,
+      'plan_code': planCode,
+      'period': period,
+      'amount': amount,
+      'currency': currency,
+      'method': 'mobile_money',
+      'provider': provider,
+      'reference': reference,
+      'status': 'pending',
+    });
   }
 
   /// Historique des versements d'abonnement de l'école (récent → ancien).
