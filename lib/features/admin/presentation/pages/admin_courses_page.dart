@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -43,7 +43,9 @@ const _daysKey = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
 /// Ouvre le formulaire cours : dialog centrée sur PC (largeur ≥ 680),
 /// bottom sheet draggable sur mobile.
-void _openCourseForm(
+/// Ouvre le formulaire cours — réutilisé par la fiche classe (onglet
+/// Programme) autant que par cette page.
+void openCourseForm(
   BuildContext context,
   WidgetRef ref,
   String schoolId,
@@ -137,7 +139,7 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
           ActionButton(
             label: 'Ajouter',
             icon: Icons.add_rounded,
-            onTap: () => _openCourseForm(
+            onTap: () => openCourseForm(
               context, ref, schoolId, _selectedClassId!, null,
               () {
                 ref.invalidate(coursesForClassProvider(_selectedClassId!));
@@ -208,11 +210,11 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
 
               // ── Liste des cours ──────────────────────────────────────
               if (_selectedClassId != null)
-                _CoursesList(
+                CoursesListView(
                   classId: _selectedClassId!,
                   schoolId: schoolId ?? '',
                   search: _search,
-                  onEdit: (c) => _openCourseForm(
+                  onEdit: (c) => openCourseForm(
                     context, ref, schoolId ?? '', _selectedClassId!, c,
                     () {
                       ref.invalidate(coursesForClassProvider(_selectedClassId!));
@@ -259,14 +261,14 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
 }
 
 // ── Liste des cours d'une classe ──────────────────────────────────────────────
-class _CoursesList extends ConsumerWidget {
+class CoursesListView extends ConsumerWidget {
   final String classId;
   final String schoolId;
   final String search;
   final void Function(SbCourse) onEdit;
   final void Function(SbCourse) onDelete;
 
-  const _CoursesList({
+  const CoursesListView({
     required this.classId,
     required this.schoolId,
     required this.search,
@@ -1033,7 +1035,7 @@ class _EmptyCourses extends ConsumerWidget {
             if (canCreate) ...[
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () => _openCourseForm(
+                onPressed: () => openCourseForm(
                   context, ref, schoolId, classId, null,
                   () {
                     ref.invalidate(coursesForClassProvider(classId));
@@ -1051,3 +1053,4 @@ class _EmptyCourses extends ConsumerWidget {
       );
   }
 }
+

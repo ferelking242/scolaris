@@ -5,6 +5,8 @@ import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import 'admin_courses_page.dart' show openCourseForm, CoursesListView;
+import 'admin_subjects_page.dart';
 
 const _terra = Color(0xFF8B1A00);
 
@@ -29,7 +31,13 @@ class AdminClassesPage extends ConsumerWidget {
       builder: (_) => _ClassDialog(
         schoolId: schoolId,
         existing: existing,
-        onSaved: () => ref.invalidate(classesProvider),
+        onSaved: () {
+          ref.invalidate(classesProvider);
+          // La création peut avoir généré le programme par défaut (matières
+          // + cours) : sans ça, la page Matières garde son cache périmé.
+          ref.invalidate(subjectsProvider);
+          ref.invalidate(coursesForSchoolProvider);
+        },
       ),
     );
   }
@@ -183,6 +191,10 @@ class AdminClassesPage extends ConsumerWidget {
                                       ref.invalidate(studentsProvider),
                                 ),
                               ),
+                          onProgram: () => showDialog(
+                                context: context,
+                                builder: (_) => _ClassProgramDialog(klass: cl),
+                              ),
                           onDelete: ref.watch(canProvider('classes.supprimer'))
                               ? () => _deleteClass(context, ref, cl)
                               : null,
@@ -224,6 +236,14 @@ class AdminClassesPage extends ConsumerWidget {
                                         onChanged: () =>
                                             ref.invalidate(studentsProvider),
                                       ),
+                                    )),
+                            const SizedBox(width: 6),
+                            _IconBtn(
+                                icon: Icons.menu_book_outlined,
+                                onTap: () => showDialog(
+                                      context: context,
+                                      builder: (_) =>
+                                          _ClassProgramDialog(klass: cl),
                                     )),
                             if (ref.watch(canProvider('classes.supprimer'))) ...[
                               const SizedBox(width: 6),
@@ -301,6 +321,10 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
   late String? _mainTeacherId = widget.existing?.mainTeacherId;
   bool _loading = false;
   String? _error;
+  // Génère automatiquement le programme (matières du cycle, via
+  // subject_catalog) à la création — évite la classe vide qu'il fallait
+  // ensuite remplir matière par matière dans un écran séparé.
+  bool _generateProgram = true;
 
   bool get _isEdit => widget.existing != null;
 
@@ -336,7 +360,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
       } else {
         final sec = _section.text.trim();
         final name = sec.isEmpty ? _level!.name : '${_level!.name} $sec';
-        await SupabaseDbSource.createClass(
+        final classId = await SupabaseDbSource.createClass(
           schoolId: widget.schoolId,
           name: name,
           level: _level!.cycle,
@@ -347,6 +371,14 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
           branchId: _branch?.id,
           mainTeacherId: _mainTeacherId,
         );
+        if (_generateProgram) {
+          await SupabaseDbSource.generateDefaultProgramForClass(
+            schoolId: widget.schoolId,
+            classId: classId,
+            cycle: _level!.cycle,
+            series: _level!.series != null ? [_level!.series!] : null,
+          );
+        }
       }
       widget.onSaved();
       if (mounted) navigator.pop();
@@ -474,6 +506,25 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                 onChanged: (v) => setState(() => _mainTeacherId = v),
               ),
             ),
+            if (!_isEdit) ...[
+              const SizedBox(height: 4),
+              CheckboxListTile(
+                value: _generateProgram,
+                onChanged: (v) => setState(() => _generateProgram = v ?? true),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Générer le programme par défaut',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Matières types du niveau, pré-remplies avec leur coefficient. '
+                  'Les enseignants restent à assigner.',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
@@ -637,6 +688,120 @@ class _ClassRosterDialogState extends ConsumerState<_ClassRosterDialog> {
   }
 }
 
+// ── Dialogue Programme d'une classe (cours = classe × matière × prof) ────────
+// Fusionne ce qui vivait dans l'écran séparé "Cours" : on gère le programme
+// directement depuis la fiche classe, avec un bouton pour le regénérer depuis
+// le catalogue si besoin (ex: matière ajoutée après coup dans le catalogue).
+class _ClassProgramDialog extends ConsumerWidget {
+  final SbClass klass;
+  const _ClassProgramDialog({required this.klass});
+
+  Future<void> _generate(BuildContext context, WidgetRef ref) async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    // `classes.level` est déjà le cycle (cf. createClass : `level: _level!.cycle`).
+    final cycle = klass.level;
+    if (cycle == null || cycle.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Niveau inconnu pour cette classe : impossible de '
+            'générer un programme par défaut.'),
+        backgroundColor: _terra,
+      ));
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final n = await SupabaseDbSource.generateDefaultProgramForClass(
+        schoolId: schoolId,
+        classId: klass.id,
+        cycle: cycle,
+      );
+      ref.invalidate(coursesForClassProvider(klass.id));
+      ref.invalidate(coursesForSchoolProvider);
+      messenger.showSnackBar(SnackBar(
+        content: Text(n > 0
+            ? '$n cours ajouté(s) depuis le catalogue.'
+            : 'Programme déjà à jour (rien à ajouter).'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF16A34A),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Génération impossible : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final schoolId = ref.watch(currentSchoolIdProvider) ?? '';
+    final canWrite = ref.watch(canProvider('classes.creer'));
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text('Programme — ${klass.name}',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 520),
+        height: (MediaQuery.sizeOf(context).height * 0.75).clamp(0, 560),
+        child: SingleChildScrollView(
+          child: CoursesListView(
+            classId: klass.id,
+            schoolId: schoolId,
+            search: '',
+            onEdit: (c) => openCourseForm(
+              context, ref, schoolId, klass.id, c,
+              () {
+                ref.invalidate(coursesForClassProvider(klass.id));
+                ref.invalidate(coursesForSchoolProvider);
+              },
+            ),
+            onDelete: (c) async {
+              await SupabaseDbSource.deleteCourse(c.id);
+              ref.invalidate(coursesForClassProvider(klass.id));
+              ref.invalidate(coursesForSchoolProvider);
+            },
+          ),
+        ),
+      ),
+      actions: [
+        // Accès secondaire au catalogue école (`subjects`) : utile pour une
+        // matière hors-programme type ou un renommage — plus un menu principal
+        // depuis que le programme se génère et se complète depuis cette fiche.
+        TextButton.icon(
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const AdminSubjectsPage())),
+          icon: const Icon(Icons.menu_book_outlined, size: 16),
+          label: const Text('Catalogue des matières'),
+        ),
+        if (canWrite)
+          TextButton.icon(
+            onPressed: () => _generate(context, ref),
+            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+            label: const Text('Générer depuis le catalogue'),
+          ),
+        if (canWrite && schoolId.isNotEmpty)
+          TextButton.icon(
+            onPressed: () => openCourseForm(
+              context, ref, schoolId, klass.id, null,
+              () {
+                ref.invalidate(coursesForClassProvider(klass.id));
+                ref.invalidate(coursesForSchoolProvider);
+              },
+            ),
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: const Text('Ajouter un cours'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Fermer'),
+        ),
+      ],
+    );
+  }
+}
+
 enum _RosterAction { add, remove }
 
 class _RosterTile extends StatelessWidget {
@@ -748,12 +913,14 @@ class _ClassCard extends StatelessWidget {
   final int studentCount;
   final VoidCallback? onEdit;
   final VoidCallback onRoster;
+  final VoidCallback onProgram;
   final VoidCallback? onDelete;
   const _ClassCard({
     required this.klass,
     required this.studentCount,
     required this.onEdit,
     required this.onRoster,
+    required this.onProgram,
     required this.onDelete,
   });
 
@@ -793,6 +960,7 @@ class _ClassCard extends StatelessWidget {
             if (onEdit != null)
               const PopupMenuItem(value: 'edit', child: Text('Modifier')),
             const PopupMenuItem(value: 'roster', child: Text('Effectif')),
+            const PopupMenuItem(value: 'program', child: Text('Programme')),
             if (onDelete != null)
               const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
           ],
@@ -803,6 +971,9 @@ class _ClassCard extends StatelessWidget {
                 break;
               case 'roster':
                 onRoster();
+                break;
+              case 'program':
+                onProgram();
                 break;
               case 'delete':
                 onDelete?.call();

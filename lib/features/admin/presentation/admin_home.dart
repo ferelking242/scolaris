@@ -18,8 +18,6 @@ import 'pages/admin_school_page.dart';
 import 'pages/admin_subscription_page.dart';
 import 'pages/admin_classes_page.dart';
 import 'pages/class_promotion_page.dart';
-import 'pages/admin_subjects_page.dart';
-import 'pages/admin_courses_page.dart';
 import 'pages/admin_grades_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/admin_attendance_page.dart';
@@ -84,14 +82,6 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.class_outlined, activeIcon: Icons.class_rounded,
           labelKey: 'nav.classes',
           page: PermissionGuard(permission: StaffPermissions.classes, child: AdminClassesPage()),
-          permission: StaffPermissions.classes),
-      RoleNavEntry(icon: Icons.menu_book_outlined, activeIcon: Icons.menu_book_rounded,
-          labelKey: 'nav.subjects',
-          page: PermissionGuard(permission: StaffPermissions.classes, child: AdminSubjectsPage()),
-          permission: StaffPermissions.classes),
-      RoleNavEntry(icon: Icons.school_outlined, activeIcon: Icons.school_rounded,
-          labelKey: 'nav.courses',
-          page: PermissionGuard(permission: StaffPermissions.classes, child: AdminCoursesPage()),
           permission: StaffPermissions.classes),
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'nav.enrollment',
