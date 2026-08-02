@@ -6,7 +6,6 @@ import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import 'admin_courses_page.dart' show openCourseForm, CoursesListView;
-import 'admin_subjects_page.dart';
 
 const _terra = Color(0xFF8B1A00);
 
@@ -766,15 +765,6 @@ class _ClassProgramDialog extends ConsumerWidget {
         ),
       ),
       actions: [
-        // Accès secondaire au catalogue école (`subjects`) : utile pour une
-        // matière hors-programme type ou un renommage — plus un menu principal
-        // depuis que le programme se génère et se complète depuis cette fiche.
-        TextButton.icon(
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const AdminSubjectsPage())),
-          icon: const Icon(Icons.menu_book_outlined, size: 16),
-          label: const Text('Catalogue des matières'),
-        ),
         if (canWrite)
           TextButton.icon(
             onPressed: () => _generate(context, ref),
