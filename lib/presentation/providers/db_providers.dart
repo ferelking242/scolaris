@@ -134,15 +134,6 @@ final schoolEnrollmentStatusProvider =
   return SupabaseDbSource.getSchoolEnrollmentStatus(schoolId);
 });
 
-/// Décisions de fin d'année en attente de ré-inscription (statut `proposed`) —
-/// la file admin universelle (Simple/Pro/Max), à côté des pré-inscriptions.
-final pendingReRegistrationsProvider =
-    FutureProvider<List<SbProgression>>((ref) async {
-  final schoolId = ref.watch(currentSchoolIdProvider);
-  if (schoolId == null) return const [];
-  return SupabaseDbSource.getPendingReRegistrations(schoolId);
-});
-
 /// Demandes de pré-inscription reçues par l'école active (file d'attente admin).
 final enrollmentRequestsProvider =
     FutureProvider<List<SbEnrollmentRequest>>((ref) async {

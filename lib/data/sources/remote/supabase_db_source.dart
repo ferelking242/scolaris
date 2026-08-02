@@ -2134,32 +2134,36 @@ class SupabaseDbSource {
     return list[idx + 1]['name'] as String;
   }
 
-  /// PROPOSE en bloc les décisions de fin d'année d'une classe : passage
+  /// APPLIQUE en bloc les décisions de fin d'année d'une classe : passage
   /// (classe supérieure ou redouble) ou sortie (transfert/diplôme/radiation).
-  /// N'APPLIQUE RIEN sur `student_profiles` — écrit chaque décision en
-  /// `student_progressions` (statut `proposed`) et s'arrête là. L'élève reste
-  /// dans sa classe actuelle tant que la ré-inscription n'est pas confirmée
-  /// (cf. [getPendingReRegistrations]/[confirmReRegistration]) : une décision
-  /// de l'admin ne suffit pas à faire « passer » un élève qui ne reviendra
-  /// peut-être pas — il faut le palier de la ré-inscription.
-  static Future<void> proposeYearEndDecisions({
+  /// Un seul geste, pas de palier de confirmation séparé : la ligne
+  /// `student_progressions` est écrite directement en `status: 'confirmed'`
+  /// et `student_profiles` est mis à jour dans la foulée (classe/année, ou
+  /// statut de sortie). Pour un redoublant, la classe de destination est
+  /// toujours la classe de départ (même niveau, année suivante) — même si
+  /// aucune classe n'a été choisie côté UI.
+  static Future<void> applyYearEndDecisions({
     required String schoolId,
     required String toAcademicYear,
     required List<PromotionDecision> decisions,
   }) async {
     final actorId = await _currentUserRowId();
     final actorName = actorId == null ? null : await _actorName(actorId);
+    final now = DateTime.now();
 
     for (final d in decisions) {
       final isExit = d.decision == 'transferred' ||
           d.decision == 'graduated' ||
           d.decision == 'withdrawn';
+      final effectiveToClassId = isExit
+          ? null
+          : (d.decision == 'repeated' ? d.fromClassId : d.toClassId);
 
       await _db.from('student_progressions').insert({
         'school_id': schoolId,
         'student_id': d.studentId,
         'from_class_id': d.fromClassId,
-        'to_class_id': isExit ? null : d.toClassId,
+        'to_class_id': effectiveToClassId,
         'from_academic_year': d.fromAcademicYear,
         'to_academic_year': isExit ? null : toAcademicYear,
         'decision': d.decision,
@@ -2167,83 +2171,25 @@ class SupabaseDbSource {
         'reason': d.reason,
         'decided_by': actorId,
         'decided_by_name': actorName,
-        'status': 'proposed',
+        'status': 'confirmed',
       });
+
+      if (isExit) {
+        await _db.from('student_profiles').update({
+          'enrollment_status': d.decision,
+          'exit_reason': d.reason,
+          'exit_date': now.toIso8601String().substring(0, 10),
+          'class_id': null,
+          'updated_at': now.toIso8601String(),
+        }).eq('user_id', d.studentId);
+      } else {
+        await _db.from('student_profiles').update({
+          'class_id': effectiveToClassId,
+          'academic_year': toAcademicYear,
+          'updated_at': now.toIso8601String(),
+        }).eq('user_id', d.studentId);
+      }
     }
-  }
-
-  /// Les décisions de fin d'année en attente de ré-inscription (statut
-  /// `proposed`) — la file d'attente admin, universelle (marche sans compte
-  /// famille : Simple, Pro, Max).
-  static Future<List<SbProgression>> getPendingReRegistrations(
-      String schoolId) async {
-    final data = await _db
-        .from('student_progressions')
-        .select('*, users!student_id(full_name)')
-        .eq('school_id', schoolId)
-        .eq('status', 'proposed')
-        .order('decided_at', ascending: false);
-    return (data as List)
-        .map((j) => SbProgression.fromJson(j as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Confirme la ré-inscription : c'est CE geste, et lui seul, qui applique
-  /// enfin le changement sur `student_profiles` (classe/année, ou statut de
-  /// sortie). [newToClassId] permet de corriger la classe de destination au
-  /// dernier moment (ex. la classe suggérée n'existait pas encore).
-  static Future<void> confirmReRegistration(
-    String progressionId, {
-    String? newToClassId,
-  }) async {
-    final row = await _db
-        .from('student_progressions')
-        .select()
-        .eq('id', progressionId)
-        .single();
-    final decision = row['decision'] as String;
-    final isExit = decision == 'transferred' ||
-        decision == 'graduated' ||
-        decision == 'withdrawn';
-    final studentId = row['student_id'] as String;
-    final now = DateTime.now();
-
-    if (isExit) {
-      await _db.from('student_profiles').update({
-        'enrollment_status': decision,
-        'exit_reason': row['reason'],
-        'exit_date': now.toIso8601String().substring(0, 10),
-        'class_id': null,
-        'updated_at': now.toIso8601String(),
-      }).eq('user_id', studentId);
-    } else {
-      final toClassId = newToClassId ?? row['to_class_id'] as String?;
-      await _db.from('student_profiles').update({
-        'class_id': toClassId,
-        'academic_year': row['to_academic_year'],
-        'updated_at': now.toIso8601String(),
-      }).eq('user_id', studentId);
-    }
-
-    await _db
-        .from('student_progressions')
-        .update({
-          'status': 'confirmed',
-          if (newToClassId != null) 'to_class_id': newToClassId,
-        })
-        .eq('id', progressionId)
-        .eq('status', 'proposed');
-  }
-
-  /// Annule une décision proposée — rien n'a été appliqué, la ligne devient
-  /// juste immuable (traçabilité : on sait qu'une décision a été prise puis
-  /// annulée, plutôt que de la faire disparaître).
-  static Future<void> cancelReRegistration(String progressionId) async {
-    await _db
-        .from('student_progressions')
-        .update({'status': 'cancelled'})
-        .eq('id', progressionId)
-        .eq('status', 'proposed');
   }
 
   static Future<SbStudent?> getStudentById(String userId) async {
@@ -2463,6 +2409,57 @@ class SupabaseDbSource {
 
   static Future<void> deleteSubject(String id) async {
     await _db.from('subjects').delete().eq('id', id);
+  }
+
+  /// Génère le programme par défaut d'une classe à partir du catalogue de
+  /// matières types (`subject_catalog`) du cycle (+ séries lycée). Garantit
+  /// d'abord que ces matières existent dans le catalogue de l'école (comme
+  /// [loadSubjectsFromCatalog]), puis crée un `courses` classe×matière pour
+  /// chacune (coefficient par défaut du catalogue, sans enseignant — à
+  /// assigner ensuite). Idempotent : rejouable sans doublon.
+  /// Renvoie le nombre de cours créés.
+  static Future<int> generateDefaultProgramForClass({
+    required String schoolId,
+    required String classId,
+    required String cycle,
+    List<String>? series,
+  }) async {
+    final catalog =
+        await getSubjectCatalog(cycles: [cycle], series: series);
+    if (catalog.isEmpty) return 0;
+
+    await loadSubjectsFromCatalog(
+        schoolId: schoolId, cycles: [cycle], series: series);
+    final subjects = await getSubjects(schoolId: schoolId);
+    final subjectByName = {
+      for (final s in subjects) s.name.trim().toLowerCase(): s,
+    };
+
+    final existingCourses = await getCoursesForClass(classId);
+    final coveredSubjectIds = existingCourses
+        .map((c) => c.subjectId)
+        .whereType<String>()
+        .toSet();
+
+    final seen = <String>{};
+    var created = 0;
+    for (final c in catalog) {
+      final key = c.name.trim().toLowerCase();
+      if (!seen.add(key)) continue;
+      final subject = subjectByName[key];
+      if (subject == null) continue;
+      if (coveredSubjectIds.contains(subject.id)) continue;
+      await createCourse(
+        schoolId: schoolId,
+        classId: classId,
+        subjectId: subject.id,
+        name: subject.name,
+        code: subject.code,
+        coefficient: c.defaultCoefficient.round(),
+      );
+      created++;
+    }
+    return created;
   }
 
   /// Charge les matières types du catalogue dans les matières de l'école.
@@ -4019,7 +4016,7 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbClassLevel.fromJson(j as Map<String, dynamic>)).toList();
   }
 
-  static Future<void> createClass({
+  static Future<String> createClass({
     required String schoolId,
     required String name,
     String? level,
@@ -4031,8 +4028,9 @@ class SupabaseDbSource {
     int maxStudents = 35,
     String academicYear = '2025-2026',
   }) async {
+    final id = const Uuid().v4();
     await _db.from('classes').insert({
-      'id': const Uuid().v4(),
+      'id': id,
       'school_id': schoolId,
       'name': name,
       if (level != null) 'level': level,
@@ -4046,6 +4044,7 @@ class SupabaseDbSource {
       'academic_year': academicYear,
       'is_active': true,
     });
+    return id;
   }
 
   /// Les classes saisies dans l'ASSISTANT d'inscription. Elles vivent dans

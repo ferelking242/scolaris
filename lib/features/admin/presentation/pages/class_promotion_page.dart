@@ -97,19 +97,18 @@ class _ClassPromotionPageState extends ConsumerState<ClassPromotionPage> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Envoyer ces décisions en ré-inscription ?'),
+        title: const Text('Appliquer ces décisions ?'),
         content: Text(
-            '${students.length} élève(s) seront ajoutés à la file de '
-            '« Ré-inscriptions » (dans Pré-inscriptions). RIEN ne change encore '
-            'pour eux — la classe/le statut ne bascule qu\'une fois la '
-            're-inscription confirmée là-bas.'),
+            '${students.length} élève(s) vont changer de classe/statut '
+            'immédiatement (passage, redoublement ou sortie). Action '
+            'définitive — vérifiez avant de confirmer.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
               child: const Text('Annuler')),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: _terra),
-              child: Text('Envoyer — ${students.length} élève(s)')),
+              child: Text('Appliquer — ${students.length} élève(s)')),
         ],
       ),
     );
@@ -130,7 +129,7 @@ class _ClassPromotionPageState extends ConsumerState<ClassPromotionPage> {
             reason: _rows[s.id]?.reason.isEmpty == true ? null : _rows[s.id]?.reason,
           ),
       ];
-      await SupabaseDbSource.proposeYearEndDecisions(
+      await SupabaseDbSource.applyYearEndDecisions(
         schoolId: schoolId,
         toAcademicYear: _toYear ?? fromYear,
         decisions: decisions,
@@ -147,11 +146,10 @@ class _ClassPromotionPageState extends ConsumerState<ClassPromotionPage> {
     }
     if (!mounted) return;
     setState(() { _busy = false; _rows.clear(); });
-    ref.invalidate(pendingReRegistrationsProvider);
+    ref.invalidate(studentsByClassProvider);
+    ref.invalidate(usersProvider);
     messenger.showSnackBar(SnackBar(
-      content: Text(
-          '${students.length} élève(s) envoyés en ré-inscription — rien '
-          'n\'a encore changé pour eux.'),
+      content: Text('${students.length} élève(s) mis à jour.'),
       backgroundColor: _green,
       behavior: SnackBarBehavior.floating,
     ));

@@ -20,10 +20,6 @@ class PreRegQueuePage extends ConsumerStatefulWidget {
 }
 
 class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
-  // Deux dossiers différents, une seule page : NOUVEAU dossier (pré-inscription
-  // publique) contre CONTINUANT (décision de fin d'année à confirmer). Même
-  // mécanique d'accueil admin, mécaniques sous-jacentes distinctes.
-  String _section = 'preinscriptions';
   String _filter = 'À traiter';
   PreRegRequest? _selected;
   bool _busy = false;
@@ -135,57 +131,17 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
     );
   }
 
-  Widget _sectionTabs() => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (final s in const [
-              ('preinscriptions', 'Nouveaux dossiers'),
-              ('reregistrations', 'Ré-inscriptions'),
-            ])
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(s.$2),
-                  selected: _section == s.$1,
-                  onSelected: (_) =>
-                      setState(() { _section = s.$1; _selected = null; }),
-                  selectedColor: _green.withValues(alpha: .12),
-                  labelStyle: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: _section == s.$1 ? _green : context.cMuted,
-                  ),
-                ),
-              ),
-          ]),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     // PAS d'Expanded ci-dessous : PageScaffold fait déjà défiler tout son
     // contenu (SingleChildScrollView) → hauteur non bornée. Un Expanded
     // dedans plante (« RenderFlex... unbounded height »).
-    if (_section == 'reregistrations') {
-      return PageScaffold(
-        title: 'Inscriptions',
-        subtitle: 'Décisions de fin d\'année en attente de confirmation',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _sectionTabs(),
-          const _ReRegistrationTab(),
-        ]),
-      );
-    }
-
     final requestsAsync = ref.watch(enrollmentRequestsProvider);
 
     return requestsAsync.when(
       loading: () => PageScaffold(
         title: 'Inscriptions',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _sectionTabs(),
           const Padding(
             padding: EdgeInsets.only(top: 40),
             child: Center(child: CircularProgressIndicator()),
@@ -195,7 +151,6 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
       error: (e, _) => PageScaffold(
         title: 'Inscriptions',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _sectionTabs(),
           EmptyState(
             icon: Icons.error_outline_rounded,
             title: 'Erreur de chargement',
@@ -224,7 +179,6 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
           title: 'Inscriptions',
           subtitle: '$pendingCount demande(s) à traiter',
           child: Column(children: [
-            _sectionTabs(),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
@@ -591,70 +545,6 @@ class _PreRegCard extends StatelessWidget {
   }
 }
 
-/// Carte compacte pour une décision de fin d'année — remplace la ligne du
-/// tableau sous 640px.
-class _ReRegCard extends StatelessWidget {
-  final SbProgression progression;
-  final String fromLabel;
-  final String? toLabel;
-  final String decisionLabel;
-  final VoidCallback onConfirm;
-  final VoidCallback onCancel;
-  const _ReRegCard({
-    required this.progression,
-    required this.fromLabel,
-    required this.toLabel,
-    required this.decisionLabel,
-    required this.onConfirm,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final p = progression;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.cCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.cBorder),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Avatar(name: p.studentName, size: 34),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(p.studentName,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: context.cInk, fontSize: 13.5, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 3),
-            Text(
-              [
-                decisionLabel,
-                toLabel == null ? fromLabel : '$fromLabel → $toLabel',
-                if (p.average != null) 'Moy. ${p.average!.toStringAsFixed(2)}',
-              ].join(' · '),
-              style: TextStyle(fontSize: 11.5, color: context.cMuted),
-            ),
-          ]),
-        ),
-        IconButton(
-            tooltip: 'Confirmer',
-            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-            color: _green,
-            onPressed: onConfirm),
-        IconButton(
-            tooltip: 'Annuler',
-            icon: const Icon(Icons.close_rounded, size: 18),
-            color: _terra,
-            onPressed: onCancel),
-      ]),
-    );
-  }
-}
-
 class _Row extends StatelessWidget {
   final String label;
   final String value;
@@ -699,208 +589,3 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-/// La file de ré-inscription : les décisions de fin d'année (`proposed`) en
-/// attente. Chemin UNIVERSEL (Simple/Pro/Max) — aucune dépendance à un compte
-/// famille. Résumé de ce qui existe déjà, pas un formulaire : l'élève a son
-/// dossier, il n'y a que la décision à confirmer (ou annuler).
-class _ReRegistrationTab extends ConsumerWidget {
-  const _ReRegistrationTab();
-
-  Future<void> _confirm(BuildContext context, WidgetRef ref, SbProgression p,
-      List<SbClass> classes) async {
-    String? overrideClassId = p.toClassId;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Confirmer pour ${p.studentName}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(p.isExit
-                  ? 'Sortie de l\'école (${_decisionLabel(p.decision)})'
-                      '${p.reason?.isNotEmpty == true ? ' — ${p.reason}' : ''}.'
-                  : 'Passe en année ${p.toAcademicYear ?? '—'}.'),
-              if (!p.isExit) ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: overrideClassId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Classe de destination',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  items: [for (final c in classes)
-                    DropdownMenuItem(value: c.id, child: Text(c.name))],
-                  onChanged: (v) => setState(() => overrideClassId = v),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                  'Ce geste applique enfin le changement — rien n\'était '
-                  'encore fait jusqu\'ici.',
-                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Annuler')),
-            FilledButton(
-              onPressed: (!p.isExit && (overrideClassId == null || overrideClassId!.isEmpty))
-                  ? null
-                  : () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: _green),
-              child: const Text('Confirmer'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await SupabaseDbSource.confirmReRegistration(p.id,
-          newToClassId: p.isExit ? null : overrideClassId);
-      ref.invalidate(pendingReRegistrationsProvider);
-      ref.invalidate(usersProvider);
-      ref.invalidate(studentsProvider);
-      messenger.showSnackBar(SnackBar(
-        content: Text('Ré-inscription confirmée pour ${p.studentName}.'),
-        backgroundColor: _green,
-        behavior: SnackBarBehavior.floating,
-      ));
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
-
-  Future<void> _cancel(BuildContext context, WidgetRef ref, SbProgression p) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Annuler cette décision ?'),
-        content: Text(
-            'Rien n\'a été appliqué pour ${p.studentName} — la décision sera '
-            'juste marquée annulée. Vous pourrez en reprendre une nouvelle '
-            'depuis « Passage de classe ».'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Retour')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: _terra),
-            child: const Text('Annuler la décision'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await SupabaseDbSource.cancelReRegistration(p.id);
-      ref.invalidate(pendingReRegistrationsProvider);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
-
-  static String _decisionLabel(String d) => switch (d) {
-        'transferred' => 'Transféré',
-        'graduated' => 'Diplômé',
-        'withdrawn' => 'Radiation',
-        'repeated' => 'Redouble',
-        _ => 'Passe',
-      };
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pendingAsync = ref.watch(pendingReRegistrationsProvider);
-    final classes = ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
-    String classNameOf(String? id) =>
-        classes.where((c) => c.id == id).map((c) => c.name).firstOrNull ?? '—';
-
-    return pendingAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
-      data: (items) {
-        if (items.isEmpty) {
-          return const EmptyState(
-            icon: Icons.move_up_outlined,
-            title: 'Aucune ré-inscription en attente',
-            description:
-                'Les décisions prises dans « Passage de classe » apparaîtront ici.',
-          );
-        }
-        return DataPanel(
-          title: 'À confirmer',
-          child: LayoutBuilder(builder: (_, constraints) {
-            if (constraints.maxWidth < 640) {
-              return Column(children: [
-                for (final p in items)
-                  _ReRegCard(
-                    progression: p,
-                    fromLabel: classNameOf(p.fromClassId),
-                    toLabel: p.isExit ? null : classNameOf(p.toClassId),
-                    decisionLabel: _decisionLabel(p.decision),
-                    onConfirm: () => _confirm(context, ref, p, classes),
-                    onCancel: () => _cancel(context, ref, p),
-                  ),
-              ]);
-            }
-            return DataTablePanel(
-            columns: const ['Élève', 'Décision', 'De → Vers', 'Moyenne', ''],
-            flex: const [3, 2, 3, 1, 2],
-            rows: [
-              for (final p in items)
-                [
-                  Row(children: [
-                    Avatar(name: p.studentName, size: 24),
-                    const SizedBox(width: 8),
-                    Flexible(child: Text(p.studentName,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: context.cInk, fontSize: 12.5,
-                            fontWeight: FontWeight.w600))),
-                  ]),
-                  Text(_decisionLabel(p.decision),
-                      style: TextStyle(fontSize: 12, color: context.cMuted)),
-                  Text(
-                      p.isExit
-                          ? classNameOf(p.fromClassId)
-                          : '${classNameOf(p.fromClassId)} → ${classNameOf(p.toClassId)}',
-                      style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-                  Text(p.average == null ? '—' : p.average!.toStringAsFixed(2),
-                      style: TextStyle(fontSize: 12, color: context.cMuted)),
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(
-                        tooltip: 'Confirmer',
-                        icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-                        color: _green,
-                        onPressed: () => _confirm(context, ref, p, classes)),
-                    IconButton(
-                        tooltip: 'Annuler',
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        color: _terra,
-                        onPressed: () => _cancel(context, ref, p)),
-                  ]),
-                ],
-            ],
-            );
-          }),
-        );
-      },
-    );
-  }
-}
