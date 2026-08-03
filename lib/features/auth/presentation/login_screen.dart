@@ -38,8 +38,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure  = true;
   bool _remember = false;
   String? _error;
-  String _selectedRole    = 'student';
-  String? _selectedSubtype = 'lycee';
   int  _demoTapCount  = 0;
 
   // ── Sélecteur de design mobile (test A/B, à retirer une fois le choix fait) ──
@@ -101,76 +99,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  static const _roles = [
-    ('student',      Icons.school_outlined,               'Étudiant'),
-    ('parent',       Icons.family_restroom_outlined,      'Parent'),
-    ('teacher',      Icons.menu_book_outlined,            'Enseignant'),
-    ('surveillance', Icons.shield_outlined,               'Surveillance'),
-    ('finance',      Icons.payments_outlined,             'Finance'),
-    ('admin',        Icons.admin_panel_settings_outlined, 'Admin'),
-  ];
-
-  static const _subTypeMap =
-      <String, List<(String, String, IconData)>>{
-    'student': [
-      ('primaire',   'Primaire',     Icons.child_care_outlined),
-      ('college',    'Collège',      Icons.school_outlined),
-      ('lycee',      'Lycée',        Icons.account_balance_outlined),
-      ('univ',       'Université',   Icons.science_outlined),
-    ],
-    'teacher': [
-      ('primaire',   'Primaire',     Icons.child_care_outlined),
-      ('secondaire', 'Secondaire',   Icons.school_outlined),
-      ('univ',       'Université',   Icons.science_outlined),
-    ],
-    'parent': [
-      ('primaire',   'Enf. Primaire',Icons.child_care_outlined),
-      ('college',    'Enf. Collège', Icons.school_outlined),
-      ('lycee',      'Enf. Lycée',   Icons.account_balance_outlined),
-    ],
-    'admin': [
-      ('directeur',  'Directeur',    Icons.badge_outlined),
-      ('secretaire', 'Secrétariat',  Icons.person_outlined),
-      ('dg',         'Dir. Général', Icons.workspace_premium_outlined),
-    ],
-    'finance': [
-      ('comptable',  'Comptable',    Icons.calculate_outlined),
-      ('caissier',   'Caissier',     Icons.point_of_sale_outlined),
-    ],
-    'surveillance': [
-      ('sg',         'Surv. Gén.',   Icons.security_outlined),
-      ('aux',        'Auxiliaire',   Icons.shield_outlined),
-    ],
-  };
-
-
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
-  }
-
-  void _selectRole(String role) {
-    final subs = _subTypeMap[role];
-    final firstSub = subs?.isNotEmpty == true ? subs!.first.$1 : null;
-    setState(() {
-      _selectedRole    = role;
-      _selectedSubtype = firstSub;
-      _emailCtrl.text  = firstSub != null
-          ? '${role}_${firstSub}@scolaris.app'
-          : '$role@scolaris.app';
-      _passCtrl.text   = 'demo1234';
-      _error           = null;
-    });
-  }
-
-  void _selectSubtype(String sub) {
-    setState(() {
-      _selectedSubtype = sub;
-      _emailCtrl.text  = '${_selectedRole}_${sub}@scolaris.app';
-      _error           = null;
-    });
   }
 
   void _fillAndLogin(String email, String password) {
@@ -508,21 +441,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 if (_demoTapCount >= 3) ...[
                                   const SizedBox(height: 20),
-                                  _divider('Comptes démo — accès rapide'),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 7, runSpacing: 7,
-                                    children: [
-                                      for (final r in _roles)
-                                        _RoleChip(
-                                          label: r.$3, icon: r.$2,
-                                          selected: _selectedRole == r.$1,
-                                          onTap: () => _selectRole(r.$1),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _divider('Écoles — Connexion rapide'),
+                                  _divider('Comptes démo — connexion rapide'),
                                   const SizedBox(height: 12),
                                   _SchoolsQuickLogin(onTap: _fillAndLogin),
                                   const SizedBox(height: 8),
@@ -659,21 +578,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               if (_demoTapCount >= 3) ...[
                 const SizedBox(height: 22),
-                _divider('Comptes démo — accès rapide'),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 7, runSpacing: 7,
-                  children: [
-                    for (final r in _roles)
-                      _RoleChip(
-                        label: r.$3, icon: r.$2,
-                        selected: _selectedRole == r.$1,
-                        onTap: () => _selectRole(r.$1),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _divider('Écoles — Connexion rapide'),
+                _divider('Comptes démo — connexion rapide'),
                 const SizedBox(height: 12),
                 _SchoolsQuickLogin(onTap: _fillAndLogin),
                 const SizedBox(height: 8),
@@ -820,21 +725,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 if (_demoTapCount >= 3) ...[
                                   const SizedBox(height: 20),
-                                  _divider('Comptes démo — accès rapide'),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 7, runSpacing: 7,
-                                    children: [
-                                      for (final r in _roles)
-                                        _RoleChip(
-                                          label: r.$3, icon: r.$2,
-                                          selected: _selectedRole == r.$1,
-                                          onTap: () => _selectRole(r.$1),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _divider('Écoles — Connexion rapide'),
+                                  _divider('Comptes démo — connexion rapide'),
                                   const SizedBox(height: 12),
                                   _SchoolsQuickLogin(onTap: _fillAndLogin),
                                   const SizedBox(height: 8),
@@ -903,48 +794,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               if (_demoTapCount >= 3) ...[
                 const SizedBox(height: 20),
-                _divider('Comptes démo — accès rapide'),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 7, runSpacing: 7,
-                  children: [
-                    for (final r in _roles)
-                      _RoleChip(
-                        label: r.$3, icon: r.$2,
-                        selected: _selectedRole == r.$1,
-                        onTap: () => _selectRole(r.$1),
-                      ),
-                  ],
-                ),
-
-                // ── Sous-profil ─────────────────────────────────────────────
-                if (_subTypeMap.containsKey(_selectedRole)) ...[
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    const Icon(Icons.subdirectory_arrow_right_rounded,
-                        size: 13, color: Color(0xFFB08060)),
-                    const SizedBox(width: 4),
-                    const Text('Sous-profil',
-                        style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700,
-                            color: Color(0xFFB08060))),
-                  ]),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6, runSpacing: 6,
-                    children: [
-                      for (final s in _subTypeMap[_selectedRole]!)
-                        _SubTypeChip(
-                          label: s.$2, icon: s.$3,
-                          selected: _selectedSubtype == s.$1,
-                          onTap: () => _selectSubtype(s.$1),
-                        ),
-                    ],
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-                _divider('Écoles — Connexion rapide'),
+                _divider('Comptes démo — connexion rapide'),
                 const SizedBox(height: 12),
                 _SchoolsQuickLogin(onTap: _fillAndLogin),
                 const SizedBox(height: 8),
@@ -1526,113 +1376,8 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _RoleChip({required this.label, required this.icon,
-      required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            gradient: selected
-                ? const LinearGradient(
-                    colors: [_terra, _orange],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: selected ? null : _white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? _terra : _border.withOpacity(.8),
-              width: selected ? 0 : 1,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(color: _terra.withOpacity(.35),
-                        blurRadius: 14, offset: const Offset(0, 5)),
-                  ]
-                : [
-                    BoxShadow(color: _ink.withOpacity(.04),
-                        blurRadius: 4, offset: const Offset(0, 2)),
-                  ],
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 22, height: 22,
-              decoration: BoxDecoration(
-                color: selected
-                    ? _white.withOpacity(.2)
-                    : _terra.withOpacity(.08),
-                shape: BoxShape.circle,
-              ),
-              child: Center(child: Icon(icon, size: 12,
-                  color: selected ? _white : _terra)),
-            ),
-            const SizedBox(width: 7),
-            Text(label, style: TextStyle(
-                color: selected ? _white : _ink,
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubTypeChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _SubTypeChip({required this.label, required this.icon,
-      required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF3E1A00) : const Color(0xFFF0E8DF),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: selected ? const Color(0xFF3E1A00) : _border),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 12,
-                color: selected ? _gold : const Color(0xFFB08060)),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(
-                color: selected ? _gold : _ink,
-                fontSize: 11.5, fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Écoles — Quick Login Widgets (Primaire · Collège · Lycée · Université)
+  // Écoles — Quick Login Widgets (Primaire · Collège · Lycée)
   // ═══════════════════════════════════════════════════════════════════════════════
 
   class _SchoolUser {
@@ -1647,13 +1392,15 @@ class _SubTypeChip extends StatelessWidget {
   // Une seule école de test depuis le grand nettoyage du 2026-08-03 (cf.
   // memory/reset-test-data-2026-08-03) : « École Test Scolaris », primaire
   // (CP1→CM2) + collège (6ème→3ème) + lycée (2nde/1ère/Terminale série C).
-  // Seuls ces 4 comptes ont un VRAI login (auth.users) — les autres profs/
+  // Seuls ces comptes ont un VRAI login (auth.users) — les autres profs/
   // élèves recréés sont de pures fiches de données, sans mot de passe.
   const _schoolUsers = [
     _SchoolUser(label:'Boveldy Kengani',subtitle:'Admin · École Test Scolaris',email:'kenganiboveldy@gmail.com',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
     _SchoolUser(label:'Georges Mombeki',subtitle:'Enseignant · École Test Scolaris',email:'prof1@test.local',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Primaire'),
     _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2',email:'eleve51@test.local',icon:Icons.school_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
     _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice',email:'parent1@test.local',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
+    _SchoolUser(label:'Alice Samba',subtitle:'Élève · 4ème',email:'eleve74@test.local',icon:Icons.school_rounded,color:Color(0xFF6D28D9),school:'Collège'),
+    _SchoolUser(label:'Estelle Samba',subtitle:'Élève · Terminale C',email:'eleve106@test.local',icon:Icons.school_rounded,color:Color(0xFFB45309),school:'Lycée'),
   ];
 
   class _SchoolsQuickLogin extends StatefulWidget {
@@ -1668,7 +1415,7 @@ class _SubTypeChip extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-      const tabs = ['Tous', 'Primaire'];
+      const tabs = ['Tous', 'Primaire', 'Collège', 'Lycée'];
       final filtered = _filter == 'Tous' ? _schoolUsers : _schoolUsers.where((u) => u.school == _filter).toList();
 
       return Column(
