@@ -200,6 +200,13 @@ class _PlatformSchoolDetailViewState
       builder: (_) => _ChangePlanDialog(current: s.plan),
     );
     if (picked == null || picked == s.plan) return;
+    final ok = await _confirm(
+      title: 'Changer l\'offre ?',
+      message: '« ${s.name} » passera de ${s.plan.label} à ${picked.label} '
+          '(${groupThousands(picked.monthlyPrice)} FCFA/mois). Effet immédiat.',
+      confirmLabel: 'Changer pour ${picked.label}',
+    );
+    if (ok != true) return;
     try {
       if (_isMockSchool) {
         ref.read(selectedPlatformSchoolProvider.notifier).state =

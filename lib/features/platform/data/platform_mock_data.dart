@@ -6,25 +6,29 @@ import '../../../core/theme/app_theme.dart';
 enum PlatformPlan { simple, pro, max }
 
 extension PlatformPlanX on PlatformPlan {
+  // Alignées sur `plans.name` (cf. 20260801_offer_tiers.sql — offres par
+  // modules, pas par taille). Ce sont des VALEURS PAR DÉFAUT : si les prix
+  // changent dans Réglages (`plan_prices`), penser à les remettre à jour ici
+  // aussi — `platform_subscriptions_page.dart` (MRR, revenu par offre)
+  // utilise CES constantes, pas la vraie table `plan_prices`.
   String get label => switch (this) {
-        PlatformPlan.simple => 'Simple',
-        PlatformPlan.pro => 'Pro',
-        PlatformPlan.max => 'Max',
+        PlatformPlan.simple => 'Essentiel',
+        PlatformPlan.pro => 'Croissance',
+        PlatformPlan.max => 'Complet',
       };
 
-  /// Prix mensuel indicatif (FCFA, Congo).
+  /// Prix mensuel par défaut (FCFA, Congo) — cf. `plan_prices`, vérifié en
+  /// direct le 03/08/2026.
   int get monthlyPrice => switch (this) {
-        PlatformPlan.simple => 14900,
-        PlatformPlan.pro => 29900,
-        PlatformPlan.max => 59900,
+        PlatformPlan.simple => 8900,
+        PlatformPlan.pro => 17900,
+        PlatformPlan.max => 29900,
       };
 
-  /// Limite d'élèves (null = illimité).
-  int? get studentLimit => switch (this) {
-        PlatformPlan.simple => 200,
-        PlatformPlan.pro => 1000,
-        PlatformPlan.max => null,
-      };
+  /// `plans.max_students` est `null` pour les 3 offres depuis le passage aux
+  /// offres par modules (franchise `included_students` + supplément de
+  /// taille, pas de plafond dur) — toujours illimité ici aussi.
+  int? get studentLimit => null;
 
   Color get color => switch (this) {
         PlatformPlan.simple => ScolarisPalette.forestGreen,
