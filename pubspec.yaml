@@ -86,6 +86,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.3
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -93,3 +94,26 @@ flutter:
     - assets/translations/
     - assets/images/
     - assets/lottie/
+
+# Icône d'app générée depuis le logo Scolaris (assets/images/logo.png) pour
+# Android/iOS/Windows/macOS/Web — remplace l'icône Flutter par défaut.
+# Régénérer après tout changement de logo : `dart run flutter_launcher_icons`.
+flutter_launcher_icons:
+  image_path: "assets/images/logo.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#8B1A00"
+  adaptive_icon_foreground: "assets/images/logo_transparent.png"
+  windows:
+    generate: true
+    image_path: "assets/images/logo.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/images/logo.png"
+  web:
+    generate: true
+    image_path: "assets/images/logo.png"
+    background_color: "#8B1A00"
+    theme_color: "#8B1A00"
