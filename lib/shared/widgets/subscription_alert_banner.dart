@@ -25,30 +25,47 @@ class SubscriptionAlertBanner extends ConsumerWidget {
     final sub = ref.watch(subscriptionProvider).valueOrNull;
     if (sub == null) return const SizedBox.shrink();
 
-    final days = sub.daysLeft ?? 0;
-    final (show, color, icon, message) = switch (sub.status) {
-      'expired' || 'canceled' => (
-          true,
-          const Color(0xFFDC2626),
-          Icons.lock_clock_rounded,
-          'Votre abonnement a expiré. Réactivez une offre pour retrouver l\'accès complet.',
-        ),
-      'past_due' => (
-          true,
-          const Color(0xFFEA580C),
-          Icons.error_outline_rounded,
-          'Paiement en retard. Régularisez pour éviter l\'interruption du service.',
-        ),
-      'trial' when days <= 5 => (
-          true,
-          const Color(0xFFC17F24),
-          Icons.timelapse_rounded,
-          days <= 0
-              ? 'Votre essai gratuit se termine aujourd\'hui. Choisissez une offre pour continuer.'
-              : 'Votre essai gratuit se termine dans $days jour${days > 1 ? 's' : ''}. Choisissez une offre.',
-        ),
-      _ => (false, const Color(0xFF8B1A00), Icons.info_outline, ''),
-    };
+    final days = sub.daysLeft;
+    // `sub.isReadOnly` reflète le VRAI verdict de la base (RLS), pas juste
+    // `status` — qui reste souvent bloqué sur 'trial' indéfiniment tant que
+    // rien ne le bascule. Sans ça, la bannière continuerait de dire « se
+    // termine aujourd'hui » indéfiniment après le vrai dépassement.
+    late final bool show;
+    late final Color color;
+    late final IconData icon;
+    late final String message;
+
+    if (sub.isReadOnly) {
+      show = true;
+      icon = Icons.lock_clock_rounded;
+      if (sub.status == 'trial') {
+        color = const Color(0xFFDC2626);
+        message = 'Votre essai gratuit est terminé. Vos données restent '
+            'visibles, mais en lecture seule — choisissez une offre pour '
+            'continuer à les modifier.';
+      } else if (sub.status == 'past_due') {
+        color = const Color(0xFFEA580C);
+        message = 'Paiement en retard. Vos données restent visibles, mais '
+            'en lecture seule jusqu\'à régularisation.';
+      } else {
+        color = const Color(0xFFDC2626);
+        message = 'Votre abonnement a expiré. Vos données restent visibles, '
+            'mais en lecture seule — réactivez une offre pour continuer à '
+            'les modifier.';
+      }
+    } else if (sub.status == 'trial' && days <= 5) {
+      show = true;
+      color = const Color(0xFFC17F24);
+      icon = Icons.timelapse_rounded;
+      message = days <= 0
+          ? 'Votre essai gratuit se termine aujourd\'hui. Choisissez une offre pour continuer.'
+          : 'Votre essai gratuit se termine dans $days jour${days > 1 ? 's' : ''}. Choisissez une offre.';
+    } else {
+      show = false;
+      color = const Color(0xFF8B1A00);
+      icon = Icons.info_outline;
+      message = '';
+    }
     if (!show) return const SizedBox.shrink();
 
     return Material(

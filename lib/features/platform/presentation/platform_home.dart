@@ -5,6 +5,7 @@ import '../../../shared/widgets/responsive_role_shell.dart';
 import 'pages/platform_announcements_page.dart';
 import 'pages/platform_dashboard.dart';
 // import 'pages/platform_library_moderation_page.dart'; // Bibliothèque désactivée temporairement.
+import 'pages/platform_payments_page.dart';
 import 'pages/platform_schools_page.dart';
 import 'pages/platform_settings_page.dart';
 import 'pages/platform_subscriptions_page.dart';
@@ -31,6 +32,11 @@ class PlatformHome extends StatelessWidget {
         icon: Icons.workspace_premium_rounded,
         labelKey: 'Abonnements',
         page: PlatformSubscriptionsPage(),
+      ),
+      RoleNavEntry(
+        icon: Icons.pending_actions_rounded,
+        labelKey: 'Paiements',
+        page: PlatformPaymentsPage(),
       ),
       RoleNavEntry(
         icon: Icons.campaign_rounded,

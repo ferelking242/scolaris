@@ -25,10 +25,18 @@ extension PlatformPlanX on PlatformPlan {
         PlatformPlan.max => 29900,
       };
 
-  /// `plans.max_students` est `null` pour les 3 offres depuis le passage aux
-  /// offres par modules (franchise `included_students` + supplément de
-  /// taille, pas de plafond dur) — toujours illimité ici aussi.
-  int? get studentLimit => null;
+  /// `plans.max_students` (plafond dur) est `null` pour les 3 offres depuis
+  /// le passage aux offres par modules — mais il y a bien une franchise
+  /// (`plans.included_students`) au-delà de laquelle un supplément de taille
+  /// s'applique. Affiché comme la vraie limite d'usage : pas un plafond qui
+  /// bloque, mais pas « illimité » non plus (sinon toutes les écoles
+  /// affichent la même chose, plus aucun signal utile). Vérifié en direct
+  /// le 03/08/2026.
+  int? get studentLimit => switch (this) {
+        PlatformPlan.simple => 200,
+        PlatformPlan.pro => 500,
+        PlatformPlan.max => 1500,
+      };
 
   Color get color => switch (this) {
         PlatformPlan.simple => ScolarisPalette.forestGreen,

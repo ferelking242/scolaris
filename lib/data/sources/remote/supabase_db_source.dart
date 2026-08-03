@@ -1914,10 +1914,31 @@ class SbCourseTeacher {
 
     DateTime? get endDate => currentPeriodEnd ?? trialEnd;
 
+    /// Jours restants avant la fin de la période/essai en cours. Plafonné à 0
+    /// (jamais négatif) — pour savoir si le délai est VRAIMENT dépassé, cf.
+    /// [isReadOnly], pas ce champ (un essai fini depuis 3 jours affiche
+    /// toujours 0 ici, pas -3).
     int get daysLeft {
       final end = endDate;
       if (end == null) return 0;
       return end.difference(DateTime.now()).inDays.clamp(0, 999);
+    }
+
+    /// Miroir EXACT de `public.subscription_is_active()` (cf.
+    /// 20260733_enforce_subscription.sql) — c'est la RLS, pas `status`, qui
+    /// décide si l'école peut encore écrire. `status` reste souvent `'trial'`
+    /// indéfiniment (rien ne le bascule automatiquement à `'expired'`) : sans
+    /// ce getter, l'app continuerait d'afficher un accès normal alors que la
+    /// base refuse déjà toute écriture derrière.
+    bool get isReadOnly {
+      if (status != 'trial' && status != 'active') return true;
+      final periodEnd = currentPeriodEnd;
+      if (periodEnd != null && !periodEnd.isAfter(DateTime.now())) return true;
+      if (status == 'trial') {
+        final te = trialEnd;
+        if (te != null && !te.isAfter(DateTime.now())) return true;
+      }
+      return false;
     }
 
     factory SbSubscription.fromJson(Map<String, dynamic> j) => SbSubscription(
@@ -2003,6 +2024,43 @@ class SbCourseTeacher {
 
 // ── Data source ───────────────────────────────────────────────────────────────
 
+/// Traduit une écriture Postgrest en message français lisible AVANT qu'elle
+/// ne remonte à l'écran — la quasi-totalité des écrans font juste
+/// `catch (e) { snackbar('Échec : $e') }` : rendre `e` lisible ICI rend tous
+/// ces écrans corrects d'un coup, sans les toucher un par un.
+///
+/// `.friendly()` s'ajoute en bout de chaîne sur tout `.insert()/.update()
+/// /.upsert()/.delete()` — cf. les méthodes de [SupabaseDbSource].
+extension PostgrestFriendlyError<T> on PostgrestBuilder<T, T, dynamic> {
+  Future<T> friendly() async {
+    try {
+      return await this;
+    } on PostgrestException catch (e) {
+      throw Exception(_friendlyPostgrestMessage(e));
+    }
+  }
+}
+
+/// cf. 20260733_enforce_subscription.sql (lecture seule si abonnement pas en
+/// règle) et les contraintes Postgres les plus fréquentes du schéma.
+String _friendlyPostgrestMessage(PostgrestException e) {
+  switch (e.code) {
+    case '42501':
+      return 'Abonnement en lecture seule — vos données restent visibles, '
+          'mais choisissez une offre pour pouvoir enregistrer.';
+    case '23505':
+      return 'Cette valeur existe déjà (doublon) — vérifiez avant de réessayer.';
+    case '23503':
+      return 'Impossible : un élément lié est introuvable ou a été supprimé.';
+    case '23514':
+      return 'Valeur invalide pour ce champ.';
+    case '42P01':
+      return 'Fonctionnalité indisponible pour le moment (contactez le support).';
+    default:
+      return e.message.isNotEmpty ? e.message : 'Échec de l\'opération.';
+  }
+}
+
 class SupabaseDbSource {
   static SupabaseClient get _db => Supabase.instance.client;
 
@@ -2062,7 +2120,7 @@ class SupabaseDbSource {
       'exit_date': DateTime.now().toIso8601String().substring(0, 10),
       'class_id': null,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('user_id', studentId);
+    }).eq('user_id', studentId).friendly();
 
     await _db.from('student_progressions').insert({
       'school_id': schoolId,
@@ -2075,7 +2133,7 @@ class SupabaseDbSource {
       'reason': reason,
       'decided_by': actorId,
       'decided_by_name': actorId == null ? null : await _actorName(actorId),
-    });
+    }).friendly();
   }
 
   /// Met à jour les champs médicaux structurés (groupe sanguin, allergies,
@@ -2103,7 +2161,7 @@ class SupabaseDbSource {
     await _db
         .from('student_profiles')
         .update({'metadata': metadata})
-        .eq('user_id', studentId);
+        .eq('user_id', studentId).friendly();
   }
 
   /// Coche/décoche un document du suivi de conformité post-inscription (acte
@@ -2132,7 +2190,7 @@ class SupabaseDbSource {
     await _db
         .from('student_profiles')
         .update({'metadata': metadata})
-        .eq('user_id', studentId);
+        .eq('user_id', studentId).friendly();
   }
 
   /// Annule une sortie décidée par erreur : redevient actif dans la classe
@@ -2148,7 +2206,7 @@ class SupabaseDbSource {
       'exit_date': null,
       if (classId != null) 'class_id': classId,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('user_id', studentId);
+    }).eq('user_id', studentId).friendly();
   }
 
   static Future<String?> _actorName(String userId) async {
@@ -2230,7 +2288,7 @@ class SupabaseDbSource {
         'decided_by': actorId,
         'decided_by_name': actorName,
         'status': 'confirmed',
-      });
+      }).friendly();
 
       if (isExit) {
         await _db.from('student_profiles').update({
@@ -2239,13 +2297,13 @@ class SupabaseDbSource {
           'exit_date': now.toIso8601String().substring(0, 10),
           'class_id': null,
           'updated_at': now.toIso8601String(),
-        }).eq('user_id', d.studentId);
+        }).eq('user_id', d.studentId).friendly();
       } else {
         await _db.from('student_profiles').update({
           'class_id': effectiveToClassId,
           'academic_year': toAcademicYear,
           'updated_at': now.toIso8601String(),
-        }).eq('user_id', d.studentId);
+        }).eq('user_id', d.studentId).friendly();
       }
     }
   }
@@ -2365,7 +2423,7 @@ class SupabaseDbSource {
     await _db
         .from('student_profiles')
         .update({'class_id': classId})
-        .eq('user_id', userId);
+        .eq('user_id', userId).friendly();
   }
 
   /// Retire un élève de sa classe (laisse la fiche, vide juste l'affectation).
@@ -2373,7 +2431,7 @@ class SupabaseDbSource {
     await _db
         .from('student_profiles')
         .update({'class_id': null})
-        .eq('user_id', userId);
+        .eq('user_id', userId).friendly();
   }
 
   // ── Classes ───────────────────────────────────────────────────────────────
@@ -2448,7 +2506,7 @@ class SupabaseDbSource {
       'coefficient': coefficient,
       if (color != null && color.isNotEmpty) 'color': color,
       'is_active': true,
-    });
+    }).friendly();
   }
 
   static Future<void> updateSubject({
@@ -2462,11 +2520,11 @@ class SupabaseDbSource {
     if (code != null) patch['code'] = code.trim();
     if (coefficient != null) patch['coefficient'] = coefficient;
     if (patch.isEmpty) return;
-    await _db.from('subjects').update(patch).eq('id', id);
+    await _db.from('subjects').update(patch).eq('id', id).friendly();
   }
 
   static Future<void> deleteSubject(String id) async {
-    await _db.from('subjects').delete().eq('id', id);
+    await _db.from('subjects').delete().eq('id', id).friendly();
   }
 
   /// Génère le programme par défaut d'une classe à partir du catalogue de
@@ -2565,7 +2623,7 @@ class SupabaseDbSource {
           'is_active': true,
         }
     ];
-    await _db.from('subjects').insert(rows);
+    await _db.from('subjects').insert(rows).friendly();
     return rows.length;
   }
 
@@ -2680,7 +2738,7 @@ class SupabaseDbSource {
     await _db.from('absences').update({
       'justified': justified,
       'reason': reason,
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   /// Regroupe des absences/retards par (élève, jour) et garde le pire statut
@@ -2738,7 +2796,7 @@ class SupabaseDbSource {
     del = subjectId == null
         ? del.isFilter('subject_id', null)
         : del.eq('subject_id', subjectId);
-    await del;
+    await del.friendly();
 
     final rows = records.map((r) => {
       'school_id': schoolId,
@@ -2750,7 +2808,7 @@ class SupabaseDbSource {
       'status': r.status,
       'arrival_time': r.arrivalTime,
     }).toList();
-    await _db.from('absences').insert(rows);
+    await _db.from('absences').insert(rows).friendly();
   }
 
   // ── Invoices ──────────────────────────────────────────────────────────────
@@ -2790,7 +2848,7 @@ class SupabaseDbSource {
       'issued_date': now.toIso8601String().split('T').first,
       if (dueDate != null && dueDate.isNotEmpty) 'due_date': dueDate,
       'status': 'pending',
-    });
+    }).friendly();
   }
 
   /// Enregistre un encaissement (espèces par défaut). Le statut de la facture est
@@ -2812,7 +2870,7 @@ class SupabaseDbSource {
       'payment_date': DateTime.now().toIso8601String().split('T').first,
       'payment_method': method,
       if (reference != null && reference.isNotEmpty) 'reference': reference,
-    });
+    }).friendly();
 
     // Recalcule le cumul encaissé vs le montant dû.
     final inv = await _db
@@ -2830,7 +2888,7 @@ class SupabaseDbSource {
       // Tolérance d'un centime pour les arrondis.
       'status': paid >= due - 0.01 ? 'paid' : 'pending',
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', invoiceId);
+    }).eq('id', invoiceId).friendly();
   }
 
   /// Un parent/élève déclare avoir envoyé l'argent (référence Mobile Money
@@ -2857,8 +2915,8 @@ class SupabaseDbSource {
 
   /// Supprime une facture (et ses encaissements éventuels).
   static Future<void> deleteInvoice(String invoiceId) async {
-    await _db.from('payments').delete().eq('invoice_id', invoiceId);
-    await _db.from('invoices').delete().eq('id', invoiceId);
+    await _db.from('payments').delete().eq('invoice_id', invoiceId).friendly();
+    await _db.from('invoices').delete().eq('id', invoiceId).friendly();
   }
 
   static Future<List<SbInvoice>> getInvoicesForStudent(String studentId) async {
@@ -2902,7 +2960,7 @@ class SupabaseDbSource {
         .select('invoice_id')
         .eq('id', paymentId)
         .single();
-    await _db.from('payments').update({'status': 'confirmed'}).eq('id', paymentId);
+    await _db.from('payments').update({'status': 'confirmed'}).eq('id', paymentId).friendly();
 
     final invoiceId = row['invoice_id'] as String?;
     if (invoiceId == null) return;
@@ -2916,13 +2974,13 @@ class SupabaseDbSource {
     await _db.from('invoices').update({
       'status': paid >= due - 0.01 ? 'paid' : 'pending',
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', invoiceId);
+    }).eq('id', invoiceId).friendly();
   }
 
   /// Référence introuvable/invalide sur le relevé marchand : le versement ne
   /// comptera jamais, mais reste tracé (pas de suppression silencieuse).
   static Future<void> rejectPayment(String paymentId) async {
-    await _db.from('payments').update({'status': 'rejected'}).eq('id', paymentId);
+    await _db.from('payments').update({'status': 'rejected'}).eq('id', paymentId).friendly();
   }
 
   // ── Frais de scolarité (grille + génération de l'échéancier) ────────────────
@@ -2964,7 +3022,7 @@ class SupabaseDbSource {
       'due_day': dueDay,
       'currency': currency,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'class_id,academic_year');
+    }, onConflict: 'class_id,academic_year').friendly();
   }
 
   /// Périodes (libellé + échéance) déduites d'une grille.
@@ -3103,7 +3161,7 @@ class SupabaseDbSource {
       // Pas d'échéance unique : le retard se lit sur le compte (owedNow), pas
       // sur un due_date de fin d'année.
       'status': 'pending',
-    });
+    }).friendly();
     return id;
   }
 
@@ -3196,7 +3254,7 @@ class SupabaseDbSource {
         }
       }
       if (rows.isNotEmpty) {
-        await _db.from('invoices').insert(rows);
+        await _db.from('invoices').insert(rows).friendly();
         inserted += rows.length;
       }
     }
@@ -3353,7 +3411,7 @@ class SupabaseDbSource {
 
     await _db
         .from('report_cards')
-        .upsert(rows, onConflict: 'student_id,academic_year,period');
+        .upsert(rows, onConflict: 'student_id,academic_year,period').friendly();
     return rows.length;
   }
 
@@ -3374,7 +3432,7 @@ class SupabaseDbSource {
         .eq('academic_year', academicYear)
         .eq('period', period)
         .eq('status', 'draft')
-        .select('id');
+        .select('id').friendly();
     return (updated as List).length;
   }
 
@@ -3509,7 +3567,7 @@ class SupabaseDbSource {
     await _db
         .from('schools')
         .update({'enrollment_config': config})
-        .eq('id', schoolId);
+        .eq('id', schoolId).friendly();
   }
 
   /// Enregistre les numéros marchands Mobile Money de l'école — lecture-fusion
@@ -3532,7 +3590,7 @@ class SupabaseDbSource {
         'airtel': airtel?.trim().isEmpty == true ? null : airtel?.trim(),
       },
     };
-    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId);
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId).friendly();
   }
 
   static Future<SbSchool?> getFirstSchool() async {
@@ -3591,7 +3649,7 @@ class SupabaseDbSource {
       'credit_balance': creditBalance,
       'current_period_end': end.toIso8601String(),
       'updated_at': now.toIso8601String(),
-    }).eq('school_id', schoolId);
+    }).eq('school_id', schoolId).friendly();
   }
 
   /// Enregistre un versement d'abonnement (école → Scolaris) et renvoie la ligne
@@ -3632,7 +3690,7 @@ class SupabaseDbSource {
           'paid_at': now.toIso8601String(),
         })
         .select()
-        .single();
+        .single().friendly();
     return SbSubscriptionPayment.fromJson(data);
   }
 
@@ -3662,7 +3720,7 @@ class SupabaseDbSource {
       'provider': provider,
       'reference': reference,
       'status': 'pending',
-    });
+    }).friendly();
   }
 
   /// Historique des versements d'abonnement de l'école (récent → ancien).
@@ -3729,7 +3787,7 @@ class SupabaseDbSource {
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
       'role': 'student',
       'status': 'active',
-    });
+    }).friendly();
     await _db.from('student_profiles').insert({
       'user_id': id,
       'school_id': schoolId,
@@ -3739,7 +3797,7 @@ class SupabaseDbSource {
       if (gender != null && gender.isNotEmpty) 'gender': gender,
       if (nationality != null && nationality.isNotEmpty) 'nationality': nationality,
       'academic_year': academicYear,
-    });
+    }).friendly();
     // Sans cette ligne, is_member_of() (donc toute la RLS) ne voit jamais cet
     // élève dès qu'il obtient un login — cf. 20260750_fix_new_account_school_members.sql.
     await _db.from('school_members').insert({
@@ -3747,7 +3805,7 @@ class SupabaseDbSource {
       'school_id': schoolId,
       'role': 'student',
       'status': 'active',
-    });
+    }).friendly();
     return id;
   }
 
@@ -3805,13 +3863,13 @@ class SupabaseDbSource {
         if (cleanPhone != null && cleanPhone.isNotEmpty) 'phone': cleanPhone,
         'role': 'parent',
         'status': 'active',
-      });
+      }).friendly();
       await _db.from('school_members').insert({
         'user_id': id,
         'school_id': schoolId,
         'role': 'parent',
         'status': 'active',
-      });
+      }).friendly();
       parentId = id;
     }
 
@@ -3831,7 +3889,7 @@ class SupabaseDbSource {
         'student_id': studentId,
         'relationship': relationship,
         'is_primary': true,
-      });
+      }).friendly();
     }
     return parentId;
   }
@@ -3863,7 +3921,7 @@ class SupabaseDbSource {
         .from('enrollment_requests')
         .insert({'school_id': schoolId, 'api_key': apiKey, 'payload': payload})
         .select('reference')
-        .single();
+        .single().friendly();
     return row['reference'] as String;
   }
 
@@ -3878,7 +3936,7 @@ class SupabaseDbSource {
     await _db
         .from('schools')
         .update({'enrollment_api_key': key})
-        .eq('id', schoolId);
+        .eq('id', schoolId).friendly();
     return key;
   }
 
@@ -3912,7 +3970,7 @@ class SupabaseDbSource {
       'status': 'rejected',
       if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       'reviewed_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   /// Accepte une demande : crée la fiche élève (+ tuteur si renseigné) à
@@ -3954,7 +4012,7 @@ class SupabaseDbSource {
       'status': 'accepted',
       'student_id': studentId,
       'reviewed_at': DateTime.now().toIso8601String(),
-    }).eq('id', request.id);
+    }).eq('id', request.id).friendly();
   }
 
   /// Le formulaire pose les dates en `JJ/MM/AAAA` ; `createStudent` attend de
@@ -4039,7 +4097,7 @@ class SupabaseDbSource {
       if (staffRoleId != null) 'staff_role_id': staffRoleId,
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('auth_uid', authUid);
+    }).eq('auth_uid', authUid).friendly();
 
     final row = await _db
         .from('users')
@@ -4059,7 +4117,7 @@ class SupabaseDbSource {
     await _db.from('users').update({
       'phone': v.isEmpty ? null : v,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   static Future<SbStaffProfile?> getStaffProfile(String userId) async {
@@ -4092,7 +4150,7 @@ class SupabaseDbSource {
       'join_date': d(joinDate),
       'contract_type': contractType,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id');
+    }, onConflict: 'user_id').friendly();
   }
 
   /// Met à jour le rôle, les permissions et le titre d'un membre existant.
@@ -4113,7 +4171,7 @@ class SupabaseDbSource {
       if (clearStaffRole) 'staff_role_id': null
       else if (staffRoleId != null) 'staff_role_id': staffRoleId,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   /// Donne un login à une fiche existante (élève/parent) sans la dupliquer.
@@ -4155,7 +4213,7 @@ class SupabaseDbSource {
     if (fullName != null) patch['full_name'] = fullName.trim();
     if (email != null && email.trim().isNotEmpty) patch['email'] = email.trim();
     if (phone != null) patch['phone'] = phone.trim();
-    await _db.from('users').update(patch).eq('id', id);
+    await _db.from('users').update(patch).eq('id', id).friendly();
   }
 
   /// Active / désactive un compte (status active ↔ suspended).
@@ -4163,7 +4221,7 @@ class SupabaseDbSource {
     await _db.from('users').update({
       'status': active ? 'active' : 'suspended',
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   // ── Niveaux de référence + Mutations Classes (Phase C) ──────────────────────
@@ -4209,7 +4267,7 @@ class SupabaseDbSource {
       'max_students': maxStudents,
       'academic_year': academicYear,
       'is_active': true,
-    });
+    }).friendly();
     return id;
   }
 
@@ -4264,7 +4322,7 @@ class SupabaseDbSource {
       });
     }
     if (rows.isEmpty) return 0;
-    await _db.from('classes').insert(rows);
+    await _db.from('classes').insert(rows).friendly();
     return rows.length;
   }
 
@@ -4280,7 +4338,7 @@ class SupabaseDbSource {
     if (section != null) patch['section'] = section.trim();
     if (room != null) patch['room'] = room.trim();
     if (maxStudents != null) patch['max_students'] = maxStudents;
-    await _db.from('classes').update(patch).eq('id', id);
+    await _db.from('classes').update(patch).eq('id', id).friendly();
   }
 
   /// Définit (ou retire, si null) le professeur **titulaire** d'une classe.
@@ -4293,7 +4351,7 @@ class SupabaseDbSource {
           ? teacherId
           : null,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', classId);
+    }).eq('id', classId).friendly();
   }
 
   // ── Emploi du temps (schedules) ─────────────────────────────────────────────
@@ -4368,11 +4426,11 @@ class SupabaseDbSource {
       if (room != null && room.isNotEmpty) 'room': room,
       'academic_year': academicYear,
       'is_active': true,
-    });
+    }).friendly();
   }
 
   static Future<void> deleteSchedule(String id) async {
-    await _db.from('schedules').delete().eq('id', id);
+    await _db.from('schedules').delete().eq('id', id).friendly();
   }
 
   static Future<void> updateSchedule({
@@ -4390,11 +4448,11 @@ class SupabaseDbSource {
       'end_time': endTime,
       'room': (room == null || room.isEmpty) ? null : room,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   static Future<void> deleteClass(String id) async {
-    await _db.from('classes').delete().eq('id', id);
+    await _db.from('classes').delete().eq('id', id).friendly();
   }
 
   /// Supprime un compte, via l'Edge Function `delete-account` : supprime la
@@ -4462,7 +4520,7 @@ class SupabaseDbSource {
         'updated_at': now,
       },
       onConflict: 'student_id,subject_id,period,type,sequence',
-    );
+    ).friendly();
   }
 
   /// Met à jour les types d'établissement et le système éducatif.
@@ -4489,7 +4547,7 @@ class SupabaseDbSource {
     await _db.from('schools').update({
       'metadata': meta,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   /// Le modèle de bulletin choisi par l'école (`standard` ou `detailed`) —
@@ -4513,7 +4571,7 @@ class SupabaseDbSource {
     await _db.from('schools').update({
       'metadata': meta,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   /// Les trois réglages « format » de l'école : devise, barème, découpage de
@@ -4550,7 +4608,7 @@ class SupabaseDbSource {
           'period_system_by_cycle': periodSystemByCycle,
       };
     }
-    await _db.from('schools').update(update).eq('id', id);
+    await _db.from('schools').update(update).eq('id', id).friendly();
   }
 
   /// Modules choisis (Académique/Présences/Finances/Inscriptions) — modifiable
@@ -4562,7 +4620,7 @@ class SupabaseDbSource {
       ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),
       'modules': modules,
     };
-    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId);
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId).friendly();
   }
 
   /// Slug + statut d'ouverture de la pré-inscription — pour le panneau admin
@@ -4581,7 +4639,7 @@ class SupabaseDbSource {
       String schoolId, bool open) async {
     await _db
         .from('schools')
-        .update({'preregistration_open': open}).eq('id', schoolId);
+        .update({'preregistration_open': open}).eq('id', schoolId).friendly();
   }
 
   static Future<void> updateSchool({
@@ -4603,7 +4661,7 @@ class SupabaseDbSource {
       if (accentColor != null) 'accent_color': accentColor,
       if (logoUrl != null) 'logo_url': logoUrl.trim().isEmpty ? null : logoUrl.trim(),
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).friendly();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -4788,7 +4846,7 @@ class SupabaseDbSource {
       if (chapterCount != null) 'chapter_count': chapterCount,
       if (daysOfWeek.isNotEmpty) 'days_of_week': daysOfWeek,
       if (room != null && room.trim().isNotEmpty) 'room': room.trim(),
-    });
+    }).friendly();
     await setCourseTeachers(
         courseId: id, schoolId: schoolId, teacherIds: teacherIds);
     return id;
@@ -4826,7 +4884,7 @@ class SupabaseDbSource {
     if (daysOfWeek != null) patch['days_of_week'] = daysOfWeek;
     if (room != null) patch['room'] = room.trim().isEmpty ? null : room.trim();
     if (patch.isNotEmpty) {
-      await _db.from('courses').update(patch).eq('id', id);
+      await _db.from('courses').update(patch).eq('id', id).friendly();
     }
   }
 
@@ -4854,7 +4912,7 @@ class SupabaseDbSource {
     required String schoolId,
     required List<String> teacherIds,
   }) async {
-    await _db.from('course_teachers').delete().eq('course_id', courseId);
+    await _db.from('course_teachers').delete().eq('course_id', courseId).friendly();
     if (teacherIds.isEmpty) return;
     await _db.from('course_teachers').insert([
       for (var i = 0; i < teacherIds.length; i++)
@@ -4865,11 +4923,11 @@ class SupabaseDbSource {
           'teacher_id': teacherIds[i],
           'role': i == 0 ? 'principal' : 'co',
         }
-    ]);
+    ]).friendly();
   }
 
   static Future<void> deleteCourse(String id) async {
-    await _db.from('courses').delete().eq('id', id);
+    await _db.from('courses').delete().eq('id', id).friendly();
   }
 
   static Future<List<SbCourse>> getMyCoursesForStudent(String classId) async {
@@ -4939,11 +4997,11 @@ class SupabaseDbSource {
       'title': title,
       'body': body,
       'requires_ack': requiresAck,
-    });
+    }).friendly();
   }
 
   static Future<void> deleteLiaisonEntry(String id) async {
-    await _db.from('liaison_entries').delete().eq('id', id);
+    await _db.from('liaison_entries').delete().eq('id', id).friendly();
   }
 
   /// Les accusés de réception du parent connecté (pour savoir ce qu'il a signé).
@@ -4965,7 +5023,7 @@ class SupabaseDbSource {
     await _db.from('liaison_acks').insert({
       'entry_id': entryId,
       'parent_id': parentId,
-    });
+    }).friendly();
   }
 
   // ── Récompenses ───────────────────────────────────────────────────────────
@@ -4997,11 +5055,11 @@ class SupabaseDbSource {
       'reason': reason,
       'subject': subject,
       'stars': stars,
-    });
+    }).friendly();
   }
 
   static Future<void> deleteMeritPoint(String id) async {
-    await _db.from('merit_points').delete().eq('id', id);
+    await _db.from('merit_points').delete().eq('id', id).friendly();
   }
 
   /// Le catalogue de badges de l'école (vue admin — sans les obtentions).
@@ -5038,11 +5096,11 @@ class SupabaseDbSource {
       'description': description,
       'emoji': emoji,
       'order_num': orderNum,
-    });
+    }).friendly();
   }
 
   static Future<void> deleteBadge(String id) async {
-    await _db.from('badge_catalog').delete().eq('id', id);
+    await _db.from('badge_catalog').delete().eq('id', id).friendly();
   }
 
   /// Décerne un badge à un élève. La contrainte `unique(student_id, badge_id)`
@@ -5058,7 +5116,7 @@ class SupabaseDbSource {
       'student_id': studentId,
       'badge_id': badgeId,
       'awarded_by': awardedBy,
-    });
+    }).friendly();
   }
 
   /// Le catalogue de badges de l'école, et — pour l'élève visé — ceux qu'il a
@@ -5152,7 +5210,7 @@ class SupabaseDbSource {
       'resume': resume,
       'submitted_by_school_id': schoolId,
       'submitted_by_user_id': userId,
-    });
+    }).friendly();
   }
 
   static Future<void> submitExamSubject({
@@ -5178,7 +5236,7 @@ class SupabaseDbSource {
       'correction_url': correctionUrl,
       'submitted_by_school_id': schoolId,
       'submitted_by_user_id': userId,
-    });
+    }).friendly();
   }
 
   static Future<void> submitCourseMaterial({
@@ -5204,7 +5262,7 @@ class SupabaseDbSource {
       'size_kb': sizeKb,
       'submitted_by_school_id': schoolId,
       'submitted_by_user_id': userId,
-    });
+    }).friendly();
   }
 
   static const _librarySubmissionSelect =
@@ -5289,7 +5347,7 @@ class SupabaseDbSource {
   /// Publie une soumission : elle devient visible par TOUTES les écoles.
   static Future<void> approveLibraryItem(
           String category, String id) =>
-      _db.from(category).update({'status': 'published'}).eq('id', id);
+      _db.from(category).update({'status': 'published'}).eq('id', id).friendly();
 
   /// Rejette une soumission (motif obligatoire, visible par l'école
   /// soumettrice dans son suivi, invisible ailleurs).
@@ -5298,7 +5356,7 @@ class SupabaseDbSource {
       _db
           .from(category)
           .update({'status': 'rejected', 'rejection_reason': reason})
-          .eq('id', id);
+          .eq('id', id).friendly();
 }
 
 /// Une soumission au catalogue bibliothèque (livre / annale / support),
