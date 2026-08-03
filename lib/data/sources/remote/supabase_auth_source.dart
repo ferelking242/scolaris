@@ -51,9 +51,14 @@ class SupabaseAuthSource {
         return;
       }
 
-      // Session expirée ou déconnexion explicite
+      // Session expirée, déconnexion explicite, ou confirmation qu'il n'y a
+      // pas de session stockée (`initialSession` avec `session == null`,
+      // cas d'un démarrage sans compte connecté — surtout desktop/premier
+      // lancement) : sans ce cas, rien n'était jamais émis et le stream
+      // restait bloqué en `loading`, empêchant `authResolvedProvider` de
+      // passer à `true` et laissant l'app coincée sur le splash à l'infini.
       if (event == AuthChangeEvent.signedOut ||
-          (event == AuthChangeEvent.tokenRefreshed && session == null)) {
+          session == null) {
         _current = null;
         _controller.add(null);
       }
