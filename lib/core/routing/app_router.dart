@@ -62,6 +62,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Pré-inscription publique (lien) — accessible sans compte.
       if (atPreRegister) return null;
 
+      // Session pas encore restaurée (lecture du token local au démarrage,
+      // asynchrone) : on ne SAIT pas encore si l'utilisateur est connecté —
+      // rester sur le splash plutôt que conclure "déconnecté" et flasher
+      // l'écran de connexion avant de rebondir vers l'accueil.
+      if (!ref.read(authResolvedProvider)) {
+        return atSplash ? null : AppRoutes.splash;
+      }
+
       // Non authentifié → page de connexion (pas de mode démo).
       if (user == null) {
         if (atLogin) return null; // page login accessible explicitement
@@ -104,5 +112,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 class _AuthListenable extends ChangeNotifier {
   _AuthListenable(Ref ref) {
     ref.listen(authSessionProvider, (_, __) => notifyListeners());
+    // Écoute aussi le flux brut : la transition loading → data (session
+    // restaurée = null confirmé, pas juste "pas encore su") ne change pas
+    // forcément la VALEUR de authSessionProvider (null → null) donc ne le
+    // ferait pas notifier seul — le routeur doit quand même être réévalué.
+    ref.listen(authStateProvider, (_, __) => notifyListeners());
   }
 }

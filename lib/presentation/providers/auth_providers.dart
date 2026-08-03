@@ -39,3 +39,14 @@ class AuthSession extends StateNotifier<AppUser?> {
 
 final authSessionProvider =
     StateNotifierProvider<AuthSession, AppUser?>((ref) => AuthSession(ref));
+
+/// `true` dès que la restauration de session (lecture du token local au
+/// démarrage) a livré une première réponse — `false` ne veut PAS dire
+/// « déconnecté », juste « pas encore su ». Sans cette distinction, le
+/// routeur traitait les deux cas pareil et envoyait brièvement sur `/login`
+/// avant de rebondir vers l'accueil une fois la session restaurée (flash
+/// visible au démarrage pour un utilisateur déjà connecté).
+final authResolvedProvider = Provider<bool>((ref) {
+  final auth = ref.watch(authStateProvider);
+  return auth.hasValue || auth.hasError;
+});
