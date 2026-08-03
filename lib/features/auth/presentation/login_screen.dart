@@ -32,8 +32,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailCtrl = TextEditingController(text: 'admin@ead-bzv.cg');
-  final _passCtrl  = TextEditingController(text: 'demo1234');
+  final _emailCtrl = TextEditingController();
+  final _passCtrl  = TextEditingController();
   bool _loading  = false;
   bool _obscure  = true;
   bool _remember = false;
@@ -1024,12 +1024,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // Connexion rapide aux comptes démo (mot de passe demo1234).
   Widget _demoQuickRow() {
     // (label, email, icône, couleur, mot de passe)
+    // École Test Scolaris — seule école depuis le nettoyage du 2026-08-03
+    // (cf. memory/reset-test-data-2026-08-03), 4 comptes avec un vrai login.
     const accounts = <(String, String, IconData, Color, String)>[
-      ('Super-Admin', 'kenganiboveldy@gmail.com',   Icons.shield_moon_outlined,          Color(0xFF0D3B1E), 'demo1234'),
-      ('Admin·LSB',   'serge.bouya@lsb.cg',        Icons.admin_panel_settings_outlined, _terra,            'demo1234'),
-      ('Prof·ELC',    'jean.ngoubili@elc.cg',       Icons.menu_book_outlined,            Color(0xFF0277BD), 'demo1234'),
-      ('Élève·CSFS',  'ferel.ondongo@csfs.cg',      Icons.school_outlined,               _green,            'demo1234'),
-      ('Admin·UDSN',  'alain.nzoussi@udsn.cg',      Icons.account_balance_outlined,      Color(0xFF7C3AED), 'demo1234'),
+      ('Admin',   'kenganiboveldy@gmail.com', Icons.shield_moon_outlined, Color(0xFF0D3B1E), 'demo1234'),
+      ('Prof',    'prof1@test.local',         Icons.menu_book_outlined,  Color(0xFF0277BD), 'demo1234'),
+      ('Élève',   'eleve51@test.local',       Icons.school_outlined,     _green,            'demo1234'),
+      ('Parent',  'parent1@test.local',       Icons.family_restroom_outlined, Color(0xFF7C3AED), 'demo1234'),
     ];
     return Wrap(
       spacing: 8,
@@ -1643,39 +1644,16 @@ class _SubTypeChip extends StatelessWidget {
 
   const _demoPass = 'demo1234';
 
+  // Une seule école de test depuis le grand nettoyage du 2026-08-03 (cf.
+  // memory/reset-test-data-2026-08-03) : « École Test Scolaris », primaire
+  // (CP1→CM2) + collège (6ème→3ème) + lycée (2nde/1ère/Terminale série C).
+  // Seuls ces 4 comptes ont un VRAI login (auth.users) — les autres profs/
+  // élèves recréés sont de pures fiches de données, sans mot de passe.
   const _schoolUsers = [
-    // Primaire — École Lumière du Congo (ELC)
-    _SchoolUser(label:'Thomas Mouyabi',subtitle:'Directeur · École Lumière du Congo',email:'thomas.mouyabi@elc.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
-    _SchoolUser(label:'Jean Ngoubili',subtitle:'Enseignant · Primaire',email:'jean.ngoubili@elc.cg',icon:Icons.menu_book_rounded,color:Color(0xFF388E3C),school:'Primaire'),
-    _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · Primaire',email:'alice.moukoko@elc.cg',icon:Icons.child_care_rounded,color:Color(0xFF43A047),school:'Primaire'),
-    _SchoolUser(label:'Rose Okemba',subtitle:'Secrétariat · École Lumière',email:'rose.okemba@elc.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF558B2F),school:'Primaire'),
-    // ── Un compte par RÔLE (droits fins) — cf. 20260735 + 20260750_seed_role_demos.
-    //    Tous à l'École Lumière, pour vérifier ce que chaque rôle peut/ne peut pas.
-    _SchoolUser(label:'Gaston Milandou',subtitle:'Rôle Chef d\'établissement · accès total',email:'chef.elc@elc.cg',icon:Icons.gavel_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
-    _SchoolUser(label:'Firmin Loubota',subtitle:'Rôle Adjoint · pédagogie, notes, discipline',email:'adjoint.elc@elc.cg',icon:Icons.shield_moon_outlined,color:Color(0xFF7E3FF2),school:'Primaire'),
-    _SchoolUser(label:'Clarisse Ndinga',subtitle:'Rôle Secrétaire · élèves, inscriptions',email:'secretaire.elc@elc.cg',icon:Icons.folder_shared_rounded,color:Color(0xFFD4540A),school:'Primaire'),
-    // Comptable et Surveillant retirés : comptes jamais réellement créés en
-    // base (ni public.users, ni auth.users) — la connexion échouait toujours.
-    _SchoolUser(label:'Basile Kaya',subtitle:'Rôle Enseignant · notes & présences',email:'enseignant.elc@elc.cg',icon:Icons.school_rounded,color:Color(0xFFC17F24),school:'Primaire'),
-    // Le seul compte PARENT de la démo (cf. 20260727_seed_parent_demo.sql).
-    // Rattaché à Alice Moukoko via `parent_student` — sans ce lien, l'espace
-    // parent serait vide, quel que soit le reste.
-    _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice · Primaire',email:'parent.elc@elc.cg',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
-    // Collège — Saint-François de Sales (CSFS)
-    _SchoolUser(label:'Andrée Koumba',subtitle:'Directrice · Collège St-François',email:'andree.koumba@csfs.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF1565C0),school:'Collège'),
-    _SchoolUser(label:'Céleste Ibara',subtitle:'Enseignante · Collège',email:'celeste.ibara@csfs.cg',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Collège'),
-    _SchoolUser(label:'Ferel Ondongo',subtitle:'Élève · Collège',email:'ferel.ondongo@csfs.cg',icon:Icons.school_rounded,color:Color(0xFF0288D1),school:'Collège'),
-    _SchoolUser(label:'Rémy Makosso',subtitle:'Secrétariat · Collège St-François',email:'remy.makosso@csfs.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF00838F),school:'Collège'),
-    // Lycée — Savorgnan de Brazza (LSB)
-    _SchoolUser(label:'Serge Bouya',subtitle:'Directeur · Lycée Savorgnan de Brazza',email:'serge.bouya@lsb.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
-    _SchoolUser(label:'Pascal Nzoukou',subtitle:'Enseignant · Lycée',email:'pascal.nzoukou@lsb.cg',icon:Icons.menu_book_rounded,color:Color(0xFFC17F24),school:'Lycée'),
-    _SchoolUser(label:'Bienvenu Makoumbou',subtitle:'Élève · Lycée',email:'bienvenu.makoumbou@lsb.cg',icon:Icons.account_balance_rounded,color:Color(0xFFD4540A),school:'Lycée'),
-    _SchoolUser(label:'Christelle Niangou',subtitle:'Secrétariat · Lycée Savorgnan',email:'christelle.niangou@lsb.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF8B1A00),school:'Lycée'),
-    // Université — Denis Sassou Nguesso (UDSN)
-    _SchoolUser(label:'Pr. Alain Nzoussi',subtitle:'Recteur · Université DSN',email:'alain.nzoussi@udsn.cg',icon:Icons.workspace_premium_rounded,color:Color(0xFF6A1B9A),school:'Université'),
-    _SchoolUser(label:'Dr. Henri Loemba',subtitle:'Enseignant · Université',email:'henri.loemba@udsn.cg',icon:Icons.menu_book_rounded,color:Color(0xFF7B1FA2),school:'Université'),
-    _SchoolUser(label:'Gloire Mouamba',subtitle:'Étudiant · Université',email:'gloire.mouamba@udsn.cg',icon:Icons.science_rounded,color:Color(0xFF8E24AA),school:'Université'),
-    _SchoolUser(label:'Patricia Etsiona',subtitle:'Secrétariat · Université DSN',email:'patricia.etsiona@udsn.cg',icon:Icons.manage_accounts_rounded,color:Color(0xFF6A1B9A),school:'Université'),
+    _SchoolUser(label:'Boveldy Kengani',subtitle:'Admin · École Test Scolaris',email:'kenganiboveldy@gmail.com',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
+    _SchoolUser(label:'Georges Mombeki',subtitle:'Enseignant · École Test Scolaris',email:'prof1@test.local',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Primaire'),
+    _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2',email:'eleve51@test.local',icon:Icons.school_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
+    _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice',email:'parent1@test.local',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
   ];
 
   class _SchoolsQuickLogin extends StatefulWidget {
@@ -1690,7 +1668,7 @@ class _SubTypeChip extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
-      const tabs = ['Tous', 'Primaire', 'Collège', 'Lycée', 'Université'];
+      const tabs = ['Tous', 'Primaire'];
       final filtered = _filter == 'Tous' ? _schoolUsers : _schoolUsers.where((u) => u.school == _filter).toList();
 
       return Column(
