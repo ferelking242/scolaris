@@ -939,6 +939,33 @@ final teachersWithoutClassProvider = FutureProvider<Set<String>>((ref) async {
       .toSet();
 });
 
+/// Élèves des classes dont le niveau est repéré « classe d'examen »
+/// (`class_levels.metadata.exam`, ex. CM2 → CEPE), groupés par classe.
+/// Exclut les élèves sortis — un candidat qui a quitté l'école n'a plus rien
+/// à faire dans cette liste.
+final examCandidatesProvider =
+    FutureProvider<List<(SbClass, List<SbStudent>)>>((ref) async {
+  final levels = await ref.watch(classLevelsProvider.future);
+  final examLevelIds = levels.where((l) => l.isExamLevel).map((l) => l.id).toSet();
+  if (examLevelIds.isEmpty) return const [];
+
+  final classes = await ref.watch(classesProvider.future);
+  final examClasses =
+      classes.where((c) => examLevelIds.contains(c.levelId)).toList();
+  if (examClasses.isEmpty) return const [];
+
+  final students = await ref.watch(studentsProvider.future);
+  return [
+    for (final c in examClasses)
+      (
+        c,
+        students
+            .where((s) => s.classId == c.id && !s.hasExited)
+            .toList(),
+      ),
+  ];
+});
+
 /// Supports de cours (`course_materials`) d'une matière — onglet Ressources du
 /// détail d'un cours. `autoDispose` : lié à une page de détail éphémère.
 final courseMaterialsForSubjectProvider =

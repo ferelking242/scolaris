@@ -166,6 +166,7 @@ class SbStudent {
   final String? classe;
   final String? classId;
   final String? matricule;
+  final DateTime? dateOfBirth;
   final String? avatarUrl;
   final bool actif;
 
@@ -199,6 +200,7 @@ class SbStudent {
     this.classe,
     this.classId,
     this.matricule,
+    this.dateOfBirth,
     this.avatarUrl,
     this.actif = true,
     this.enrollmentStatus = 'active',
@@ -242,6 +244,9 @@ class SbStudent {
       classe: cls?['name'] as String?,
       classId: sp?['class_id'] as String?,
       matricule: sp?['matricule'] as String?,
+      dateOfBirth: sp?['date_of_birth'] != null
+          ? DateTime.tryParse(sp!['date_of_birth'] as String)
+          : null,
       avatarUrl: j['avatar_url'] as String?,
       actif: (j['status'] as String? ?? 'active') == 'active',
       enrollmentStatus: sp?['enrollment_status'] as String? ?? 'active',
@@ -1484,6 +1489,9 @@ class SbClassLevel {
   final String? series;     // filière lycée (A, C, D…) si applicable
   final int orderNum;
 
+  /// Métadonnées libres de la référence (ex. `{"exam": "CEPE"}` sur le CM2).
+  final Map<String, dynamic> metadata;
+
   const SbClassLevel({
     required this.id,
     required this.systemType,
@@ -1493,9 +1501,14 @@ class SbClassLevel {
     required this.shortName,
     this.series,
     this.orderNum = 0,
+    this.metadata = const {},
   });
 
   String get fullLabel => '$cycleLabel · $name';
+
+  /// Classe candidate à un examen de fin de cycle (ex. CM2 → CEPE) — pas
+  /// codé en dur : lu depuis `class_levels.metadata.exam`.
+  bool get isExamLevel => metadata['exam'] != null;
 
   factory SbClassLevel.fromJson(Map<String, dynamic> j) => SbClassLevel(
         id: j['id'] as String,
@@ -1506,6 +1519,9 @@ class SbClassLevel {
         shortName: j['short_name'] as String? ?? '',
         series: j['series'] as String?,
         orderNum: j['order_num'] as int? ?? 0,
+        metadata: j['metadata'] is Map<String, dynamic>
+            ? j['metadata'] as Map<String, dynamic>
+            : const {},
       );
 }
 
@@ -1994,7 +2010,7 @@ class SupabaseDbSource {
   static const String _studentSelect =
       'id, full_name, email, avatar_url, status, '
       'student_profiles(matricule, class_id, enrollment_status, exit_reason, '
-      'exit_date, metadata, classes(name, level, main_teacher_id))';
+      'exit_date, date_of_birth, metadata, classes(name, level, main_teacher_id))';
 
   /// [includeExited] : par défaut, seuls les élèves ACTIFS (`enrollment_status
   /// = 'active'`) — un transféré/diplômé/radié ne doit pas polluer les listes
