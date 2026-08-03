@@ -295,6 +295,7 @@ class SbClass {
   final String? branchId;
   final String name;
   final String? level;
+  final String? levelId;
   final String? section;
   final String? mainTeacherId;
   final String? room;
@@ -307,6 +308,7 @@ class SbClass {
     this.branchId,
     required this.name,
     this.level,
+    this.levelId,
     this.section,
     this.mainTeacherId,
     this.room,
@@ -320,6 +322,7 @@ class SbClass {
         branchId: j['branch_id'] as String?,
         name: j['name'] as String? ?? '',
         level: j['level'] as String?,
+        levelId: j['level_id'] as String?,
         section: j['section'] as String?,
         mainTeacherId: j['main_teacher_id'] as String?,
         room: j['room'] as String?,
@@ -1597,6 +1600,11 @@ class SbSubjectCatalog {
   /// la table `subjects` de l'école, elle, reste plate (un seul coef par nom).
   final String? series;
 
+  /// Réserve la matière aux niveaux dont `class_levels.order_num` (même cycle)
+  /// est au moins celui-ci — ex. l'anglais qui n'apparaît qu'à partir du CM1
+  /// au primaire. `null` = s'applique à tout le cycle (comportement par défaut).
+  final int? minOrderNum;
+
   const SbSubjectCatalog({
     required this.id,
     required this.cycle,
@@ -1605,6 +1613,7 @@ class SbSubjectCatalog {
     this.defaultCoefficient = 1,
     this.orderNum = 0,
     this.series,
+    this.minOrderNum,
   });
 
   factory SbSubjectCatalog.fromJson(Map<String, dynamic> j) => SbSubjectCatalog(
@@ -1615,6 +1624,7 @@ class SbSubjectCatalog {
         defaultCoefficient: (j['default_coefficient'] as num?) ?? 1,
         orderNum: j['order_num'] as int? ?? 0,
         series: j['series'] as String?,
+        minOrderNum: (j['min_order_num'] as num?)?.toInt(),
       );
 
   String get cycleLabel => switch (cycle) {
@@ -2449,15 +2459,26 @@ class SupabaseDbSource {
   /// [loadSubjectsFromCatalog]), puis crée un `courses` classe×matière pour
   /// chacune (coefficient par défaut du catalogue, sans enseignant — à
   /// assigner ensuite). Idempotent : rejouable sans doublon.
+  ///
+  /// [levelOrderNum] est le `class_levels.order_num` du niveau exact de la
+  /// classe (ex. CM1) : une entrée du catalogue dont `minOrderNum` dépasse
+  /// cette valeur est ignorée (ex. l'anglais réservé à partir du CM1, absent
+  /// des classes plus jeunes). `null` = aucune restriction appliquée.
+  ///
   /// Renvoie le nombre de cours créés.
   static Future<int> generateDefaultProgramForClass({
     required String schoolId,
     required String classId,
     required String cycle,
     List<String>? series,
+    int? levelOrderNum,
   }) async {
-    final catalog =
-        await getSubjectCatalog(cycles: [cycle], series: series);
+    var catalog = await getSubjectCatalog(cycles: [cycle], series: series);
+    if (levelOrderNum != null) {
+      catalog = catalog
+          .where((c) => c.minOrderNum == null || c.minOrderNum! <= levelOrderNum)
+          .toList();
+    }
     if (catalog.isEmpty) return 0;
 
     await loadSubjectsFromCatalog(

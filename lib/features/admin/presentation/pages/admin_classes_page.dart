@@ -376,6 +376,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
             classId: classId,
             cycle: _level!.cycle,
             series: _level!.series != null ? [_level!.series!] : null,
+            levelOrderNum: _level!.orderNum,
           );
         }
       }
@@ -708,12 +709,20 @@ class _ClassProgramDialog extends ConsumerWidget {
       ));
       return;
     }
+    // Résout le niveau exact (order_num) pour les matières réservées à partir
+    // d'un certain niveau (ex. l'anglais à partir du CM1) ; sans levelId (vieille
+    // classe créée avant Phase C) on génère sans restriction.
+    final levels = ref.read(classLevelsProvider).valueOrNull ?? const [];
+    final level =
+        levels.where((l) => l.id == klass.levelId).firstOrNull;
     final messenger = ScaffoldMessenger.of(context);
     try {
       final n = await SupabaseDbSource.generateDefaultProgramForClass(
         schoolId: schoolId,
         classId: klass.id,
         cycle: cycle,
+        series: level?.series != null ? [level!.series!] : null,
+        levelOrderNum: level?.orderNum,
       );
       ref.invalidate(coursesForClassProvider(klass.id));
       ref.invalidate(coursesForSchoolProvider);
