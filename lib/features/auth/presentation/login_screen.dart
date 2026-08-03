@@ -1395,7 +1395,8 @@ class _ErrorBanner extends StatelessWidget {
   // Seuls ces comptes ont un VRAI login (auth.users) — les autres profs/
   // élèves recréés sont de pures fiches de données, sans mot de passe.
   const _schoolUsers = [
-    _SchoolUser(label:'Boveldy Kengani',subtitle:'Admin · École Test Scolaris',email:'kenganiboveldy@gmail.com',icon:Icons.workspace_premium_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
+    _SchoolUser(label:'Sylvie Kanga',subtitle:'Admin · École Test Scolaris',email:'admin1@test.local',icon:Icons.admin_panel_settings_rounded,color:Color(0xFF8B1A00),school:'Primaire'),
+    _SchoolUser(label:'Boveldy Kengani',subtitle:'Super-admin · Console plateforme',email:'kenganiboveldy@gmail.com',icon:Icons.workspace_premium_rounded,color:Color(0xFF3E1A00),school:'Primaire'),
     _SchoolUser(label:'Georges Mombeki',subtitle:'Enseignant · École Test Scolaris',email:'prof1@test.local',icon:Icons.menu_book_rounded,color:Color(0xFF0277BD),school:'Primaire'),
     _SchoolUser(label:'Alice Moukoko',subtitle:'Élève · CM2',email:'eleve51@test.local',icon:Icons.school_rounded,color:Color(0xFF2E7D32),school:'Primaire'),
     _SchoolUser(label:'Pauline Moukoko',subtitle:'Parent · mère d\'Alice',email:'parent1@test.local',icon:Icons.family_restroom_rounded,color:Color(0xFF00897B),school:'Primaire'),
