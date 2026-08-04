@@ -174,10 +174,13 @@ class PlatformRepository {
     }).eq('school_id', schoolId);
   }
 
-  /// Prolonge l'essai/la période en cours de [days] jours. Lit d'abord la
-  /// ligne pour partir de la vraie échéance actuelle (pas de `now()` qui
-  /// raccourcirait une période déjà en avance).
-  static Future<void> extendSchoolTrial(String schoolId, int days) async {
+  /// Prolonge l'échéance en cours de [days] jours — marche pour N'IMPORTE
+  /// QUEL statut (essai OU abonnement payant déjà actif), pas seulement le
+  /// trial : `current_period_end` est toujours la date qui compte pour
+  /// savoir si l'école a accès. Lit d'abord la ligne pour partir de la
+  /// vraie échéance actuelle (pas de `now()` qui raccourcirait une période
+  /// déjà en avance).
+  static Future<void> _extendPeriod(String schoolId, int days) async {
     final row = await _db
         .from('subscriptions')
         .select('trial_end, current_period_end')
@@ -193,6 +196,15 @@ class PlatformRepository {
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('school_id', schoolId);
   }
+
+  static Future<void> extendSchoolTrial(String schoolId, int days) =>
+      _extendPeriod(schoolId, days);
+
+  /// Offre N jours gratuits à une école déjà abonnée (offre payante active) —
+  /// même mécanique que [extendSchoolTrial], juste un nom qui ne prête pas à
+  /// confusion pour ce cas d'usage (cadeau/geste commercial, pas un essai).
+  static Future<void> extendSchoolSubscription(String schoolId, int days) =>
+      _extendPeriod(schoolId, days);
 
   /// Change l'offre (Simple/Pro/Max) d'une école.
   static Future<void> setSchoolPlan(String schoolId, PlatformPlan plan) async {

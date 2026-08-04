@@ -171,27 +171,46 @@ class _PlatformSchoolDetailViewState
     }
   }
 
-  Future<void> _extendTrial() async {
+  /// Prolonge l'échéance de l'abonnement, QUEL QUE SOIT le statut (essai OU
+  /// offre payante déjà active) — utile pour offrir un mois/an gratuit à une
+  /// école, pas seulement pour rallonger un essai.
+  Future<void> _extendSubscription() async {
     final s = widget.school;
+    final days = await showDialog<int>(
+      context: context,
+      builder: (_) => const _ExtendSubscriptionDialog(),
+    );
+    if (days == null) return;
+    final label = _durationLabel(days);
     final ok = await _confirm(
-      title: 'Prolonger l\'essai ?',
-      message: 'L\'essai gratuit de « ${s.name} » sera prolongé de 30 jours.',
-      confirmLabel: 'Prolonger de 30 j',
+      title: 'Prolonger l\'abonnement ?',
+      message: 'L\'abonnement de « ${s.name} » sera prolongé de $label, '
+          'gratuitement, à partir de son échéance actuelle.',
+      confirmLabel: 'Prolonger de $label',
     );
     if (ok != true) return;
     try {
       if (_isMockSchool) {
         ref.read(selectedPlatformSchoolProvider.notifier).state =
-            PlatformMock.extendTrial(s.id, 30);
+            PlatformMock.extendTrial(s.id, days);
       } else {
-        await PlatformRepository.extendSchoolTrial(s.id, 30);
+        await PlatformRepository.extendSchoolSubscription(s.id, days);
         await _refresh();
       }
-      _snack('Essai prolongé de 30 jours.');
+      _snack('Abonnement prolongé de $label.');
     } catch (e) {
       _snack('Échec : $e', color: ScolarisPalette.terracotta);
     }
   }
+
+  static String _durationLabel(int days) => switch (days) {
+        30 => '1 mois',
+        60 => '2 mois',
+        90 => '3 mois',
+        180 => '6 mois',
+        365 => '1 an',
+        _ => '$days jour${days > 1 ? 's' : ''}',
+      };
 
   Future<void> _changePlan() async {
     final s = widget.school;
@@ -287,12 +306,11 @@ class _PlatformSchoolDetailViewState
             icon: Icons.workspace_premium_outlined,
             onTap: _changePlan,
           ),
-          if (s.status == SubStatus.trial)
-            ActionButton(
-              label: 'Prolonger l\'essai',
-              icon: Icons.hourglass_bottom_rounded,
-              onTap: _extendTrial,
-            ),
+          ActionButton(
+            label: 'Prolonger l\'abonnement',
+            icon: Icons.hourglass_bottom_rounded,
+            onTap: _extendSubscription,
+          ),
           ActionButton(
             label: suspended ? 'Réactiver' : 'Suspendre',
             icon: suspended ? Icons.play_arrow_rounded : Icons.pause_rounded,
@@ -314,6 +332,86 @@ class _PlatformSchoolDetailViewState
           _ => _OverviewTab(school: s),
         },
       ]),
+    );
+  }
+}
+
+/// Dialogue de choix de durée de prolongation — un cadeau/geste commercial
+/// (ex. « 1 an gratuit »), pas juste une rallonge d'essai : marche pour une
+/// école déjà en offre payante active comme pour un essai.
+class _ExtendSubscriptionDialog extends StatefulWidget {
+  const _ExtendSubscriptionDialog();
+  @override
+  State<_ExtendSubscriptionDialog> createState() => _ExtendSubscriptionDialogState();
+}
+
+class _ExtendSubscriptionDialogState extends State<_ExtendSubscriptionDialog> {
+  static const _quickOptions = [
+    (30, '1 mois'),
+    (60, '2 mois'),
+    (90, '3 mois'),
+    (180, '6 mois'),
+    (365, '1 an'),
+  ];
+
+  final _customDays = TextEditingController();
+
+  @override
+  void dispose() {
+    _customDays.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Prolonger l\'abonnement',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 320,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Gratuitement, à partir de l\'échéance actuelle.',
+              style: TextStyle(fontSize: 12, color: context.cMuted)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final o in _quickOptions)
+              ActionChip(
+                label: Text(o.$2),
+                onPressed: () => Navigator.pop(context, o.$1),
+              ),
+          ]),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _customDays,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Ou un nombre de jours précis',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: ScolarisPalette.terracotta),
+              onPressed: () {
+                final n = int.tryParse(_customDays.text.trim());
+                if (n != null && n > 0) Navigator.pop(context, n);
+              },
+              child: const Text('OK'),
+            ),
+          ]),
+        ]),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
+      ],
     );
   }
 }
