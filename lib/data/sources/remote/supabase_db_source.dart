@@ -998,6 +998,28 @@ class SbInvoice {
   bool get isOverdue => status == 'overdue';
   bool get isTuition => category == 'tuition';
 
+  /// Libellé français du code stocké (`invoices.category`, contraint côté DB à
+  /// `tuition | canteen | transport | uniforms | activities | other`) — les
+  /// écrans affichent ce libellé plutôt que le code brut anglais.
+  String get categoryLabel {
+    switch (category) {
+      case 'tuition':
+        return 'Scolarité';
+      case 'canteen':
+        return 'Cantine';
+      case 'transport':
+        return 'Transport';
+      case 'uniforms':
+        return 'Uniformes';
+      case 'activities':
+        return 'Activités';
+      case 'other':
+        return 'Autre';
+      default:
+        return 'Autre';
+    }
+  }
+
   /// Reste dû (jamais négatif).
   double get balance {
     final b = amount - amountPaid;
@@ -1075,6 +1097,13 @@ class SbPayment {
   final String? pendingCategory;
   final String? pendingAcademicYear;
 
+  /// Catégorie/description/période de la facture liée — seulement si le
+  /// paiement a été chargé via [SupabaseDbSource.getPaymentsForSchool] (embed
+  /// `invoices(...)`). `null` sinon (ex. [getPaymentsForStudent]).
+  final String? invoiceCategory;
+  final String? invoiceDescription;
+  final String? invoicePeriod;
+
   const SbPayment({
     required this.id,
     this.invoiceId,
@@ -1087,6 +1116,9 @@ class SbPayment {
     this.status = 'confirmed',
     this.pendingCategory,
     this.pendingAcademicYear,
+    this.invoiceCategory,
+    this.invoiceDescription,
+    this.invoicePeriod,
   });
 
   factory SbPayment.fromJson(Map<String, dynamic> j) {
@@ -1103,6 +1135,10 @@ class SbPayment {
         meta = null;
       }
     }
+    final inv = j['invoices'];
+    final invMap = inv is Map<String, dynamic>
+        ? inv
+        : (inv is List && inv.isNotEmpty ? inv.first as Map<String, dynamic> : null);
     return SbPayment(
       id: j['id'] as String,
       invoiceId: j['invoice_id'] as String?,
@@ -1115,6 +1151,9 @@ class SbPayment {
       status: j['status'] as String? ?? 'confirmed',
       pendingCategory: meta?['category'] as String?,
       pendingAcademicYear: meta?['academicYear'] as String?,
+      invoiceCategory: invMap?['category'] as String?,
+      invoiceDescription: invMap?['description'] as String?,
+      invoicePeriod: invMap?['period'] as String?,
     );
   }
 }
@@ -3041,6 +3080,23 @@ class SupabaseDbSource {
         .select()
         .eq('student_id', studentId)
         .order('payment_date', ascending: false);
+    return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
+  }
+
+  /// Tous les versements CONFIRMÉS de l'école (cash + en ligne validé), toutes
+  /// catégories confondues (scolarité, inscription, autres frais) — la vue
+  /// « Historique des paiements » côté admin. `invoices(category, description,
+  /// period)` est embedé pour afficher le motif sans requête supplémentaire.
+  static Future<List<SbPayment>> getPaymentsForSchool(String schoolId,
+      {int limit = 300}) async {
+    final data = await _db
+        .from('payments')
+        .select(
+            '*, users!inner(full_name, school_id), invoices(category, description, period)')
+        .eq('users.school_id', schoolId)
+        .eq('status', 'confirmed')
+        .order('payment_date', ascending: false)
+        .limit(limit);
     return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
   }
 

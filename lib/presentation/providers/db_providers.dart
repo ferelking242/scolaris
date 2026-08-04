@@ -636,6 +636,14 @@ final invoicesProvider = FutureProvider<List<SbInvoice>>((ref) async {
   return SupabaseDbSource.getInvoices(schoolId: schoolId);
 });
 
+/// Historique complet des versements CONFIRMÉS de l'école (cash + en ligne
+/// validé), toutes catégories — vue admin « Historique des paiements ».
+final schoolPaymentsProvider = FutureProvider<List<SbPayment>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return [];
+  return SupabaseDbSource.getPaymentsForSchool(schoolId);
+});
+
 /// Versements Mobile Money envoyés par des familles, pas encore vérifiés par
 /// l'admin (référence saisie, en attente — cf. `payments.status`).
 final pendingPaymentsProvider = FutureProvider<List<SbPayment>>((ref) async {

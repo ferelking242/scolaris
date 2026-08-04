@@ -246,6 +246,10 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
       return TuitionTrackingPage(
           onBack: () => setState(() => _view = 'overview'));
     }
+    if (_view == 'history') {
+      return _PaymentHistoryView(
+          onBack: () => setState(() => _view = 'overview'));
+    }
 
     final invoicesAsync = ref.watch(invoicesProvider);
     return invoicesAsync.when(
@@ -372,6 +376,11 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
               label: 'Suivi scolarité',
               icon: Icons.grid_on_rounded,
               onTap: () => setState(() => _view = 'tracking'),
+            ),
+            ActionButton(
+              label: 'Historique des paiements',
+              icon: Icons.history_rounded,
+              onTap: () => setState(() => _view = 'history'),
             ),
             // Créer une facture exige `comptabilite.creer_facture` : la base
             // refuse sinon.
@@ -525,6 +534,19 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
     'Autre',
   ];
 
+  /// `invoices.category` a une contrainte CHECK en base qui n'accepte QUE
+  /// `tuition | canteen | transport | uniforms | activities | other`
+  /// (vérifié en direct sur `pg_constraint`, 2026-08-04 — le dépôt ne
+  /// versionne pas le schéma, cf. CLAUDE.md). Les libellés français affichés
+  /// ne sont PAS des valeurs stockables telles quelles : on les traduit ici.
+  /// « Fournitures » n'a pas d'équivalent dédié dans la contrainte → `other`.
+  static const _categoryCodes = {
+    'Cantine': 'canteen',
+    'Transport': 'transport',
+    'Fournitures': 'other',
+    'Autre': 'other',
+  };
+
   @override
   void dispose() {
     _desc.dispose();
@@ -551,7 +573,7 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
         studentId: _student!.id,
         description: _desc.text.trim(),
         amount: amount,
-        category: _category,
+        category: _categoryCodes[_category] ?? 'other',
         dueDate: _dueDate?.toIso8601String().split('T').first,
         currency: ref.read(schoolFormatProvider).currency,
       );
@@ -1201,6 +1223,177 @@ class _PendingPaymentRow extends StatelessWidget {
           icon: const Icon(Icons.close_rounded, size: 20),
           color: _terra,
           onPressed: onReject),
+    ]);
+  }
+}
+
+/// Historique de TOUS les versements confirmés (scolarité, inscription,
+/// autres frais) — répond à « où est la trace d'un encaissement ? », absente
+/// jusqu'ici côté admin (elle n'existait que dans l'espace famille).
+class _PaymentHistoryView extends ConsumerStatefulWidget {
+  final VoidCallback onBack;
+  const _PaymentHistoryView({required this.onBack});
+  @override
+  ConsumerState<_PaymentHistoryView> createState() => _PaymentHistoryViewState();
+}
+
+class _PaymentHistoryViewState extends ConsumerState<_PaymentHistoryView> {
+  String _search = '';
+  String _category = 'all'; // all | tuition | registration | other
+
+  String _categoryLabel(SbPayment p) {
+    final cat = p.invoiceCategory ?? p.pendingCategory;
+    switch (cat) {
+      case 'tuition':
+        return 'Scolarité';
+      case 'registration':
+        return 'Inscription';
+      case null:
+        return '—';
+      default:
+        return p.invoiceDescription ?? cat;
+    }
+  }
+
+  bool _matchesCategory(SbPayment p) {
+    final cat = p.invoiceCategory ?? p.pendingCategory;
+    switch (_category) {
+      case 'tuition':
+        return cat == 'tuition';
+      case 'registration':
+        return cat == 'registration';
+      case 'other':
+        return cat != 'tuition' && cat != 'registration';
+      default:
+        return true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final paymentsAsync = ref.watch(schoolPaymentsProvider);
+    final fmt = NumberFormat.decimalPattern('fr');
+    final df = DateFormat('dd/MM/yyyy');
+
+    Future<void> refresh() async {
+      ref.invalidate(schoolPaymentsProvider);
+      await ref.read(schoolPaymentsProvider.future);
+    }
+
+    return PageScaffold(
+      onRefresh: refresh,
+      title: 'Historique des paiements',
+      subtitle: 'Tous les versements confirmés — scolarité, inscription, autres frais',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        BackLinkRow(label: 'Retour à l\'aperçu', onTap: widget.onBack),
+        const SizedBox(height: 14),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final c in const [
+            ('all', 'Tous'),
+            ('tuition', 'Scolarité'),
+            ('registration', 'Inscription'),
+            ('other', 'Autres frais'),
+          ])
+            ChoiceChip(
+              label: Text(c.$2),
+              selected: _category == c.$1,
+              onSelected: (_) => setState(() => _category = c.$1),
+              selectedColor: _terra.withValues(alpha: .12),
+              labelStyle: TextStyle(
+                fontSize: 12,
+                color: _category == c.$1 ? _terra : context.cMuted,
+                fontWeight: _category == c.$1 ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        DataPanel(
+          title: 'Versements',
+          headerActions: [
+            SearchInput(
+              hint: 'Rechercher un élève…',
+              onChanged: (v) => setState(() => _search = v),
+            ),
+          ],
+          child: paymentsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+            data: (all) {
+              final q = _search.trim().toLowerCase();
+              final rows = all.where((p) {
+                if (!_matchesCategory(p)) return false;
+                if (q.isNotEmpty &&
+                    !(p.studentName ?? '').toLowerCase().contains(q)) {
+                  return false;
+                }
+                return true;
+              }).toList();
+              if (rows.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                      child: Text('Aucun versement pour ce filtre.',
+                          style: TextStyle(color: context.cMuted))),
+                );
+              }
+              return Column(children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  _PaymentHistoryRow(
+                    payment: rows[i],
+                    categoryLabel: _categoryLabel(rows[i]),
+                    fmt: fmt,
+                    df: df,
+                  ),
+                  if (i < rows.length - 1)
+                    Divider(height: 18, color: context.cBorder.withValues(alpha: .5)),
+                ],
+              ]);
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PaymentHistoryRow extends StatelessWidget {
+  final SbPayment payment;
+  final String categoryLabel;
+  final NumberFormat fmt;
+  final DateFormat df;
+  const _PaymentHistoryRow({
+    required this.payment,
+    required this.categoryLabel,
+    required this.fmt,
+    required this.df,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = payment;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(p.studentName ?? 'Élève',
+              style: TextStyle(color: context.cInk, fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(
+              '$categoryLabel'
+              '${p.paymentMethod != null ? " · ${p.paymentMethod}" : ""}'
+              '${p.reference != null && p.reference!.isNotEmpty ? " · réf. ${p.reference}" : ""}',
+              style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ]),
+      ),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text('${fmt.format(p.amount)} FCFA',
+            style: TextStyle(color: _green, fontSize: 13, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(p.paymentDate != null ? df.format(p.paymentDate!) : '—',
+            style: TextStyle(fontSize: 11, color: context.cMuted)),
+      ]),
     ]);
   }
 }

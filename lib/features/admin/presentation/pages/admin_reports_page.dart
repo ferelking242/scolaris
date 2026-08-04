@@ -155,7 +155,7 @@ class AdminReportsPage extends ConsumerWidget {
     // ── Répartition par catégorie (exclusif Max) ─────────────────────────────
     final byCategory = <String, ({double billed, double collected})>{};
     for (final i in invoices) {
-      final cat = i.category ?? 'Autre';
+      final cat = i.categoryLabel;
       final entry = byCategory[cat] ?? (billed: 0.0, collected: 0.0);
       byCategory[cat] = (
         billed: entry.billed + i.amount,

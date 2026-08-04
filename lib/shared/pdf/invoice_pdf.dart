@@ -276,8 +276,7 @@ pw.Page _invoicePage({
                 pw.Expanded(
                     flex: 4,
                     child: pw.Text(
-                        invoice.description ??
-                            (invoice.category ?? 'Frais de scolarité'),
+                        invoice.description ?? invoice.categoryLabel,
                         style: const pw.TextStyle(fontSize: 11, color: _ink))),
                 pw.Expanded(
                     flex: 2,

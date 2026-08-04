@@ -102,18 +102,23 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
-    final lateCount = withAccount.where((e) => !e.a.isUpToDate).length;
+    // La synthèse (En retard / Dû aujourd'hui / À jour) doit refléter le
+    // filtre CLASSE sélectionné, sinon elle reste sur l'école entière alors
+    // que la liste en dessous est filtrée — chiffres incohérents.
+    final inClass = _classId == null
+        ? withAccount
+        : withAccount.where((e) => e.s.classId == _classId).toList();
+    final lateCount = inClass.where((e) => !e.a.isUpToDate).length;
     final owedTotal =
-        withAccount.fold<double>(0, (sum, e) => sum + e.a.owedNow);
+        inClass.fold<double>(0, (sum, e) => sum + e.a.owedNow);
     final currency =
-        withAccount.isNotEmpty ? withAccount.first.a.currency : 'FCFA';
+        inClass.isNotEmpty ? inClass.first.a.currency : 'FCFA';
 
     // Filtre + recherche.
     final q = _search.trim().toLowerCase();
-    final rows = withAccount.where((e) {
+    final rows = inClass.where((e) {
       if (_filter == 'late' && e.a.isUpToDate) return false;
       if (_filter == 'uptodate' && !e.a.isUpToDate) return false;
-      if (_classId != null && e.s.classId != _classId) return false;
       if (q.isNotEmpty && !e.s.fullName.toLowerCase().contains(q)) return false;
       return true;
     }).toList()
@@ -141,7 +146,7 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
         Expanded(
             child: _StatBox(
                 label: 'À jour',
-                value: '${withAccount.length - lateCount} élève(s)',
+                value: '${inClass.length - lateCount} élève(s)',
                 color: _green)),
       ]),
       if (noGrid > 0) ...[
@@ -274,12 +279,30 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
                         Text(_money(e.a.dueToDate, e.a.currency),
                             style: TextStyle(
                                 fontSize: 12, color: context.cMuted)),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: e.a.isUpToDate
-                              ? StatusPill.success('À jour')
-                              : StatusPill.danger(
-                                  'Doit ${_money(e.a.owedNow, e.a.currency)}'),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            e.a.isUpToDate
+                                ? StatusPill.success('À jour')
+                                : StatusPill.danger(
+                                    'Doit ${_money(e.a.owedNow, e.a.currency)}'),
+                            if (e.a.hasRegistrationFee) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                e.a.registrationSettled
+                                    ? 'Inscription réglée'
+                                    : 'Inscription due : ${_money(e.a.registrationOwed, e.a.currency)}',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: e.a.registrationSettled
+                                      ? _green
+                                      : const Color(0xFFEA580C),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         Align(
                           alignment: Alignment.centerLeft,
@@ -371,6 +394,21 @@ class _StudentAccountCard extends StatelessWidget {
               ? StatusPill.success('À jour')
               : StatusPill.danger('Doit ${money(account.owedNow, account.currency)}'),
         ]),
+        if (account.hasRegistrationFee) ...[
+          const SizedBox(height: 6),
+          Text(
+            account.registrationSettled
+                ? 'Inscription réglée'
+                : 'Inscription due : ${money(account.registrationOwed, account.currency)}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: account.registrationSettled
+                  ? _green
+                  : const Color(0xFFEA580C),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         Row(children: [
           Expanded(

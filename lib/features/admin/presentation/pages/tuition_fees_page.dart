@@ -33,6 +33,8 @@ class TuitionFeesPage extends ConsumerWidget {
     final feesAsync    = ref.watch(feeStructuresProvider);
     final school       = ref.watch(schoolProvider).valueOrNull;
     final year         = school?.academicYear ?? '—';
+    final students     = ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
+    final invoices     = ref.watch(invoicesProvider).valueOrNull ?? const <SbInvoice>[];
 
     final classes = classesAsync.valueOrNull ?? const <SbClass>[];
     final fees = {
@@ -41,14 +43,35 @@ class TuitionFeesPage extends ConsumerWidget {
     };
     final configured = fees.length;
 
+    // Classes ayant déjà au moins un versement de scolarité cette année —
+    // modifier la grille (montant, rythme, échéance) les recalculerait
+    // rétroactivement pour TOUS les mois déjà échus, y compris ceux déjà
+    // payés et soldés à l'ancien tarif (cf. `dueToDate = monthly *
+    // periodsElapsed`, une seule mensualité pour toute l'année). On verrouille
+    // donc la grille dès qu'un paiement existe ; changer le tarif en cours
+    // d'année nécessite un vrai historique de tarifs (pas encore implémenté).
+    final classIdByStudent = {for (final s in students) s.id: s.classId};
+    final classIdsWithTuitionPayments = <String>{};
+    for (final inv in invoices) {
+      final period = inv.period;
+      if (!inv.isTuition || inv.studentId == null || period == null) continue;
+      if (period != year && !period.startsWith('$year:')) continue;
+      final cid = classIdByStudent[inv.studentId];
+      if (cid != null) classIdsWithTuitionPayments.add(cid);
+    }
+
     Future<void> refresh() async {
       ref.invalidate(classesProvider);
       ref.invalidate(feeStructuresProvider);
       ref.invalidate(schoolProvider);
+      ref.invalidate(studentsProvider);
+      ref.invalidate(invoicesProvider);
       await Future.wait([
         ref.read(classesProvider.future),
         ref.read(feeStructuresProvider.future),
         ref.read(schoolProvider.future),
+        ref.read(studentsProvider.future),
+        ref.read(invoicesProvider.future),
       ]);
     }
 
@@ -102,6 +125,7 @@ class TuitionFeesPage extends ConsumerWidget {
               classe: c,
               academicYear: year,
               existing: fees[c.id],
+              hasPayments: classIdsWithTuitionPayments.contains(c.id),
               registrationFee: school?.registrationFees[c.id],
               onSaved: () {
                 ref.invalidate(feeStructuresProvider);
@@ -121,6 +145,11 @@ class _ClassFeeCard extends ConsumerStatefulWidget {
   final String academicYear;
   final SbFeeStructure? existing;
   final SbRegistrationFee? registrationFee;
+  /// Un versement de scolarité existe déjà cette année pour cette classe —
+  /// verrouille la grille (montant/rythme/échéance) : la modifier recalculerait
+  /// rétroactivement le dû de TOUS les mois déjà échus (cf. commentaire dans
+  /// `TuitionFeesPage.build`).
+  final bool hasPayments;
   final VoidCallback onSaved;
   const _ClassFeeCard({
     super.key,
@@ -128,6 +157,7 @@ class _ClassFeeCard extends ConsumerStatefulWidget {
     required this.academicYear,
     required this.existing,
     required this.registrationFee,
+    required this.hasPayments,
     required this.onSaved,
   });
 
@@ -171,6 +201,9 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
   }
 
   bool get _canEdit => ref.watch(canProvider('comptabilite.plans_facturation'));
+  /// Grille verrouillée : des paiements existent déjà cette année. On laisse
+  /// l'inscription éditable (versement séparé, à part) mais pas la mensualité.
+  bool get _gridLocked => widget.hasPayments;
 
   Future<void> _save() async {
     final schoolId = ref.read(currentSchoolIdProvider);
@@ -234,6 +267,29 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
           StatusPill.neutral('À définir'),
       ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_gridLocked) ...[
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _terra.withValues(alpha: .06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _terra.withValues(alpha: .2)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.lock_outline_rounded, size: 16, color: _terra),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tarif verrouillé : des versements existent déjà cette année pour '
+                  'cette classe. Le modifier recalculerait rétroactivement le dû de '
+                  'tous les mois déjà échus, y compris ceux déjà payés.',
+                  style: TextStyle(color: context.cInk, fontSize: 11.5, height: 1.4),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 12),
+        ],
         Wrap(spacing: 12, runSpacing: 12, children: [
           _Field(label: 'Rythme', child: DropdownButton<String>(
             value: _rhythm, isDense: true, underline: const SizedBox(),
@@ -242,7 +298,7 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
               DropdownMenuItem(value: 'monthly', child: Text('Mensualités')),
               DropdownMenuItem(value: 'term', child: Text('Tranches')),
             ],
-            onChanged: (v) => setState(() {
+            onChanged: _gridLocked ? null : (v) => setState(() {
               _rhythm = v ?? 'monthly';
               _periods = _rhythm == 'term' ? 3 : 10;
             }),
@@ -251,6 +307,7 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
             width: 110,
             child: TextField(
               controller: _amount,
+              enabled: !_gridLocked,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => setState(() {}),
@@ -269,21 +326,21 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
               dropdownColor: context.cCard,
               items: [for (int n = 1; n <= 12; n++)
                 DropdownMenuItem(value: n, child: Text('$n'))],
-              onChanged: (v) => setState(() => _periods = v ?? _periods),
+              onChanged: _gridLocked ? null : (v) => setState(() => _periods = v ?? _periods),
             )),
           _Field(label: 'Début', child: DropdownButton<int>(
             value: _startMonth, isDense: true, underline: const SizedBox(),
             dropdownColor: context.cCard,
             items: [for (int m = 1; m <= 12; m++)
               DropdownMenuItem(value: m, child: Text(_moisFr[m - 1]))],
-            onChanged: (v) => setState(() => _startMonth = v ?? _startMonth),
+            onChanged: _gridLocked ? null : (v) => setState(() => _startMonth = v ?? _startMonth),
           )),
           _Field(label: 'Échéance le', child: DropdownButton<int>(
             value: _dueDay, isDense: true, underline: const SizedBox(),
             dropdownColor: context.cCard,
             items: [for (int d = 1; d <= 28; d++)
               DropdownMenuItem(value: d, child: Text('$d'))],
-            onChanged: (v) => setState(() => _dueDay = v ?? _dueDay),
+            onChanged: _gridLocked ? null : (v) => setState(() => _dueDay = v ?? _dueDay),
           )),
         ]),
         const SizedBox(height: 10),
