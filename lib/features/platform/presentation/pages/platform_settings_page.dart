@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/localization/locales.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/auth_providers.dart';
+import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/pages/account_page.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../../data/platform_mock_data.dart';
@@ -67,10 +69,42 @@ class PlatformSettingsPage extends ConsumerWidget {
     }
   }
 
+  Future<void> _editMomo(
+      BuildContext context, WidgetRef ref, SbPlatformPaymentSetting m) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final res = await showDialog<(String, String)>(
+      context: context,
+      builder: (_) => _EditMomoDialog(setting: m),
+    );
+    if (res == null) return;
+    try {
+      await SupabaseDbSource.updatePlatformPaymentSetting(
+        provider: m.provider,
+        phoneNumber: res.$1,
+        holderName: res.$2,
+      );
+      ref.invalidate(platformPaymentSettingsProvider);
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+            'Numéro ${m.provider == 'mtn' ? 'MTN' : 'Airtel'} mis à jour.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.forestGreen,
+        duration: const Duration(seconds: 2),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Échec : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ScolarisPalette.terracotta,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final planSettingsAsync = ref.watch(platformPlanSettingsProvider);
     final adminsAsync = ref.watch(platformAdminsProvider);
+    final momoAsync = ref.watch(platformPaymentSettingsProvider);
     final user = ref.watch(authSessionProvider);
 
     return PageScaffold(
@@ -78,9 +112,11 @@ class PlatformSettingsPage extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(platformPlanSettingsProvider);
         ref.invalidate(platformAdminsProvider);
+        ref.invalidate(platformPaymentSettingsProvider);
         await Future.wait([
           ref.read(platformPlanSettingsProvider.future),
           ref.read(platformAdminsProvider.future),
+          ref.read(platformPaymentSettingsProvider.future),
         ]);
       },
       subtitle: 'Compte, offres, tarifs & équipe de la plateforme',
@@ -149,6 +185,57 @@ class PlatformSettingsPage extends ConsumerWidget {
               ],
             ]),
           ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Numéros de dépôt Mobile Money ─────────────────────────────────
+        DataPanel(
+          title: 'Numéros de dépôt Mobile Money',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: ScolarisPalette.gold.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ScolarisPalette.gold.withValues(alpha: .35)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.info_outline_rounded,
+                    size: 16, color: ScolarisPalette.gold),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Numéros où les écoles envoient leur règlement d\'abonnement '
+                    '(Mobile Money, tant qu\'aucun agrégateur n\'est branché) — '
+                    'visibles par toutes les écoles sur leur écran d\'abonnement.',
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted),
+                  ),
+                ),
+              ]),
+            ),
+            momoAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Erreur : $e', style: TextStyle(color: context.cMuted)),
+              ),
+              data: (settings) => Column(children: [
+                for (var i = 0; i < settings.length; i++) ...[
+                  _MomoRow(
+                    setting: settings[i],
+                    onEdit: () => _editMomo(context, ref, settings[i]),
+                  ),
+                  if (i < settings.length - 1)
+                    Divider(height: 18, color: context.cBorder.withValues(alpha: .6)),
+                ],
+              ]),
+            ),
+          ]),
         ),
         const SizedBox(height: 14),
 
@@ -348,6 +435,114 @@ class _LanguageDialog extends StatelessWidget {
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Annuler')),
+      ],
+    );
+  }
+}
+
+// ── Ligne de numéro de dépôt Mobile Money ───────────────────────────────────────
+class _MomoRow extends StatelessWidget {
+  final SbPlatformPaymentSetting setting;
+  final VoidCallback onEdit;
+  const _MomoRow({required this.setting, required this.onEdit});
+  @override
+  Widget build(BuildContext context) {
+    final label = setting.provider == 'mtn' ? 'MTN MoMo' : 'Airtel Money';
+    return Row(children: [
+      Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: ScolarisPalette.terracotta.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.phone_android_rounded,
+            size: 18, color: ScolarisPalette.terracotta),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$label · ${setting.phoneNumber}',
+              style: TextStyle(
+                  fontSize: 13.5, color: context.cInk, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 1),
+          Text(
+              setting.holderName.isEmpty
+                  ? 'Aucun nom de titulaire renseigné'
+                  : 'Au nom de ${setting.holderName}',
+              style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ]),
+      ),
+      ActionButton(label: 'Modifier', icon: Icons.edit_outlined, onTap: onEdit),
+    ]);
+  }
+}
+
+// ── Dialogue : modifier un numéro de dépôt Mobile Money ─────────────────────────
+class _EditMomoDialog extends StatefulWidget {
+  final SbPlatformPaymentSetting setting;
+  const _EditMomoDialog({required this.setting});
+  @override
+  State<_EditMomoDialog> createState() => _EditMomoDialogState();
+}
+
+class _EditMomoDialogState extends State<_EditMomoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _number =
+      TextEditingController(text: widget.setting.phoneNumber);
+  late final TextEditingController _holder =
+      TextEditingController(text: widget.setting.holderName);
+
+  @override
+  void dispose() {
+    _number.dispose();
+    _holder.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.pop(context, (_number.text.trim(), _holder.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.setting.provider == 'mtn' ? 'MTN MoMo' : 'Airtel Money';
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text('Modifier — $label',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: Form(
+        key: _formKey,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _DialogField(
+            controller: _number,
+            label: 'Numéro de dépôt',
+            hint: 'Ex. 06 123 45 67',
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Numéro requis' : null,
+          ),
+          const SizedBox(height: 12),
+          _DialogField(
+            controller: _holder,
+            label: 'Nom et prénom du titulaire',
+            hint: 'Ex. Jean Dupont',
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Nom du titulaire requis' : null,
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: ScolarisPalette.forestGreen),
+          onPressed: _save,
+          child: const Text('Enregistrer'),
+        ),
       ],
     );
   }

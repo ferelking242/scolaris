@@ -1528,6 +1528,28 @@ class SbRegistrationFee {
   Map<String, dynamic> toJson() => {'new': forNew, 'returning': forReturning};
 }
 
+/// Numéro de dépôt Mobile Money DE SCOLARIS (pas de l'école) pour un
+/// opérateur donné — où les écoles envoient leur versement d'abonnement
+/// (`platform_payment_settings`, géré par le super-admin plateforme).
+class SbPlatformPaymentSetting {
+  final String provider; // 'mtn' | 'airtel'
+  final String phoneNumber;
+  final String holderName;
+
+  const SbPlatformPaymentSetting({
+    required this.provider,
+    required this.phoneNumber,
+    required this.holderName,
+  });
+
+  factory SbPlatformPaymentSetting.fromJson(Map<String, dynamic> j) =>
+      SbPlatformPaymentSetting(
+        provider: j['provider'] as String,
+        phoneNumber: j['phone_number'] as String? ?? '',
+        holderName: j['holder_name'] as String? ?? '',
+      );
+}
+
 class SbPlan {
   final String code;
   final String name;
@@ -4129,6 +4151,30 @@ class SupabaseDbSource {
   static Future<SbSchool?> getFirstSchool() async {
     final data = await _db.from('schools').select().limit(1).maybeSingle();
     return data != null ? SbSchool.fromJson(data) : null;
+  }
+
+  // ── Numéros de dépôt Mobile Money (Scolaris → écoles, versements d'abonnement) ──
+  /// Configurés par le super-admin plateforme (`platform_payment_settings`),
+  /// lus par TOUTES les écoles (lecture ouverte en RLS) — avant, ces numéros
+  /// étaient codés en dur dans `admin_subscription_page.dart` (placeholders
+  /// jamais remplacés, pas de nom de titulaire).
+  static Future<List<SbPlatformPaymentSetting>> getPlatformPaymentSettings() async {
+    final data = await _db.from('platform_payment_settings').select().order('provider');
+    return (data as List)
+        .map((j) => SbPlatformPaymentSetting.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> updatePlatformPaymentSetting({
+    required String provider, // 'mtn' | 'airtel'
+    required String phoneNumber,
+    required String holderName,
+  }) async {
+    await _db.from('platform_payment_settings').update({
+      'phone_number': phoneNumber,
+      'holder_name': holderName,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('provider', provider).friendly();
   }
 
   // ── Subscription / Plans ────────────────────────────────────────────────────

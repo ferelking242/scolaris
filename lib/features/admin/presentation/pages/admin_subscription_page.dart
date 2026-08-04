@@ -22,9 +22,8 @@ const _planNames = <String, String>{'simple': 'Essentiel', 'pro': 'Croissance', 
 
 /// Numéros marchands Mobile Money DE SCOLARIS (pas de l'école) — où les
 /// écoles envoient leur règlement d'abonnement tant qu'aucun agrégateur n'est
-/// branché. ⚠️ À REMPLACER par les vrais numéros marchands avant le lancement.
-const _scolarisMomoMtn = '06 000 00 00';
-const _scolarisMomoAirtel = '05 000 00 00';
+/// branché. Configurés par le super-admin plateforme (`platformPaymentSettingsProvider`
+/// → table `platform_payment_settings`), plus des constantes en dur ici.
 
 /// Contact Scolaris (WhatsApp/appel) — pour toute question sur l'abonnement
 /// ou pour signaler un versement (dépannage si l'école ne trouve pas la
@@ -322,6 +321,11 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
     final hasCredit = credit > 0;
     final c = widget.color;
     final s = widget.currentSub;
+    final momoSettings =
+        ref.watch(platformPaymentSettingsProvider).valueOrNull ?? const [];
+    SbPlatformPaymentSetting? momoFor(String provider) =>
+        momoSettings.where((m) => m.provider == provider).firstOrNull;
+    final selectedMomo = momoFor(_operator);
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -436,10 +440,24 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
           ],
           const SizedBox(height: 16),
           Row(children: [
-            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', _scolarisMomoMtn, c)),
+            Expanded(child: _operatorBtn(
+                'mtn', 'MTN MoMo', momoFor('mtn')?.phoneNumber ?? '—', c)),
             const SizedBox(width: 10),
-            Expanded(child: _operatorBtn('airtel', 'Airtel Money', _scolarisMomoAirtel, c)),
+            Expanded(child: _operatorBtn(
+                'airtel', 'Airtel Money', momoFor('airtel')?.phoneNumber ?? '—', c)),
           ]),
+          if (selectedMomo != null && selectedMomo.holderName.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.badge_outlined, size: 13, color: context.cMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                    'Le numéro doit apparaître au nom de « ${selectedMomo.holderName} ».',
+                    style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+              ),
+            ]),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _reference,

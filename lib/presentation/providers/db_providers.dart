@@ -831,6 +831,14 @@ final planSizeSurchargesProvider = FutureProvider<List<SbPlanSizeSurcharge>>((re
   return SupabaseDbSource.getPlanSizeSurcharges();
 });
 
+/// Numéros de dépôt Mobile Money de Scolaris (MTN/Airtel) où les écoles
+/// envoient leur versement d'abonnement — configurés par le super-admin
+/// plateforme, lus par toute école affichant l'écran de paiement.
+final platformPaymentSettingsProvider =
+    FutureProvider<List<SbPlatformPaymentSetting>>((ref) async {
+  return SupabaseDbSource.getPlatformPaymentSettings();
+});
+
 /// L'abonnement de l'école courante (null si aucun).
 final subscriptionProvider = FutureProvider<SbSubscription?>((ref) async {
   final schoolId = ref.watch(currentSchoolIdProvider);
