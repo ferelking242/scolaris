@@ -738,6 +738,17 @@ class _ClassGradesPanel extends ConsumerWidget {
     // la liste qui dit 12,00 et le bulletin 12,17 — et un parent qui appelle.
     final bulletinsAsync =
         ref.watch(classBulletinsProvider('${classObj.id}|$period'));
+    // Barème d'AFFICHAGE du cycle — le calcul interne (rang, mention) reste
+    // sur /20, seule la valeur affichée est convertie. Sans ça, un élève de
+    // primaire au barème /10 voit sa moyenne interne brute (ex. 14 au lieu de
+    // 7) : cette liste divergeait de BulletinView et du PDF, qui convertissent
+    // déjà tous les deux.
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final maxScore = school
+            ?.formatForCycle(SchoolLevel.fromClassName(classObj.name)?.name)
+            .maxScore ??
+        20;
+    final k = maxScore / 20;
 
     if (studentsAsync.isLoading || bulletinsAsync.isLoading) {
       return const DataPanel(
@@ -778,21 +789,26 @@ class _ClassGradesPanel extends ConsumerWidget {
           return Column(children: [
             for (final s in sorted)
               _BulletinCard(
-                  student: s, bulletin: bulletins[s.id], onTap: () => onOpen(s)),
+                  student: s,
+                  bulletin: bulletins[s.id],
+                  maxScore: maxScore,
+                  k: k,
+                  onTap: () => onOpen(s)),
           ]);
         }
         return DataTablePanel(
           columns: const ['Rang', 'Élève', 'Moy. générale', 'Mention', ''],
           flex: const [1, 4, 2, 3, 1],
           rows: [
-            for (final s in sorted) _row(context, s, bulletins[s.id]),
+            for (final s in sorted) _row(context, s, bulletins[s.id], maxScore, k),
           ],
         );
       }),
     );
   }
 
-  List<Widget> _row(BuildContext context, SbStudent s, Bulletin? b) {
+  List<Widget> _row(
+      BuildContext context, SbStudent s, Bulletin? b, double maxScore, double k) {
     final hasGrades = b != null && !b.isEmpty;
     final avg = hasGrades ? b.average : 0.0;
     final c = _mentionColor(avg);
@@ -811,7 +827,7 @@ class _ClassGradesPanel extends ConsumerWidget {
         ),
       ]),
       hasGrades
-          ? Text(avg.toStringAsFixed(2).replaceAll('.', ','),
+          ? Text('${(avg * k).toStringAsFixed(2).replaceAll('.', ',')} / ${maxScore.toStringAsFixed(0)}',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: c))
           : Text('—', style: TextStyle(fontSize: 13, color: context.cMuted)),
       hasGrades
@@ -842,9 +858,15 @@ class _ClassGradesPanel extends ConsumerWidget {
 class _BulletinCard extends StatelessWidget {
   final SbStudent student;
   final Bulletin? bulletin;
+  final double maxScore;
+  final double k;
   final VoidCallback onTap;
   const _BulletinCard(
-      {required this.student, required this.bulletin, required this.onTap});
+      {required this.student,
+      required this.bulletin,
+      required this.maxScore,
+      required this.k,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -889,7 +911,7 @@ class _BulletinCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             if (hasGrades) ...[
-              Text(avg.toStringAsFixed(2).replaceAll('.', ','),
+              Text('${(avg * k).toStringAsFixed(2).replaceAll('.', ',')} / ${maxScore.toStringAsFixed(0)}',
                   style: TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w800, color: c)),
               const SizedBox(width: 8),

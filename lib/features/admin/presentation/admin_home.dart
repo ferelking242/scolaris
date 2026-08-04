@@ -17,7 +17,6 @@ import 'pages/admin_billing_page.dart';
 import 'pages/admin_school_page.dart';
 import 'pages/admin_subscription_page.dart';
 import 'pages/admin_classes_page.dart';
-import 'pages/admin_exam_candidates_page.dart';
 import 'pages/class_promotion_page.dart';
 import 'pages/admin_subjects_page.dart';
 import 'pages/admin_grades_page.dart';
@@ -89,10 +88,10 @@ class AdminHome extends ConsumerWidget {
           labelKey: 'nav.subjects',
           page: PermissionGuard(permission: StaffPermissions.classes, child: AdminSubjectsPage()),
           permission: StaffPermissions.classes),
-      RoleNavEntry(icon: Icons.assignment_turned_in_outlined, activeIcon: Icons.assignment_turned_in_rounded,
-          labelKey: 'nav.examCandidates',
-          page: PermissionGuard(permission: StaffPermissions.students, child: AdminExamCandidatesPage()),
-          permission: StaffPermissions.students),
+      // « Candidats examen » retiré du menu : n'affiche que les classes
+      // marquées class_levels.metadata.exam, un flag qu'aucun écran ne permet
+      // de configurer (seedé en SQL une seule fois, pour CM2→CEPE) — donc
+      // inutilisable pour toute école dont l'examen n'est pas déjà pré-seedé.
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'nav.enrollment',
           page: PermissionGuard(permission: StaffPermissions.students, child: EnrollmentConfigPage()),
