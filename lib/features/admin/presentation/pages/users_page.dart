@@ -1244,7 +1244,22 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ),
           );
         }
-        final allUsers = everyone.where((u) => _inScope(u.role)).toList();
+        // Le super-admin plateforme n'est membre de l'école que pour que la
+        // RLS le laisse lire son propre profil (cf.
+        // 20260803_fix_admin_school_members.sql) — ce n'est pas du personnel
+        // à gérer, il ne doit donc pas apparaître ici. Idem pour son propre
+        // compte : on ne se gère pas soi-même dans sa propre liste de
+        // personnel.
+        final platformAdminIds =
+            ref.watch(platformAdminUserIdsProvider).valueOrNull ?? const <String>{};
+        final selfId = ref.watch(authSessionProvider)?.id;
+        final allUsers = everyone.where((u) {
+          if (_inScope(u.role) == false) return false;
+          if (_isFamilies) return true;
+          if (platformAdminIds.contains(u.id)) return false;
+          if (u.id == selfId) return false;
+          return true;
+        }).toList();
         // Fiche inline : remplace la liste par le profil (élève OU parent).
         if (_viewId != null) {
           final match = allUsers.where((u) => u.id == _viewId).toList();

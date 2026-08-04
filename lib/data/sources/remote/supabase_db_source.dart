@@ -3539,6 +3539,18 @@ class SupabaseDbSource {
     return (data as List).map((j) => SbUser.fromJson(j as Map<String, dynamic>)).toList();
   }
 
+  /// Ids `users.id` des super-admins plateforme membres de cette école — sert
+  /// à les exclure des listes de personnel (ils n'y sont que pour que la RLS
+  /// `is_member_of` les laisse lire leur propre profil, cf.
+  /// 20260803_fix_admin_school_members.sql, pas de vrais membres du staff).
+  static Future<Set<String>> getPlatformAdminUserIds(String schoolId) async {
+    final data = await _db
+        .from('users')
+        .select('id, platform_admins!inner(user_id)')
+        .eq('school_id', schoolId);
+    return (data as List).map((j) => j['id'] as String).toSet();
+  }
+
   // ── School ────────────────────────────────────────────────────────────────
   static Future<SbSchool?> getSchool(String schoolId) async {
     final data = await _db

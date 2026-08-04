@@ -757,6 +757,14 @@ final usersProvider = FutureProvider<List<SbUser>>((ref) async {
   return SupabaseDbSource.getUsers(schoolId: schoolId);
 });
 
+/// Ids des super-admins plateforme membres de l'école courante — à exclure
+/// des listes de personnel (cf. `getPlatformAdminUserIds`).
+final platformAdminUserIdsProvider = FutureProvider<Set<String>>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return {};
+  return SupabaseDbSource.getPlatformAdminUserIds(schoolId);
+});
+
 // ── Config du formulaire d'inscription (par école) ──────────────────────────
 /// JSON brut stocké sur `schools.enrollment_config` (null si jamais sauvegardé).
 final enrollmentConfigProvider =
