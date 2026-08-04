@@ -63,6 +63,302 @@ Future<bool> showOnlinePaymentSheet(
   return paid ?? false;
 }
 
+/// Cible d'un paiement en ligne SANS facture préexistante (scolarité
+/// mensuelle ou inscription/réinscription — cf. `recordOnlineTuitionPayment`).
+/// Distinct de [showOnlinePaymentSheet] (liste de `SbInvoice`), qui reste
+/// utilisé pour les « autres frais » (toujours facture-based).
+class OnlineTuitionTarget {
+  final String studentId;
+  final String schoolId;
+  final String academicYear;
+  final String category; // 'tuition' | 'registration'
+  final String label;
+  final double balance;
+  final String currency;
+  const OnlineTuitionTarget({
+    required this.studentId,
+    required this.schoolId,
+    required this.academicYear,
+    required this.category,
+    required this.label,
+    required this.balance,
+    required this.currency,
+  });
+}
+
+/// Ouvre le paiement en ligne de la SCOLARITÉ ou de l'INSCRIPTION — pas de
+/// facture à ce stade (elle sera créée par l'admin à la confirmation, cf.
+/// `confirmPayment`). Même expérience que [showOnlinePaymentSheet] (montant,
+/// opérateur, référence), simplement sans liste de factures.
+Future<bool> showOnlineTuitionPaymentSheet(
+  BuildContext context,
+  WidgetRef ref,
+  OnlineTuitionTarget target, {
+  double? suggestedAmount,
+}) async {
+  if (target.balance <= 0.01 && (suggestedAmount == null || suggestedAmount <= 0.01)) {
+    return false;
+  }
+  final enabled = await ref.read(onlinePaymentEnabledProvider.future);
+  if (!context.mounted) return false;
+
+  if (!enabled) {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Paiement en ligne indisponible'),
+        content: const Text(
+            'Le paiement en ligne (Mobile Money) est disponible avec les offres '
+            'Pro et Max, et doit être activé par votre école.\n\nRéglez '
+            'directement auprès de l\'établissement.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Compris')),
+        ],
+      ),
+    );
+    return false;
+  }
+
+  final paid = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _TuitionPaymentSheet(
+        target: target, ref: ref, suggested: suggestedAmount),
+  );
+  return paid ?? false;
+}
+
+class _TuitionPaymentSheet extends StatefulWidget {
+  final OnlineTuitionTarget target;
+  final WidgetRef ref;
+  final double? suggested;
+  const _TuitionPaymentSheet(
+      {required this.target, required this.ref, this.suggested});
+  @override
+  State<_TuitionPaymentSheet> createState() => _TuitionPaymentSheetState();
+}
+
+class _TuitionPaymentSheetState extends State<_TuitionPaymentSheet> {
+  final _reference = TextEditingController();
+  late final TextEditingController _amount;
+  String _operator = 'mtn';
+  bool _processing = false;
+  String? _error;
+
+  static const _operators = [
+    ('mtn', 'MTN MoMo', Color(0xFFFFCC00)),
+    ('airtel', 'Airtel Money', Color(0xFFE40000)),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final def = widget.suggested ?? widget.target.balance;
+    _amount = TextEditingController(text: def <= 0 ? '' : def.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  double get _entered =>
+      double.tryParse(_amount.text.trim().replaceAll(',', '.')) ?? 0;
+
+  Future<void> _pay() async {
+    final reference = _reference.text.trim();
+    final t = widget.target;
+    if (reference.isEmpty) {
+      setState(() => _error = 'Entrez la référence reçue par SMS après votre envoi.');
+      return;
+    }
+    final v = _entered;
+    if (v <= 0) {
+      setState(() => _error = 'Entrez un montant à payer.');
+      return;
+    }
+    if (v > t.balance + 0.01) {
+      setState(() => _error =
+          'Dépasse le reste dû (${NumberFormat.decimalPattern("fr").format(t.balance)} ${t.currency}).');
+      return;
+    }
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    final navigator = Navigator.of(context);
+    try {
+      await SupabaseDbSource.recordOnlineTuitionPayment(
+        studentId: t.studentId,
+        schoolId: t.schoolId,
+        academicYear: t.academicYear,
+        category: t.category,
+        amount: v,
+        method: 'mobile_money',
+        reference: reference,
+      );
+      widget.ref.invalidate(tuitionAccountProvider(t.studentId));
+      widget.ref.invalidate(invoicesProvider);
+      widget.ref.invalidate(invoicesForStudentProvider(t.studentId));
+      widget.ref.invalidate(myChildrenInvoicesProvider);
+      if (mounted) navigator.pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Échec : $e';
+          _processing = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.target;
+    final amount = '${NumberFormat.decimalPattern("fr").format(_entered)} ${t.currency}';
+    final school = widget.ref.read(schoolProvider).valueOrNull;
+    final merchantNumber =
+        _operator == 'mtn' ? school?.mobileMoneyMtn : school?.mobileMoneyAirtel;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+              color: const Color(0xFFE0D5C8),
+              borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFC17F24).withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+              merchantNumber != null
+                  ? 'Envoyez ce montant via Mobile Money au $merchantNumber, '
+                      'puis saisissez la référence reçue par SMS ci-dessous.'
+                  : 'L\'école n\'a pas encore renseigné son numéro Mobile '
+                      'Money — contactez-la pour connaître où envoyer le paiement.',
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF8A5A12),
+                  fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 14),
+        Text('Payer $amount',
+            style: const TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w800, color: _ink)),
+        const SizedBox(height: 2),
+        Text(t.label, style: const TextStyle(fontSize: 12.5, color: _muted)),
+        const SizedBox(height: 18),
+        TextField(
+          controller: _amount,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => setState(() => _error = null),
+          decoration: InputDecoration(
+            labelText: 'Montant à payer (${t.currency})',
+            helperText:
+                'Reste dû : ${NumberFormat.decimalPattern("fr").format(t.balance)} ${t.currency}',
+            prefixIcon: const Icon(Icons.payments_outlined),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            for (final op in _operators)
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: op.$1 == 'mtn' ? 10 : 0),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _operator = op.$1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _operator == op.$1
+                              ? op.$3.withValues(alpha: .12)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: _operator == op.$1
+                                  ? op.$3
+                                  : const Color(0xFFDDD0C4),
+                              width: _operator == op.$1 ? 2 : 1),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.smartphone_rounded, color: op.$3, size: 22),
+                          const SizedBox(height: 6),
+                          Text(op.$2,
+                              style: const TextStyle(
+                                  fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _reference,
+          onChanged: (_) => setState(() => _error = null),
+          decoration: const InputDecoration(
+            labelText: 'Référence de transaction (reçue par SMS)',
+            prefixIcon: Icon(Icons.confirmation_number_outlined),
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 10),
+          Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
+        ],
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _processing ? null : _pay,
+            style: FilledButton.styleFrom(
+                backgroundColor: _green,
+                padding: const EdgeInsets.symmetric(vertical: 14)),
+            child: _processing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : Text('J\'ai envoyé $amount',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+            'L\'école vérifiera votre versement avant de le valider.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: _muted)),
+      ]),
+    );
+  }
+}
+
 class _PaymentSheet extends StatefulWidget {
   final List<SbInvoice> invoices;
   final WidgetRef ref;

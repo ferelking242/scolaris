@@ -433,6 +433,12 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                 'Reçus dès validation',
               ],
             ),
+            // Visible dès que le PLAN le permet — indépendant de l'interrupteur
+            // école lui-même, sinon impossible de l'allumer une première fois.
+            if (ref.watch(onlinePaymentPlanAllowedProvider).valueOrNull == true) ...[
+              const SizedBox(height: 14),
+              const _OnlinePaymentTogglePanel(),
+            ],
             if (ref.watch(onlinePaymentEnabledProvider).valueOrNull == true) ...[
               const SizedBox(height: 14),
               const _MobileMoneyNumbersPanel(),
@@ -892,6 +898,42 @@ class _StatBox extends StatelessWidget {
                   fontSize: 20, fontWeight: FontWeight.w800, color: color)),
         ]),
       );
+}
+
+/// Interrupteur école : paiement en ligne activé ou tout se règle sur place.
+/// Distinct du plan (qui autorise la CAPACITÉ technique) — certaines écoles
+/// ne veulent tout simplement pas de paiement en ligne, quel que soit le plan.
+class _OnlinePaymentTogglePanel extends ConsumerWidget {
+  const _OnlinePaymentTogglePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final school = ref.watch(schoolProvider).valueOrNull;
+    final enabled = school?.onlinePaymentEnabled ?? false;
+    return DataPanel(
+      title: 'Paiement en ligne',
+      child: Row(children: [
+        Expanded(
+          child: Text(
+            enabled
+                ? 'Les familles peuvent payer en ligne (scolarité, inscription, cantine…).'
+                : 'Désactivé : toutes les familles règlent sur place, à l\'administration.',
+            style: TextStyle(fontSize: 12.5, color: context.cMuted),
+          ),
+        ),
+        Switch(
+          value: enabled,
+          onChanged: school == null
+              ? null
+              : (v) async {
+                  await SupabaseDbSource.updateOnlinePaymentEnabled(
+                      schoolId: school.id, enabled: v);
+                  ref.invalidate(schoolProvider);
+                },
+        ),
+      ]),
+    );
+  }
 }
 
 /// Numéros marchands Mobile Money DE L'ÉCOLE — affichés aux familles dans le

@@ -40,29 +40,47 @@ class ParentPaymentsPage extends ConsumerWidget {
             .where((i) => !i.isPaid)
             .fold<double>(0, (a, b) => a + b.balance);
 
-        // Les factures-compte de scolarité impayées d'un enfant (souvent
-        // plusieurs mois en retard) — pas seulement la première, sinon le
-        // parent ne peut régler qu'un mois à la fois.
-        List<SbInvoice> tuitionInvoicesOf(String childId) => invoices
-            .where((i) => i.isTuition && i.studentId == childId && !i.isPaid)
-            .toList();
-
-        // La facture annuelle de scolarité d'un enfant (une seule par élève),
-        // seule trace imprimable d'un versement cash ou en ligne.
+        // Le reçu de scolarité le plus récent d'un enfant (tri déjà décroissant
+        // par date) — chaque reçu est individuellement téléchargeable, ce n'est
+        // plus « la » facture annuelle unique d'avant (modèle « reçu par
+        // encaissement », cf. recordTuitionPayment dans supabase_db_source.dart).
         SbInvoice? tuitionInvoiceOf(String childId) => invoices
             .where((i) => i.isTuition && i.studentId == childId)
             .firstOrNull;
 
-        Future<void> payTuition(List<SbInvoice> invs) async {
-          if (invs.isEmpty) return;
-          // Pré-remplit le dû à ce jour (compte déjà chargé par la carte).
-          final owed = ref
-              .read(tuitionAccountProvider(invs.first.studentId ?? ''))
-              .valueOrNull
-              ?.owedNow;
-          final ok = await showOnlinePaymentSheet(context, ref, invs,
-              suggestedAmount: (owed != null && owed > 0.01) ? owed : null);
-          if (ok) ref.invalidate(myChildrenInvoicesProvider);
+        // Scolarité/inscription : pas de facture à pointer (il n'y en a plus
+        // tant que rien n'est confirmé) — la cible est l'élève + la catégorie,
+        // pas une SbInvoice. Cf. `recordOnlineTuitionPayment`.
+        Future<void> payTuition(SbStudent child, {required bool registration}) async {
+          final schoolId = school?.id;
+          final year = school?.academicYear;
+          if (schoolId == null || year == null) return;
+          final acc = ref.read(tuitionAccountProvider(child.id)).valueOrNull;
+          if (acc == null) return;
+          final balance = registration ? acc.registrationOwed : acc.balance;
+          if (balance <= 0.01) return;
+          final ok = await showOnlineTuitionPaymentSheet(
+            context,
+            ref,
+            OnlineTuitionTarget(
+              studentId: child.id,
+              schoolId: schoolId,
+              academicYear: year,
+              category: registration ? 'registration' : 'tuition',
+              label: registration
+                  ? 'Inscription — ${child.fullName}'
+                  : 'Scolarité — ${child.fullName}',
+              balance: balance,
+              currency: acc.currency,
+            ),
+            suggestedAmount: registration
+                ? acc.registrationOwed
+                : (acc.owedNow > 0.01 ? acc.owedNow : null),
+          );
+          if (ok) {
+            ref.invalidate(myChildrenInvoicesProvider);
+            ref.invalidate(tuitionAccountProvider(child.id));
+          }
         }
 
         Future<void> payOther(SbInvoice inv) async {
@@ -94,8 +112,10 @@ class ParentPaymentsPage extends ConsumerWidget {
                   title: children.length > 1
                       ? 'Scolarité — ${c.fullName}'
                       : 'Compte scolarité',
-                  onPayOnline: online
-                      ? () => payTuition(tuitionInvoicesOf(c.id))
+                  onPayOnline:
+                      online ? () => payTuition(c, registration: false) : null,
+                  onPayRegistrationOnline: online
+                      ? () => payTuition(c, registration: true)
                       : null,
                   onDownload: tuitionInvoiceOf(c.id) == null
                       ? null

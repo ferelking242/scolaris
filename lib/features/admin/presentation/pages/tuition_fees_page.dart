@@ -90,7 +90,11 @@ class TuitionFeesPage extends ConsumerWidget {
               classe: c,
               academicYear: year,
               existing: fees[c.id],
-              onSaved: () => ref.invalidate(feeStructuresProvider),
+              registrationFee: school?.registrationFees[c.id],
+              onSaved: () {
+                ref.invalidate(feeStructuresProvider);
+                ref.invalidate(schoolProvider);
+              },
             ),
             const SizedBox(height: 12),
           ],
@@ -104,12 +108,14 @@ class _ClassFeeCard extends ConsumerStatefulWidget {
   final SbClass classe;
   final String academicYear;
   final SbFeeStructure? existing;
+  final SbRegistrationFee? registrationFee;
   final VoidCallback onSaved;
   const _ClassFeeCard({
     super.key,
     required this.classe,
     required this.academicYear,
     required this.existing,
+    required this.registrationFee,
     required this.onSaved,
   });
 
@@ -119,6 +125,8 @@ class _ClassFeeCard extends ConsumerStatefulWidget {
 
 class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
   late final TextEditingController _amount;
+  late final TextEditingController _regNew;
+  late final TextEditingController _regReturning;
   late String _rhythm;
   late int _periods;
   late int _startMonth;
@@ -129,8 +137,13 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
   void initState() {
     super.initState();
     final e = widget.existing;
+    final r = widget.registrationFee;
     _amount = TextEditingController(
         text: e != null ? e.amountPerPeriod.toStringAsFixed(0) : '');
+    _regNew = TextEditingController(
+        text: r?.forNew != null ? r!.forNew!.toStringAsFixed(0) : '');
+    _regReturning = TextEditingController(
+        text: r?.forReturning != null ? r!.forReturning!.toStringAsFixed(0) : '');
     _rhythm = e?.rhythm ?? 'monthly';
     _periods = e?.periodsCount ?? (_rhythm == 'term' ? 3 : 10);
     _startMonth = e?.startMonth ?? 9;
@@ -140,6 +153,8 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
   @override
   void dispose() {
     _amount.dispose();
+    _regNew.dispose();
+    _regReturning.dispose();
     super.dispose();
   }
 
@@ -155,6 +170,9 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
         backgroundColor: _terra, behavior: SnackBarBehavior.floating));
       return;
     }
+    final regNew = double.tryParse(_regNew.text.trim().replaceAll(',', '.'));
+    final regReturning =
+        double.tryParse(_regReturning.text.trim().replaceAll(',', '.'));
     setState(() => _saving = true);
     try {
       await SupabaseDbSource.upsertFeeStructure(
@@ -167,6 +185,14 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
         currency: ref.read(schoolFormatProvider).currency,
         startMonth: _startMonth,
         dueDay: _dueDay,
+      );
+      // `null` explicite si le champ est vide = pas de frais d'inscription
+      // pour cette classe (efface une éventuelle valeur précédente).
+      await SupabaseDbSource.updateRegistrationFee(
+        schoolId: schoolId,
+        classId: widget.classe.id,
+        forNew: (regNew != null && regNew > 0) ? regNew : null,
+        forReturning: (regReturning != null && regReturning > 0) ? regReturning : null,
       );
       widget.onSaved();
       messenger.showSnackBar(SnackBar(
@@ -246,6 +272,42 @@ class _ClassFeeCardState extends ConsumerState<_ClassFeeCard> {
             items: [for (int d = 1; d <= 28; d++)
               DropdownMenuItem(value: d, child: Text('$d'))],
             onChanged: (v) => setState(() => _dueDay = v ?? _dueDay),
+          )),
+        ]),
+        const SizedBox(height: 10),
+        Text('Inscription (laisser vide = pas de frais d\'inscription)',
+            style: TextStyle(color: context.cMuted, fontSize: 11)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          _Field(label: 'Nouvel élève', child: SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _regNew,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: TextStyle(fontSize: 13, color: context.cInk),
+              decoration: InputDecoration(
+                isDense: true, border: InputBorder.none, hintText: '—',
+                hintStyle: TextStyle(color: context.cMuted),
+                suffixText: 'XAF',
+                suffixStyle: TextStyle(fontSize: 11, color: context.cMuted),
+              ),
+            ),
+          )),
+          _Field(label: 'Réinscription', child: SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _regReturning,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: TextStyle(fontSize: 13, color: context.cInk),
+              decoration: InputDecoration(
+                isDense: true, border: InputBorder.none, hintText: '—',
+                hintStyle: TextStyle(color: context.cMuted),
+                suffixText: 'XAF',
+                suffixStyle: TextStyle(fontSize: 11, color: context.cMuted),
+              ),
+            ),
           )),
         ]),
         const SizedBox(height: 14),

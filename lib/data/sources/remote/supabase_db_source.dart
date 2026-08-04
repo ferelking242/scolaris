@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -894,9 +895,16 @@ class SbTuitionAccount {
   final double monthly;      // mensualité (ou montant par tranche)
   final int periodsCount;    // nb de tranches sur l'année
   final int periodsElapsed;  // tranches déjà échues à ce jour
-  final double paid;         // total réellement versé
+  final double paid;         // total réellement versé (scolarité mensuelle seule)
   final String currency;
   final List<SbTuitionPeriod> periods;
+
+  /// Frais d'inscription/réinscription dû pour cet élève cette année — `null`
+  /// si la classe n'a pas de frais d'inscription configuré (pas de ligne à
+  /// afficher). Suivi À PART de la scolarité mensuelle : montant différent,
+  /// due date différente, un seul versement en général.
+  final double? registrationDue;
+  final double registrationPaid;
 
   const SbTuitionAccount({
     required this.monthly,
@@ -905,7 +913,20 @@ class SbTuitionAccount {
     required this.paid,
     required this.currency,
     this.periods = const [],
+    this.registrationDue,
+    this.registrationPaid = 0,
   });
+
+  /// Reste dû sur l'inscription (jamais négatif). `0` si pas de frais configuré.
+  double get registrationOwed {
+    final due = registrationDue;
+    if (due == null) return 0;
+    final o = due - registrationPaid;
+    return o < 0 ? 0 : o;
+  }
+
+  bool get hasRegistrationFee => registrationDue != null;
+  bool get registrationSettled => !hasRegistrationFee || registrationOwed <= 0.01;
 
   /// Total dû sur l'année entière.
   double get annual => monthly * periodsCount;
@@ -1047,6 +1068,13 @@ class SbPayment {
   final String? reference;
   final String status; // 'pending' | 'confirmed' | 'rejected'
 
+  /// `'tuition' | 'registration'` — SEULEMENT pour un versement en ligne SANS
+  /// facture (cf. [SupabaseDbSource.confirmPayment]), déduit de `notes`
+  /// (JSON écrit par l'Edge Function `record-online-payment`). `null` pour un
+  /// versement classique (déjà rattaché à une facture via [invoiceId]).
+  final String? pendingCategory;
+  final String? pendingAcademicYear;
+
   const SbPayment({
     required this.id,
     this.invoiceId,
@@ -1057,6 +1085,8 @@ class SbPayment {
     this.paymentMethod,
     this.reference,
     this.status = 'confirmed',
+    this.pendingCategory,
+    this.pendingAcademicYear,
   });
 
   factory SbPayment.fromJson(Map<String, dynamic> j) {
@@ -1064,6 +1094,15 @@ class SbPayment {
     final studentMap = u is Map<String, dynamic>
         ? u
         : (u is List && u.isNotEmpty ? u.first as Map<String, dynamic> : null);
+    Map<String, dynamic>? meta;
+    final notes = j['notes'] as String?;
+    if (notes != null && notes.startsWith('{')) {
+      try {
+        meta = jsonDecode(notes) as Map<String, dynamic>;
+      } catch (_) {
+        meta = null;
+      }
+    }
     return SbPayment(
       id: j['id'] as String,
       invoiceId: j['invoice_id'] as String?,
@@ -1074,6 +1113,8 @@ class SbPayment {
       paymentMethod: j['payment_method'] as String?,
       reference: j['reference'] as String?,
       status: j['status'] as String? ?? 'confirmed',
+      pendingCategory: meta?['category'] as String?,
+      pendingAcademicYear: meta?['academicYear'] as String?,
     );
   }
 }
@@ -1291,6 +1332,19 @@ class SbSchool {
   final String? mobileMoneyMtn;
   final String? mobileMoneyAirtel;
 
+  /// Certaines écoles veulent que TOUT (scolarité, inscription, cantine…) se
+  /// règle sur place, jamais en ligne — indépendant du plan d'abonnement, qui
+  /// n'autorise que la CAPACITÉ technique. Les deux se cumulent : en ligne
+  /// visible seulement si le plan le permet ET que l'école l'a activé.
+  /// (metadata.online_payment_enabled)
+  final bool onlinePaymentEnabled;
+
+  /// Frais d'inscription/réinscription PAR CLASSE (metadata.registration_fees
+  /// = { classId: { new: montant, returning: montant } }). `null` = pas de
+  /// frais d'inscription configuré pour cette classe (le compte de scolarité
+  /// n'affiche alors aucune ligne inscription).
+  final Map<String, SbRegistrationFee> registrationFees;
+
   const SbSchool({
     required this.id,
     required this.name,
@@ -1313,6 +1367,8 @@ class SbSchool {
     this.bulletinTemplate = 'standard',
     this.mobileMoneyMtn,
     this.mobileMoneyAirtel,
+    this.onlinePaymentEnabled = false,
+    this.registrationFees = const {},
   });
 
   SchoolFormat get format => SchoolFormat(
@@ -1399,8 +1455,30 @@ class SbSchool {
       mobileMoneyAirtel: meta is Map && meta['mobile_money'] is Map
           ? (meta['mobile_money']['airtel'] as String?)
           : null,
+      onlinePaymentEnabled:
+          meta is Map ? (meta['online_payment_enabled'] as bool? ?? false) : false,
+      registrationFees: meta is Map && meta['registration_fees'] is Map
+          ? (meta['registration_fees'] as Map).map((k, v) => MapEntry(
+              k.toString(),
+              SbRegistrationFee.fromJson(v is Map ? v : const {}),
+            ))
+          : const {},
     );
   }
+}
+
+/// Frais d'inscription d'une classe : montant nouveau élève / réinscription.
+class SbRegistrationFee {
+  final double? forNew;
+  final double? forReturning;
+  const SbRegistrationFee({this.forNew, this.forReturning});
+
+  factory SbRegistrationFee.fromJson(Map j) => SbRegistrationFee(
+        forNew: (j['new'] as num?)?.toDouble(),
+        forReturning: (j['returning'] as num?)?.toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {'new': forNew, 'returning': forReturning};
 }
 
 class SbPlan {
@@ -2913,6 +2991,32 @@ class SupabaseDbSource {
     _throwIfFnError(res);
   }
 
+  /// Version SCOLARITÉ/INSCRIPTION du paiement en ligne : pas de facture à
+  /// pointer (il n'y en a plus tant qu'aucun encaissement n'a eu lieu), donc
+  /// on identifie la cible par élève + catégorie plutôt que par `invoiceId`.
+  /// ⚠️ Suppose la version DÉPLOYÉE de l'Edge Function `record-online-payment`
+  /// à jour avec ce nouveau payload (cf. `supabase/functions/record-online-payment/index.ts`).
+  static Future<void> recordOnlineTuitionPayment({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+    required String category, // 'tuition' | 'registration'
+    required double amount,
+    required String reference,
+    String method = 'mobile_money',
+  }) async {
+    final res = await _db.functions.invoke('record-online-payment', body: {
+      'studentId': studentId,
+      'schoolId': schoolId,
+      'academicYear': academicYear,
+      'category': category,
+      'amount': amount,
+      'method': method,
+      'reference': reference,
+    });
+    _throwIfFnError(res);
+  }
+
   /// Supprime une facture (et ses encaissements éventuels).
   static Future<void> deleteInvoice(String invoiceId) async {
     await _db.from('payments').delete().eq('invoice_id', invoiceId).friendly();
@@ -2943,11 +3047,15 @@ class SupabaseDbSource {
   /// Versements Mobile Money envoyés par une famille (référence saisie) et pas
   /// encore vérifiés par l'admin — la file « Paiements à vérifier ».
   static Future<List<SbPayment>> getPendingPayments(String schoolId) async {
+    // Filtre par l'école DE L'ÉLÈVE (`users.school_id`), pas via `invoices` :
+    // un versement en ligne de scolarité/inscription n'a plus de facture tant
+    // qu'il n'est pas confirmé (`invoice_id` null) — un `invoices!inner`
+    // l'aurait exclu silencieusement de la file à vérifier.
     final data = await _db
         .from('payments')
-        .select('*, users!student_id(full_name), invoices!inner(school_id)')
+        .select('*, users!inner(full_name, school_id)')
         .eq('status', 'pending')
-        .eq('invoices.school_id', schoolId)
+        .eq('users.school_id', schoolId)
         .order('created_at', ascending: false);
     return (data as List).map((j) => SbPayment.fromJson(j as Map<String, dynamic>)).toList();
   }
@@ -2957,24 +3065,103 @@ class SupabaseDbSource {
   static Future<void> confirmPayment(String paymentId) async {
     final row = await _db
         .from('payments')
-        .select('invoice_id')
+        .select('invoice_id, student_id, amount, notes')
         .eq('id', paymentId)
         .single();
-    await _db.from('payments').update({'status': 'confirmed'}).eq('id', paymentId).friendly();
-
     final invoiceId = row['invoice_id'] as String?;
-    if (invoiceId == null) return;
-    final inv = await _db
-        .from('invoices')
-        .select('amount, payments(amount,status)')
-        .eq('id', invoiceId)
-        .single();
-    final due = (inv['amount'] as num?)?.toDouble() ?? 0;
-    final paid = SbInvoice._sumPayments(inv['payments']);
-    await _db.from('invoices').update({
-      'status': paid >= due - 0.01 ? 'paid' : 'pending',
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', invoiceId).friendly();
+
+    if (invoiceId != null) {
+      // Ancien modèle (facture ponctuelle : « autres frais ») — inchangé, la
+      // facture existait déjà, on recalcule juste son cumul.
+      await _db.from('payments').update({'status': 'confirmed'}).eq('id', paymentId).friendly();
+      final inv = await _db
+          .from('invoices')
+          .select('amount, payments(amount,status)')
+          .eq('id', invoiceId)
+          .single();
+      final due = (inv['amount'] as num?)?.toDouble() ?? 0;
+      final paid = SbInvoice._sumPayments(inv['payments']);
+      await _db.from('invoices').update({
+        'status': paid >= due - 0.01 ? 'paid' : 'pending',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', invoiceId).friendly();
+      return;
+    }
+
+    // Nouveau modèle (scolarité/inscription payée en ligne) : PAS de facture
+    // tant que ce moment précis — la validation admin EST le déclencheur de
+    // sa création, exactement comme un encaissement cash. Le contexte
+    // (catégorie, année scolaire, école) a été écrit par l'Edge Function
+    // `record-online-payment` dans `notes` (JSON), faute de colonnes dédiées.
+    final studentId = row['student_id'] as String?;
+    final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+    final notesRaw = row['notes'] as String?;
+    Map<String, dynamic>? meta;
+    if (notesRaw != null && notesRaw.startsWith('{')) {
+      try {
+        meta = jsonDecode(notesRaw) as Map<String, dynamic>;
+      } catch (_) {
+        meta = null;
+      }
+    }
+    final category = meta?['category'] as String? ?? 'tuition';
+    final academicYear = meta?['academicYear'] as String?;
+    final schoolId = meta?['schoolId'] as String?;
+    if (studentId == null || academicYear == null || schoolId == null) {
+      throw Exception(
+          'Versement en ligne incomplet (contexte manquant) : impossible de générer le reçu.');
+    }
+
+    late final String newInvoiceId;
+    if (category == 'registration') {
+      final returning = await isReturningStudent(
+        studentId: studentId,
+        schoolId: schoolId,
+        academicYear: academicYear,
+      );
+      final school = await getSchool(schoolId);
+      newInvoiceId = await _createTuitionInvoiceOnly(
+        schoolId: schoolId,
+        studentId: studentId,
+        academicYear: academicYear,
+        description:
+            returning ? 'Réinscription $academicYear' : 'Inscription $academicYear',
+        amount: amount,
+        currency: school?.currency ?? 'XAF',
+        periodTag: 'INSCRIPTION',
+      );
+    } else {
+      final fee = await _activeFeeFor(
+          studentId: studentId, schoolId: schoolId, academicYear: academicYear);
+      if (fee == null) {
+        throw Exception(
+            'Aucune grille de frais pour la classe de cet élève : impossible de générer le reçu.');
+      }
+      final split = await _tuitionPaymentsThisYear(
+        studentId: studentId,
+        schoolId: schoolId,
+        academicYear: academicYear,
+      );
+      final plan = await _tuitionReceiptPlan(
+        fee: fee,
+        alreadyPaidThisYear: split.monthly,
+        amount: amount,
+      );
+      newInvoiceId = await _createTuitionInvoiceOnly(
+        schoolId: schoolId,
+        studentId: studentId,
+        academicYear: academicYear,
+        description: plan.description,
+        amount: amount,
+        currency: fee.currency,
+        periodTag: plan.periodTag,
+      );
+    }
+
+    await _db.from('payments').update({
+      'invoice_id': newInvoiceId,
+      'status': 'confirmed',
+    }).eq('id', paymentId).friendly();
   }
 
   /// Référence introuvable/invalide sur le relevé marchand : le versement ne
@@ -3059,12 +3246,14 @@ class SupabaseDbSource {
   }
 
   /// Le COMPTE de scolarité d'un élève (modèle « solde qui court »), calculé à
-  /// partir de la grille de sa classe + du cumul déjà versé. `null` si l'élève
-  /// n'a pas de classe ou si sa classe n'a pas de grille de frais.
+  /// partir de la grille de sa classe + des REÇUS déjà émis pour l'année en
+  /// cours. `null` si l'élève n'a pas de classe ou si sa classe n'a pas de
+  /// grille de frais.
   ///
-  /// « Payé » = somme des encaissements sur ses factures de scolarité — que ce
-  /// soit un compte annuel unique ou d'anciennes tranches : on additionne, donc
-  /// la lecture reste juste pendant la transition.
+  /// « Payé » = somme des reçus de scolarité de CETTE année scolaire
+  /// uniquement (cf. [_tuitionPaymentsThisYear]) — un élève qui a fini de
+  /// payer l'an dernier ne doit pas paraître « à jour » cette année sans avoir
+  /// rien versé.
   static Future<SbTuitionAccount?> getTuitionAccount({
     required String studentId,
     required String schoolId,
@@ -3084,17 +3273,40 @@ class SupabaseDbSource {
     }
     if (fee == null) return null;
 
-    final invoices = await getInvoicesForStudent(studentId);
-    final paid = invoices
-        .where((i) => i.isTuition)
-        .fold<double>(0, (a, b) => a + b.amountPaid);
+    final split = await _tuitionPaymentsThisYear(
+      studentId: studentId,
+      schoolId: schoolId,
+      academicYear: academicYear,
+    );
 
-    return tuitionAccountFrom(fee, paid);
+    double? registrationDue;
+    final school = await getSchool(schoolId);
+    final regFee = school?.registrationFees[classId];
+    if (regFee != null) {
+      final returning = await isReturningStudent(
+        studentId: studentId,
+        schoolId: schoolId,
+        academicYear: academicYear,
+      );
+      registrationDue = returning ? regFee.forReturning : regFee.forNew;
+    }
+
+    return tuitionAccountFrom(
+      fee,
+      split.monthly,
+      registrationDue: registrationDue,
+      registrationPaid: split.registration,
+    );
   }
 
   /// Calcul PUR du compte à partir de la grille + du cumul versé (aucune
   /// requête). Sert au compte d'un élève ET au calcul en lot d'une liste.
-  static SbTuitionAccount tuitionAccountFrom(SbFeeStructure fee, double paid) {
+  static SbTuitionAccount tuitionAccountFrom(
+    SbFeeStructure fee,
+    double paid, {
+    double? registrationDue,
+    double registrationPaid = 0,
+  }) {
     final periods = tuitionPeriods(fee);
     final today = DateTime.now();
     final elapsed = periods.where((p) => !p.due.isAfter(today)).length;
@@ -3104,6 +3316,8 @@ class SupabaseDbSource {
       periodsElapsed: elapsed,
       paid: paid,
       currency: fee.currency,
+      registrationDue: registrationDue,
+      registrationPaid: registrationPaid,
       periods: [
         for (final p in periods)
           SbTuitionPeriod(code: p.period, label: p.label, due: p.due),
@@ -3111,64 +3325,191 @@ class SupabaseDbSource {
     );
   }
 
-  /// Le compte annuel de scolarité d'un élève — UNE facture dont le montant est
-  /// le total de l'année (période = l'année scolaire, pour la distinguer des
-  /// éventuelles tranches mensuelles). Créée à la première nécessité. Renvoie son
-  /// id, ou `null` si la classe de l'élève n'a pas de grille de frais.
-  static Future<String?> _ensureTuitionAccount({
+  /// Un élève est « réinscrit » s'il a au moins un reçu de scolarité d'une
+  /// année scolaire ANTÉRIEURE dans cette école — sinon c'est un nouvel
+  /// élève. Purement déduit de l'historique, aucune saisie manuelle.
+  static Future<bool> isReturningStudent({
     required String studentId,
     required String schoolId,
     required String academicYear,
   }) async {
-    // Déjà là ?
-    final existing = await _db
+    final startYear =
+        int.tryParse(academicYear.split('-').first) ?? DateTime.now().year;
+    final rows = await _db
         .from('invoices')
-        .select('id')
+        .select('period')
         .eq('student_id', studentId)
-        .eq('category', 'tuition')
-        .eq('period', academicYear)
-        .limit(1)
-        .maybeSingle();
-    if (existing != null) return existing['id'] as String;
+        .eq('school_id', schoolId)
+        .eq('category', 'tuition');
+    for (final r in (rows as List)) {
+      final period = (r as Map)['period'] as String?;
+      if (period == null) continue;
+      final yearToken = period.split(':').first.split('-').first;
+      final y = int.tryParse(yearToken);
+      if (y != null && y < startYear) return true;
+    }
+    return false;
+  }
 
-    // Sinon, le créer depuis la grille de la classe.
-    final student = await getStudentById(studentId);
-    final classId = student?.classId;
-    if (classId == null || classId.isEmpty) return null;
-    final fees = await getFeeStructures(schoolId, academicYear);
-    SbFeeStructure? fee;
-    for (final f in fees) {
-      if (f.classId == classId && f.isActive) {
-        fee = f;
-        break;
+  /// Somme des reçus de scolarité CONFIRMÉS pour l'année scolaire donnée,
+  /// séparant inscription et mensualités (deux comptes distincts, cf.
+  /// [SbTuitionAccount]). Reconnaît les deux formats de `period` : l'ancien
+  /// (une facture annuelle unique, `period == academicYear`) et le nouveau
+  /// (un reçu par versement, `period == '$academicYear:<mois|INSCRIPTION|avance>'`).
+  static Future<({double monthly, double registration})>
+      _tuitionPaymentsThisYear({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+  }) async {
+    final rows = await _db
+        .from('invoices')
+        .select('period, payments(amount,status)')
+        .eq('student_id', studentId)
+        .eq('school_id', schoolId)
+        .eq('category', 'tuition');
+    double monthly = 0;
+    double registration = 0;
+    for (final r in (rows as List)) {
+      final map = r as Map<String, dynamic>;
+      final period = map['period'] as String?;
+      if (period == null) continue;
+      final isOldWholeYear = period == academicYear;
+      final isNewThisYear = period.startsWith('$academicYear:');
+      if (!isOldWholeYear && !isNewThisYear) continue;
+      final amount = SbInvoice._sumPayments(map['payments']);
+      if (isNewThisYear && period.split(':').last == 'INSCRIPTION') {
+        registration += amount;
+      } else {
+        monthly += amount;
       }
     }
-    if (fee == null) return null;
+    return (monthly: monthly, registration: registration);
+  }
 
-    final annual = fee.amountPerPeriod * fee.periodsCount;
+  /// Crée UNIQUEMENT la facture d'un reçu (montant exact, statut `paid`) —
+  /// sans versement associé. Utilisé par [_createTuitionReceipt] (cash, crée
+  /// aussi le versement dans la foulée) ET par [confirmPayment] (en ligne, le
+  /// versement existe déjà en `pending` — on le rattache après coup à cette
+  /// facture plutôt que d'en créer un second).
+  static Future<String> _createTuitionInvoiceOnly({
+    required String schoolId,
+    required String studentId,
+    required String academicYear,
+    required String description,
+    required double amount,
+    required String currency,
+    required String periodTag,
+  }) async {
     final id = const Uuid().v4();
+    final now = DateTime.now();
     await _db.from('invoices').insert({
       'id': id,
       'school_id': schoolId,
       'student_id': studentId,
-      'invoice_number': 'SCO-$academicYear-${id.substring(0, 6).toUpperCase()}',
-      'description': 'Scolarité $academicYear',
-      'amount': annual,
-      'currency': fee.currency,
+      'invoice_number':
+          'SCO-${now.year}${now.month.toString().padLeft(2, '0')}-${id.substring(0, 6).toUpperCase()}',
+      'description': description,
+      'amount': amount,
+      'currency': currency,
       'category': 'tuition',
-      'period': academicYear,
-      'issued_date': DateTime.now().toIso8601String().split('T').first,
-      // Pas d'échéance unique : le retard se lit sur le compte (owedNow), pas
-      // sur un due_date de fin d'année.
-      'status': 'pending',
+      'period': '$academicYear:$periodTag',
+      'issued_date': now.toIso8601String().split('T').first,
+      // Un reçu correspond TOUJOURS à de l'argent déjà reçu — jamais 'pending'.
+      'status': 'paid',
     }).friendly();
     return id;
   }
 
-  /// Enregistre un VERSEMENT de scolarité sur le compte de l'élève. Le versement
-  /// s'accumule sur le compte annuel (paiements partiels gérés) ; le statut passe
-  /// à « paid » une fois toute l'année soldée. Le « à jour » mois par mois, lui,
-  /// se déduit du compte ([getTuitionAccount]), pas du statut.
+  /// Crée le reçu d'UN encaissement CASH (montant exact reçu, jamais un solde
+  /// qui court) : la facture + son versement, dans la foulée. `periodTag`
+  /// identifie ce que couvre le reçu : un mois (`2026-01`), `INSCRIPTION`, ou
+  /// `avance` si le versement ne complète aucun mois entier.
+  static Future<void> _createTuitionReceipt({
+    required String schoolId,
+    required String studentId,
+    required String academicYear,
+    required String description,
+    required double amount,
+    required String currency,
+    required String periodTag,
+    String method = 'cash',
+    String? reference,
+  }) async {
+    final invoiceId = await _createTuitionInvoiceOnly(
+      schoolId: schoolId,
+      studentId: studentId,
+      academicYear: academicYear,
+      description: description,
+      amount: amount,
+      currency: currency,
+      periodTag: periodTag,
+    );
+    await _db.from('payments').insert({
+      'id': const Uuid().v4(),
+      'invoice_id': invoiceId,
+      'student_id': studentId,
+      'amount': amount,
+      'payment_date': DateTime.now().toIso8601String().split('T').first,
+      'payment_method': method,
+      if (reference != null && reference.isNotEmpty) 'reference': reference,
+    }).friendly();
+  }
+
+  /// Détermine ce qu'un versement de scolarité mensuelle couvre : des MOIS
+  /// PLEINS en priorité (le plus ancien dû d'abord) ; le reliquat qui ne
+  /// complète pas un mois entier reste un solde payé d'avance visible sur le
+  /// compte ([SbTuitionAccount.credit]), jamais réparti au prorata dans le
+  /// reçu. Partagé entre l'encaissement cash et la confirmation d'un
+  /// versement en ligne — même règle des deux côtés.
+  static Future<({String description, String periodTag})> _tuitionReceiptPlan({
+    required SbFeeStructure fee,
+    required double alreadyPaidThisYear,
+    required double amount,
+  }) async {
+    final periods = tuitionPeriods(fee);
+    final monthsAlreadyCovered =
+        (alreadyPaidThisYear / fee.amountPerPeriod).floor();
+    final monthsCoveredByThis = (amount / fee.amountPerPeriod).floor();
+
+    final coveredLabels = <String>[];
+    for (var i = 0; i < monthsCoveredByThis; i++) {
+      final idx = monthsAlreadyCovered + i;
+      if (idx < periods.length) {
+        coveredLabels.add(periods[idx].label.replaceFirst('Scolarité — ', ''));
+      }
+    }
+    final description = coveredLabels.isEmpty
+        ? 'Scolarité — avance sur mois futur'
+        : 'Scolarité — ${coveredLabels.join(", ")}';
+    final periodTag =
+        monthsCoveredByThis > 0 && monthsAlreadyCovered < periods.length
+            ? periods[monthsAlreadyCovered].period
+            : 'avance';
+    return (description: description, periodTag: periodTag);
+  }
+
+  /// La grille de frais active de la classe d'un élève pour une année, ou
+  /// `null` si absente. Lève si l'élève lui-même n'a pas de classe.
+  static Future<SbFeeStructure?> _activeFeeFor({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+  }) async {
+    final student = await getStudentById(studentId);
+    final classId = student?.classId;
+    if (classId == null || classId.isEmpty) {
+      throw Exception('Élève sans classe.');
+    }
+    final fees = await getFeeStructures(schoolId, academicYear);
+    for (final f in fees) {
+      if (f.classId == classId && f.isActive) return f;
+    }
+    return null;
+  }
+
+  /// Enregistre un encaissement de SCOLARITÉ MENSUELLE : génère son propre
+  /// reçu pour le montant exact reçu (pas un pot commun mutable).
   ///
   /// Lève une exception si la classe de l'élève n'a pas de grille de frais.
   static Future<void> recordTuitionPayment({
@@ -3179,19 +3520,78 @@ class SupabaseDbSource {
     String method = 'cash',
     String? reference,
   }) async {
-    final invoiceId = await _ensureTuitionAccount(
+    final SbFeeStructure? fee;
+    try {
+      fee = await _activeFeeFor(
+          studentId: studentId, schoolId: schoolId, academicYear: academicYear);
+    } catch (_) {
+      throw Exception('Élève sans classe : impossible d\'encaisser la scolarité.');
+    }
+    if (fee == null) {
+      throw Exception(
+          'Aucune grille de frais pour la classe de cet élève : impossible d\'encaisser la scolarité.');
+    }
+    if (fee.amountPerPeriod <= 0) {
+      throw Exception('Mensualité invalide dans la grille de frais.');
+    }
+
+    final split = await _tuitionPaymentsThisYear(
       studentId: studentId,
       schoolId: schoolId,
       academicYear: academicYear,
     );
-    if (invoiceId == null) {
-      throw Exception(
-          'Aucune grille de frais pour la classe de cet élève : impossible d\'encaisser la scolarité.');
-    }
-    await recordPayment(
-      invoiceId: invoiceId,
-      studentId: studentId,
+    final plan = await _tuitionReceiptPlan(
+      fee: fee,
+      alreadyPaidThisYear: split.monthly,
       amount: amount,
+    );
+
+    await _createTuitionReceipt(
+      schoolId: schoolId,
+      studentId: studentId,
+      academicYear: academicYear,
+      description: plan.description,
+      amount: amount,
+      currency: fee.currency,
+      periodTag: plan.periodTag,
+      method: method,
+      reference: reference,
+    );
+  }
+
+  /// Enregistre un encaissement d'INSCRIPTION/RÉINSCRIPTION — toujours un
+  /// versement SÉPARÉ de la scolarité mensuelle (jamais mélangé dans le même
+  /// reçu), même mécanique de reçu individuel. Le montant nouveau/réinscrit
+  /// est déterminé par [isReturningStudent], pas saisi à la main.
+  static Future<void> recordRegistrationPayment({
+    required String studentId,
+    required String schoolId,
+    required String academicYear,
+    required double amount,
+    String method = 'cash',
+    String? reference,
+  }) async {
+    final student = await getStudentById(studentId);
+    final classId = student?.classId;
+    if (classId == null || classId.isEmpty) {
+      throw Exception(
+          'Élève sans classe : impossible d\'encaisser l\'inscription.');
+    }
+    final school = await getSchool(schoolId);
+    final currency = school?.currency ?? 'XAF';
+    final returning = await isReturningStudent(
+      studentId: studentId,
+      schoolId: schoolId,
+      academicYear: academicYear,
+    );
+    await _createTuitionReceipt(
+      schoolId: schoolId,
+      studentId: studentId,
+      academicYear: academicYear,
+      description: returning ? 'Réinscription $academicYear' : 'Inscription $academicYear',
+      amount: amount,
+      currency: currency,
+      periodTag: 'INSCRIPTION',
       method: method,
       reference: reference,
     );
@@ -3601,6 +4001,55 @@ class SupabaseDbSource {
         'mtn': mtn?.trim().isEmpty == true ? null : mtn?.trim(),
         'airtel': airtel?.trim().isEmpty == true ? null : airtel?.trim(),
       },
+    };
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId).friendly();
+  }
+
+  /// Active/désactive le paiement en ligne pour TOUTE l'école (scolarité,
+  /// inscription, cantine…) — un seul interrupteur, pas un réglage par type
+  /// de frais. Se cumule avec le plan d'abonnement (les deux doivent
+  /// autoriser pour que le bouton « Payer en ligne » apparaisse).
+  static Future<void> updateOnlinePaymentEnabled({
+    required String schoolId,
+    required bool enabled,
+  }) async {
+    final row = await _db
+        .from('schools')
+        .select('metadata')
+        .eq('id', schoolId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+      'online_payment_enabled': enabled,
+    };
+    await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId).friendly();
+  }
+
+  /// Fixe les frais d'inscription/réinscription d'UNE classe (lecture-fusion
+  /// -écriture, ne touche pas les autres classes ni le reste de `metadata`).
+  /// `forNew`/`forReturning` à `null` = pas de frais d'inscription pour cette
+  /// classe (le compte de scolarité n'affichera aucune ligne inscription).
+  static Future<void> updateRegistrationFee({
+    required String schoolId,
+    required String classId,
+    double? forNew,
+    double? forReturning,
+  }) async {
+    final row = await _db
+        .from('schools')
+        .select('metadata')
+        .eq('id', schoolId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final existingFees = current is Map<String, dynamic> &&
+            current['registration_fees'] is Map
+        ? Map<String, dynamic>.from(current['registration_fees'] as Map)
+        : <String, dynamic>{};
+    existingFees[classId] = {'new': forNew, 'returning': forReturning};
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+      'registration_fees': existingFees,
     };
     await _db.from('schools').update({'metadata': metadata}).eq('id', schoolId).friendly();
   }

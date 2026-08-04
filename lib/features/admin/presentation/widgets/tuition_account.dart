@@ -40,6 +40,11 @@ class TuitionAccountCard extends ConsumerWidget {
   /// (Le règlement à la caisse passe par [canCollect], côté admin.)
   final VoidCallback? onPayOnline;
 
+  /// Vue famille : si fourni et qu'il reste un solde d'inscription, affiche
+  /// « Payer l'inscription en ligne » — bouton À PART de [onPayOnline], un
+  /// versement ne mélange jamais scolarité et inscription.
+  final VoidCallback? onPayRegistrationOnline;
+
   /// Vue famille : si fourni, affiche « Télécharger la facture/le reçu » — la
   /// facture annuelle de scolarité (catégorie `tuition`), seule trace
   /// imprimable d'un versement fait à la caisse ou en ligne.
@@ -52,6 +57,7 @@ class TuitionAccountCard extends ConsumerWidget {
     this.canCollect = false,
     this.title = 'Compte scolarité',
     this.onPayOnline,
+    this.onPayRegistrationOnline,
     this.onDownload,
   });
 
@@ -124,6 +130,32 @@ class TuitionAccountCard extends ConsumerWidget {
                   _kv('Payé d\'avance', _money(acc.credit, acc.currency),
                       context,
                       valueColor: _green),
+                // Inscription/réinscription : ligne À PART de la scolarité
+                // mensuelle (montant et échéance différents).
+                if (acc.hasRegistrationFee) ...[
+                  const Divider(height: 18),
+                  _kv(
+                    acc.registrationSettled ? 'Inscription' : 'Inscription due',
+                    acc.registrationSettled
+                        ? 'Réglée'
+                        : _money(acc.registrationOwed, acc.currency),
+                    context,
+                    valueColor: acc.registrationSettled ? _green : _terra,
+                  ),
+                  if (!canCollect &&
+                      onPayRegistrationOnline != null &&
+                      !acc.registrationSettled) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ActionButton(
+                        label: 'Payer l\'inscription en ligne',
+                        icon: Icons.smartphone_rounded,
+                        onTap: onPayRegistrationOnline!,
+                      ),
+                    ),
+                  ],
+                ],
                 if (onDownload != null) ...[
                   const SizedBox(height: 10),
                   GestureDetector(
@@ -244,9 +276,19 @@ class _TuitionPaymentDialogState extends ConsumerState<_TuitionPaymentDialog> {
   bool _loading = false;
   String? _error;
 
+  // Un encaissement ne mélange JAMAIS scolarité et inscription — deux reçus
+  // séparés, même si le parent paye les deux le même jour.
+  late String _type =
+      (widget.acc.hasRegistrationFee && !widget.acc.registrationSettled)
+          ? 'inscription'
+          : 'scolarite';
+
+  bool get _isRegistration => _type == 'inscription';
+
   // Défaut malin : ce qu'il doit aujourd'hui (mise à jour), sinon une mensualité.
   double _defaultAmount() {
     final a = widget.acc;
+    if (_isRegistration) return a.registrationOwed;
     if (a.owedNow > 0.01) return a.owedNow;
     return a.monthly;
   }
@@ -267,7 +309,13 @@ class _TuitionPaymentDialogState extends ConsumerState<_TuitionPaymentDialog> {
       setState(() => _error = 'Montant invalide.');
       return;
     }
-    if (v > a.balance + 0.01) {
+    if (_isRegistration) {
+      if (v > a.registrationOwed + 0.01) {
+        setState(() => _error =
+            'Dépasse le reste dû sur l\'inscription (${_money(a.registrationOwed, a.currency)}).');
+        return;
+      }
+    } else if (v > a.balance + 0.01) {
       setState(() => _error =
           'Dépasse le reste dû sur l\'année (${_money(a.balance, a.currency)}).');
       return;
@@ -284,12 +332,21 @@ class _TuitionPaymentDialogState extends ConsumerState<_TuitionPaymentDialog> {
       if (schoolId == null || year == null) {
         throw Exception('École ou année scolaire introuvable.');
       }
-      await SupabaseDbSource.recordTuitionPayment(
-        studentId: widget.studentId,
-        schoolId: schoolId,
-        academicYear: year,
-        amount: v,
-      );
+      if (_isRegistration) {
+        await SupabaseDbSource.recordRegistrationPayment(
+          studentId: widget.studentId,
+          schoolId: schoolId,
+          academicYear: year,
+          amount: v,
+        );
+      } else {
+        await SupabaseDbSource.recordTuitionPayment(
+          studentId: widget.studentId,
+          schoolId: schoolId,
+          academicYear: year,
+          amount: v,
+        );
+      }
       ref.invalidate(tuitionAccountProvider(widget.studentId));
       ref.invalidate(invoicesProvider);
       ref.invalidate(invoicesForStudentProvider(widget.studentId));
@@ -335,6 +392,26 @@ class _TuitionPaymentDialogState extends ConsumerState<_TuitionPaymentDialog> {
                 'Payé ${_money(a.paid, a.currency)} · dû aujourd\'hui ${_money(a.owedNow, a.currency)}',
                 style: TextStyle(fontSize: 12, color: context.cMuted)),
           ),
+          if (a.hasRegistrationFee) ...[
+            const SizedBox(height: 14),
+            // Un encaissement = un seul type, jamais les deux mélangés.
+            SegmentedButton<String>(
+              segments: [
+                const ButtonSegment(value: 'scolarite', label: Text('Scolarité')),
+                ButtonSegment(
+                  value: 'inscription',
+                  label: Text(a.registrationSettled ? 'Inscription (réglée)' : 'Inscription'),
+                  enabled: !a.registrationSettled,
+                ),
+              ],
+              selected: {_type},
+              onSelectionChanged: (s) => setState(() {
+                _type = s.first;
+                _amount.text = _defaultAmount().toStringAsFixed(0);
+                _error = null;
+              }),
+            ),
+          ],
           const SizedBox(height: 14),
           TextField(
             controller: _amount,

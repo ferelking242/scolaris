@@ -728,17 +728,24 @@ final tuitionAccountsProvider =
   final students = await ref.watch(studentsProvider.future);
   final fees = await ref.watch(feeStructuresProvider.future);
   final invoices = await ref.watch(invoicesProvider.future);
+  final year = ref.watch(schoolProvider).valueOrNull?.academicYear ?? '';
 
   final feeByClass = <String, SbFeeStructure>{};
   for (final f in fees) {
     if (f.isActive) feeByClass[f.classId] = f;
   }
+  // Uniquement les reçus de L'ANNÉE SCOLAIRE COURANTE — sinon un élève qui a
+  // fini de payer l'an dernier paraît « à jour » cette année sans avoir rien
+  // versé (cf. `getTuitionAccount`, même filtre). L'inscription n'est PAS
+  // comptée ici (vue de liste, détail complet réservé à la fiche élève).
   final paidByStudent = <String, double>{};
   for (final inv in invoices) {
     final sid = inv.studentId;
-    if (inv.isTuition && sid != null) {
-      paidByStudent[sid] = (paidByStudent[sid] ?? 0) + inv.amountPaid;
-    }
+    final period = inv.period;
+    if (!inv.isTuition || sid == null || period == null) continue;
+    final isThisYear = period == year || period.startsWith('$year:');
+    if (!isThisYear) continue;
+    paidByStudent[sid] = (paidByStudent[sid] ?? 0) + inv.amountPaid;
   }
   final out = <String, SbTuitionAccount>{};
   for (final s in students) {
@@ -821,11 +828,26 @@ final familyAccountsEnabledProvider = FutureProvider<bool>((ref) async {
   return code == 'pro' || code == 'max';
 });
 
-/// Le paiement en ligne (Mobile Money) est réservé aux offres Pro et Max :
-/// en Simple, aucune famille n'a de compte pour payer dans l'app → manuel only.
-final onlinePaymentEnabledProvider = FutureProvider<bool>((ref) async {
+/// Le plan seul (Pro/Max) — sert à afficher les RÉGLAGES du paiement en ligne
+/// (l'interrupteur école lui-même), qu'il soit activé ou non. Distinct de
+/// [onlinePaymentEnabledProvider] : il faut pouvoir VOIR l'interrupteur pour
+/// l'allumer, donc son affichage ne peut pas dépendre de son propre état.
+final onlinePaymentPlanAllowedProvider = FutureProvider<bool>((ref) async {
   final code = await ref.watch(currentPlanCodeProvider.future);
   return code == 'pro' || code == 'max';
+});
+
+/// Le paiement en ligne (Mobile Money) est réservé aux offres Pro et Max :
+/// en Simple, aucune famille n'a de compte pour payer dans l'app → manuel only.
+/// EN PLUS du plan, l'école doit avoir explicitement activé l'interrupteur
+/// (certaines écoles veulent que tout se règle sur place) — les deux
+/// conditions se cumulent, l'une n'autorise pas l'autre. Pilote l'affichage
+/// des boutons « Payer en ligne » partout dans l'app.
+final onlinePaymentEnabledProvider = FutureProvider<bool>((ref) async {
+  final planOk = await ref.watch(onlinePaymentPlanAllowedProvider.future);
+  if (!planOk) return false;
+  final school = await ref.watch(schoolProvider.future);
+  return school?.onlinePaymentEnabled ?? false;
 });
 
 /// Nombre d'élèves de l'école courante (usage vs limite).

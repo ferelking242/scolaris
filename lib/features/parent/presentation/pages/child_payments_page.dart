@@ -28,19 +28,39 @@ class ChildPaymentsPage extends ConsumerWidget {
     final tuitionInvoice = invoices.where((i) => i.isTuition).firstOrNull;
     final currency = tuitionInvoice?.currency ?? 'FCFA';
 
-    // Toutes les factures de scolarité impayées (souvent plusieurs mois en
-    // retard) — pas seulement la première, sinon le parent ne peut régler
-    // qu'un mois à la fois.
-    final unpaidTuition =
-        invoices.where((i) => i.isTuition && !i.isPaid).toList();
-
-    Future<void> payTuition() async {
-      if (unpaidTuition.isEmpty) return;
-      final owed =
-          ref.read(tuitionAccountProvider(child.id)).valueOrNull?.owedNow;
-      final ok = await showOnlinePaymentSheet(context, ref, unpaidTuition,
-          suggestedAmount: (owed != null && owed > 0.01) ? owed : null);
-      if (ok) ref.invalidate(invoicesForStudentProvider(child.id));
+    // Scolarité/inscription : pas de facture à pointer (modèle « reçu par
+    // encaissement », cf. recordTuitionPayment) — la cible est l'élève, pas
+    // une SbInvoice.
+    Future<void> payTuition({required bool registration}) async {
+      final schoolId = school?.id;
+      final year = school?.academicYear;
+      if (schoolId == null || year == null) return;
+      final acc = ref.read(tuitionAccountProvider(child.id)).valueOrNull;
+      if (acc == null) return;
+      final balance = registration ? acc.registrationOwed : acc.balance;
+      if (balance <= 0.01) return;
+      final ok = await showOnlineTuitionPaymentSheet(
+        context,
+        ref,
+        OnlineTuitionTarget(
+          studentId: child.id,
+          schoolId: schoolId,
+          academicYear: year,
+          category: registration ? 'registration' : 'tuition',
+          label: registration
+              ? 'Inscription — ${child.fullName}'
+              : 'Scolarité — ${child.fullName}',
+          balance: balance,
+          currency: acc.currency,
+        ),
+        suggestedAmount: registration
+            ? acc.registrationOwed
+            : (acc.owedNow > 0.01 ? acc.owedNow : null),
+      );
+      if (ok) {
+        ref.invalidate(invoicesForStudentProvider(child.id));
+        ref.invalidate(tuitionAccountProvider(child.id));
+      }
     }
 
     Future<void> payOther(SbInvoice inv) async {
@@ -56,7 +76,9 @@ class ChildPaymentsPage extends ConsumerWidget {
         TuitionAccountCard(
           studentId: child.id,
           studentName: child.fullName,
-          onPayOnline: (online && unpaidTuition.isNotEmpty) ? payTuition : null,
+          onPayOnline: online ? () => payTuition(registration: false) : null,
+          onPayRegistrationOnline:
+              online ? () => payTuition(registration: true) : null,
           onDownload: tuitionInvoice == null
               ? null
               : () => printInvoice(school: school, invoice: tuitionInvoice),
