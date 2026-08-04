@@ -24,24 +24,53 @@ Future<void> printSubscriptionReceipt({
   required SbSchool? school,
   required SbSubscriptionPayment payment,
   required String planName,
+  String? previousPlanName,
 }) async {
   final doc = await buildSubscriptionReceiptPdf(
     school: school,
     payment: payment,
     planName: planName,
+    previousPlanName: previousPlanName,
   );
   final ref = payment.reference ?? payment.id.substring(0, 8).toUpperCase();
   await Printing.layoutPdf(onLayout: (_) => doc, name: 'Recu Scolaris $ref');
+}
+
+/// Téléchargement DIRECT du reçu (pas d'aperçu/impression) — `Printing.sharePdf`
+/// déclenche le téléchargement navigateur sur web, la feuille de partage
+/// (Enregistrer dans Fichiers…) sur mobile. C'est ce que « Télécharger le
+/// reçu » doit appeler, pas [printSubscriptionReceipt] qui ouvre la boîte
+/// système impression/aperçu.
+Future<void> downloadSubscriptionReceipt({
+  required SbSchool? school,
+  required SbSubscriptionPayment payment,
+  required String planName,
+  String? previousPlanName,
+}) async {
+  final doc = await buildSubscriptionReceiptPdf(
+    school: school,
+    payment: payment,
+    planName: planName,
+    previousPlanName: previousPlanName,
+  );
+  final ref = payment.reference ?? payment.id.substring(0, 8).toUpperCase();
+  await Printing.sharePdf(bytes: doc, filename: 'recu-scolaris-$ref.pdf');
 }
 
 Future<Uint8List> buildSubscriptionReceiptPdf({
   required SbSchool? school,
   required SbSubscriptionPayment payment,
   required String planName,
+  String? previousPlanName,
 }) async {
   final theme = await _theme();
   final pdf = pw.Document();
-  pdf.addPage(_receiptPage(theme: theme, school: school, payment: payment, planName: planName));
+  pdf.addPage(_receiptPage(
+      theme: theme,
+      school: school,
+      payment: payment,
+      planName: planName,
+      previousPlanName: previousPlanName));
   return pdf.save();
 }
 
@@ -92,6 +121,7 @@ pw.Page _receiptPage({
   required SbSchool? school,
   required SbSubscriptionPayment payment,
   required String planName,
+  String? previousPlanName,
 }) {
   final money = SchoolFormat(currency: payment.currency).money;
   final dfLong = DateFormat('d MMMM yyyy', 'fr');
@@ -103,11 +133,14 @@ pw.Page _receiptPage({
   final coverage = '${dfShort.format(start)} – ${dfShort.format(end)}';
   final periodLabel = payment.isYearly ? 'Abonnement annuel' : 'Abonnement mensuel';
   final hasCredit = payment.creditApplied > 0.01;
+  final isPlanChange = payment.isPlanChange && previousPlanName != null;
 
-  final schoolLoc = [school?.city, school?.country]
-      .where((e) => (e ?? '').isNotEmpty)
-      .map((e) => e!)
-      .toList();
+  final schoolLoc = [
+    school?.city,
+    school?.country,
+    if ((school?.contactEmail ?? '').isNotEmpty) school!.contactEmail,
+    if ((school?.contactPhone ?? '').isNotEmpty) school!.contactPhone,
+  ].where((e) => (e ?? '').isNotEmpty).map((e) => e!).toList();
 
   return pw.Page(
     theme: theme,
@@ -135,6 +168,8 @@ pw.Page _receiptPage({
         _metaRow('Numéro de reçu', ref, valueBold: true),
         _metaRow('Date de paiement', dfLong.format(payment.date)),
         _metaRow('Période couverte', coverage),
+        if (isPlanChange)
+          _metaRow('Changement d\'offre', '$previousPlanName → $planName'),
         pw.SizedBox(height: 22),
 
         // ── Émetteur (Scolaris) + client (école) ───────────────────────────
@@ -187,7 +222,9 @@ pw.Page _receiptPage({
           pw.Divider(color: _line, thickness: 1, height: 14),
           _itemRow(
             description: 'Crédit / prorata reporté',
-            subtitle: 'Temps restant de l\'offre précédente',
+            subtitle: isPlanChange
+                ? 'Temps restant sur l\'offre $previousPlanName'
+                : 'Temps restant de l\'offre précédente',
             qty: '1',
             unit: '',
             amount: money(-payment.creditApplied),

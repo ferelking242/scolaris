@@ -112,12 +112,18 @@ class BulletinView extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          headingRowHeight: 40,
-          dataRowMinHeight: 36,
-          dataRowMaxHeight: 42,
-          columnSpacing: 18,
+          headingRowHeight: 42,
+          headingRowColor: WidgetStateProperty.all(context.cSubtle),
+          dataRowMinHeight: 38,
+          dataRowMaxHeight: 44,
+          columnSpacing: 20,
+          horizontalMargin: 16,
+          dividerThickness: 0.6,
           headingTextStyle: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w800, color: context.cMuted),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: context.cMuted,
+              letterSpacing: .3),
           dataTextStyle: TextStyle(fontSize: 12.5, color: context.cInk),
           columns: [
             const DataColumn(label: Text('Matière')),
@@ -131,26 +137,35 @@ class BulletinView extends StatelessWidget {
             const DataColumn(label: Text('Observations')),
           ],
           rows: [
-            for (final l in bulletin.lines)
-              DataRow(cells: [
-                DataCell(Text(l.subject,
-                    style: const TextStyle(fontWeight: FontWeight.w600))),
-                for (final d in l.devoirs) DataCell(Text(_n(d))),
-                DataCell(Text(_n(l.mc))),
-                DataCell(Text(_n(l.compo))),
-                DataCell(Text('${l.coef}')),
-                DataCell(Text(_n(l.total))),
-                DataCell(Text(_n(l.average),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: (l.average ?? 0) >= 10 ? _green : _terra))),
-                DataCell(Text(_rg(l.rank))),
-                DataCell(Text(l.appreciation,
-                    style: TextStyle(fontSize: 12, color: context.cMuted))),
-              ]),
+            for (var i = 0; i < bulletin.lines.length; i++)
+              _row(context, bulletin.lines[i], zebra: i.isOdd),
           ],
         ),
       ),
+    );
+  }
+
+  DataRow _row(BuildContext context, BulletinLine l, {required bool zebra}) {
+    return DataRow(
+      color: zebra
+          ? WidgetStateProperty.all(context.cSubtle.withValues(alpha: .5))
+          : null,
+      cells: [
+        DataCell(Text(l.subject,
+            style: const TextStyle(fontWeight: FontWeight.w600))),
+        for (final d in l.devoirs) DataCell(Text(_n(d))),
+        DataCell(Text(_n(l.mc))),
+        DataCell(Text(_n(l.compo))),
+        DataCell(Text('${l.coef}')),
+        DataCell(Text(_n(l.total))),
+        DataCell(Text(_n(l.average),
+            style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: (l.average ?? 0) >= 10 ? _green : _terra))),
+        DataCell(Text(_rg(l.rank))),
+        DataCell(Text(l.appreciation,
+            style: TextStyle(fontSize: 12, color: context.cMuted))),
+      ],
     );
   }
 
@@ -158,69 +173,99 @@ class BulletinView extends StatelessWidget {
     final b = bulletin;
     final ok = b.average >= 10;
 
-    Widget stat(String k, String v) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+    Widget stat(String k, String v, {Color? valueColor}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child:
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(k, style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+            Text(k, style: TextStyle(fontSize: 12, color: context.cMuted)),
             Text(v,
                 style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: context.cInk)),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: valueColor ?? context.cInk)),
+          ]),
+        );
+
+    Widget group(String label, List<Widget> children) => Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: context.cSubtle,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label.toUpperCase(),
+                style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: context.cMuted)),
+            const SizedBox(height: 6),
+            ...children,
           ]),
         );
 
     return DataPanel(
       title: frozen ? 'Conseil de classe (figé)' : 'Conseil de classe',
-      child: Wrap(
-        spacing: 24,
-        runSpacing: 16,
-        children: [
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Moyenne générale', '${_n(b.average)} / ${_maxScore.toStringAsFixed(0)}'),
-              stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
-              stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
+      child: LayoutBuilder(builder: (_, constraints) {
+        final narrow = constraints.maxWidth < 560;
+        final groups = [
+          group('Résultats', [
+            stat('Moyenne générale',
+                '${_n(b.average)} / ${_maxScore.toStringAsFixed(0)}',
+                valueColor: ok ? _green : _terra),
+            stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
+            stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
+          ]),
+          group('Classe', [
+            stat('Moyenne de la classe', _n(b.classAverage)),
+            stat('Premier', _n(b.bestAverage)),
+            stat('Dernier', _n(b.worstAverage)),
+          ]),
+          group('Assiduité', [
+            stat('Absences', '${b.absences}'),
+            stat('Retards', '${b.lates}'),
+          ]),
+        ];
+        final decision = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: (ok ? _green : _terra).withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: (ok ? _green : _terra).withValues(alpha: .3)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(b.decision,
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: ok ? _green : _terra)),
+            const SizedBox(height: 2),
+            Text('Mention : ${b.mention}',
+                style: TextStyle(fontSize: 12, color: context.cMuted)),
+          ]),
+        );
+
+        if (narrow) {
+          return Column(children: [
+            for (final g in groups) ...[g, const SizedBox(height: 10)],
+            decision,
+          ]);
+        }
+        return Column(children: [
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              for (final g in groups) ...[
+                Expanded(child: g),
+                const SizedBox(width: 10),
+              ],
             ]),
           ),
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Moyenne de la classe', _n(b.classAverage)),
-              stat('Premier', _n(b.bestAverage)),
-              stat('Dernier', _n(b.worstAverage)),
-            ]),
-          ),
-          SizedBox(
-            width: 240,
-            child: Column(children: [
-              stat('Absences', '${b.absences}'),
-              stat('Retards', '${b.lates}'),
-            ]),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              color: (ok ? _green : _terra).withValues(alpha: .08),
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: (ok ? _green : _terra).withValues(alpha: .3)),
-            ),
-            child: Column(children: [
-              Text(b.decision,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: ok ? _green : _terra)),
-              const SizedBox(height: 2),
-              Text('Mention : ${b.mention}',
-                  style: TextStyle(fontSize: 12, color: context.cMuted)),
-            ]),
-          ),
-        ],
-      ),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: decision),
+        ]);
+      }),
     );
   }
 }

@@ -293,6 +293,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
         currency: widget.currency,
         reference: ref_,
         provider: _operator,
+        previousPlanCode: widget.currentSub?.planCode,
       );
       ref.invalidate(subscriptionPaymentsProvider);
       if (mounted) navigator.pop();
@@ -806,17 +807,50 @@ class _BillingHistory extends ConsumerWidget {
   Widget _row(BuildContext context, SbSubscriptionPayment p, SbSchool? school) {
     final planName = planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase();
     final periodLabel = p.isYearly ? 'annuel' : 'mensuel';
+
+    // Un versement Mobile Money soumis par l'école reste `pending` tant que le
+    // super-admin n'a pas vérifié la référence sur le relevé marchand — voir
+    // `submitSubscriptionPayment` : « n'active RIEN ». Cette ligne ne doit donc
+    // JAMAIS ressembler à un reçu validé (coche verte + PDF téléchargeable)
+    // avant cette vérification, sous peine de laisser croire à l'école que son
+    // paiement est déjà confirmé.
+    final (Color color, IconData iconData, String? statusLabel) = switch (p.status) {
+      'success' => (const Color(0xFF15803D), Icons.check_circle_rounded, null),
+      'pending' => (const Color(0xFFEA580C), Icons.hourglass_top_rounded,
+          'En attente de vérification'),
+      'failed' => (const Color(0xFFDC2626), Icons.cancel_rounded, 'Échoué'),
+      'refunded' => (context.cMuted, Icons.replay_rounded, 'Remboursé'),
+      _ => (context.cMuted, Icons.help_outline_rounded, null),
+    };
     final icon = Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF15803D).withValues(alpha: .12),
+        color: color.withValues(alpha: .12),
         shape: BoxShape.circle,
       ),
-      child: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF15803D)),
+      child: Icon(iconData, size: 16, color: color),
     );
     final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Offre $planName · $periodLabel',
-          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+      Row(children: [
+        Flexible(
+          child: Text('Offre $planName · $periodLabel',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+        ),
+        if (statusLabel != null) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(statusLabel,
+                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: color)),
+          ),
+        ],
+      ]),
       const SizedBox(height: 2),
       Text('${_fmtDate(p.date)} · Réf. ${p.reference ?? p.id.substring(0, 8).toUpperCase()}',
           style: TextStyle(fontSize: 11, color: context.cMuted)),
@@ -828,13 +862,24 @@ class _BillingHistory extends ConsumerWidget {
         Text('crédit − ${fmt.format(p.creditApplied)}',
             style: const TextStyle(fontSize: 10, color: Color(0xFF15803D))),
     ]);
-    final downloadBtn = IconButton(
-      tooltip: 'Télécharger le reçu',
-      icon: const Icon(Icons.download_rounded, size: 20),
-      color: const Color(0xFF8B1A00),
-      onPressed: () => printSubscriptionReceipt(
-          school: school, payment: p, planName: planName),
-    );
+    // Un reçu imprimable n'a de sens QUE pour un versement confirmé — sinon on
+    // délivre un justificatif pour de l'argent dont l'école ne sait même pas
+    // encore s'il a bien été reçu.
+    final downloadBtn = p.status == 'success'
+        ? IconButton(
+            tooltip: 'Télécharger le reçu',
+            icon: const Icon(Icons.download_rounded, size: 20),
+            color: const Color(0xFF8B1A00),
+            onPressed: () => downloadSubscriptionReceipt(
+                school: school,
+                payment: p,
+                planName: planName,
+                previousPlanName: p.previousPlanCode == null
+                    ? null
+                    : planNameByCode[p.previousPlanCode] ??
+                        p.previousPlanCode!.toUpperCase()),
+          )
+        : const SizedBox(width: 20);
 
     return LayoutBuilder(builder: (_, constraints) {
       if (constraints.maxWidth < 380) {

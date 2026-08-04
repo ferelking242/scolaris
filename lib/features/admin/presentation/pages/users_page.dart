@@ -51,6 +51,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   // Un élève sorti (transféré/diplômé/radié) reste dans la base — juste hors
   // de la vue par défaut, comme une classe active ne montre pas ses anciens.
   bool _showExited = false;
+  /// Filtre classe, uniquement pertinent côté élèves (un parent n'a pas de
+  /// classe propre) — null = toutes les classes.
+  String? _classId;
 
   bool get _isFamilies => widget.scope == UsersScope.families;
 
@@ -1314,6 +1317,18 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         final schoolRoles =
             ref.watch(staffRolesProvider).valueOrNull ?? const <SbStaffRole>[];
 
+        // Filtre par classe (élèves uniquement — un parent n'a pas de classId
+        // propre, donc un parent reste toujours visible quel que soit le filtre).
+        final classStudents =
+            ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
+        final classIdByStudent = {for (final s in classStudents) s.id: s.classId};
+        final allClasses = ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
+        final classIdsInUse = classIdByStudent.values.whereType<String>().toSet();
+        final filterableClasses = allClasses
+            .where((c) => classIdsInUse.contains(c.id))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+
         final options = <_FilterOption>[
           (key: 'all', label: 'Tous'),
           if (_isFamilies) ...[
@@ -1344,6 +1359,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           if (q.isEmpty) return true;
           return u.fullName.toLowerCase().contains(q) ||
               u.email.toLowerCase().contains(q);
+        }).where((u) {
+          if (_classId == null) return true;
+          if (u.role == 'parent') return true;
+          return classIdByStudent[u.id] == _classId;
         }).where((u) => _showExited || !u.hasExited).toList();
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
@@ -1396,11 +1415,45 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               ),
               const SizedBox(height: 12),
             ],
-            _FilterRow(
-              current: _filter,
-              options: options,
-              onChange: (v) => setState(() => _filter = v),
-            ),
+            Row(children: [
+              Expanded(
+                child: _FilterRow(
+                  current: _filter,
+                  options: options,
+                  onChange: (v) => setState(() => _filter = v),
+                ),
+              ),
+              if (_isFamilies && filterableClasses.isNotEmpty) ...[
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: context.cSubtle,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: context.cBorder),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: _classId,
+                      isDense: true,
+                      dropdownColor: context.cCard,
+                      style: TextStyle(fontSize: 12, color: context.cInk),
+                      hint: Text('Toutes les classes',
+                          style: TextStyle(fontSize: 12, color: context.cMuted)),
+                      items: [
+                        DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Toutes les classes',
+                                style: TextStyle(fontSize: 12, color: context.cMuted))),
+                        for (final c in filterableClasses)
+                          DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                      ],
+                      onChanged: (v) => setState(() => _classId = v),
+                    ),
+                  ),
+                ),
+              ],
+            ]),
             const SizedBox(height: 12),
             DataPanel(
               title: 'Comptes',

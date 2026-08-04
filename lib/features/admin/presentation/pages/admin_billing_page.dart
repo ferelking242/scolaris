@@ -1241,13 +1241,22 @@ class _PaymentHistoryViewState extends ConsumerState<_PaymentHistoryView> {
   String _search = '';
   String _category = 'all'; // all | tuition | registration | other
 
+  /// L'inscription n'a PAS de valeur `category` dédiée en base (la contrainte
+  /// CHECK de `invoices.category` n'accepte que `tuition | canteen | transport
+  /// | uniforms | activities | other` — vérifié sur `pg_constraint`) : un reçu
+  /// d'inscription est stocké avec `category = 'tuition'` et se distingue
+  /// uniquement par le suffixe `:INSCRIPTION` de `period` (cf.
+  /// `_createTuitionInvoiceOnly`). Il faut donc lire `invoicePeriod` en
+  /// premier, jamais se fier à `category` seul pour ce cas.
+  bool _isRegistration(SbPayment p) =>
+      p.invoicePeriod?.endsWith(':INSCRIPTION') == true;
+
   String _categoryLabel(SbPayment p) {
+    if (_isRegistration(p)) return 'Inscription';
     final cat = p.invoiceCategory ?? p.pendingCategory;
     switch (cat) {
       case 'tuition':
         return 'Scolarité';
-      case 'registration':
-        return 'Inscription';
       case null:
         return '—';
       default:
@@ -1256,14 +1265,15 @@ class _PaymentHistoryViewState extends ConsumerState<_PaymentHistoryView> {
   }
 
   bool _matchesCategory(SbPayment p) {
+    final isRegistration = _isRegistration(p);
     final cat = p.invoiceCategory ?? p.pendingCategory;
     switch (_category) {
       case 'tuition':
-        return cat == 'tuition';
+        return cat == 'tuition' && !isRegistration;
       case 'registration':
-        return cat == 'registration';
+        return isRegistration;
       case 'other':
-        return cat != 'tuition' && cat != 'registration';
+        return cat != 'tuition';
       default:
         return true;
     }

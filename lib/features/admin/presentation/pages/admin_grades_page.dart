@@ -1085,6 +1085,8 @@ class _InfoCard extends StatelessWidget {
       this.matricule,
       required this.periodLabel});
 
+  static const _terra = Color(0xFF8B1A00);
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1093,26 +1095,68 @@ class _InfoCard extends StatelessWidget {
         color: context.cCard,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: context.cBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(children: [
-        Avatar(name: name, size: 46),
-        const SizedBox(width: 12),
+        Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_terra, Color(0xFFB8471F)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name,
                 style: TextStyle(
-                    color: context.cInk, fontSize: 15, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text('$classe · $periodLabel',
-                style: TextStyle(color: context.cMuted, fontSize: 11.5)),
-            const SizedBox(height: 2),
-            Text('Matricule : ${matricule ?? '—'}',
-                style: TextStyle(color: context.cMuted, fontSize: 11.5)),
+                    color: context.cInk, fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              _tag(context, Icons.class_outlined, classe),
+              _tag(context, Icons.event_note_rounded, periodLabel),
+              if (matricule != null && matricule!.isNotEmpty)
+                _tag(context, Icons.badge_outlined, matricule!),
+            ]),
           ]),
         ),
       ]),
     );
   }
+
+  Widget _tag(BuildContext context, IconData icon, String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: context.cSubtle,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 12.5, color: context.cMuted),
+          const SizedBox(width: 4),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  color: context.cMuted,
+                  fontWeight: FontWeight.w600)),
+        ]),
+      );
 }
 
 class _Empty extends StatelessWidget {

@@ -1312,6 +1312,10 @@ class SbSchool {
   final String? logoUrl;
   final String? accentColor;
   final String? academicYear;
+  /// `schools.contact_email` / `contact_phone` — colonnes réelles, déjà en
+  /// base mais jamais lues côté client jusqu'ici.
+  final String? contactEmail;
+  final String? contactPhone;
 
   /// Types d'établissement choisis à l'inscription (metadata.types) :
   /// garderie, primaire, college, lycee, universite, technique, superieur, special.
@@ -1393,6 +1397,8 @@ class SbSchool {
     this.logoUrl,
     this.accentColor,
     this.academicYear,
+    this.contactEmail,
+    this.contactPhone,
     this.types = const [],
     this.modules = const [],
     this.educationalSystem,
@@ -1482,6 +1488,8 @@ class SbSchool {
       logoUrl: j['logo_url'] as String?,
       accentColor: j['accent_color'] as String?,
       academicYear: j['academic_year'] as String?,
+      contactEmail: j['contact_email'] as String?,
+      contactPhone: j['contact_phone'] as String?,
       types: rawTypes is List
           ? rawTypes.map((e) => e.toString()).toList()
           : const [],
@@ -2094,6 +2102,10 @@ class SbCourseTeacher {
     final String status; // pending | success | failed | refunded
     final DateTime? paidAt;
     final DateTime? createdAt;
+    /// Offre quittée lors de ce versement, si c'était un changement d'offre
+    /// (`subscription_payments.previous_plan_code`) — `null` pour un simple
+    /// renouvellement (aucun changement de plan).
+    final String? previousPlanCode;
 
     const SbSubscriptionPayment({
       required this.id,
@@ -2110,16 +2122,20 @@ class SbCourseTeacher {
       this.status = 'success',
       this.paidAt,
       this.createdAt,
+      this.previousPlanCode,
     });
 
     double get fullPrice => amount + creditApplied;
     bool get isYearly => period == 'annual';
     DateTime get date => paidAt ?? createdAt ?? DateTime.now();
+    bool get isPlanChange =>
+        previousPlanCode != null && previousPlanCode != planCode;
 
     factory SbSubscriptionPayment.fromJson(Map<String, dynamic> j) =>
         SbSubscriptionPayment(
           id: j['id'] as String? ?? '',
           subscriptionId: j['subscription_id'] as String?,
+          previousPlanCode: j['previous_plan_code'] as String?,
           schoolId: j['school_id'] as String?,
           planCode: j['plan_code'] as String?,
           period: j['period'] as String?,
@@ -4183,6 +4199,10 @@ class SupabaseDbSource {
     String method = 'mobile_money',
     String? provider,
     String? reference,
+    /// L'offre quittée si CE versement correspond à un changement d'offre
+    /// (`null` = simple renouvellement de la même offre) — permet au reçu
+    /// d'afficher « Changement d'offre : Free → Pro ».
+    String? previousPlanCode,
   }) async {
     final now = DateTime.now();
     final ref = (reference != null && reference.trim().isNotEmpty)
@@ -4205,6 +4225,8 @@ class SupabaseDbSource {
           'reference': ref,
           'status': 'success',
           'paid_at': now.toIso8601String(),
+          if (previousPlanCode != null && previousPlanCode != planCode)
+            'previous_plan_code': previousPlanCode,
         })
         .select()
         .single().friendly();
@@ -4225,6 +4247,10 @@ class SupabaseDbSource {
     required String currency,
     required String reference,
     String? provider, // 'mtn' | 'airtel'
+    /// L'offre quittée si ce versement correspond à un changement d'offre
+    /// (`null` = renouvellement de la même offre) — affiché sur le reçu une
+    /// fois le versement confirmé.
+    String? previousPlanCode,
   }) async {
     await _db.from('subscription_payments').insert({
       'subscription_id': subscriptionId,
@@ -4237,6 +4263,8 @@ class SupabaseDbSource {
       'provider': provider,
       'reference': reference,
       'status': 'pending',
+      if (previousPlanCode != null && previousPlanCode != planCode)
+        'previous_plan_code': previousPlanCode,
     }).friendly();
   }
 
