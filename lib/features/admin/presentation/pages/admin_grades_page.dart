@@ -783,7 +783,7 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                 borderRadius: BorderRadius.circular(6),
                 borderSide: overLimit
                     ? BorderSide(color: _terra, width: 1.5)
-                    : BorderSide.none,
+                    : BorderSide(color: context.cBorder),
               ),
             ),
           );
