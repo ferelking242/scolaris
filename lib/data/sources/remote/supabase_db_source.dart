@@ -4889,6 +4889,13 @@ class SupabaseDbSource {
   /// Définit (ou retire, si null) le professeur **titulaire** d'une classe.
   /// Le titulaire enseigne toute sa classe (modèle primaire) et voit son
   /// carnet/ses présences pour cette classe.
+  ///
+  /// Rattache aussi le titulaire comme enseignant des cours de la classe qui
+  /// n'ont encore aucun prof (`course_teachers` vide) — au primaire les cours
+  /// sont générés sans prof par [generateDefaultProgramForClass] et rien ne
+  /// les couvrait ensuite. On ne touche pas aux cours qui ont déjà un ou
+  /// plusieurs profs : le co-enseignement (ex. maîtresse d'anglais) reste
+  /// intact, on ne fait que combler les trous.
   static Future<void> setClassMainTeacher(
       String classId, String? teacherId) async {
     await _db.from('classes').update({
@@ -4897,6 +4904,17 @@ class SupabaseDbSource {
           : null,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', classId).friendly();
+
+    if (teacherId == null || teacherId.isEmpty) return;
+    final courses = await getCoursesForClass(classId);
+    for (final course in courses) {
+      if (course.teachers.isNotEmpty) continue;
+      await setCourseTeachers(
+        courseId: course.id,
+        schoolId: course.schoolId,
+        teacherIds: [teacherId],
+      );
+    }
   }
 
   // ── Emploi du temps (schedules) ─────────────────────────────────────────────
