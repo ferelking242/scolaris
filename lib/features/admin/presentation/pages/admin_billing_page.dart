@@ -300,7 +300,7 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
           return PageScaffold(
             onRefresh: () => _refreshInvoicesView(ref),
             title: 'Factures ponctuelles',
-            subtitle: 'Inscription, cantine, transport, fournitures…',
+            subtitle: 'Cantine, transport, fournitures…',
             actions: [
               if (ref.watch(canProvider('comptabilite.creer_facture')))
                 ActionButton(
@@ -445,7 +445,7 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                     child: Text(
                         invoices.isEmpty
                             ? 'Aucune facture ponctuelle pour l\'instant.'
-                            : '${invoices.length} facture(s) — inscription, cantine, transport…',
+                            : '${invoices.length} facture(s) — cantine, transport, fournitures…',
                         style: TextStyle(fontSize: 13, color: context.cInk)),
                   ),
                   Icon(Icons.chevron_right_rounded, color: context.cMuted),
@@ -505,19 +505,20 @@ class _InvoiceDialog extends ConsumerStatefulWidget {
 
 class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _desc = TextEditingController(text: 'Frais d\'inscription');
+  final _desc = TextEditingController();
   final _amount = TextEditingController();
   SbStudent? _student;
-  String _category = 'Inscription';
+  String _category = 'Cantine';
   DateTime? _dueDate;
   bool _loading = false;
   String? _error;
 
-  // La SCOLARITÉ ne se saisit plus ici : elle passe par le compte de scolarité
-  // (Facturation → Comptes scolarité), qui gère le solde qui court et la
-  // cascade des versements. Ici, seulement les frais ponctuels.
+  // Ni la SCOLARITÉ ni l'INSCRIPTION/RÉINSCRIPTION ne se saisissent ici :
+  // elles passent par le compte de scolarité (Facturation → Comptes
+  // scolarité / Frais de scolarité), qui gère le solde qui court, le montant
+  // nouveau/réinscrit et la cascade des versements. Ici, seulement les frais
+  // ponctuels au cas par cas.
   static const _categories = [
-    'Inscription',
     'Cantine',
     'Transport',
     'Fournitures',
@@ -607,13 +608,13 @@ class _InvoiceDialogState extends ConsumerState<_InvoiceDialog> {
                 for (final c in _categories)
                   DropdownMenuItem(value: c, child: Text(c)),
               ],
-              onChanged: (v) => setState(() => _category = v ?? 'Inscription'),
+              onChanged: (v) => setState(() => _category = v ?? 'Cantine'),
             ),
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'La scolarité se gère dans « Comptes scolarité », pas ici.',
+                'Scolarité et inscription/réinscription se gèrent dans « Comptes scolarité », pas ici.',
                 style: TextStyle(fontSize: 11.5, color: context.cMuted),
               ),
             ),
