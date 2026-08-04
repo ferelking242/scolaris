@@ -361,6 +361,7 @@ class _ReportCardsPageState extends ConsumerState<ReportCardsPage> {
           for (final c in cards) ...[
             _StudentRow(
               card: c,
+              maxScore: _fmt.maxScore,
               onTap: () => _openBulletin(c),
             ),
             const SizedBox(height: 8),
@@ -803,13 +804,21 @@ class _TemplateCard extends StatelessWidget {
 
 class _StudentRow extends StatelessWidget {
   final SbReportCard card;
+  final double maxScore;
   final VoidCallback onTap;
-  const _StudentRow({required this.card, required this.onTap});
+  const _StudentRow({required this.card, required this.maxScore, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final avg = card.generalAverage;
-    final avgColor = avg >= 14 ? _green : avg >= 10 ? _gold : _terra;
+    // `generalAverage` est stocké sur le barème interne /20 (cf. buildBulletins) ;
+    // on le convertit vers le barème d'AFFICHAGE du cycle, comme _ClassGradesPanel
+    // et le PDF le font déjà. Sans ça, un élève de primaire noté /10 voyait ici
+    // sa moyenne brute /20 (ex. 14) au lieu de sa moyenne réelle /10 (ex. 7).
+    final k = maxScore / 20;
+    final avg = card.generalAverage * k;
+    // Seuils proportionnels au barème (14/10 sur /20 → mêmes ratios ailleurs).
+    final avgColor =
+        avg >= 14 * k ? _green : avg >= 10 * k ? _gold : _terra;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(13),
@@ -843,7 +852,7 @@ class _StudentRow extends StatelessWidget {
               style: TextStyle(color: context.cMuted, fontSize: 11.5)),
         ])),
         const SizedBox(width: 10),
-        Text(avg.toStringAsFixed(2),
+        Text('${avg.toStringAsFixed(2)}/${maxScore.toStringAsFixed(0)}',
             style: TextStyle(color: avgColor, fontSize: 16, fontWeight: FontWeight.w900)),
         const SizedBox(width: 10),
         card.isPublished
