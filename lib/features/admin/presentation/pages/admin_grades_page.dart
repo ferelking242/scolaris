@@ -379,6 +379,50 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
     required bool Function(bool isNew) canWriteCell,
     required SbGrade? Function(String studentId, GradeSlot slot) existing,
   }) async {
+    // Pré-validation du barème : on refuse tout le lot plutôt que d'écrêter en
+    // silence une note hors barème (ex. 15 tapé sur une classe /10). Une note
+    // tronquée sans avertissement se retrouve verrouillée sans que personne ne
+    // l'ait vue — mieux vaut forcer la correction avant l'écriture.
+    final outOfRange = <String>[];
+    for (final s in students) {
+      for (final slot in slots) {
+        if (!canWriteCell(existing(s.id, slot) == null)) continue;
+        final raw = _ctrls[s.id]?['${slot.type}#${slot.seq}']
+                ?.text
+                .trim()
+                .replaceAll(',', '.') ??
+            '';
+        if (raw.isEmpty) continue;
+        final v = double.tryParse(raw);
+        if (v != null && (v < 0 || v > maxScore)) {
+          outOfRange.add(
+              '${s.fullName} — ${slot.label} (${v.toStringAsFixed(1)}/${maxScore.toInt()})');
+        }
+      }
+    }
+    if (outOfRange.isNotEmpty) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Text('Notes hors barème'),
+          content: SingleChildScrollView(
+            child: Text(
+                'Ces notes dépassent le barème /${maxScore.toInt()} de cette classe :\n\n'
+                '${outOfRange.join('\n')}\n\n'
+                'Corrigez-les avant d\'enregistrer.'),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Compris')),
+          ],
+        ),
+      );
+      return;
+    }
+
     // Période validée : un motif unique couvre le lot de corrections. La base le
     // réclame de toute façon, et il part dans l'historique.
     String? reason;
@@ -409,6 +453,8 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                   .replaceAll(',', '.') ??
               '';
           if (raw.isEmpty) continue;
+          // Déjà validé hors barème ci-dessus ; clamp = filet de sécurité,
+          // pas le mécanisme de correction.
           final score = double.tryParse(raw)?.clamp(0.0, maxScore);
           if (score == null) continue;
           // Sur période validée, on passe par la RPC qui transporte le motif
@@ -538,7 +584,14 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = ref.watch(schoolFormatProvider);
+    // Le barème suit le CYCLE de la classe consultée (primaire /10, secondaire
+    // /20 dans un même établissement), pas le défaut global de l'école — même
+    // logique que le sélecteur de classe (cf. plus haut) et la liste des
+    // moyennes (_ClassGradesPanel). schoolFormatProvider ignorait la
+    // surcharge par cycle : une classe de primaire s'affichait/s'enregistrait
+    // encore sur /20 ici.
+    final cycle = SchoolLevel.fromClassName(widget.classObj.level);
+    final fmt = ref.watch(schoolFormatForLevelProvider(cycle));
     final maxScore = fmt.maxScore;
     final rules = BulletinRules.fromSchool(ref.watch(schoolProvider).valueOrNull);
     final slots = rules.slots;
@@ -652,7 +705,8 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
                       )),
                       for (final slot in slots)
                         DataCell(_cell(s.id, slot, existing(s.id, slot),
-                            canEdit: canWriteCell(existing(s.id, slot) == null))),
+                            canEdit: canWriteCell(existing(s.id, slot) == null),
+                            maxScore: maxScore)),
                     ]),
                 ],
               ),
@@ -692,29 +746,48 @@ class _NotesGridState extends ConsumerState<_NotesGrid> {
   /// Une case. Éditable seulement si l'état de la période l'autorise ([canEdit]).
   /// Sinon, lecture seule — la valeur si elle existe, sinon un tiret.
   Widget _cell(String sid, GradeSlot slot, SbGrade? existing,
-      {required bool canEdit}) {
+      {required bool canEdit, required double maxScore}) {
     if (!canEdit) {
       return Text(existing?.score.toStringAsFixed(1) ?? '—',
           style: TextStyle(fontSize: 12.5, color: context.cMuted));
     }
+    final ctrl = _ctrl(sid, slot, existing?.score);
+    // Bordure rouge en direct dès que la saisie dépasse le barème — l'écart
+    // est visible pendant qu'on tape, pas seulement au moment d'enregistrer.
     return SizedBox(
       width: 46,
-      child: TextField(
-        controller: _ctrl(sid, slot, existing?.score),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12.5, color: context.cInk),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          // Une note corrigée (déjà en base) : on la teinte, pour que l'admin
-          // voie qu'il modifie un acquis, pas qu'il saisit du neuf.
-          fillColor: existing != null ? _gold.withValues(alpha: .08) : null,
-          filled: existing != null,
-          border:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-        ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: ctrl,
+        builder: (_, value, __) {
+          final v = double.tryParse(value.text.trim().replaceAll(',', '.'));
+          final overLimit = v != null && (v < 0 || v > maxScore);
+          return TextField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12.5,
+                color: overLimit ? _terra : context.cInk,
+                fontWeight: overLimit ? FontWeight.w700 : FontWeight.normal),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              // Une note corrigée (déjà en base) : on la teinte, pour que l'admin
+              // voie qu'il modifie un acquis, pas qu'il saisit du neuf.
+              fillColor: overLimit
+                  ? _terra.withValues(alpha: .08)
+                  : (existing != null ? _gold.withValues(alpha: .08) : null),
+              filled: overLimit || existing != null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: overLimit
+                    ? BorderSide(color: _terra, width: 1.5)
+                    : BorderSide.none,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

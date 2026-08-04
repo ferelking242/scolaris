@@ -458,12 +458,60 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
     }
     return _GradeInput(
       controller: _ctrl(studentId, slot),
+      max: _max,
       onChanged: () => setState(() {}),
     );
   }
 
+  /// Notes tapées mais hors barème ([0, _max]) — vide si tout est correct.
+  /// « Élève — type#seq (valeur/max) », pour l'affichage d'erreur.
+  List<String> _outOfRangeEntries(List<SbStudent> students, List<GradeSlot> slots) {
+    final out = <String>[];
+    for (final s in students) {
+      for (final slot in slots) {
+        if (_isLocked(s.id, slot)) continue;
+        final raw = _ctrls[s.id]?['${slot.type}#${slot.seq}']
+                ?.text
+                .trim()
+                .replaceAll(',', '.') ??
+            '';
+        if (raw.isEmpty) continue;
+        final v = double.tryParse(raw);
+        if (v != null && (v < 0 || v > _max)) {
+          out.add('${s.fullName} — ${slot.type} (${v.toStringAsFixed(1)}/${_max.toInt()})');
+        }
+      }
+    }
+    return out;
+  }
+
   /// Confirme la validation (action irréversible pour le prof) puis enregistre.
   Future<void> _confirmAndSave(List<SbStudent> students) async {
+    // On refuse tout le lot plutôt que d'écrêter en silence une note hors
+    // barème : une note tronquée sans avertissement se retrouve verrouillée
+    // sans que personne ne l'ait vue.
+    final outOfRange = _outOfRangeEntries(students, _rules.slots);
+    if (outOfRange.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Notes hors barème'),
+          content: SingleChildScrollView(
+            child: Text(
+                'Ces notes dépassent le barème /${_max.toInt()} de cette classe :\n\n'
+                '${outOfRange.join('\n')}\n\n'
+                'Corrigez-les avant de valider.'),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Compris')),
+          ],
+        ),
+      );
+      return;
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -504,6 +552,8 @@ class _GradesPanelState extends ConsumerState<_GradesPanel> {
           if (raw.isEmpty) continue;
           final score = double.tryParse(raw);
           if (score == null) continue;
+          // Déjà validé hors barème dans _confirmAndSave ; clamp = filet de
+          // sécurité, pas le mécanisme de correction.
           await SupabaseDbSource.upsertGrade(
             studentId: s.id,
             classId: widget.classObj.id,
@@ -814,31 +864,42 @@ class _GradeTable extends StatelessWidget {
 // ── Champ de saisie note ──────────────────────────────────────────────────────
 class _GradeInput extends StatelessWidget {
   final TextEditingController controller;
+  final double max;
   final VoidCallback? onChanged;
-  const _GradeInput({required this.controller, this.onChanged});
+  const _GradeInput({required this.controller, required this.max, this.onChanged});
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 44,
-        child: TextField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-          onChanged: (_) => onChanged?.call(),
-          style: const TextStyle(fontSize: 12, color: ink),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide:
-                    const BorderSide(color: Color(0xFFDDCCBB))),
+  Widget build(BuildContext context) {
+    // Bordure rouge en direct dès que la saisie dépasse le barème — l'écart
+    // est visible pendant qu'on tape, pas seulement au moment de valider.
+    final v = double.tryParse(
+        controller.text.trim().replaceAll(',', '.'));
+    final overLimit = v != null && (v < 0 || v > max);
+    return SizedBox(
+      width: 44,
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onChanged: (_) => onChanged?.call(),
+        style: TextStyle(
+            fontSize: 12,
+            color: overLimit ? _terra : ink,
+            fontWeight: overLimit ? FontWeight.w700 : FontWeight.normal),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: overLimit
+                ? BorderSide(color: _terra, width: 1.5)
+                : const BorderSide(color: Color(0xFFDDCCBB)),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 // ── Note verrouillée (déjà validée, lecture seule) ────────────────────────────
