@@ -728,7 +728,9 @@ final tuitionAccountsProvider =
   final students = await ref.watch(studentsProvider.future);
   final fees = await ref.watch(feeStructuresProvider.future);
   final invoices = await ref.watch(invoicesProvider.future);
-  final year = ref.watch(schoolProvider).valueOrNull?.academicYear ?? '';
+  final school = ref.watch(schoolProvider).valueOrNull;
+  final year = school?.academicYear ?? '';
+  final startYear = int.tryParse(year.split('-').first) ?? DateTime.now().year;
 
   final feeByClass = <String, SbFeeStructure>{};
   for (final f in fees) {
@@ -736,23 +738,46 @@ final tuitionAccountsProvider =
   }
   // Uniquement les reçus de L'ANNÉE SCOLAIRE COURANTE — sinon un élève qui a
   // fini de payer l'an dernier paraît « à jour » cette année sans avoir rien
-  // versé (cf. `getTuitionAccount`, même filtre). L'inscription n'est PAS
-  // comptée ici (vue de liste, détail complet réservé à la fiche élève).
+  // versé (cf. `getTuitionAccount`, même filtre).
   final paidByStudent = <String, double>{};
+  // Reçus de scolarité d'une année ANTÉRIEURE — sert à déduire réinscription
+  // (même règle que `isReturningStudent`, sans requête supplémentaire).
+  final returningStudents = <String>{};
+  final registrationPaidByStudent = <String, double>{};
   for (final inv in invoices) {
     final sid = inv.studentId;
     final period = inv.period;
     if (!inv.isTuition || sid == null || period == null) continue;
     final isThisYear = period == year || period.startsWith('$year:');
-    if (!isThisYear) continue;
-    paidByStudent[sid] = (paidByStudent[sid] ?? 0) + inv.amountPaid;
+    if (isThisYear) {
+      if (period.endsWith(':INSCRIPTION')) {
+        registrationPaidByStudent[sid] =
+            (registrationPaidByStudent[sid] ?? 0) + inv.amountPaid;
+      } else {
+        paidByStudent[sid] = (paidByStudent[sid] ?? 0) + inv.amountPaid;
+      }
+      continue;
+    }
+    final yearToken = period.split(':').first.split('-').first;
+    final y = int.tryParse(yearToken);
+    if (y != null && y < startYear) returningStudents.add(sid);
   }
   final out = <String, SbTuitionAccount>{};
   for (final s in students) {
     final fee = s.classId == null ? null : feeByClass[s.classId];
     if (fee == null) continue;
-    out[s.id] =
-        SupabaseDbSource.tuitionAccountFrom(fee, paidByStudent[s.id] ?? 0);
+    final regFee = school?.registrationFees[s.classId];
+    final registrationDue = regFee == null
+        ? null
+        : (returningStudents.contains(s.id)
+            ? regFee.forReturning
+            : regFee.forNew);
+    out[s.id] = SupabaseDbSource.tuitionAccountFrom(
+      fee,
+      paidByStudent[s.id] ?? 0,
+      registrationDue: registrationDue,
+      registrationPaid: registrationPaidByStudent[s.id] ?? 0,
+    );
   }
   return out;
 });
