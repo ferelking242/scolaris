@@ -1329,6 +1329,16 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
+        // Compteurs (bandeau + sous-titre) : reflètent le filtre CLASSE choisi,
+        // mais pas le filtre de rôle lui-même (ce sont les boutons qui pilotent
+        // ce filtre — ils doivent rester des totaux, sinon cliquer « Élèves »
+        // ferait disparaître son propre chiffre).
+        final classScopedUsers = _classId == null
+            ? allUsers
+            : allUsers
+                .where((u) => u.role == 'parent' || classIdByStudent[u.id] == _classId)
+                .toList();
+
         final options = <_FilterOption>[
           (key: 'all', label: 'Tous'),
           if (_isFamilies) ...[
@@ -1370,7 +1380,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           onRefresh: _refreshUsers,
           title: pageTitle,
           subtitle: _isFamilies
-              ? '${allUsers.length} élèves et parents'
+              ? '${classScopedUsers.length} élèves et parents'
               : '${allUsers.length} membres du personnel',
           actions: [
             if (_isFamilies) ...[
@@ -1401,10 +1411,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           child: Column(children: [
             if (_isFamilies) ...[
               _FamilyStatsRow(
-                total: allUsers.length,
-                students: allUsers.where((u) => u.role == 'student').length,
-                parents: allUsers.where((u) => u.role == 'parent').length,
-                exited: allUsers.where((u) => u.hasExited).length,
+                total: classScopedUsers.length,
+                students: classScopedUsers.where((u) => u.role == 'student').length,
+                parents: classScopedUsers.where((u) => u.role == 'parent').length,
+                exited: classScopedUsers.where((u) => u.hasExited).length,
                 onTapTotal: () => setState(() => _filter = 'all'),
                 onTapStudents: () => setState(() => _filter = 'student'),
                 onTapParents: () => setState(() => _filter = 'parent'),

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/user_entity.dart';
+import '../pages/help_page.dart';
 import '../widgets/responsive_role_shell.dart';
 
 const _terra  = Color(0xFF8B1A00);
@@ -197,6 +198,32 @@ class _DrawerBody extends StatelessWidget {
             ],
           ),
         ),
+        Container(height: 1, color: cs.outline.withOpacity(.15)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(9),
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute(builder: (_) => const HelpPage()),
+              ),
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(children: [
+                  Icon(Icons.help_outline_rounded,
+                      size: 16, color: cs.onSurface.withOpacity(.55)),
+                  const SizedBox(width: 10),
+                  Text('Aide & démarrage',
+                      style: TextStyle(
+                          color: cs.onSurface, fontSize: 12.5, fontWeight: FontWeight.w500)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
       ],
     );
   }

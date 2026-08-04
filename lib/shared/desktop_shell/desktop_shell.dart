@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_popup/flutter_popup.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../../domain/entities/user_entity.dart';
@@ -12,6 +13,7 @@ import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../../presentation/providers/nav_providers.dart';
 import '../pages/account_page.dart';
+import '../pages/help_page.dart';
 import '../widgets/subscription_alert_banner.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -863,17 +865,32 @@ class _PanelItemState extends State<_PanelItem> {
 // Help panel
 // ─────────────────────────────────────────────────────────────────────────────
 class _HelpPanel extends StatelessWidget {
-  static const _topics = [
-    (Icons.book_outlined, 'Documentation'),
-    (Icons.video_library_outlined, 'Tutoriels vidéo'),
-    (Icons.support_agent_outlined, 'Support technique'),
-    (Icons.keyboard_outlined, 'Raccourcis clavier'),
-  ];
-
   const _HelpPanel();
 
   @override
   Widget build(BuildContext context) {
+    Widget item(IconData icon, String label, VoidCallback onTap) => Material(
+          color: Colors.transparent,
+          child: InkWell(
+            // Pas de pop explicite ici : selon l'endroit d'ouverture, ce panneau
+            // vit soit dans un Dialog (showDialog), soit dans une overlay
+            // (CustomPopup de flutter_popup, qui ne passe pas par le Navigator)
+            // — un pop() risquerait de fermer la mauvaise route selon le cas.
+            // La page poussée recouvre simplement le panneau, peu importe lequel.
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: _shMuted),
+                  const SizedBox(width: 10),
+                  Text(label, style: const TextStyle(fontSize: 13, color: _shTxt)),
+                ],
+              ),
+            ),
+          ),
+        );
+
     return Container(
       width: 220,
       decoration: BoxDecoration(
@@ -902,25 +919,14 @@ class _HelpPanel extends StatelessWidget {
             ),
           ),
           Container(height: 1, color: _white.withOpacity(.07)),
-          ..._topics.map((t) => Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {},
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 11),
-                    child: Row(
-                      children: [
-                        Icon(t.$1, size: 16, color: _shMuted),
-                        const SizedBox(width: 10),
-                        Text(t.$2,
-                            style: const TextStyle(
-                                fontSize: 13, color: _shTxt)),
-                      ],
-                    ),
-                  ),
-                ),
-              )),
+          item(Icons.rocket_launch_outlined, 'Bien démarrer & guides', () {
+            Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(builder: (_) => const HelpPage()),
+            );
+          }),
+          item(Icons.support_agent_outlined, 'Nous contacter', () {
+            launchUrl(Uri.parse('mailto:contact@scolaris.app'));
+          }),
           const SizedBox(height: 4),
         ],
       ),

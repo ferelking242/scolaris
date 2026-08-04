@@ -977,14 +977,10 @@ class _StudentBulletinPage extends ConsumerWidget {
               ]);
             }
 
+            // BulletinView porte désormais sa PROPRE identité élève dans son
+            // en-tête (même document, pas une carte à part) — _InfoCard ne sert
+            // plus qu'au cas « pas encore de notes » ci-dessus.
             return Column(children: [
-              _InfoCard(
-                name: student.fullName,
-                classe: className,
-                matricule: student.matricule,
-                periodLabel: periodLabel,
-              ),
-              const SizedBox(height: 14),
               // La MÊME vue que la page « Bulletins » : un bulletin se ressemble
               // partout, qu'on le prévisualise ou qu'on le ressorte du classeur.
               BulletinView(

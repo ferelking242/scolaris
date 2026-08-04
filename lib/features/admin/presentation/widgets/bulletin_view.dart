@@ -6,8 +6,9 @@ import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 import '../pages/bulletin_pdf.dart';
 
-/// La vue d'un bulletin — le tableau des matières + le conseil de classe +
-/// l'impression.
+/// La vue d'un bulletin — un DOCUMENT unique (en-tête élève, notes, conseil de
+/// classe) plutôt qu'un empilement de cartes séparées : c'est un bulletin
+/// qu'on imagine imprimé, pas un tableau de bord.
 ///
 /// **Partagée** entre les deux pages qui montrent un bulletin :
 ///  • « Notes & Bulletins » — le bulletin *vivant*, recalculé à l'ouverture ;
@@ -69,10 +70,50 @@ class BulletinView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      _table(context),
-      const SizedBox(height: 14),
-      _council(context),
+    final b = bulletin;
+    final ok = b.average >= 10;
+    final accent = ok ? _green : _terra;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // ── LA feuille : un seul document, sections séparées par des filets
+      // fins — pas une pile de cartes grises distinctes.
+      Container(
+        decoration: BoxDecoration(
+          color: context.cCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: context.cBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .04),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _header(context, accent, ok),
+          Divider(height: 1, thickness: 1, color: context.cBorder),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+            child: _sectionLabel(context, Icons.menu_book_rounded, 'Notes de la période'),
+          ),
+          _table(context),
+          const SizedBox(height: 4),
+          Divider(height: 1, thickness: 1, color: context.cBorder),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+            child: _sectionLabel(
+                context,
+                Icons.workspace_premium_rounded,
+                frozen ? 'Conseil de classe (figé)' : 'Conseil de classe'),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+            child: _council(context, accent, ok),
+          ),
+        ]),
+      ),
       const SizedBox(height: 14),
       SizedBox(
         width: double.infinity,
@@ -104,43 +145,124 @@ class BulletinView extends StatelessWidget {
     ]);
   }
 
+  Widget _sectionLabel(BuildContext context, IconData icon, String text) => Row(
+        children: [
+          Icon(icon, size: 14, color: _terra),
+          const SizedBox(width: 7),
+          Text(text.toUpperCase(),
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .6,
+                  color: context.cMuted)),
+        ],
+      );
+
+  /// En-tête du document : identité de l'élève à gauche, verdict en évidence
+  /// à droite — les deux infos qu'on cherche en premier sur un bulletin.
+  Widget _header(BuildContext context, Color accent, bool ok) {
+    final initial = student.fullName.isNotEmpty ? student.fullName[0].toUpperCase() : '?';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: LayoutBuilder(builder: (_, constraints) {
+        final narrow = constraints.maxWidth < 460;
+        final identity = Row(children: [
+          Container(
+            width: 50,
+            height: 50,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_terra, Color(0xFFB8471F)],
+              ),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Text(initial,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 14),
+          Flexible(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(student.fullName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: context.cInk, fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              Text(
+                  '$className · $periodLabel'
+                  '${(student.matricule ?? '').isNotEmpty ? ' · ${student.matricule}' : ''}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+            ]),
+          ),
+        ]);
+
+        final badge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accent.withValues(alpha: .35)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(ok ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                size: 16, color: accent),
+            const SizedBox(width: 7),
+            Text(bulletin.decision,
+                style: TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w800, color: accent)),
+          ]),
+        );
+
+        if (narrow) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            identity,
+            const SizedBox(height: 14),
+            badge,
+          ]);
+        }
+        return Row(children: [Expanded(child: identity), badge]);
+      }),
+    );
+  }
+
   Widget _table(BuildContext context) {
     final labels = rules.devoirLabels;
-    return DataPanel(
-      title: 'Notes de la période',
-      padding: EdgeInsets.zero,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowHeight: 42,
-          headingRowColor: WidgetStateProperty.all(context.cSubtle),
-          dataRowMinHeight: 38,
-          dataRowMaxHeight: 44,
-          columnSpacing: 20,
-          horizontalMargin: 16,
-          dividerThickness: 0.6,
-          headingTextStyle: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: context.cMuted,
-              letterSpacing: .3),
-          dataTextStyle: TextStyle(fontSize: 12.5, color: context.cInk),
-          columns: [
-            const DataColumn(label: Text('Matière')),
-            for (final l in labels) DataColumn(label: Text(l), numeric: true),
-            const DataColumn(label: Text('M.C'), numeric: true),
-            const DataColumn(label: Text('Compo'), numeric: true),
-            const DataColumn(label: Text('Coef.'), numeric: true),
-            const DataColumn(label: Text('Total'), numeric: true),
-            const DataColumn(label: Text('Moy.'), numeric: true),
-            const DataColumn(label: Text('RG'), numeric: true),
-            const DataColumn(label: Text('Observations')),
-          ],
-          rows: [
-            for (var i = 0; i < bulletin.lines.length; i++)
-              _row(context, bulletin.lines[i], zebra: i.isOdd),
-          ],
-        ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: DataTable(
+        headingRowHeight: 38,
+        headingRowColor: WidgetStateProperty.all(Colors.transparent),
+        dataRowMinHeight: 38,
+        dataRowMaxHeight: 44,
+        columnSpacing: 20,
+        horizontalMargin: 8,
+        dividerThickness: 0.6,
+        headingTextStyle: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            color: context.cMuted,
+            letterSpacing: .3),
+        dataTextStyle: TextStyle(fontSize: 12.5, color: context.cInk),
+        columns: [
+          const DataColumn(label: Text('Matière')),
+          for (final l in labels) DataColumn(label: Text(l), numeric: true),
+          const DataColumn(label: Text('M.C'), numeric: true),
+          const DataColumn(label: Text('Compo'), numeric: true),
+          const DataColumn(label: Text('Coef.'), numeric: true),
+          const DataColumn(label: Text('Total'), numeric: true),
+          const DataColumn(label: Text('Moy.'), numeric: true),
+          const DataColumn(label: Text('RG'), numeric: true),
+          const DataColumn(label: Text('Observations')),
+        ],
+        rows: [
+          for (var i = 0; i < bulletin.lines.length; i++)
+            _row(context, bulletin.lines[i], zebra: i.isOdd),
+        ],
       ),
     );
   }
@@ -148,7 +270,7 @@ class BulletinView extends StatelessWidget {
   DataRow _row(BuildContext context, BulletinLine l, {required bool zebra}) {
     return DataRow(
       color: zebra
-          ? WidgetStateProperty.all(context.cSubtle.withValues(alpha: .5))
+          ? WidgetStateProperty.all(context.cSubtle.withValues(alpha: .4))
           : null,
       cells: [
         DataCell(Text(l.subject,
@@ -169,103 +291,64 @@ class BulletinView extends StatelessWidget {
     );
   }
 
-  Widget _council(BuildContext context) {
+  /// Le résumé du conseil : des paires libellé/valeur en ligne, séparées par
+  /// de simples filets verticaux — comme le pied d'un vrai bulletin papier,
+  /// pas des cartes empilées.
+  Widget _council(BuildContext context, Color accent, bool ok) {
     final b = bulletin;
-    final ok = b.average >= 10;
 
-    Widget stat(String k, String v, {Color? valueColor}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child:
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(k, style: TextStyle(fontSize: 12, color: context.cMuted)),
+    Widget stat(String k, String v, {Color? valueColor}) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(k.toUpperCase(),
+                style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .3,
+                    color: context.cMuted)),
+            const SizedBox(height: 4),
             Text(v,
                 style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w800,
                     color: valueColor ?? context.cInk)),
-          ]),
+          ],
         );
 
-    Widget group(String label, List<Widget> children) => Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: context.cSubtle,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label.toUpperCase(),
-                style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .5,
-                    color: context.cMuted)),
-            const SizedBox(height: 6),
-            ...children,
-          ]),
-        );
+    final items = [
+      stat('Moyenne', '${_n(b.average)} / ${_maxScore.toStringAsFixed(0)}', valueColor: accent),
+      stat('Rang', '${b.rank ?? '—'}/${b.classSize}'),
+      stat('Moy. classe', _n(b.classAverage)),
+      stat('Premier', _n(b.bestAverage)),
+      stat('Dernier', _n(b.worstAverage)),
+      stat('Absences', '${b.absences}'),
+      stat('Retards', '${b.lates}'),
+    ];
 
-    return DataPanel(
-      title: frozen ? 'Conseil de classe (figé)' : 'Conseil de classe',
-      child: LayoutBuilder(builder: (_, constraints) {
-        final narrow = constraints.maxWidth < 560;
-        final groups = [
-          group('Résultats', [
-            stat('Moyenne générale',
-                '${_n(b.average)} / ${_maxScore.toStringAsFixed(0)}',
-                valueColor: ok ? _green : _terra),
-            stat('Total / Coef.', '${_n(b.totalPoints)} / ${b.totalCoef}'),
-            stat('Rang', '${b.rank ?? '—'} sur ${b.classSize}'),
-          ]),
-          group('Classe', [
-            stat('Moyenne de la classe', _n(b.classAverage)),
-            stat('Premier', _n(b.bestAverage)),
-            stat('Dernier', _n(b.worstAverage)),
-          ]),
-          group('Assiduité', [
-            stat('Absences', '${b.absences}'),
-            stat('Retards', '${b.lates}'),
-          ]),
-        ];
-        final decision = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: (ok ? _green : _terra).withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: (ok ? _green : _terra).withValues(alpha: .3)),
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(b.decision,
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: ok ? _green : _terra)),
-            const SizedBox(height: 2),
-            Text('Mention : ${b.mention}',
-                style: TextStyle(fontSize: 12, color: context.cMuted)),
-          ]),
-        );
-
-        if (narrow) {
-          return Column(children: [
-            for (final g in groups) ...[g, const SizedBox(height: 10)],
-            decision,
-          ]);
-        }
-        return Column(children: [
-          IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (final g in groups) ...[
-                Expanded(child: g),
-                const SizedBox(width: 10),
-              ],
-            ]),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: decision),
-        ]);
-      }),
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Wrap(
+        spacing: 22,
+        runSpacing: 14,
+        children: items,
+      ),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: context.cBorder)),
+        ),
+        child: Row(children: [
+          Icon(Icons.grade_rounded, size: 15, color: accent),
+          const SizedBox(width: 7),
+          Text('Mention : ${b.mention}',
+              style: TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w700, color: context.cInk)),
+          const Spacer(),
+          Text('${_n(b.totalPoints)} / ${b.totalCoef} pts',
+              style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+        ]),
+      ),
+    ]);
   }
 }
