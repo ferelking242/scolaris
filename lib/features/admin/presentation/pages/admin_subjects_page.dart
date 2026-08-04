@@ -89,13 +89,21 @@ class AdminSubjectsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subjectsAsync = ref.watch(subjectsProvider);
+
+    Future<void> refresh() async {
+      ref.invalidate(subjectsProvider);
+      await ref.read(subjectsProvider.future);
+    }
+
     return subjectsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Matières',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Matières',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (subjects) {
@@ -118,6 +126,7 @@ class AdminSubjectsPage extends ConsumerWidget {
         return PageScaffold(
         title: 'Matières',
         subtitle: '${subjects.length} matière(s) dans l\'établissement',
+        onRefresh: refresh,
         actions: [
           if (canCreate)
             ActionButton(

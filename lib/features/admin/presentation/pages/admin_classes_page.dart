@@ -92,12 +92,22 @@ class AdminClassesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final classesAsync = ref.watch(classesProvider);
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      ref.invalidate(studentsProvider);
+      await Future.wait([
+        ref.read(classesProvider.future),
+        ref.read(studentsProvider.future),
+      ]);
+    }
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
+        onRefresh: refresh,
         title: 'Classes & sections',
-        child: Center(child: CircularProgressIndicator()),
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: refresh,
         title: 'Classes & sections',
         child: Center(child: Text('Erreur : $e')),
       ),
@@ -135,6 +145,7 @@ class AdminClassesPage extends ConsumerWidget {
                 .toList();
 
         return PageScaffold(
+        onRefresh: refresh,
         title: 'Classes & sections',
         subtitle: '${classes.length} classes dans l\'établissement',
         actions: [

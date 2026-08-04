@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform/platform_utils.dart';
+
 // ── Scolaris African palette for all shared pages ─────────────────────────
 // Neutres FIGÉS (thème clair uniquement). Conservés pour compatibilité, mais
 // à remplacer progressivement par l'extension `context.c*` ci-dessous, qui
@@ -33,12 +35,21 @@ class PageScaffold extends StatelessWidget {
   final String? subtitle;
   final List<Widget> actions;
   final Widget child;
+
+  /// Rafraîchit les données de la page (typiquement `ref.invalidate(...)`
+  /// suivi d'une attente sur le provider). `null` = pas de rafraîchissement
+  /// manuel sur cette page. Le MÊME callback donne deux mécanismes selon la
+  /// plateforme : geste « tirer pour rafraîchir » sur mobile/tactile, bouton
+  /// ↻ dans le bandeau sur desktop/web large (pas de souris qui « tire »).
+  final Future<void> Function()? onRefresh;
+
   const PageScaffold({
     super.key,
     required this.title,
     this.subtitle,
     this.actions = const [],
     required this.child,
+    this.onRefresh,
   });
   @override
   Widget build(BuildContext context) {
@@ -46,6 +57,18 @@ class PageScaffold extends StatelessWidget {
     // qu'on ouvre depuis elle) doit pouvoir se refermer. Les destinations du
     // menu, elles, n'ont rien à dépiler : le bouton ne s'affiche pas.
     final canPop = Navigator.of(context).canPop();
+    final isDesktopLike =
+        PlatformUtils.isLargeFormFactor(MediaQuery.sizeOf(context).width);
+    final effectiveActions = [
+      ...actions,
+      if (onRefresh != null && isDesktopLike)
+        IconButton(
+          onPressed: () => onRefresh!(),
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Actualiser',
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+    ];
 
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -102,11 +125,11 @@ class PageScaffold extends StatelessWidget {
                     ),
                     // Sur assez de largeur, les actions restent sur la ligne du
                     // titre (comportement d'origine).
-                    if (actions.isNotEmpty && constraints.maxWidth >= 520)
-                      ...actions,
+                    if (effectiveActions.isNotEmpty && constraints.maxWidth >= 520)
+                      ...effectiveActions,
                   ],
                 );
-                if (actions.isEmpty || constraints.maxWidth >= 520) {
+                if (effectiveActions.isEmpty || constraints.maxWidth >= 520) {
                   return titleRow;
                 }
                 // Sous 520px, 2+ ActionButton à côté du titre débordaient
@@ -117,7 +140,7 @@ class PageScaffold extends StatelessWidget {
                   children: [
                     titleRow,
                     const SizedBox(height: 10),
-                    Wrap(spacing: 8, runSpacing: 8, children: actions),
+                    Wrap(spacing: 8, runSpacing: 8, children: effectiveActions),
                   ],
                 );
               }),
@@ -133,10 +156,25 @@ class PageScaffold extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                child: child,
-              ),
+              child: Builder(builder: (context) {
+                final scroll = SingleChildScrollView(
+                  // `AlwaysScrollable` : sans ça, le geste ne se déclenche pas
+                  // quand le contenu est plus court que l'écran (page presque
+                  // vide, ou peu de résultats après un filtre).
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  child: child,
+                );
+                // Geste « tirer pour rafraîchir » réservé au tactile : sur
+                // desktop/web large, c'est le bouton ↻ du bandeau (ci-dessus)
+                // qui fait le même travail — pas de geste « tirer » à la souris.
+                if (onRefresh == null || isDesktopLike) return scroll;
+                return RefreshIndicator(
+                  onRefresh: onRefresh!,
+                  color: _terra,
+                  child: scroll,
+                );
+              }),
             ),
           ],
         ),

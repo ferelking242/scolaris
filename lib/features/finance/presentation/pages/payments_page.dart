@@ -16,13 +16,27 @@ class FinancePaymentsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoicesAsync = ref.watch(invoicesProvider);
+
+    Future<void> refresh() async {
+      ref.invalidate(invoicesProvider);
+      ref.invalidate(studentsProvider);
+      ref.invalidate(classesProvider);
+      await Future.wait([
+        ref.read(invoicesProvider.future),
+        ref.read(studentsProvider.future),
+        ref.read(classesProvider.future),
+      ]);
+    }
+
     return invoicesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Paiements',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Paiements',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allInvoices) {
@@ -60,6 +74,7 @@ class FinancePaymentsPage extends ConsumerWidget {
         return PageScaffold(
           title: 'Paiements',
           subtitle: '${invoices.length} factures ce mois',
+          onRefresh: refresh,
           actions: [
             ActionButton(
                 label: 'Export CSV',

@@ -176,7 +176,26 @@ class _ClassPromotionPageState extends ConsumerState<ClassPromotionPage> {
         ? const <SbClass>[]
         : classes.where((c) => c.level == nextLevelName && c.id != selected?.id).toList();
 
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      ref.invalidate(schoolProvider);
+      ref.invalidate(nextLevelNameProvider(nextLevelKey));
+      final futures = <Future<Object?>>[
+        ref.read(classesProvider.future),
+        ref.read(schoolProvider.future),
+        ref.read(nextLevelNameProvider(nextLevelKey).future),
+      ];
+      if (selected != null) {
+        ref.invalidate(studentsByClassProvider(selected.name));
+        ref.invalidate(classBulletinsProvider('${selected.id}|$finalPeriod'));
+        futures.add(ref.read(studentsByClassProvider(selected.name).future));
+        futures.add(ref.read(classBulletinsProvider('${selected.id}|$finalPeriod').future));
+      }
+      await Future.wait(futures);
+    }
+
     return PageScaffold(
+      onRefresh: refresh,
       title: 'Passage de classe',
       subtitle: 'Décision de fin d\'année : passage, redoublement ou sortie',
       child: classes.isEmpty

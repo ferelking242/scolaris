@@ -114,6 +114,11 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
 
   void _preview() => setState(() => _previewing = true);
 
+  Future<void> _refresh() async {
+    ref.invalidate(enrollmentConfigProvider);
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -170,6 +175,7 @@ class _EnrollmentConfigPageState extends ConsumerState<EnrollmentConfigPage> {
     return PageScaffold(
       title: 'Page d\'Inscription — Configuration',
       subtitle: '$enabledCount champs actifs · $requiredCount obligatoires',
+      onRefresh: _refresh,
       actions: _tab == 1
           ? [
               ActionButton(

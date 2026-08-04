@@ -103,6 +103,10 @@ class _PlatformSchoolsPageState extends ConsumerState<PlatformSchoolsPage> {
         error: (e, _) => 'Erreur de chargement',
       ),
       actions: const [PlatformSearchLauncher()],
+      onRefresh: () async {
+        ref.invalidate(platformSchoolsProvider);
+        await ref.read(platformSchoolsProvider.future);
+      },
       child: schoolsAsync.when(
         loading: () => const Padding(
           padding: EdgeInsets.symmetric(vertical: 60),

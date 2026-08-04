@@ -51,27 +51,35 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
         ? ref.watch(studentByIdProvider(sid))
         : ref.watch(myStudentProfileProvider);
     final bg = Theme.of(context).scaffoldBackgroundColor;
+    // Poussée (fiche enfant, accueil primaire) → pas de Scaffold au-dessus,
+    // le contenu passerait sous la barre d'état sans ça. En onglet du menu
+    // élève, le shell gère déjà sa propre marge → top:false comme PageScaffold.
+    final canPop = Navigator.of(context).canPop();
 
     return Container(
       color: bg,
-      child: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorState(message: '$e'),
-        data: (profile) {
-          final classId = profile?.classId;
-          if (classId == null || classId.isEmpty) {
-            return const _NoClassState();
-          }
-          final schedulesAsync = ref.watch(schedulesForClassProvider(classId));
-          return schedulesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => _ErrorState(message: '$e'),
-            data: (schedules) => _ScheduleView(
-              schedules: schedules,
-              className: profile?.classe ?? 'Ma classe',
-            ),
-          );
-        },
+      child: SafeArea(
+        top: canPop,
+        bottom: false,
+        child: profileAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => _ErrorState(message: '$e'),
+          data: (profile) {
+            final classId = profile?.classId;
+            if (classId == null || classId.isEmpty) {
+              return const _NoClassState();
+            }
+            final schedulesAsync = ref.watch(schedulesForClassProvider(classId));
+            return schedulesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => _ErrorState(message: '$e'),
+              data: (schedules) => _ScheduleView(
+                schedules: schedules,
+                className: profile?.classe ?? 'Ma classe',
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -211,10 +219,26 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Poussé depuis la fiche enfant (parent) ou l'accueil primaire : pas de
+    // chrome au-dessus (pas de PageScaffold, pour laisser toute la largeur au
+    // tableau en paysage) — donc rien d'autre ne fournit de bouton retour ici.
+    // En onglet du menu élève, `canPop` est faux et la flèche ne s'affiche pas.
+    final canPop = Navigator.of(context).canPop();
     return Container(
       color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Row(children: [
+        if (canPop) ...[
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: cs.onSurface,
+            tooltip: 'Retour',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+          const SizedBox(width: 8),
+        ],
         Container(
           width: 38, height: 38,
           decoration: BoxDecoration(

@@ -34,6 +34,10 @@ class AttendanceJustifyPage extends ConsumerWidget {
 
     return PageScaffold(
       title: 'Justifier des absences',
+      onRefresh: () async {
+        ref.invalidate(pendingJustificationsProvider);
+        await ref.read(pendingJustificationsProvider.future);
+      },
       subtitle: canModifier
           ? 'Absences et retards non justifiés'
           : 'Consultation seule — la correction ne vous est pas confiée',

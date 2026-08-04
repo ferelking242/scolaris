@@ -105,6 +105,14 @@ class _PlatformAnnouncementsPageState
 
     return PageScaffold(
       title: 'Annonces',
+      onRefresh: () async {
+        ref.invalidate(platformSchoolsProvider);
+        ref.invalidate(platformAnnouncementsProvider);
+        await Future.wait([
+          ref.read(platformSchoolsProvider.future),
+          ref.read(platformAnnouncementsProvider.future),
+        ]);
+      },
       subtitle: 'Diffuser un message aux écoles de la plateforme',
       actions: const [PlatformSearchLauncher()],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

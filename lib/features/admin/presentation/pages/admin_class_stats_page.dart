@@ -121,16 +121,23 @@ class _AdminClassStatsPageState extends ConsumerState<AdminClassStatsPage> {
     final classesAsync = ref.watch(classesProvider);
     final classes = classesAsync.valueOrNull;
 
+    Future<void> refreshClasses() async {
+      ref.invalidate(classesProvider);
+      await ref.read(classesProvider.future);
+    }
+
     if (classes == null) {
-      return const PageScaffold(
+      return PageScaffold(
         title: 'Statistiques de classe',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refreshClasses,
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
     if (classes.isEmpty) {
-      return const PageScaffold(
+      return PageScaffold(
         title: 'Statistiques de classe',
-        child: Center(child: Text('Aucune classe dans cette école.')),
+        onRefresh: refreshClasses,
+        child: const Center(child: Text('Aucune classe dans cette école.')),
       );
     }
 
@@ -144,9 +151,21 @@ class _AdminClassStatsPageState extends ConsumerState<AdminClassStatsPage> {
     final studentsAsync =
         ref.watch(studentsByClassProvider(selectedClass.name));
 
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      ref.invalidate(gradesForClassProvider(selectedClass.id));
+      ref.invalidate(studentsByClassProvider(selectedClass.name));
+      await Future.wait([
+        ref.read(classesProvider.future),
+        ref.read(gradesForClassProvider(selectedClass.id).future),
+        ref.read(studentsByClassProvider(selectedClass.name).future),
+      ]);
+    }
+
     return PageScaffold(
       title: 'Statistiques de classe',
       subtitle: 'Analyse des performances — données réelles',
+      onRefresh: refresh,
       child: Column(children: [
         _ClassPicker(
           classes: classes,

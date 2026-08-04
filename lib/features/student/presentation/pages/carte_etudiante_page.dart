@@ -29,9 +29,19 @@ class CarteEtudiantePage extends ConsumerWidget {
     final year    = school?.academicYear ?? '—';
     final qrCode  = 'SCO-${user?.id?.substring(0, 8).toUpperCase() ?? "ABCDEF12"}';
 
+    Future<void> refresh() async {
+      ref.invalidate(myStudentProfileProvider);
+      ref.invalidate(schoolProvider);
+      await Future.wait([
+        ref.read(myStudentProfileProvider.future),
+        ref.read(schoolProvider.future),
+      ]);
+    }
+
     return PageScaffold(
       title: 'Carte étudiante',
       subtitle: 'Identifiant scolaire numérique',
+      onRefresh: refresh,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
         // ── Carte physique ────────────────────────────────────────────────────

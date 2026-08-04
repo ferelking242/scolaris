@@ -27,22 +27,29 @@ class AdminBadgesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final badgesAsync = ref.watch(badgeCatalogProvider);
+    Future<void> refresh() async {
+      ref.invalidate(badgeCatalogProvider);
+      await ref.read(badgeCatalogProvider.future);
+    }
 
     return badgesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Badges',
-        child: Center(child: Padding(
+        onRefresh: refresh,
+        child: const Center(child: Padding(
           padding: EdgeInsets.only(top: 60),
           child: CircularProgressIndicator(),
         )),
       ),
       error: (e, _) => PageScaffold(
         title: 'Badges',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
       data: (badges) => PageScaffold(
         title: 'Badges',
+        onRefresh: refresh,
         subtitle: badges.isEmpty
             ? 'Aucun badge défini'
             : '${badges.length} badge(s) — décernés par les enseignants',

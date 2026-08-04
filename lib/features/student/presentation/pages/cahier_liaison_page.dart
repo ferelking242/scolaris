@@ -78,9 +78,19 @@ class _CahierLiaisonPageState extends ConsumerState<CahierLiaisonPage> {
     final entriesAsync = ref.watch(liaisonEntriesForStudentProvider(sid));
     final acks = ref.watch(myLiaisonAcksProvider).valueOrNull ?? const <String>{};
 
+    Future<void> refresh() async {
+      ref.invalidate(liaisonEntriesForStudentProvider(sid));
+      ref.invalidate(myLiaisonAcksProvider);
+      await Future.wait([
+        ref.read(liaisonEntriesForStudentProvider(sid).future),
+        ref.read(myLiaisonAcksProvider.future),
+      ]);
+    }
+
     return entriesAsync.when(
       loading: () => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: const Center(child: Padding(
           padding: EdgeInsets.only(top: 60),
           child: CircularProgressIndicator(),
@@ -88,6 +98,7 @@ class _CahierLiaisonPageState extends ConsumerState<CahierLiaisonPage> {
       ),
       error: (e, _) => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
@@ -107,6 +118,7 @@ class _CahierLiaisonPageState extends ConsumerState<CahierLiaisonPage> {
 
         return PageScaffold(
           title: heading,
+          onRefresh: refresh,
           subtitle: entries.isEmpty
               ? 'Aucun mot pour l\'instant'
               : isParent && aSigner > 0

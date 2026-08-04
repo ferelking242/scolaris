@@ -254,6 +254,10 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   Widget build(BuildContext context) {
     return PageScaffold(
       title: 'Paramètres école',
+      onRefresh: () async {
+        ref.invalidate(schoolProvider);
+        await _load();
+      },
       subtitle: 'Informations générales et apparence',
       actions: [_SaveButton(saving: _saving, saved: _saved, onPressed: _save)],
       child: _loading

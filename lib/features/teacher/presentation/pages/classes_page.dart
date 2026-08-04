@@ -12,28 +12,40 @@ class TeacherClassesPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final classesAsync = ref.watch(classesProvider);
     final assignAsync  = ref.watch(teacherAssignmentsProvider);
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      ref.invalidate(teacherAssignmentsProvider);
+      await Future.wait([
+        ref.read(classesProvider.future),
+        ref.read(teacherAssignmentsProvider.future),
+      ]);
+    }
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Mes classes',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Mes classes',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allClasses) {
         // Scope : seulement les classes que ce prof enseigne.
         final assign = assignAsync.valueOrNull;
         if (assign == null) {
-          return const PageScaffold(
+          return PageScaffold(
             title: 'Mes classes',
-            child: Center(child: CircularProgressIndicator()),
+            onRefresh: refresh,
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
         final classes =
             allClasses.where((c) => assign.teachesClass(c.id)).toList();
         return PageScaffold(
         title: 'Mes classes',
+        onRefresh: refresh,
         subtitle:
             '${classes.length} classe(s) — ${classes.fold<int>(0, (a, b) => a + b.maxStudents)} places max',
         child: DataPanel(
@@ -216,17 +228,24 @@ class _ClassRosterPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsByClassProvider(cl.name));
+    Future<void> refresh() async {
+      ref.invalidate(studentsByClassProvider(cl.name));
+      await ref.read(studentsByClassProvider(cl.name).future);
+    }
     return studentsAsync.when(
       loading: () => PageScaffold(
         title: cl.name,
+        onRefresh: refresh,
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: cl.name,
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) => PageScaffold(
         title: cl.name,
+        onRefresh: refresh,
         subtitle:
             '${cl.level ?? ''} — ${students.length} élève(s)',
         child: DataPanel(

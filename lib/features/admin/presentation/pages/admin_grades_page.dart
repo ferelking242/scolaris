@@ -94,12 +94,19 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
     }
     final classesAsync = ref.watch(classesProvider);
 
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      await ref.read(classesProvider.future);
+    }
+
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
           title: 'Notes & Bulletins',
-          child: Center(child: CircularProgressIndicator())),
+          onRefresh: refresh,
+          child: const Center(child: CircularProgressIndicator())),
       error: (e, _) => PageScaffold(
           title: 'Notes & Bulletins',
+          onRefresh: refresh,
           child: Center(child: Text('Erreur : $e'))),
       data: (classes) {
         if (classes.isNotEmpty && _classId == null) _classId = classes.first.id;
@@ -137,6 +144,7 @@ class _AdminGradesPageState extends ConsumerState<AdminGradesPage> {
 
         return PageScaffold(
           title: 'Notes & Bulletins',
+          onRefresh: refresh,
           subtitle: switch (_tab) {
             _Tab.notes => 'Consulter et corriger les notes, matière par matière',
             _Tab.bulletins => 'Le bulletin de chaque élève',

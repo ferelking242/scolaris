@@ -112,6 +112,7 @@ class _PlatformLibraryModerationPageState
     return PageScaffold(
       title: 'Modération bibliothèque',
       subtitle: '${_items.length} en attente de validation',
+      onRefresh: _load,
       child: _loading
           ? const Padding(
               padding: EdgeInsets.all(40),

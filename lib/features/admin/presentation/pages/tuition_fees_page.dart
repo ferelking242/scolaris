@@ -41,7 +41,19 @@ class TuitionFeesPage extends ConsumerWidget {
     };
     final configured = fees.length;
 
+    Future<void> refresh() async {
+      ref.invalidate(classesProvider);
+      ref.invalidate(feeStructuresProvider);
+      ref.invalidate(schoolProvider);
+      await Future.wait([
+        ref.read(classesProvider.future),
+        ref.read(feeStructuresProvider.future),
+        ref.read(schoolProvider.future),
+      ]);
+    }
+
     return PageScaffold(
+      onRefresh: refresh,
       title: 'Frais de scolarité',
       subtitle: classesAsync.isLoading
           ? 'Chargement…'

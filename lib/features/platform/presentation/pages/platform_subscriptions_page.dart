@@ -20,6 +20,10 @@ class PlatformSubscriptionsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final schoolsAsync = ref.watch(platformSchoolsProvider);
     return PageScaffold(
+      onRefresh: () async {
+        ref.invalidate(platformSchoolsProvider);
+        await ref.read(platformSchoolsProvider.future);
+      },
       title: 'Abonnements',
       subtitle: 'Revenu récurrent & cycle de vie des offres',
       actions: const [PlatformSearchLauncher()],

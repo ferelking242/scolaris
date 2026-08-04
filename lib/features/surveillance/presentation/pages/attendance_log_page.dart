@@ -13,20 +13,28 @@ class AttendanceLogPage extends ConsumerWidget {
     final now = DateTime.now();
     final dateLabel = '${now.day}/${now.month}/${now.year}';
 
+    Future<void> refresh() async {
+      ref.invalidate(studentsProvider);
+      await ref.read(studentsProvider.future);
+    }
+
     return studentsAsync.when(
       loading: () => PageScaffold(
         title: 'Journal des présences',
         subtitle: 'Présences du jour — $dateLabel',
+        onRefresh: refresh,
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Journal des présences',
         subtitle: 'Présences du jour — $dateLabel',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) => PageScaffold(
         title: 'Journal des présences',
         subtitle: 'Présences du jour — $dateLabel',
+        onRefresh: refresh,
         child: students.isEmpty
             ? const _EmptyState()
             : DataPanel(

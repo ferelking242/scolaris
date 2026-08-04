@@ -138,8 +138,14 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
     // dedans plante (« RenderFlex... unbounded height »).
     final requestsAsync = ref.watch(enrollmentRequestsProvider);
 
+    Future<void> refresh() async {
+      ref.invalidate(enrollmentRequestsProvider);
+      await ref.read(enrollmentRequestsProvider.future);
+    }
+
     return requestsAsync.when(
       loading: () => PageScaffold(
+        onRefresh: refresh,
         title: 'Inscriptions',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Padding(
@@ -149,6 +155,7 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
         ]),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: refresh,
         title: 'Inscriptions',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           EmptyState(
@@ -176,6 +183,7 @@ class _PreRegQueuePageState extends ConsumerState<PreRegQueuePage> {
             .where((r) => preRegStatusOf(r) == PreRegStatus.pending)
             .length;
         return PageScaffold(
+          onRefresh: refresh,
           title: 'Inscriptions',
           subtitle: '$pendingCount demande(s) à traiter',
           child: Column(children: [

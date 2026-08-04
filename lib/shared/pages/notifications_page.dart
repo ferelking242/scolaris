@@ -88,6 +88,31 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         absencesAsync.isLoading &&
         invoicesAsync.isLoading;
 
+    Future<void> refresh() async {
+      if (isParent) {
+        ref.invalidate(myChildrenGradesProvider);
+        ref.invalidate(myChildrenAbsencesProvider);
+        ref.invalidate(myChildrenInvoicesProvider);
+        await Future.wait([
+          ref.read(myChildrenGradesProvider.future),
+          ref.read(myChildrenAbsencesProvider.future),
+          ref.read(myChildrenInvoicesProvider.future),
+        ]);
+      } else {
+        ref.invalidate(myAbsencesProvider);
+        ref.invalidate(myInvoicesProvider);
+        final futures = <Future>[
+          ref.read(myAbsencesProvider.future),
+          ref.read(myInvoicesProvider.future),
+        ];
+        if (session != null) {
+          ref.invalidate(gradesForStudentProvider(session.id));
+          futures.add(ref.read(gradesForStudentProvider(session.id).future));
+        }
+        await Future.wait(futures);
+      }
+    }
+
     final feed = _buildFeed(
       grades: gradesAsync.valueOrNull ?? const [],
       absences: absencesAsync.valueOrNull ?? const [],
@@ -103,6 +128,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       subtitle: feed.isEmpty
           ? 'Aucune notification'
           : '${feed.length} notification(s) récente(s)',
+      onRefresh: refresh,
       child: stillLoading
           ? const Padding(
               padding: EdgeInsets.only(top: 60),

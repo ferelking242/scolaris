@@ -19,6 +19,10 @@ class TeacherProgramPage extends ConsumerWidget {
     final coursesAsync = ref.watch(coursesTaughtByMeProvider);
     return PageScaffold(
       title: 'Programme',
+      onRefresh: () async {
+        ref.invalidate(coursesTaughtByMeProvider);
+        await ref.read(coursesTaughtByMeProvider.future);
+      },
       subtitle: 'Où en êtes-vous dans le programme de chacun de vos cours ?',
       child: coursesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

@@ -256,6 +256,17 @@ class _PlatformSchoolDetailViewState
     final suspended =
         s.status == SubStatus.expired || s.status == SubStatus.canceled;
     return PageScaffold(
+      onRefresh: () async {
+        ref.invalidate(platformSchoolStudentsProvider(s.id));
+        ref.invalidate(platformSchoolEventsProvider(s.id));
+        ref.invalidate(platformSchoolPaymentsProvider(s.id));
+        await Future.wait([
+          _refresh(),
+          ref.read(platformSchoolStudentsProvider(s.id).future),
+          ref.read(platformSchoolEventsProvider(s.id).future),
+          ref.read(platformSchoolPaymentsProvider(s.id).future),
+        ]);
+      },
       title: s.name,
       subtitle: '${s.city}, ${s.country} · ${s.typesLabel}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

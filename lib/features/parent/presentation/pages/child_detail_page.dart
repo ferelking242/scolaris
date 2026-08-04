@@ -93,7 +93,23 @@ class ChildDetailPage extends ConsumerWidget {
         .take(3)
         .toList();
 
+    Future<void> refresh() async {
+      ref.invalidate(schoolProvider);
+      ref.invalidate(gradesForStudentProvider(child.id));
+      ref.invalidate(absencesForStudentProvider(child.id));
+      ref.invalidate(invoicesForStudentProvider(child.id));
+      ref.invalidate(tuitionAccountProvider(child.id));
+      await Future.wait([
+        ref.read(schoolProvider.future),
+        ref.read(gradesForStudentProvider(child.id).future),
+        ref.read(absencesForStudentProvider(child.id).future),
+        ref.read(invoicesForStudentProvider(child.id).future),
+        ref.read(tuitionAccountProvider(child.id).future),
+      ]);
+    }
+
     return PageScaffold(
+      onRefresh: refresh,
       title: child.fullName,
       subtitle: [
         if (child.classe?.isNotEmpty == true) child.classe!,
@@ -132,7 +148,12 @@ class ChildDetailPage extends ConsumerWidget {
               value: scolariteValue,
               suffix: scolariteSuffix,
               color: scolariteColor,
-              loading: acctLoading && invoices.isLoading,
+              // `||` et pas `&&` : tant qu'UNE des deux sources n'a pas encore
+              // répondu, la valeur affichée peut être le repli sur invoices
+              // (encore vide) — ex. « 0 facture » en vert alors que le compte
+              // est en fait en train de charger. Attendre que les deux soient
+              // prêtes évite ce flash trompeur.
+              loading: acctLoading || invoices.isLoading,
             )),
         ]),
         const SizedBox(height: 20),

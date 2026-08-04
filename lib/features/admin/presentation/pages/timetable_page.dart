@@ -65,6 +65,16 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     }
   }
 
+  Future<void> _refresh() async {
+    ref.invalidate(classesProvider);
+    final futures = <Future>[ref.read(classesProvider.future)];
+    if (_classId != null) {
+      ref.invalidate(schedulesForClassProvider(_classId!));
+      futures.add(ref.read(schedulesForClassProvider(_classId!).future));
+    }
+    await Future.wait(futures);
+  }
+
   @override
   Widget build(BuildContext context) {
     final schoolId = ref.watch(currentSchoolIdProvider);
@@ -73,6 +83,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     return PageScaffold(
       title: 'Emploi du temps',
       subtitle: 'Cours hebdomadaires par classe',
+      onRefresh: _refresh,
       child: classesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erreur : $e')),

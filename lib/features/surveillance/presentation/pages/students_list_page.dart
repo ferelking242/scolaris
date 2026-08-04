@@ -11,23 +11,31 @@ class StudentsListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studentsAsync = ref.watch(studentsProvider);
+    Future<void> refresh() async {
+      ref.invalidate(studentsProvider);
+      await ref.read(studentsProvider.future);
+    }
     return studentsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Annuaire élèves',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Annuaire élèves',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
-      data: (students) => _StudentsListContent(students: students),
+      data: (students) =>
+          _StudentsListContent(students: students, onRefresh: refresh),
     );
   }
 }
 
 class _StudentsListContent extends StatefulWidget {
   final List<SbStudent> students;
-  const _StudentsListContent({required this.students});
+  final Future<void> Function() onRefresh;
+  const _StudentsListContent({required this.students, required this.onRefresh});
   @override
   State<_StudentsListContent> createState() => _StudentsListContentState();
 }
@@ -50,6 +58,7 @@ class _StudentsListContentState extends State<_StudentsListContent> {
     final students = _filtered;
     return PageScaffold(
       title: 'Annuaire élèves',
+      onRefresh: widget.onRefresh,
       subtitle: '${widget.students.length} élèves inscrits cette année',
       actions: [
         ActionButton(label: 'Filtrer', icon: Icons.filter_list_rounded, onTap: () {}),

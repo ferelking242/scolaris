@@ -47,17 +47,32 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
   DateTime get _dateOnly =>
       DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
+  Future<void> _refresh() async {
+    ref.invalidate(classesProvider);
+    final futures = <Future>[ref.read(classesProvider.future)];
+    if (_selectedClassId != null) {
+      // classe sélectionnée non résolue ici (nécessite la liste des classes) ;
+      // on se contente d'invalider les présences par clé courante.
+      final key = '$_selectedClassId|${_isoDate(_dateOnly)}|${ref.read(authSessionProvider)?.id ?? ''}';
+      ref.invalidate(attendanceForClassProvider(key));
+      futures.add(ref.read(attendanceForClassProvider(key).future));
+    }
+    await Future.wait(futures);
+  }
+
   @override
   Widget build(BuildContext context) {
     final classesAsync = ref.watch(classesProvider);
 
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Présences',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: _refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Présences',
+        onRefresh: _refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (classes) {
@@ -80,9 +95,10 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
           );
 
     if (selectedClass == null) {
-      return const PageScaffold(
+      return PageScaffold(
         title: 'Présences',
-        child: Center(child: Text('Aucune classe dans cette école.')),
+        onRefresh: _refresh,
+        child: const Center(child: Text('Aucune classe dans cette école.')),
       );
     }
 
@@ -112,12 +128,14 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
     final locked = (existingRecords?.isNotEmpty ?? false) && !_forceUnlock;
 
     return studentsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Présences',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: _refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Présences',
+        onRefresh: _refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) {
@@ -133,6 +151,7 @@ class _AdminAttendancePageState extends ConsumerState<AdminAttendancePage> {
 
         return PageScaffold(
           title: 'Présences',
+          onRefresh: _refresh,
           subtitle: !canSaisir
               ? 'Consultation seule — la saisie ne vous est pas confiée'
               : locked

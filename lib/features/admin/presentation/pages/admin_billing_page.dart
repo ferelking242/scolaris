@@ -205,6 +205,33 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
     );
   }
 
+  Future<void> _refreshInvoices(WidgetRef ref) async {
+    ref.invalidate(invoicesProvider);
+    await ref.read(invoicesProvider.future);
+  }
+
+  Future<void> _refreshInvoicesView(WidgetRef ref) async {
+    ref.invalidate(invoicesProvider);
+    ref.invalidate(studentsProvider);
+    ref.invalidate(classesProvider);
+    await Future.wait([
+      ref.read(invoicesProvider.future),
+      ref.read(studentsProvider.future),
+      ref.read(classesProvider.future),
+    ]);
+  }
+
+  Future<void> _refreshOverview(WidgetRef ref) async {
+    ref.invalidate(invoicesProvider);
+    ref.invalidate(onlinePaymentPlanAllowedProvider);
+    ref.invalidate(onlinePaymentEnabledProvider);
+    await Future.wait([
+      ref.read(invoicesProvider.future),
+      ref.read(onlinePaymentPlanAllowedProvider.future),
+      ref.read(onlinePaymentEnabledProvider.future),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sous-vues inline (pas de route plein écran).
@@ -222,11 +249,13 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
 
     final invoicesAsync = ref.watch(invoicesProvider);
     return invoicesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
+        onRefresh: () => _refreshInvoices(ref),
         title: 'Aperçu facturation',
-        child: Center(child: CircularProgressIndicator()),
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: () => _refreshInvoices(ref),
         title: 'Aperçu facturation',
         child: Center(child: Text('Erreur : $e')),
       ),
@@ -269,6 +298,7 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
                   .toList();
 
           return PageScaffold(
+            onRefresh: () => _refreshInvoicesView(ref),
             title: 'Factures ponctuelles',
             subtitle: 'Inscription, cantine, transport, fournitures…',
             actions: [
@@ -324,6 +354,7 @@ class _AdminBillingPageState extends ConsumerState<AdminBillingPage> {
         }
 
         return PageScaffold(
+          onRefresh: () => _refreshOverview(ref),
           title: 'Aperçu facturation',
           subtitle: 'Scolarité — suivi des paiements de l\'établissement',
           actions: [

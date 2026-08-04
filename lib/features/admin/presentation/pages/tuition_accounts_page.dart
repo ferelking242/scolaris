@@ -41,6 +41,16 @@ class _TuitionAccountsPageState extends ConsumerState<TuitionAccountsPage> {
 
     return PageScaffold(
       title: 'Comptes scolarité',
+      onRefresh: () async {
+        ref.invalidate(studentsProvider);
+        ref.invalidate(tuitionAccountsProvider);
+        ref.invalidate(classesProvider);
+        await Future.wait([
+          ref.read(studentsProvider.future),
+          ref.read(tuitionAccountsProvider.future),
+          ref.read(classesProvider.future),
+        ]);
+      },
       subtitle: 'Suivi des paiements de scolarité par élève',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         BackLinkRow(label: 'Retour à la facturation', onTap: widget.onBack),

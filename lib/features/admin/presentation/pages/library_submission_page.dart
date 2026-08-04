@@ -220,6 +220,7 @@ class _LibrarySubmissionPageState
   Widget build(BuildContext context) {
     return PageScaffold(
       title: 'Contribuer à la bibliothèque',
+      onRefresh: _loadSubmissions,
       subtitle:
           'Un contenu approuvé devient visible par toutes les écoles, pas seulement la vôtre.',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -45,13 +45,27 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
   @override
   Widget build(BuildContext context) {
     final invoicesAsync = ref.watch(invoicesProvider);
+
+    Future<void> refresh() async {
+      ref.invalidate(invoicesProvider);
+      ref.invalidate(studentsProvider);
+      ref.invalidate(classesProvider);
+      await Future.wait([
+        ref.read(invoicesProvider.future),
+        ref.read(studentsProvider.future),
+        ref.read(classesProvider.future),
+      ]);
+    }
+
     return invoicesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Reçus & Quittances',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Reçus & Quittances',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allInvoices) {
@@ -72,6 +86,7 @@ class _ReceiptsPageState extends ConsumerState<ReceiptsPage> {
         return PageScaffold(
           title: 'Reçus & Quittances',
           subtitle: '${allInvoices.length} documents au total',
+          onRefresh: refresh,
           actions: [
             ActionButton(
                 label: 'Imprimer tout',

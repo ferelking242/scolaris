@@ -127,6 +127,15 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
     final classesAsync = ref.watch(classesProvider);
 
     return PageScaffold(
+      onRefresh: () async {
+        ref.invalidate(classesProvider);
+        final futures = <Future<Object?>>[ref.read(classesProvider.future)];
+        if (_selectedClassId != null) {
+          ref.invalidate(coursesForClassProvider(_selectedClassId!));
+          futures.add(ref.read(coursesForClassProvider(_selectedClassId!).future));
+        }
+        await Future.wait(futures);
+      },
       title: 'Cours',
       subtitle: 'Gérer les cours par classe',
       actions: [

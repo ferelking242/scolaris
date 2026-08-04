@@ -44,27 +44,48 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
 
   DateTime get _dateOnly => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
+  Future<void> _refresh() async {
+    ref.invalidate(classesProvider);
+    ref.invalidate(teacherAssignmentsProvider);
+    final futures = <Future>[
+      ref.read(classesProvider.future),
+      ref.read(teacherAssignmentsProvider.future),
+    ];
+    if (_selectedClassId != null) {
+      ref.invalidate(coursesForClassProvider(_selectedClassId!));
+      futures.add(ref.read(coursesForClassProvider(_selectedClassId!).future));
+      final teacherId = ref.read(authSessionProvider)?.id;
+      final key = '$_selectedClassId|${_isoDate(_dateOnly)}|${teacherId ?? ''}|${_selectedSubjectId ?? ''}';
+      ref.invalidate(attendanceForClassProvider(key));
+      futures.add(ref.read(attendanceForClassProvider(key).future));
+    }
+    await Future.wait(futures);
+  }
+
   @override
   Widget build(BuildContext context) {
     final classesAsync = ref.watch(classesProvider);
     final assignAsync  = ref.watch(teacherAssignmentsProvider);
 
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Présences',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: _refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Présences',
+        onRefresh: _refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (allClasses) {
         // Scope : seulement les classes que ce prof enseigne.
         final assign = assignAsync.valueOrNull;
         if (assign == null) {
-          return const PageScaffold(
+          return PageScaffold(
             title: 'Présences',
-            child: Center(child: CircularProgressIndicator()),
+            onRefresh: _refresh,
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
         final classes =
@@ -88,9 +109,10 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
           );
 
     if (selectedClass == null) {
-      return const PageScaffold(
+      return PageScaffold(
         title: 'Présences',
-        child: Center(child: Text('Aucune classe ne vous est assignée.')),
+        onRefresh: _refresh,
+        child: const Center(child: Text('Aucune classe ne vous est assignée.')),
       );
     }
 
@@ -104,12 +126,14 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
     if (!isTitulaire) {
       final coursesAsync = ref.watch(coursesForClassProvider(selectedClass.id));
       return coursesAsync.when(
-        loading: () => const PageScaffold(
+        loading: () => PageScaffold(
           title: 'Présences',
-          child: Center(child: CircularProgressIndicator()),
+          onRefresh: _refresh,
+          child: const Center(child: CircularProgressIndicator()),
         ),
         error: (e, _) => PageScaffold(
           title: 'Présences',
+          onRefresh: _refresh,
           child: Center(child: Text('Erreur : $e')),
         ),
         data: (courses) {
@@ -117,9 +141,10 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
               .where((c) => c.subjectId != null && c.isTaughtBy(teacherId ?? ''))
               .toList();
           if (allowed.isEmpty) {
-            return const PageScaffold(
+            return PageScaffold(
               title: 'Présences',
-              child: DataPanel(
+              onRefresh: _refresh,
+              child: const DataPanel(
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: Center(
@@ -179,12 +204,14 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
     final locked = alreadySubmitted && !_forceUnlock;
 
     return studentsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Présences',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: _refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Présences',
+        onRefresh: _refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) {
@@ -204,6 +231,7 @@ class _AttendanceTodayPageState extends ConsumerState<AttendanceTodayPage> {
 
         return PageScaffold(
           title: 'Présences',
+          onRefresh: _refresh,
           subtitle: !canSaisir
               ? 'Consultation seule — l\'appel ne vous est pas confié'
               : locked

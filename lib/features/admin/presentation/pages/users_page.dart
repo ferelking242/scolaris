@@ -466,6 +466,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     ];
 
     return PageScaffold(
+      onRefresh: () => _refreshStudentProfile(u.id),
       title: u.fullName,
       subtitle: sub,
       actions: [
@@ -786,6 +787,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     final email = _displayEmail(u.email);
 
     return PageScaffold(
+      onRefresh: () => _refreshParentProfile(u.id),
       title: u.fullName,
       subtitle: 'Fiche parent',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -906,6 +908,33 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         }),
       ]),
     );
+  }
+
+  Future<void> _refreshUsers() async {
+    ref.invalidate(usersProvider);
+    await ref.read(usersProvider.future);
+  }
+
+  Future<void> _refreshStudentProfile(String studentId) async {
+    ref.invalidate(usersProvider);
+    ref.invalidate(studentsProvider);
+    ref.invalidate(absencesForStudentProvider(studentId));
+    ref.invalidate(guardiansForStudentProvider(studentId));
+    await Future.wait([
+      ref.read(usersProvider.future),
+      ref.read(studentsProvider.future),
+      ref.read(absencesForStudentProvider(studentId).future),
+      ref.read(guardiansForStudentProvider(studentId).future),
+    ]);
+  }
+
+  Future<void> _refreshParentProfile(String parentId) async {
+    ref.invalidate(usersProvider);
+    ref.invalidate(childrenOfParentProvider(parentId));
+    await Future.wait([
+      ref.read(usersProvider.future),
+      ref.read(childrenOfParentProvider(parentId).future),
+    ]);
   }
 
   void _openInvite() {
@@ -1213,16 +1242,19 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     final usersAsync = ref.watch(usersProvider);
     return usersAsync.when(
       loading: () => PageScaffold(
+        onRefresh: _refreshUsers,
         title: pageTitle,
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: _refreshUsers,
         title: pageTitle,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (everyone) {
         if (_isFamilies && !_canSeeStudents()) {
           return PageScaffold(
+            onRefresh: _refreshUsers,
             title: pageTitle,
             child: Container(
               alignment: Alignment.center,
@@ -1316,6 +1348,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
         return PageScaffold(
+          onRefresh: _refreshUsers,
           title: pageTitle,
           subtitle: _isFamilies
               ? '${allUsers.length} élèves et parents'

@@ -315,6 +315,10 @@ class _AccountPageState extends ConsumerState<AccountPage> {
         : 'profile.school_role'.tr();
     return PageScaffold(
       title: 'profile.title'.tr(),
+      onRefresh: () async {
+        ref.invalidate(schoolProvider);
+        await ref.read(schoolProvider.future);
+      },
       subtitle: roleLabel,
       child: LayoutBuilder(builder: (context, constraints) {
         final twoCols = constraints.maxWidth >= 1100;

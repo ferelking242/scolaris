@@ -67,13 +67,29 @@ class GradesPage extends ConsumerWidget {
         ? ref.watch(gradesForStudentProvider(sid))
         : const AsyncValue<List<SbGrade>>.data([]);
 
+    Future<void> refresh() async {
+      if (sid == null) return;
+      ref.invalidate(gradesForStudentProvider(sid));
+      final futures = <Future>[ref.read(gradesForStudentProvider(sid).future)];
+      if (studentId == null) {
+        ref.invalidate(studentSchoolLevelProvider);
+        futures.add(ref.read(studentSchoolLevelProvider.future));
+      } else {
+        ref.invalidate(studentByIdProvider(studentId!));
+        futures.add(ref.read(studentByIdProvider(studentId!).future));
+      }
+      await Future.wait(futures);
+    }
+
     return gradesAsync.when(
       loading: () => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (grades) {
@@ -90,6 +106,7 @@ class GradesPage extends ConsumerWidget {
 
         return PageScaffold(
           title: heading,
+          onRefresh: refresh,
           subtitle: '${grades.isEmpty ? "Aucun" : grades.length} résultat(s)',
           child: grades.isEmpty
               ? const EmptyState(

@@ -27,13 +27,25 @@ class AttendancePage extends ConsumerWidget {
         ? ref.watch(absencesForStudentProvider(studentId!))
         : ref.watch(myAbsencesProvider);
 
+    Future<void> refresh() async {
+      if (studentId != null) {
+        ref.invalidate(absencesForStudentProvider(studentId!));
+        await ref.read(absencesForStudentProvider(studentId!).future);
+      } else {
+        ref.invalidate(myAbsencesProvider);
+        await ref.read(myAbsencesProvider.future);
+      }
+    }
+
     return absencesAsync.when(
       loading: () => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: heading,
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
@@ -45,6 +57,7 @@ class AttendancePage extends ConsumerWidget {
 
         return PageScaffold(
           title: heading,
+          onRefresh: refresh,
           subtitle: absences.isEmpty
               ? 'Aucune absence enregistrée'
               : '${absences.length} événement(s) · $nonJust non justifiée(s)',

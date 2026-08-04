@@ -109,14 +109,24 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
     final th = Theme.of(context);
     final cs = th.colorScheme;
 
+    Future<void> refresh() async {
+      ref.invalidate(myCoursesProvider);
+      ref.invalidate(myStudentProfileProvider);
+      await Future.wait([
+        ref.read(myCoursesProvider.future),
+        ref.read(myStudentProfileProvider.future),
+      ]);
+    }
+
     return coursesAsync.when(
-      loading: () => const PageScaffold(title: 'Mes cours', child: Center(child: CircularProgressIndicator())),
-      error:   (e, _) => PageScaffold(title: 'Mes cours', child: Center(child: Text('Erreur : $e'))),
+      loading: () => PageScaffold(title: 'Mes cours', onRefresh: refresh, child: const Center(child: CircularProgressIndicator())),
+      error:   (e, _) => PageScaffold(title: 'Mes cours', onRefresh: refresh, child: Center(child: Text('Erreur : $e'))),
       data: (courses) {
         final className = profile?.classe ?? '';
         final filtered  = _applyFilters(courses);
         return PageScaffold(
           title: 'Mes cours',
+          onRefresh: refresh,
           subtitle: courses.isEmpty
               ? 'Aucun cours'
               : '${courses.length} cours${className.isNotEmpty ? ' · $className' : ''}',

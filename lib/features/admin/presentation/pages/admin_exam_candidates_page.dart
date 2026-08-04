@@ -23,18 +23,25 @@ class AdminExamCandidatesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final candidatesAsync = ref.watch(examCandidatesProvider);
+    Future<void> refresh() async {
+      ref.invalidate(examCandidatesProvider);
+      await ref.read(examCandidatesProvider.future);
+    }
     return candidatesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
+        onRefresh: refresh,
         title: 'Candidats examen',
-        child: Center(child: CircularProgressIndicator()),
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: refresh,
         title: 'Candidats examen',
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (groups) {
         final total = groups.fold<int>(0, (s, g) => s + g.$2.length);
         return PageScaffold(
+          onRefresh: refresh,
           title: 'Candidats examen',
           subtitle: total > 0
               ? '$total candidat(s) dans ${groups.length} classe(s)'

@@ -29,6 +29,20 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
   // (trimestres ou semestres), pas d'une constante du code.
   String? _selectedPeriod;
 
+  Future<void> _refresh() async {
+    ref.invalidate(classesProvider);
+    ref.invalidate(teacherAssignmentsProvider);
+    final futures = <Future>[
+      ref.read(classesProvider.future),
+      ref.read(teacherAssignmentsProvider.future),
+    ];
+    if (_selectedClassId != null) {
+      ref.invalidate(coursesForClassProvider(_selectedClassId!));
+      futures.add(ref.read(coursesForClassProvider(_selectedClassId!).future));
+    }
+    await Future.wait(futures);
+  }
+
   @override
   Widget build(BuildContext context) {
     final schoolId  = ref.watch(currentSchoolIdProvider);
@@ -37,29 +51,33 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
     final assignAsync   = ref.watch(teacherAssignmentsProvider);
 
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
           title: 'Carnet de notes',
-          child: Center(child: CircularProgressIndicator())),
+          onRefresh: _refresh,
+          child: const Center(child: CircularProgressIndicator())),
       error: (e, _) => PageScaffold(
           title: 'Carnet de notes',
+          onRefresh: _refresh,
           child: Center(child: Text('Erreur : $e'))),
       data: (allClasses) {
         // Scope : seulement les classes que ce prof enseigne réellement
         // (emploi du temps + statut de titulaire).
         final assign = assignAsync.valueOrNull;
         if (assign == null) {
-          return const PageScaffold(
+          return PageScaffold(
               title: 'Carnet de notes',
-              child: Center(child: CircularProgressIndicator()));
+              onRefresh: _refresh,
+              child: const Center(child: CircularProgressIndicator()));
         }
         final classes =
             allClasses.where((c) => assign.teachesClass(c.id)).toList();
 
         if (classes.isEmpty) {
-          return const PageScaffold(
+          return PageScaffold(
             title: 'Carnet de notes',
+            onRefresh: _refresh,
             subtitle: 'Saisir et consulter les notes de vos classes',
-            child: DataPanel(
+            child: const DataPanel(
               child: Padding(
                 padding: EdgeInsets.all(28),
                 child: Center(
@@ -98,6 +116,7 @@ class _GradebookPageState extends ConsumerState<GradebookPage> {
 
         return PageScaffold(
           title: 'Carnet de notes',
+          onRefresh: _refresh,
           subtitle: 'Saisir et consulter les notes de vos classes',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

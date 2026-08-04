@@ -27,13 +27,19 @@ class _FinanceStudentsPageState extends ConsumerState<FinanceStudentsPage> {
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsProvider);
+    Future<void> refresh() async {
+      ref.invalidate(studentsProvider);
+      await ref.read(studentsProvider.future);
+    }
     return studentsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Élèves — Finances',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Élèves — Finances',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (students) {
@@ -54,6 +60,7 @@ class _FinanceStudentsPageState extends ConsumerState<FinanceStudentsPage> {
 
         return PageScaffold(
           title: 'Élèves — Finances',
+          onRefresh: refresh,
           subtitle: '${students.length} élèves inscrits',
           actions: [
             ActionButton(

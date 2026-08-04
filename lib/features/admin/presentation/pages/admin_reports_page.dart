@@ -11,6 +11,19 @@ import '../../../../shared/widgets/plan_gate.dart';
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF16A34A);
 
+Future<void> _refresh(WidgetRef ref) async {
+  ref.invalidate(studentsProvider);
+  ref.invalidate(classesProvider);
+  ref.invalidate(usersProvider);
+  ref.invalidate(invoicesProvider);
+  await Future.wait([
+    ref.read(studentsProvider.future),
+    ref.read(classesProvider.future),
+    ref.read(usersProvider.future),
+    ref.read(invoicesProvider.future),
+  ]);
+}
+
 class AdminReportsPage extends ConsumerWidget {
   const AdminReportsPage({super.key});
 
@@ -27,9 +40,10 @@ class AdminReportsPage extends ConsumerWidget {
         invoicesAsync.isLoading;
 
     if (loading) {
-      return const PageScaffold(
+      return PageScaffold(
         title: 'Rapports',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: () => _refresh(ref),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -167,6 +181,7 @@ class AdminReportsPage extends ConsumerWidget {
     return PageScaffold(
       title: 'Rapports',
       subtitle: 'Vue d\'ensemble de l\'établissement',
+      onRefresh: () => _refresh(ref),
       actions: [
         if (canExport)
           ActionButton(

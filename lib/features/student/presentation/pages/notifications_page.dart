@@ -99,8 +99,24 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
     final unread = feed.length;
 
+    Future<void> refresh() async {
+      final futures = <Future<void>>[];
+      if (session != null) {
+        ref.invalidate(gradesForStudentProvider(session.id));
+        futures.add(ref.read(gradesForStudentProvider(session.id).future));
+      }
+      ref.invalidate(myAbsencesProvider);
+      futures.add(ref.read(myAbsencesProvider.future));
+      if (!isPrimaire) {
+        ref.invalidate(myInvoicesProvider);
+        futures.add(ref.read(myInvoicesProvider.future));
+      }
+      await Future.wait(futures);
+    }
+
     return PageScaffold(
       title: 'Notifications',
+      onRefresh: refresh,
       subtitle: unread == 0
           ? 'Aucune notification'
           : '$unread notification(s) récente(s)',

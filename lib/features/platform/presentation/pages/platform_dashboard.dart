@@ -21,16 +21,27 @@ class PlatformDashboard extends ConsumerWidget {
     final schoolsAsync = ref.watch(platformSchoolsProvider);
     final totalStudentsAsync = ref.watch(platformTotalStudentsProvider);
 
+    Future<void> refresh() async {
+      ref.invalidate(platformSchoolsProvider);
+      ref.invalidate(platformTotalStudentsProvider);
+      await Future.wait([
+        ref.read(platformSchoolsProvider.future),
+        ref.read(platformTotalStudentsProvider.future),
+      ]);
+    }
+
     return schoolsAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Vue plateforme',
-        child: Padding(
+        onRefresh: refresh,
+        child: const Padding(
           padding: EdgeInsets.only(top: 40),
           child: Center(child: CircularProgressIndicator()),
         ),
       ),
       error: (e, _) => PageScaffold(
         title: 'Vue plateforme',
+        onRefresh: refresh,
         child: EmptyState(
           icon: Icons.error_outline_rounded,
           title: 'Erreur de chargement',
@@ -46,6 +57,7 @@ class PlatformDashboard extends ConsumerWidget {
           title: 'Vue plateforme',
           subtitle:
               '${schools.total} écoles · ${groupThousands(totalStudents)} élèves suivis',
+          onRefresh: refresh,
           actions: const [PlatformSearchLauncher()],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

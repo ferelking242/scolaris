@@ -68,7 +68,21 @@ class ChildPaymentsPage extends ConsumerWidget {
       if (ok) ref.invalidate(invoicesForStudentProvider(child.id));
     }
 
+    Future<void> refresh() async {
+      ref.invalidate(invoicesForStudentProvider(child.id));
+      ref.invalidate(paymentsForStudentProvider(child.id));
+      ref.invalidate(schoolProvider);
+      ref.invalidate(onlinePaymentEnabledProvider);
+      await Future.wait([
+        ref.read(invoicesForStudentProvider(child.id).future),
+        ref.read(paymentsForStudentProvider(child.id).future),
+        ref.read(schoolProvider.future),
+        ref.read(onlinePaymentEnabledProvider.future),
+      ]);
+    }
+
     return PageScaffold(
+      onRefresh: refresh,
       title: 'Scolarité — ${child.fullName}',
       subtitle: child.classe?.isNotEmpty == true ? child.classe : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

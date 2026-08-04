@@ -75,6 +75,14 @@ class PlatformSettingsPage extends ConsumerWidget {
 
     return PageScaffold(
       title: 'Réglages',
+      onRefresh: () async {
+        ref.invalidate(platformPlanSettingsProvider);
+        ref.invalidate(platformAdminsProvider);
+        await Future.wait([
+          ref.read(platformPlanSettingsProvider.future),
+          ref.read(platformAdminsProvider.future),
+        ]);
+      },
       subtitle: 'Compte, offres, tarifs & équipe de la plateforme',
       actions: const [PlatformSearchLauncher()],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

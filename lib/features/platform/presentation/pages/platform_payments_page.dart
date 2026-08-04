@@ -90,6 +90,10 @@ class PlatformPaymentsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pendingAsync = ref.watch(platformPendingPaymentsProvider);
     return PageScaffold(
+      onRefresh: () async {
+        ref.invalidate(platformPendingPaymentsProvider);
+        await ref.read(platformPendingPaymentsProvider.future);
+      },
       title: 'Paiements',
       subtitle: 'Versements Mobile Money des écoles à vérifier',
       actions: const [PlatformSearchLauncher()],

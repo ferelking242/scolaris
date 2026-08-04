@@ -21,26 +21,34 @@ class ChildrenPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final childrenAsync = ref.watch(myChildrenProvider);
+    Future<void> refresh() async {
+      ref.invalidate(myChildrenProvider);
+      await ref.read(myChildrenProvider.future);
+    }
 
     return childrenAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Mes enfants',
-        child: Center(child: CircularProgressIndicator()),
+        onRefresh: refresh,
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
         title: 'Mes enfants',
+        onRefresh: refresh,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
       data: (children) {
         if (children.isEmpty) {
-          return const PageScaffold(
+          return PageScaffold(
             title: 'Mes enfants',
-            child: _NoChildren(),
+            onRefresh: refresh,
+            child: const _NoChildren(),
           );
         }
         return PageScaffold(
           title: 'Mes enfants',
+          onRefresh: refresh,
           subtitle: children.length > 1
               ? '${children.length} enfants inscrits'
               : '1 enfant inscrit',

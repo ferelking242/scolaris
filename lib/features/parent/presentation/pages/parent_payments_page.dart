@@ -18,12 +18,28 @@ class ParentPaymentsPage extends ConsumerWidget {
     // Les factures de TOUS ses enfants. (Avant : `myInvoicesProvider`, qui
     // cherchait les factures d'un élève ayant l'id du parent → toujours vide.)
     final invoicesAsync = ref.watch(myChildrenInvoicesProvider);
+
+    Future<void> refresh() async {
+      ref.invalidate(myChildrenInvoicesProvider);
+      ref.invalidate(schoolProvider);
+      ref.invalidate(myChildrenProvider);
+      ref.invalidate(onlinePaymentEnabledProvider);
+      await Future.wait([
+        ref.read(myChildrenInvoicesProvider.future),
+        ref.read(schoolProvider.future),
+        ref.read(myChildrenProvider.future),
+        ref.read(onlinePaymentEnabledProvider.future),
+      ]);
+    }
+
     return invoicesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
+        onRefresh: refresh,
         title: 'Paiements',
-        child: Center(child: CircularProgressIndicator()),
+        child: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => PageScaffold(
+        onRefresh: refresh,
         title: 'Paiements',
         child: Center(child: Text('Erreur : $e')),
       ),
@@ -89,6 +105,7 @@ class ParentPaymentsPage extends ConsumerWidget {
         }
 
         return PageScaffold(
+          onRefresh: refresh,
           title: 'Paiements',
           subtitle: 'Scolarité, cantine et transport',
           actions: [

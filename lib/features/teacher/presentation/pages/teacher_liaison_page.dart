@@ -46,25 +46,32 @@ class _TeacherLiaisonPageState extends ConsumerState<TeacherLiaisonPage> {
   @override
   Widget build(BuildContext context) {
     final classesAsync = ref.watch(teacherClassesProvider);
+    Future<void> refreshClasses() async {
+      ref.invalidate(teacherClassesProvider);
+      await ref.read(teacherClassesProvider.future);
+    }
 
     return classesAsync.when(
-      loading: () => const PageScaffold(
+      loading: () => PageScaffold(
         title: 'Cahier de liaison',
-        child: Center(child: Padding(
+        onRefresh: refreshClasses,
+        child: const Center(child: Padding(
           padding: EdgeInsets.only(top: 60),
           child: CircularProgressIndicator(),
         )),
       ),
       error: (e, _) => PageScaffold(
         title: 'Cahier de liaison',
+        onRefresh: refreshClasses,
         child: Center(child: Text('Erreur : $e',
             style: TextStyle(color: context.cMuted))),
       ),
       data: (classes) {
         if (classes.isEmpty) {
-          return const PageScaffold(
+          return PageScaffold(
             title: 'Cahier de liaison',
-            child: EmptyState(
+            onRefresh: refreshClasses,
+            child: const EmptyState(
               icon: Icons.class_outlined,
               title: 'Aucune classe',
               description:
@@ -78,8 +85,18 @@ class _TeacherLiaisonPageState extends ConsumerState<TeacherLiaisonPage> {
             ref.watch(liaisonEntriesForClassProvider(selected.id));
         final entries = entriesAsync.valueOrNull ?? const <SbLiaisonEntry>[];
 
+        Future<void> refresh() async {
+          ref.invalidate(teacherClassesProvider);
+          ref.invalidate(liaisonEntriesForClassProvider(selected.id));
+          await Future.wait([
+            ref.read(teacherClassesProvider.future),
+            ref.read(liaisonEntriesForClassProvider(selected.id).future),
+          ]);
+        }
+
         return PageScaffold(
           title: 'Cahier de liaison',
+          onRefresh: refresh,
           subtitle: entries.isEmpty
               ? 'Aucun mot écrit'
               : '${entries.length} mot(s) · ${selected.name}',

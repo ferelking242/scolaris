@@ -54,6 +54,17 @@ class TuitionTrackingPage extends ConsumerStatefulWidget {
 class _TuitionTrackingPageState extends ConsumerState<TuitionTrackingPage> {
   String? _classId; // null = toutes les classes
 
+  Future<void> _refresh() async {
+    ref.invalidate(studentsProvider);
+    ref.invalidate(tuitionAccountsProvider);
+    ref.invalidate(classesProvider);
+    await Future.wait([
+      ref.read(studentsProvider.future),
+      ref.read(tuitionAccountsProvider.future),
+      ref.read(classesProvider.future),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(studentsProvider);
@@ -114,6 +125,7 @@ class _TuitionTrackingPageState extends ConsumerState<TuitionTrackingPage> {
     return PageScaffold(
       title: 'Suivi scolarité',
       subtitle: loading ? 'Chargement…' : subtitle,
+      onRefresh: _refresh,
       actions: [
         if (!loading && error == null)
           ActionButton(

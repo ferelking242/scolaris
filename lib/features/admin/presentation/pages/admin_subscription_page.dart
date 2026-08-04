@@ -56,15 +56,32 @@ class AdminSubscriptionPage extends ConsumerWidget {
     final countAsync = ref.watch(studentCountProvider);
     final surchargesAsync = ref.watch(planSizeSurchargesProvider);
 
+    Future<void> refresh() async {
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(plansProvider);
+      ref.invalidate(planPricesProvider);
+      ref.invalidate(studentCountProvider);
+      ref.invalidate(planSizeSurchargesProvider);
+      await Future.wait([
+        ref.read(subscriptionProvider.future),
+        ref.read(plansProvider.future),
+        ref.read(planPricesProvider.future),
+        ref.read(studentCountProvider.future),
+        ref.read(planSizeSurchargesProvider.future),
+      ]);
+    }
+
     final loading = subAsync.isLoading || plansAsync.isLoading || pricesAsync.isLoading;
     if (loading) {
-      return const PageScaffold(
+      return PageScaffold(
+        onRefresh: refresh,
         title: 'Mon abonnement',
-        child: Center(child: CircularProgressIndicator()),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
     if (plansAsync.hasError) {
       return PageScaffold(
+        onRefresh: refresh,
         title: 'Mon abonnement',
         child: Center(child: Text('Erreur : ${plansAsync.error}')),
       );
@@ -92,6 +109,7 @@ class AdminSubscriptionPage extends ConsumerWidget {
     final fmt = NumberFormat.decimalPattern('fr');
 
     return PageScaffold(
+      onRefresh: refresh,
       title: 'Mon abonnement',
       subtitle: 'Votre offre Scolaris et votre utilisation',
       child: Column(children: [
