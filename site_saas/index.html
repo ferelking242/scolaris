@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scolaris — Toute votre école dans une seule application</title>
-<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement. Essai gratuit de 30 jours, accès direction, enseignants et élèves.">
+<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement. Essai gratuit de 14 jours, accès direction, enseignants et élèves.">
 <meta name="theme-color" content="#2A1207">
 <meta property="og:title" content="Scolaris — Savoir, Héritage, Avenir">
-<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation. Essai gratuit de 30 jours.">
+<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation. Essai gratuit de 14 jours.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF6EF'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%239A2C06'/%3E%3Cstop offset='1' stop-color='%23E4610C'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='40' font-weight='700' fill='url(%23g)' text-anchor='middle'%3ES%3C/text%3E%3Ccircle cx='47' cy='49' r='5' fill='%231F7A44'/%3E%3C/svg%3E">
+<link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -116,17 +116,26 @@ h3{font-size:19px}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--encre);margin-right:auto}
 .logo b{
   width:38px;height:38px;border-radius:12px;background:#fff;border:1px solid var(--bord);
-  display:grid;place-items:center;position:relative;flex:none;
-  font-family:Georgia,serif;font-size:23px;font-weight:700;
-  background-image:none;
+  display:grid;place-items:center;position:relative;flex:none;overflow:hidden;
 }
-.logo b span{background:var(--chaud);-webkit-background-clip:text;background-clip:text;color:transparent}
-.logo b::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--vert)}
+.logo b img{width:100%;height:100%;object-fit:contain;padding:4px}
 .logo i{font-style:normal;font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.01em}
 .nav{display:flex;gap:24px}
 .nav a{color:var(--encre);text-decoration:none;font-size:14.5px;font-weight:600;padding:6px 2px;border-bottom:2px solid transparent}
 .nav a:hover{border-bottom-color:var(--braise)}
-@media(max-width:920px){.nav{display:none}}
+.burger{display:none;flex:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--bord);background:#fff;padding:0;cursor:pointer;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.burger span{width:18px;height:2px;background:var(--encre);border-radius:2px}
+@media(max-width:920px){
+  .nav{
+    display:none;position:absolute;top:72px;left:0;right:0;flex-direction:column;gap:0;
+    background:var(--creme);border-bottom:1px solid var(--bord);padding:8px 20px 16px;
+    box-shadow:0 14px 24px rgba(42,18,7,.08);
+  }
+  .nav.ouvert{display:flex}
+  .nav a{padding:12px 0;border-bottom:1px solid var(--bord)}
+  .nav a:last-child{border-bottom:none}
+  .burger{display:flex}
+}
 
 /* ---------- héros ---------- */
 .heros{padding:64px 0 78px;overflow:hidden}
@@ -358,15 +367,17 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 
 <header class="entete">
   <div class="large">
-    <a class="logo" href="#haut"><b><span>S</span></b><i>Scolaris</i></a>
-    <nav class="nav">
+    <a class="logo" href="#haut"><b><img src="logo.png" alt="Scolaris" width="38" height="38"></b><i>Scolaris</i></a>
+    <nav class="nav" id="navPrincipale">
       <a href="#fonctions">Fonctions</a>
       <a href="#roles">Pour qui</a>
       <a href="#offres">Offres</a>
       <a href="#installer">Installer</a>
-      <a href="ecoles.html">Trouver une école</a>
     </nav>
     <a class="btn btn--vert btn--petit lien-inscription" href="#inscription">Inscrire mon école</a>
+    <button type="button" class="burger" id="burger" aria-expanded="false" aria-controls="navPrincipale" aria-label="Ouvrir le menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </header>
 
@@ -385,7 +396,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
       </div>
       <p class="ss-note">La démo s'ouvre sans créer de compte : des accès direction, enseignant et élève vous attendent sur l'écran de connexion.</p>
       <ul class="rassure">
-        <li>Essai gratuit de 30 jours</li>
+        <li>Essai gratuit de 14 jours</li>
         <li>Sans carte bancaire</li>
         <li>Web, Android et iPhone</li>
       </ul>
@@ -394,7 +405,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <!-- L'écran élève de Scolaris, reconstruit à l'identique -->
     <div class="scene">
       <div class="lueur" aria-hidden="true"></div>
-      <p class="badge-flottant" aria-hidden="true">🕐 Essai gratuit · 30 jours</p>
+      <p class="badge-flottant" aria-hidden="true">🕐 Essai gratuit · 14 jours</p>
       <div class="tel" role="img" aria-label="Aperçu de l'application Scolaris : tableau de bord d'un élève avec sa moyenne, ses notes, ses absences et son emploi du temps">
         <div class="tel__ecran">
           <div class="tel__barre">
@@ -462,13 +473,14 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 
     <div class="grille-4">
       <article class="carte rev"><span class="pastille pastille--rouge">👤</span><h3>Inscriptions &amp; pré-inscriptions</h3><p>Dossier complet par élève, validation des pré-inscriptions en un geste, listes de classes toujours à jour.</p></article>
-      <article class="carte rev"><span class="pastille pastille--orange">🏷️</span><h3>Classes &amp; passage de classe</h3><p>Niveaux, sections et effectifs. En fin d'année, le passage de classe prépare la rentrée suivante automatiquement.</p></article>
+      <article class="carte rev"><span class="pastille pastille--orange">🏷️</span><h3>Classes &amp; passage de classe</h3><p>Niveaux, sections et effectifs. En fin d'année, la direction décide classe par classe qui passe, redouble ou sort — puis applique tout en un clic.</p></article>
       <article class="carte rev"><span class="pastille pastille--vert">📖</span><h3>Matières &amp; cours</h3><p>Programme par niveau, coefficients, attribution des cours aux enseignants de l'établissement.</p></article>
-      <article class="carte rev"><span class="pastille pastille--or">★</span><h3>Notes &amp; moyennes</h3><p>Saisie par devoir, moyennes sur 20 calculées en direct, rangs et appréciations pour les bulletins.</p></article>
+      <article class="carte rev"><span class="pastille pastille--or">★</span><h3>Notes &amp; moyennes</h3><p>Saisie par devoir, moyennes calculées en direct, rangs et appréciations pour les bulletins.</p></article>
       <article class="carte rev"><span class="pastille pastille--rouge">📅</span><h3>Emploi du temps</h3><p>La semaine de chaque classe et de chaque enseignant, visible par les élèves depuis leur téléphone.</p></article>
       <article class="carte rev"><span class="pastille pastille--vert">▣</span><h3>Absences</h3><p>Appel quotidien, suivi par élève et par classe, total des jours d'absence sur le tableau de bord.</p></article>
       <article class="carte rev"><span class="pastille pastille--orange">💳</span><h3>Facturation &amp; scolarité</h3><p>Frais de scolarité, paiements enregistrés, situation de chaque famille et relances avant les compositions.</p></article>
-      <article class="carte rev"><span class="pastille pastille--or">📣</span><h3>Annonces &amp; rapports</h3><p>Messages à toute l'école, notifications dans l'application, rapports chiffrés pour piloter l'établissement.</p></article>
+      <article class="carte rev"><span class="pastille pastille--or">📚</span><h3>Bibliothèque numérique</h3><p>Livres, supports de cours et sujets d'examens en ligne, avec favoris et suivi de lecture pour chaque élève.</p></article>
+      <article class="carte rev"><span class="pastille pastille--rouge">🏅</span><h3>Cahier de liaison &amp; mérite</h3><p>Mots de la direction aux familles, badges et points de mérite pour valoriser assiduité et bons résultats.</p></article>
     </div>
   </div>
 </section>
@@ -476,18 +488,18 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 <!-- ============ RÔLES ============ -->
 <section class="section" id="roles" style="padding-top:0">
   <div class="large">
-    <p class="oeil rev">Un compte, trois regards</p>
+    <p class="oeil rev">Un compte, quatre regards</p>
     <h2 class="rev">Chacun voit exactement ce qui le concerne</h2>
-    <p class="chapo rev">La direction pilote, les enseignants saisissent, les élèves suivent. Les droits sont réglés une fois pour toutes.</p>
+    <p class="chapo rev">La direction pilote, les enseignants saisissent, les élèves et les parents suivent. Les droits sont réglés une fois pour toutes.</p>
 
-    <div class="grille-3">
+    <div class="grille-4">
       <article class="carte rev">
         <span class="pastille pastille--rouge">🛡️</span>
         <h3>Direction</h3>
         <ul class="role-liste">
           <li>Tableau de bord et actions rapides : inscrire un élève, gérer classes et matières</li>
           <li>Facturation, scolarité et rapports de l'établissement</li>
-          <li>Comptes du personnel et annonces à toute l'école</li>
+          <li>Comptes du personnel, droits réglés par personne</li>
         </ul>
       </article>
       <article class="carte rev">
@@ -503,16 +515,25 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
         <span class="pastille pastille--or">🎓</span>
         <h3>Élève</h3>
         <ul class="role-liste">
-          <li>Sa moyenne sur 20, mise à jour à chaque note</li>
+          <li>Sa moyenne, mise à jour à chaque note</li>
           <li>Ses notes, ses absences, son emploi du temps</li>
           <li>Un accès simple, pensé pour le téléphone</li>
+        </ul>
+      </article>
+      <article class="carte rev">
+        <span class="pastille pastille--orange">👨‍👩‍👧</span>
+        <h3>Parent</h3>
+        <ul class="role-liste">
+          <li>Le suivi de chacun de ses enfants, même dans des classes différentes</li>
+          <li>Notes, absences et bulletins consultables à tout moment</li>
+          <li>Paiements de scolarité et situation à jour</li>
         </ul>
       </article>
     </div>
 
     <div class="bande-plateforme rev">
       <span class="pastille pastille--orange">🏢</span>
-      <p><b>Vous dirigez plusieurs écoles ?</b> La vue plateforme réunit tous vos établissements : effectifs, abonnements et annonces, d'un seul coup d'œil.</p>
+      <p><b>Vous dirigez plusieurs écoles ?</b> La vue plateforme réunit tous vos établissements : effectifs, abonnements et statistiques, d'un seul coup d'œil.</p>
       <a class="btn btn--vide btn--petit lien-inscription" href="#inscription">Parler de mon réseau</a>
     </div>
   </div>
@@ -525,10 +546,10 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <h2 class="rev">Quatre étapes, dans l'ordre</h2>
     <p class="chapo rev">Vous pouvez voir l'application avant même de créer un compte.</p>
     <ol class="etapes">
-      <li class="rev"><h3>Essayez la démo</h3><p>Des comptes de démonstration — direction, enseignant, élève — sont prêts sur l'écran de connexion. Un clic suffit.</p></li>
-      <li class="rev"><h3>Inscrivez votre école</h3><p>Le formulaire ci-dessous part sur notre serveur. Vous recevez vos accès sous 24 heures ouvrées, avec 30 jours d'essai.</p></li>
+      <li class="rev"><h3>Essayez la démo</h3><p>Des comptes de démonstration — direction, enseignant, élève, parent — sont accessibles depuis l'écran de connexion, sans créer de compte.</p></li>
+      <li class="rev"><h3>Inscrivez votre école</h3><p>Le formulaire ci-dessous part sur notre serveur. Vous recevez vos accès sous 24 heures ouvrées, avec 14 jours d'essai.</p></li>
       <li class="rev"><h3>Configurez l'établissement</h3><p>Classes, matières, coefficients et comptes des enseignants : tout se règle depuis le tableau de bord de la direction.</p></li>
-      <li class="rev"><h3>Faites la rentrée</h3><p>Inscrivez vos élèves ou validez les pré-inscriptions. L'année suivante, le passage de classe fait le gros du travail.</p></li>
+      <li class="rev"><h3>Faites la rentrée</h3><p>Inscrivez vos élèves ou validez les pré-inscriptions. L'année suivante, l'écran de passage de classe applique vos décisions en un clic.</p></li>
     </ol>
   </div>
 </section>
@@ -538,51 +559,52 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
   <div class="large">
     <p class="oeil rev">Abonnement mensuel, sans engagement</p>
     <h2 class="rev">Des offres à la taille de votre établissement</h2>
-    <p class="chapo rev">Aucun matériel à acheter : Scolaris tourne sur les téléphones et ordinateurs que vous avez déjà.</p>
+    <p class="chapo rev">Choisissez seulement les modules dont vous avez besoin — Académique, Présences, Finances, Inscriptions — le prix suit ce que vous utilisez vraiment.</p>
 
-    <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 30 jours — toutes les fonctions, sans carte bancaire.</p>
+    <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 14 jours — toutes les fonctions, sans carte bancaire.</p>
 
     <div class="grille-3">
       <article class="carte offre rev">
-        <h3>Essai</h3>
-        <p class="prix">0 F <small>/ 30 jours</small></p>
-        <p class="pour">Pour découvrir Scolaris avec vos vraies classes</p>
+        <h3>Essentiel</h3>
+        <p class="prix">8 900 F <small>/ mois</small></p>
+        <p class="pour">1 module au choix : Académique, Présences, Finances ou Inscriptions</p>
         <ul>
-          <li>Toutes les fonctions, sans restriction</li>
-          <li>Élèves et enseignants illimités</li>
+          <li>1 module au choix parmi les 4</li>
+          <li>Jusqu'à 200 élèves inclus</li>
+          <li>Élèves, enseignants et classes illimités dans le module choisi</li>
           <li>Assistance par WhatsApp</li>
         </ul>
-        <a class="btn btn--vide lien-inscription" href="#inscription">Commencer l'essai</a>
+        <a class="btn btn--vide lien-inscription" href="#inscription">Inscrire mon école</a>
       </article>
 
       <article class="carte offre offre--phare rev">
         <span class="badge">Le plus choisi</span>
-        <h3>Établissement</h3>
-        <p class="prix">29 900 F <small>/ mois</small></p>
-        <p class="pour">Pour une école, du préscolaire au lycée</p>
+        <h3>Croissance</h3>
+        <p class="prix">17 900 F <small>/ mois</small></p>
+        <p class="pour">Jusqu'à 3 modules, pour une école qui grandit</p>
         <ul>
-          <li>Tous les modules : notes, scolarité, emploi du temps…</li>
-          <li>Élèves, enseignants et classes illimités</li>
-          <li>Accès élèves inclus</li>
+          <li>Jusqu'à 3 modules au choix</li>
+          <li>Jusqu'à 500 élèves inclus</li>
+          <li>Rapport Premium (tendances de recouvrement)</li>
           <li>Accompagnement à la mise en route</li>
         </ul>
         <a class="btn btn--vert lien-inscription" href="#inscription">Inscrire mon école</a>
       </article>
 
       <article class="carte offre rev">
-        <h3>Réseau scolaire</h3>
-        <p class="prix">49 900 F <small>/ mois</small></p>
-        <p class="pour">Pour les groupes de deux écoles et plus</p>
+        <h3>Complet</h3>
+        <p class="prix">29 900 F <small>/ mois</small></p>
+        <p class="pour">Les 4 modules : Académique, Présences, Finances, Inscriptions</p>
         <ul>
-          <li>Tout Établissement, pour chaque école</li>
-          <li>Vue plateforme : effectifs et abonnements réunis</li>
-          <li>Annonces à tout le réseau</li>
+          <li>Les 4 modules, sans restriction</li>
+          <li>Jusqu'à 1 500 élèves inclus</li>
+          <li>Rapport Premium (tendances de recouvrement)</li>
           <li>Accompagnement de rentrée sur place</li>
         </ul>
-        <a class="btn btn--vide lien-inscription" href="#inscription">Parler de mon réseau</a>
+        <a class="btn btn--vide lien-inscription" href="#inscription">Inscrire mon école</a>
       </article>
     </div>
-    <p class="offres-note rev">Tarifs en francs CFA. Paiement par mobile money ou virement. Vos données restent exportables à tout moment.</p>
+    <p class="offres-note rev">Tarifs en francs CFA. Au-delà des élèves inclus dans votre offre, un supplément par tranche s'applique. Modules et offre modifiables à tout moment depuis l'application. Paiement par mobile money ou virement.</p>
   </div>
 </section>
 
@@ -591,7 +613,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
   <div class="large" style="max-width:720px;text-align:center;margin-inline:auto">
     <p class="oeil rev">Espace d'inscription sécurisé</p>
     <h2 class="rev" style="color:#fff">Inscrivez votre école</h2>
-    <p class="chapo rev" style="margin-inline:auto">Créez votre espace directement : établissement, séries et classes, compte du fondateur — 30 jours d'essai, sans carte bancaire. Vous êtes redirigé vers l'application Scolaris pour ce formulaire, la même que celle utilisée au quotidien par votre école.</p>
+    <p class="chapo rev" style="margin-inline:auto">Créez votre espace directement : établissement, séries et classes, compte du fondateur — 14 jours d'essai, sans carte bancaire. Vous êtes redirigé vers l'application Scolaris pour ce formulaire, la même que celle utilisée au quotidien par votre école.</p>
     <a class="btn btn--vert lien-inscription rev" style="margin-top:8px" href="#inscription">Créer mon espace →</a>
     <p class="ss-note rev" style="margin-top:16px;color:#CBB39F">Votre demande sera validée par notre équipe avant activation complète.</p>
   </div>
@@ -649,11 +671,11 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <p class="oeil rev">Ce qu'on nous demande le plus</p>
     <h2 class="rev">Questions fréquentes</h2>
     <div style="margin-top:26px">
-      <details class="rev"><summary>Comment fonctionne l'essai gratuit ?</summary><p>Chaque école inscrite dispose de 30 jours avec toutes les fonctions, sans carte bancaire. Un rappel s'affiche dans l'application avant la fin de l'essai ; vous choisissez alors votre offre, ou vous arrêtez là sans frais.</p></details>
-      <details class="rev"><summary>Les élèves ont-ils vraiment leur propre accès ?</summary><p>Oui. Chaque élève voit sa moyenne sur 20 mise à jour en direct, ses notes, ses absences et son emploi du temps de la semaine, depuis un téléphone. C'est aussi un canal simple pour tenir les familles informées.</p></details>
-      <details class="rev"><summary>Peut-on gérer plusieurs écoles avec un seul compte ?</summary><p>Oui, c'est l'offre Réseau scolaire : chaque école garde son espace, et une vue plateforme réunit les effectifs, les abonnements et les annonces de tout le réseau.</p></details>
+      <details class="rev"><summary>Comment fonctionne l'essai gratuit ?</summary><p>Chaque école inscrite dispose de 14 jours avec toutes les fonctions, sans carte bancaire. Un rappel s'affiche dans l'application avant la fin de l'essai ; vous choisissez alors votre offre, ou vous arrêtez là sans frais.</p></details>
+      <details class="rev"><summary>Comment choisir mes modules ?</summary><p>À l'inscription, vous cochez ce qui vous intéresse : Académique (notes, bulletins, emploi du temps), Présences, Finances (facturation, paiements) ou Inscriptions. Seuls les menus liés aux modules choisis apparaissent dans l'application, pour vous et pour votre personnel. Vous pouvez ajouter ou retirer des modules à tout moment depuis « Mon abonnement ».</p></details>
+      <details class="rev"><summary>Les élèves ont-ils vraiment leur propre accès ?</summary><p>Oui. Chaque élève voit sa moyenne mise à jour en direct, ses notes, ses absences et son emploi du temps de la semaine, depuis un téléphone. C'est aussi un canal simple pour tenir les familles informées.</p></details>
       <details class="rev"><summary>Où sont conservées les données de nos élèves ?</summary><p>Sur le serveur Scolaris, dans un espace réservé à votre établissement. Vous restez propriétaire de vos données et pouvez les exporter à tout moment, y compris si vous arrêtez l'abonnement.</p></details>
-      <details class="rev"><summary>Que se passe-t-il en fin d'année scolaire ?</summary><p>Le module de passage de classe fait monter les élèves au niveau suivant et prépare les listes de la rentrée. Les dossiers, l'historique des notes et la scolarité restent attachés à chaque élève.</p></details>
+      <details class="rev"><summary>Que se passe-t-il en fin d'année scolaire ?</summary><p>L'écran de passage de classe vous laisse décider, élève par élève, qui passe, redouble ou quitte l'établissement — puis applique toutes les décisions en un clic pour préparer les listes de la rentrée. Les dossiers, l'historique des notes et la scolarité restent attachés à chaque élève.</p></details>
       <details class="rev"><summary>Faut-il former le personnel ?</summary><p>Comptez une demi-journée pour la direction et moins d'une heure pour un enseignant : l'application est pensée pour le téléphone, avec des actions rapides. L'accompagnement de mise en route est compris dans les offres payantes.</p></details>
     </div>
   </div>
@@ -665,7 +687,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
   <div class="large">
     <div class="cols">
       <div>
-        <a class="logo" href="#haut" style="color:#fff;margin-bottom:12px"><b><span>S</span></b><i>Scolaris</i></a>
+        <a class="logo" href="#haut" style="color:#fff;margin-bottom:12px"><b><img src="logo.png" alt="Scolaris" width="38" height="38"></b><i>Scolaris</i></a>
         <p style="margin:0;max-width:38ch">Savoir, Héritage, Avenir. La gestion complète de votre établissement, de la pré-inscription au passage de classe.</p>
       </div>
       <div>
@@ -705,7 +727,21 @@ const CONFIG = {
 };
 
 /* ============================================================
-   2. Liens dérivés de la configuration
+   2. Menu mobile
+   ============================================================ */
+const burger = document.getElementById("burger");
+const navPrincipale = document.getElementById("navPrincipale");
+burger.addEventListener("click", () => {
+  const ouvert = navPrincipale.classList.toggle("ouvert");
+  burger.setAttribute("aria-expanded", String(ouvert));
+});
+navPrincipale.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => {
+  navPrincipale.classList.remove("ouvert");
+  burger.setAttribute("aria-expanded", "false");
+}));
+
+/* ============================================================
+   3. Liens dérivés de la configuration
    ============================================================ */
 document.getElementById("annee").textContent = new Date().getFullYear();
 document.querySelectorAll("[data-app], #btnDemo").forEach(a=>{

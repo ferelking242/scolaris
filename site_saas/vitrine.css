@@ -94,16 +94,26 @@ h3{font-size:19px}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--encre);margin-right:auto}
 .logo b{
   width:38px;height:38px;border-radius:12px;background:#fff;border:1px solid var(--bord);
-  display:grid;place-items:center;position:relative;flex:none;
-  font-family:Georgia,serif;font-size:23px;font-weight:700;
-  background-image:none;
+  display:grid;place-items:center;position:relative;flex:none;overflow:hidden;
 }
-.logo b span{background:var(--chaud);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo b img{width:100%;height:100%;object-fit:contain;padding:4px}
 .logo i{font-style:normal;font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.01em}
 .nav{display:flex;gap:24px}
 .nav a{color:var(--encre);text-decoration:none;font-size:14.5px;font-weight:600;padding:6px 2px;border-bottom:2px solid transparent}
 .nav a:hover{border-bottom-color:var(--braise)}
-@media(max-width:920px){.nav{display:none}}
+.burger{display:none;flex:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--bord);background:#fff;padding:0;cursor:pointer;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.burger span{width:18px;height:2px;background:var(--encre);border-radius:2px}
+@media(max-width:920px){
+  .nav{
+    display:none;position:absolute;top:72px;left:0;right:0;flex-direction:column;gap:0;
+    background:var(--creme);border-bottom:1px solid var(--bord);padding:8px 20px 16px;
+    box-shadow:0 14px 24px rgba(42,18,7,.08);
+  }
+  .nav.ouvert{display:flex}
+  .nav a{padding:12px 0;border-bottom:1px solid var(--bord)}
+  .nav a:last-child{border-bottom:none}
+  .burger{display:flex}
+}
 
 .heros{padding:64px 0 78px;overflow:hidden}
 .devise{font-size:11.5px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--or);margin:0 0 18px}
