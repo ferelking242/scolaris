@@ -40,12 +40,15 @@ const _kTypes = <String, String>{
 
 /// Systèmes éducatifs (`schools.metadata.educational_system`). Combinés au pays,
 /// ils déterminent le catalogue de niveaux (cf. [SchoolTaxonomy.systemTypeOf]).
+///
+/// Anglophone/Arabophone/LMD/Grande école existent déjà en base (niveaux
+/// réels dans `class_levels`) et dans [SchoolTaxonomy], mais restent masqués
+/// ici : LMD/Grande école ne couvrent que le supérieur (jamais atteignable,
+/// cf. Université en "Bientôt" à l'inscription) et Anglophone/Arabophone
+/// n'ont pas été validés en conditions réelles. Seul le francophone est
+/// proposé pour l'instant — retirer ce filtre quand ce sera prêt.
 const _kEduSystems = <String, String>{
   'francophone': 'Francophone',
-  'anglophone': 'Anglophone',
-  'arabophone': 'Arabophone',
-  'lmd': 'LMD (supérieur)',
-  'grande_ecole': 'Grande école',
 };
 
 /// Devises proposées. La clé est le code ISO 4217 stocké dans `schools.currency`
