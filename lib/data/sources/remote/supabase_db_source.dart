@@ -4875,13 +4875,42 @@ class SupabaseDbSource {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Nom de série (`school_classes.level`, ex. "Terminale", "Junior Secondary")
+  /// → cycle du catalogue des niveaux (`class_levels.cycle`). Sert à générer
+  /// le programme par défaut des classes importées de l'inscription — cf.
+  /// [importRegistrationClasses]. Couvre les catalogues francophone,
+  /// anglophone, LMD et filières techniques de [_defaultSeries] côté
+  /// inscription (school_registration_screen.dart).
+  static const _seriesToCycle = <String, String>{
+    'Maternelle': 'prescolaire',
+    'Primaire': 'primaire', 'Primary': 'primaire',
+    'Collège': 'college', 'Junior Secondary': 'college',
+    'Seconde': 'lycee', 'Première': 'lycee', 'Terminale': 'lycee',
+    'Senior Secondary': 'lycee',
+    'CAP': 'lycee', 'BEP': 'lycee', 'BTS': 'lycee',
+    'Licence': 'universite_l', 'Master': 'universite_m', 'Doctorat': 'universite_d',
+  };
+
+  /// Filière déduite du dernier mot du nom de classe (ex. "Tle A" → "A"),
+  /// pour cibler le bon sous-catalogue de matières (cf. subject_catalog.series).
+  static String? _seriesLetterOf(String className) {
+    final last = className.trim().split(RegExp(r'\s+')).last;
+    return RegExp(r'^[A-H]$').hasMatch(last) ? last : null;
+  }
+
   /// Reporte les classes de l'inscription (`school_classes`) dans la vraie table
   /// `classes` — ce que l'assistant ne pouvait pas faire lui-même (RLS : il
   /// tournait sous le compte anonyme, avant connexion). Idempotent : on saute
-  /// toute classe dont le nom existe déjà. Renvoie le nombre importé.
+  /// toute classe dont le nom existe déjà. [only] restreint l'import à ces
+  /// noms de classe (sélection manuelle dans l'admin) ; null = tout importer.
+  /// Génère aussi le programme par défaut (matières + cours) de chaque classe
+  /// créée, comme la création manuelle — une erreur de génération n'annule
+  /// pas l'import, la classe reste créée sans programme.
+  /// Renvoie le nombre de classes importées.
   static Future<int> importRegistrationClasses({
     required String schoolId,
     required String academicYear,
+    Set<String>? only,
   }) async {
     final reg = await getRegistrationClasses(schoolId);
     if (reg.isEmpty) return 0;
@@ -4900,6 +4929,7 @@ class SupabaseDbSource {
     for (final r in reg) {
       final name = ((r['name'] as String?) ?? '').trim();
       if (name.isEmpty) continue;
+      if (only != null && !only.contains(name)) continue;
       final key = name.toLowerCase();
       if (taken.contains(key) || !seen.add(key)) continue;
       rows.add({
@@ -4914,6 +4944,24 @@ class SupabaseDbSource {
     }
     if (rows.isEmpty) return 0;
     await _db.from('classes').insert(rows).friendly();
+
+    for (final row in rows) {
+      final level = row['level'] as String?;
+      final cycle = level == null ? null : _seriesToCycle[level];
+      if (cycle == null) continue;
+      final series = _seriesLetterOf(row['name'] as String);
+      try {
+        await generateDefaultProgramForClass(
+          schoolId: schoolId,
+          classId: row['id'] as String,
+          cycle: cycle,
+          series: series != null ? [series] : null,
+        );
+      } catch (_) {
+        // Le programme est un bonus : une erreur ici ne doit pas faire
+        // échouer l'import des classes elles-mêmes.
+      }
+    }
     return rows.length;
   }
 

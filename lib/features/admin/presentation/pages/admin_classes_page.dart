@@ -251,7 +251,7 @@ class AdminClassesPage extends ConsumerWidget {
               ? (pending.isNotEmpty && canCreate
                   ? _ImportBanner(
                       count: pending.length,
-                      onImport: () => _importRegistration(context, ref))
+                      onImport: () => _importRegistration(context, ref, pending))
                   : const _EmptyState())
               : filtered.isEmpty
               ? Padding(
@@ -353,10 +353,26 @@ class AdminClassesPage extends ConsumerWidget {
     );
   }
 
-  /// Reporte les classes de l'inscription dans la vraie table `classes`, puis
-  /// rafraîchit la liste. Le vrai correctif du « piège des classes » : ce que
-  /// l'admin a saisi à l'inscription apparaît enfin dans son tableau de bord.
-  Future<void> _importRegistration(BuildContext context, WidgetRef ref) async {
+  /// Ouvre le sélecteur des classes saisies à l'inscription, pour choisir
+  /// exactement lesquelles reporter dans la vraie table `classes` — plutôt
+  /// que tout importer d'un bloc.
+  Future<void> _importRegistration(BuildContext context, WidgetRef ref,
+      List<Map<String, dynamic>> pending) async {
+    await showDialog(
+      context: context,
+      builder: (_) => _ImportClassesDialog(
+        pending: pending,
+        onImport: (selected) => _doImport(context, ref, selected),
+      ),
+    );
+  }
+
+  /// Reporte les classes sélectionnées dans la vraie table `classes` (avec
+  /// leur programme par défaut), puis rafraîchit la liste. Le vrai correctif
+  /// du « piège des classes » : ce que l'admin a saisi à l'inscription
+  /// apparaît enfin dans son tableau de bord.
+  Future<void> _doImport(
+      BuildContext context, WidgetRef ref, Set<String> selected) async {
     final schoolId = ref.read(currentSchoolIdProvider);
     if (schoolId == null) return;
     final year =
@@ -364,12 +380,16 @@ class AdminClassesPage extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final n = await SupabaseDbSource.importRegistrationClasses(
-          schoolId: schoolId, academicYear: year);
+          schoolId: schoolId, academicYear: year, only: selected);
       ref.invalidate(classesProvider);
       ref.invalidate(registrationClassesProvider(schoolId));
+      // Le programme généré peuple matières et cours : sans ça, ces deux
+      // pages garderaient leur cache périmé.
+      ref.invalidate(subjectsProvider);
+      ref.invalidate(coursesForSchoolProvider);
       messenger.showSnackBar(SnackBar(
         content: Text(n > 0
-            ? '$n classe(s) importée(s) depuis votre inscription.'
+            ? '$n classe(s) importée(s), avec leur programme.'
             : 'Rien à importer (déjà à jour).'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF16A34A),
@@ -381,6 +401,121 @@ class AdminClassesPage extends ConsumerWidget {
         backgroundColor: _terra,
       ));
     }
+  }
+}
+
+/// Sélecteur des classes saisies à l'inscription — groupées par série, avec
+/// tout coché par défaut. Évite le tout-ou-rien : l'admin peut décocher ce
+/// qu'il ne veut pas reporter dans son tableau de bord.
+class _ImportClassesDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> pending;
+  final Future<void> Function(Set<String> selectedNames) onImport;
+  const _ImportClassesDialog({required this.pending, required this.onImport});
+
+  @override
+  State<_ImportClassesDialog> createState() => _ImportClassesDialogState();
+}
+
+class _ImportClassesDialogState extends State<_ImportClassesDialog> {
+  late Set<String> _selected = {
+    for (final r in widget.pending)
+      if (((r['name'] as String?) ?? '').trim().isNotEmpty)
+        (r['name'] as String).trim(),
+  };
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final byLevel = <String, List<String>>{};
+    for (final r in widget.pending) {
+      final name = ((r['name'] as String?) ?? '').trim();
+      if (name.isEmpty) continue;
+      final level = ((r['level'] as String?) ?? '').trim();
+      byLevel.putIfAbsent(level.isEmpty ? 'Sans niveau' : level, () => []).add(name);
+    }
+    final total = _selected.length == widget.pending.length;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Choisir les classes à importer',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 420),
+        height: (MediaQuery.sizeOf(context).height * 0.7).clamp(0, 480),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('${_selected.length} / ${widget.pending.length} sélectionnée(s)',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+            TextButton(
+              onPressed: () => setState(() {
+                if (total) {
+                  _selected.clear();
+                } else {
+                  _selected = {
+                    for (final r in widget.pending)
+                      if (((r['name'] as String?) ?? '').trim().isNotEmpty)
+                        (r['name'] as String).trim(),
+                  };
+                }
+              }),
+              child: Text(total ? 'Tout désélectionner' : 'Tout sélectionner'),
+            ),
+          ]),
+          const Divider(height: 12),
+          Expanded(
+            child: ListView(children: [
+              for (final entry in byLevel.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(entry.key,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: context.cMuted)),
+                ),
+                for (final name in entry.value)
+                  CheckboxListTile(
+                    value: _selected.contains(name),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(name, style: const TextStyle(fontSize: 13.5)),
+                    onChanged: (v) => setState(() {
+                      if (v ?? false) {
+                        _selected.add(name);
+                      } else {
+                        _selected.remove(name);
+                      }
+                    }),
+                  ),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: (_submitting || _selected.isEmpty)
+              ? null
+              : () async {
+                  setState(() => _submitting = true);
+                  await widget.onImport(_selected);
+                  if (context.mounted) Navigator.pop(context);
+                },
+          style: FilledButton.styleFrom(backgroundColor: _terra),
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Importer (${_selected.length})'),
+        ),
+      ],
+    );
   }
 }
 
@@ -981,7 +1116,7 @@ class _ImportBanner extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Elles n’ont pas encore été ajoutées à votre tableau de bord. '
-            'Importez-les pour les utiliser (vous pourrez les modifier ensuite).',
+            'Choisissez lesquelles importer (vous pourrez les modifier ensuite).',
             textAlign: TextAlign.center,
             style: TextStyle(color: context.cMuted, fontSize: 12.5),
           ),
@@ -989,7 +1124,7 @@ class _ImportBanner extends StatelessWidget {
           FilledButton.icon(
             onPressed: onImport,
             icon: const Icon(Icons.playlist_add_rounded, size: 18),
-            label: Text('Importer $count classe(s)'),
+            label: const Text('Choisir les classes à importer'),
             style: FilledButton.styleFrom(backgroundColor: _terra),
           ),
         ]),

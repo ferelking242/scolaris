@@ -230,7 +230,9 @@ List<SchoolSeries> _defaultSeries(String system, Set<String> types) {
       list.addAll([
         SchoolSeries(name:'Seconde',code:'2nde',description:'Tronc commun',classes:['2nde A','2nde C']),
         SchoolSeries(name:'Première',code:'1re',description:'Séries A, C, D',classes:['1re A','1re C','1re D']),
-        SchoolSeries(name:'Terminale',code:'Tle',description:'Baccalauréat',classes:['Tle A','Tle C','Tle D','Tle F3','Tle F4']),
+        // F3/F4 (électrotechnique, électronique…) appartiennent aux lycées
+        // techniques, pas au lycée général — retirées d'ici.
+        SchoolSeries(name:'Terminale',code:'Tle',description:'Baccalauréat',classes:['Tle A','Tle C','Tle D']),
       ]);
     }
   } else if (system == 'anglophone') {
