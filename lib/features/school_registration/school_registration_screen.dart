@@ -534,28 +534,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _green.withOpacity(.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _green.withOpacity(.25)),
-              ),
-              child: Column(children: [
-                const Icon(Icons.mark_email_unread_outlined, color: _green, size: 28),
-                const SizedBox(height: 8),
-                const Text('Vérifiez votre email', textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-                const SizedBox(height: 4),
-                Text(
-                  'Un lien d\'activation a été envoyé à\n${_s2Email.text.trim()}.\n'
-                  'Cliquez dessus pour confirmer votre compte administrateur.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.5, height: 1.4, color: _muted),
-                ),
-              ]),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
                 color: _gold.withOpacity(.1),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _gold.withOpacity(.3)),
@@ -568,9 +546,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                     style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
                 const SizedBox(height: 4),
                 const Text(
-                  'Une fois votre email confirmé, notre équipe valide votre '
-                  'établissement avant l\'ouverture de l\'accès — généralement '
-                  'sous 24 heures ouvrées.',
+                  'Notre équipe valide votre établissement avant l\'ouverture '
+                  'de l\'accès — généralement sous 24 heures ouvrées. Vous '
+                  'recevrez un email dès que votre compte est activé.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, height: 1.4, color: _muted),
                 ),
