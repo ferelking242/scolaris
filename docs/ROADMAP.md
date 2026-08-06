@@ -62,7 +62,15 @@
 - [ ] **G4. Apps natives** Play Store / App Store *(plus tard ; push natif)*
 
 ## PHASE H — Premium Max *(plus tard, sur demande client)*
-- [ ] **H1. Multi-établissement** (couche « groupe scolaire » + sélecteur)
+- [ ] **H1. Multi-établissement** (couche « groupe scolaire » + sélecteur) — brique de base déjà là
+      (`school_members` en base, `SchoolSwitcher` fonctionnel mais un-à-la-fois, visible seulement dans
+      `teacher_home.dart`). Reste à faire : (1) RLS/RPC dédiée pour qu'un fondateur lise les données de
+      *ses* écoles uniquement (sur le modèle de `platform_admin_read_*`, mais scopée à `school_members`/
+      `school_founders` au lieu de « toutes les écoles ») ; (2) écran dashboard consolidé (effectifs,
+      abonnements, stats sommés) réutilisant la logique d'agrégation de `PlatformRepository.getSchools()`
+      sans le réserver au super-admin interne ; (3) détecter le fondateur multi-écoles (>1 ligne
+      `school_members`) pour afficher l'entrée de menu. Ne pas confondre avec `lib/features/platform/` =
+      console interne Scolaris (accès par email whitelist `platform_admins`), pas un module client.
 - [ ] **H2. Base dédiée** (provisioning manuel, routage via `db_mode`/`db_config`)
 - [ ] **H3. Accès API** (clés par école, doc)
 - [ ] **H4. Mode hors-ligne** (cache local + synchro)
