@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scolaris — Toute votre école dans une seule application</title>
-<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement. Essai gratuit de 14 jours, accès direction, enseignants et élèves.">
+<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement, avec un accès direction, enseignants, élèves et parents.">
 <meta name="theme-color" content="#2A1207">
 <meta property="og:title" content="Scolaris — Savoir, Héritage, Avenir">
-<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation. Essai gratuit de 14 jours.">
+<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation.">
 <meta property="og:type" content="website">
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -223,14 +223,6 @@ h3{font-size:19px}
 .edt .vide b{font-size:11.5px;display:block}
 .edt .vide small{font-size:9.5px;color:var(--brun)}
 
-.badge-flottant{
-  position:absolute;z-index:2;top:24px;right:max(-6px,calc(50% - 205px));
-  background:var(--or-fond);border:1px solid var(--or-bord);color:#8A6210;
-  font-size:12px;font-weight:700;padding:9px 13px;border-radius:14px;
-  box-shadow:var(--ombre);display:flex;align-items:center;gap:7px;
-}
-@media(max-width:420px){.badge-flottant{display:none}}
-
 /* ---------- révélation au défilement ---------- */
 .rev{opacity:0;transform:translateY(16px)}
 .rev.in{opacity:1;transform:none;transition:opacity .65s ease,transform .65s ease}
@@ -253,15 +245,8 @@ h3{font-size:19px}
 .role-liste{list-style:none;margin:14px 0 0;padding:0;font-size:14.5px;color:var(--brun)}
 .role-liste li{padding:7px 0 7px 24px;position:relative;border-top:1px dashed var(--bord)}
 .role-liste li::before{content:"›";position:absolute;left:6px;color:var(--braise);font-weight:800}
-.bande-plateforme{
-  margin-top:16px;background:var(--carte);border:1px solid var(--bord);border-radius:var(--r-carte);
-  padding:22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;
-}
-.bande-plateforme p{margin:0;font-size:15px;color:var(--brun);flex:1;min-width:240px}
-.bande-plateforme b{color:var(--encre)}
-
 /* ---------- étapes ---------- */
-.etapes{list-style:none;margin:0;padding:0;counter-reset:e;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.etapes{list-style:none;margin:0;padding:0;counter-reset:e;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media(max-width:1000px){.etapes{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.etapes{grid-template-columns:1fr}}
 .etapes li{counter-increment:e;background:var(--carte);border:1px solid var(--bord);border-radius:var(--r-carte);padding:22px}
@@ -274,11 +259,6 @@ h3{font-size:19px}
 .etapes p{margin:0;font-size:14px;color:var(--brun)}
 
 /* ---------- offres ---------- */
-.essai-bandeau{
-  display:flex;align-items:center;gap:12px;background:var(--or-fond);border:1px solid var(--or-bord);
-  border-radius:16px;padding:14px 18px;margin:0 0 26px;color:#8A6210;font-size:15px;font-weight:600;
-}
-.essai-bandeau .ico{font-size:18px}
 .offre{position:relative;display:flex;flex-direction:column}
 .offre--phare{border:2px solid var(--braise);box-shadow:0 14px 36px rgba(228,97,12,.14)}
 .offre .badge{
@@ -392,11 +372,8 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
       <p class="intro">Inscriptions, classes, notes, emploi du temps, facturation : Scolaris met votre établissement en ordre et le garde à jour — de la rentrée au dernier bulletin.</p>
       <div class="actions">
         <a class="btn btn--vert lien-inscription" href="#inscription">Inscrire mon école</a>
-        <a class="btn btn--vide" id="btnDemo" href="#" target="_blank" rel="noopener">Essayer la démo →</a>
       </div>
-      <p class="ss-note">La démo s'ouvre sans créer de compte : des accès direction, enseignant et élève vous attendent sur l'écran de connexion.</p>
       <ul class="rassure">
-        <li>Essai gratuit de 14 jours</li>
         <li>Sans carte bancaire</li>
         <li>Web, Android et iPhone</li>
       </ul>
@@ -405,7 +382,6 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <!-- L'écran élève de Scolaris, reconstruit à l'identique -->
     <div class="scene">
       <div class="lueur" aria-hidden="true"></div>
-      <p class="badge-flottant" aria-hidden="true">🕐 Essai gratuit · 14 jours</p>
       <div class="tel" role="img" aria-label="Aperçu de l'application Scolaris : tableau de bord d'un élève avec sa moyenne, ses notes, ses absences et son emploi du temps">
         <div class="tel__ecran">
           <div class="tel__barre">
@@ -530,24 +506,16 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
         </ul>
       </article>
     </div>
-
-    <div class="bande-plateforme rev">
-      <span class="pastille pastille--orange">🏢</span>
-      <p><b>Vous dirigez plusieurs écoles ?</b> La vue plateforme réunit tous vos établissements : effectifs, abonnements et statistiques, d'un seul coup d'œil.</p>
-      <a class="btn btn--vide btn--petit lien-inscription" href="#inscription">Parler de mon réseau</a>
-    </div>
   </div>
 </section>
 
 <!-- ============ MISE EN ROUTE ============ -->
 <section class="section" id="marche" style="padding-top:0">
   <div class="large">
-    <p class="oeil rev">De la découverte à la rentrée</p>
-    <h2 class="rev">Quatre étapes, dans l'ordre</h2>
-    <p class="chapo rev">Vous pouvez voir l'application avant même de créer un compte.</p>
+    <p class="oeil rev">De l'inscription à la rentrée</p>
+    <h2 class="rev">Trois étapes, dans l'ordre</h2>
     <ol class="etapes">
-      <li class="rev"><h3>Essayez la démo</h3><p>Des comptes de démonstration — direction, enseignant, élève, parent — sont accessibles depuis l'écran de connexion, sans créer de compte.</p></li>
-      <li class="rev"><h3>Inscrivez votre école</h3><p>Le formulaire ci-dessous part sur notre serveur. Vous recevez vos accès sous 24 heures ouvrées, avec 14 jours d'essai.</p></li>
+      <li class="rev"><h3>Inscrivez votre école</h3><p>Le formulaire ci-dessous part sur notre serveur. Vous recevez vos accès sous 24 heures ouvrées.</p></li>
       <li class="rev"><h3>Configurez l'établissement</h3><p>Classes, matières, coefficients et comptes des enseignants : tout se règle depuis le tableau de bord de la direction.</p></li>
       <li class="rev"><h3>Faites la rentrée</h3><p>Inscrivez vos élèves ou validez les pré-inscriptions. L'année suivante, l'écran de passage de classe applique vos décisions en un clic.</p></li>
     </ol>
@@ -560,8 +528,6 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <p class="oeil rev">Abonnement mensuel, sans engagement</p>
     <h2 class="rev">Des offres à la taille de votre établissement</h2>
     <p class="chapo rev">Choisissez seulement les modules dont vous avez besoin — Académique, Présences, Finances, Inscriptions — le prix suit ce que vous utilisez vraiment.</p>
-
-    <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 14 jours — toutes les fonctions, sans carte bancaire.</p>
 
     <div class="grille-3">
       <article class="carte offre rev">
@@ -613,7 +579,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
   <div class="large" style="max-width:720px;text-align:center;margin-inline:auto">
     <p class="oeil rev">Espace d'inscription sécurisé</p>
     <h2 class="rev" style="color:#fff">Inscrivez votre école</h2>
-    <p class="chapo rev" style="margin-inline:auto">Créez votre espace directement : établissement, séries et classes, compte du fondateur — 14 jours d'essai, sans carte bancaire. Vous êtes redirigé vers l'application Scolaris pour ce formulaire, la même que celle utilisée au quotidien par votre école.</p>
+    <p class="chapo rev" style="margin-inline:auto">Créez votre espace directement : établissement, séries et classes, compte du fondateur. Vous êtes redirigé vers l'application Scolaris pour ce formulaire, la même que celle utilisée au quotidien par votre école.</p>
     <a class="btn btn--vert lien-inscription rev" style="margin-top:8px" href="#inscription">Créer mon espace →</a>
     <p class="ss-note rev" style="margin-top:16px;color:#CBB39F">Votre demande sera validée par notre équipe avant activation complète.</p>
   </div>
@@ -671,7 +637,6 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <p class="oeil rev">Ce qu'on nous demande le plus</p>
     <h2 class="rev">Questions fréquentes</h2>
     <div style="margin-top:26px">
-      <details class="rev"><summary>Comment fonctionne l'essai gratuit ?</summary><p>Chaque école inscrite dispose de 14 jours avec toutes les fonctions, sans carte bancaire. Un rappel s'affiche dans l'application avant la fin de l'essai ; vous choisissez alors votre offre, ou vous arrêtez là sans frais.</p></details>
       <details class="rev"><summary>Comment choisir mes modules ?</summary><p>À l'inscription, vous cochez ce qui vous intéresse : Académique (notes, bulletins, emploi du temps), Présences, Finances (facturation, paiements) ou Inscriptions. Seuls les menus liés aux modules choisis apparaissent dans l'application, pour vous et pour votre personnel. Vous pouvez ajouter ou retirer des modules à tout moment depuis « Mon abonnement ».</p></details>
       <details class="rev"><summary>Les élèves ont-ils vraiment leur propre accès ?</summary><p>Oui. Chaque élève voit sa moyenne mise à jour en direct, ses notes, ses absences et son emploi du temps de la semaine, depuis un téléphone. C'est aussi un canal simple pour tenir les familles informées.</p></details>
       <details class="rev"><summary>Où sont conservées les données de nos élèves ?</summary><p>Sur le serveur Scolaris, dans un espace réservé à votre établissement. Vous restez propriétaire de vos données et pouvez les exporter à tout moment, y compris si vous arrêtez l'abonnement.</p></details>
