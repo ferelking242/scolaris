@@ -576,7 +576,7 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: _g0,
+        backgroundColor: _cream,
         body: SafeArea(
           child: Stack(children: [
             isWide ? _buildWide() : _buildNarrow(),

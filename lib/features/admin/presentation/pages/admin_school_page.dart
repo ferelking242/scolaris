@@ -86,6 +86,8 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
   final _name         = TextEditingController();
   final _code         = TextEditingController();
   final _city         = TextEditingController();
+  final _contactEmail = TextEditingController();
+  final _contactPhone = TextEditingController();
   // Le PAYS est un code ISO, pas une phrase. Un champ libre a produit « Congo »
   // et « congo » en base, et la contrainte `schools_country_iso` refuse
   // desormais ces valeurs : l'enregistrement echouerait. Cf. countries.dart.
@@ -141,6 +143,8 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
           _name.text         = school.name;
           _code.text         = school.code         ?? '';
           _city.text         = school.city         ?? '';
+          _contactEmail.text = school.contactEmail ?? '';
+          _contactPhone.text = school.contactPhone ?? '';
           _country           = kCountries.containsKey(school.country)
                                  ? school.country
                                  : null;   // valeur héritée non normalisée
@@ -185,6 +189,8 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
         academicYear: _academicYear ?? '',
         accentColor:  _accentColor,
         logoUrl:      _logoUrl.text,
+        contactEmail: _contactEmail.text,
+        contactPhone: _contactPhone.text,
       );
       await SupabaseDbSource.updateSchoolTaxonomy(
         id:                schoolId,
@@ -246,8 +252,57 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
     _name.dispose();
     _code.dispose();
     _city.dispose();
+    _contactEmail.dispose();
+    _contactPhone.dispose();
     _logoUrl.dispose();
     super.dispose();
+  }
+
+  /// Cycles (noms [SchoolLevel]) qui ont encore au moins une classe active —
+  /// on ne laisse pas l'admin décocher un type qui viderait un cycle en
+  /// service : les classes resteraient en base mais disparaîtraient de tous
+  /// les sélecteurs de niveau (création de classe, emploi du temps…).
+  Set<String> _cyclesWithActiveClasses(WidgetRef ref) {
+    final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    final levels  = ref.watch(classLevelsProvider).valueOrNull ?? const [];
+    final cycleOfLevel = {for (final l in levels) l.id: l.cycle};
+    return {
+      for (final c in classes)
+        if (c.isActive && cycleOfLevel[c.levelId] != null) cycleOfLevel[c.levelId]!,
+    };
+  }
+
+  /// Tente de retirer [typeKey] de `_types`. Bloque (avec message) si ça
+  /// viderait un cycle qui a encore des classes actives.
+  void _tryRemoveType(String typeKey, Set<String> cyclesInUse) {
+    final lvl = SchoolLevel.fromSchoolType(typeKey);
+    if (lvl != null) {
+      final remaining = _types
+          .where((t) => t != typeKey)
+          .map(SchoolLevel.fromSchoolType)
+          .whereType<SchoolLevel>()
+          .toSet();
+      if (cyclesInUse.contains(lvl.name) && !remaining.contains(lvl)) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            icon: const Icon(Icons.warning_amber_rounded, color: _terra),
+            title: const Text('Cycle encore en service'),
+            content: Text(
+                'Impossible de retirer « ${_kTypes[typeKey]} » : des classes '
+                'actives existent encore sur ce cycle. Déplacez ou archivez '
+                'd\'abord ces classes dans la page Classes.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Compris')),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+    setState(() => _types.remove(typeKey));
   }
 
   @override
@@ -317,6 +372,27 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                           icon: Icons.public_outlined,
                           items: kCountries,
                           onChanged: (v) => setState(() => _country = v),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                        child: _Field(
+                          controller: _contactEmail,
+                          label: 'Email de contact',
+                          icon: Icons.mail_outline,
+                          hint: 'contact@ecole.com',
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _Field(
+                          controller: _contactPhone,
+                          label: 'Téléphone',
+                          icon: Icons.call_outlined,
+                          keyboardType: TextInputType.phone,
                         ),
                       ),
                     ]),
@@ -466,26 +542,29 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                               fontWeight: FontWeight.w600,
                               color: context.cMuted)),
                       const SizedBox(height: 8),
-                      Wrap(spacing: 8, runSpacing: 8, children: [
-                        for (final t in _kTypes.entries)
-                          FilterChip(
-                            label: Text(t.value,
-                                style: const TextStyle(fontSize: 12)),
-                            selected: _types.contains(t.key),
-                            onSelected: (v) => setState(() {
-                              if (v) {
-                                _types.add(t.key);
-                              } else {
-                                _types.remove(t.key);
-                              }
-                            }),
-                            selectedColor:
-                                _terra.withValues(alpha: .12),
-                            checkmarkColor: _terra,
-                            backgroundColor: context.cCard,
-                            side: BorderSide(color: context.cBorder),
-                          ),
-                      ]),
+                      Builder(builder: (context) {
+                        final cyclesInUse = _cyclesWithActiveClasses(ref);
+                        return Wrap(spacing: 8, runSpacing: 8, children: [
+                          for (final t in _kTypes.entries)
+                            FilterChip(
+                              label: Text(t.value,
+                                  style: const TextStyle(fontSize: 12)),
+                              selected: _types.contains(t.key),
+                              onSelected: (v) {
+                                if (v) {
+                                  setState(() => _types.add(t.key));
+                                } else {
+                                  _tryRemoveType(t.key, cyclesInUse);
+                                }
+                              },
+                              selectedColor:
+                                  _terra.withValues(alpha: .12),
+                              checkmarkColor: _terra,
+                              backgroundColor: context.cCard,
+                              side: BorderSide(color: context.cBorder),
+                            ),
+                        ]);
+                      }),
                       const SizedBox(height: 16),
                       Text('Système éducatif',
                           style: TextStyle(

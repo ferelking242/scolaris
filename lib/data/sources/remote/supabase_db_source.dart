@@ -5260,6 +5260,8 @@ class SupabaseDbSource {
     String? academicYear,
     String? accentColor,
     String? logoUrl,
+    String? contactEmail,
+    String? contactPhone,
   }) async {
     await _db.from('schools').update({
       'name': name.trim(),
@@ -5269,6 +5271,8 @@ class SupabaseDbSource {
       if (academicYear != null) 'academic_year': academicYear.trim().isEmpty ? null : academicYear.trim(),
       if (accentColor != null) 'accent_color': accentColor,
       if (logoUrl != null) 'logo_url': logoUrl.trim().isEmpty ? null : logoUrl.trim(),
+      if (contactEmail != null) 'contact_email': contactEmail.trim().isEmpty ? null : contactEmail.trim(),
+      if (contactPhone != null) 'contact_phone': contactPhone.trim().isEmpty ? null : contactPhone.trim(),
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id).friendly();
   }
