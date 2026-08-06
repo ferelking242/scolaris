@@ -510,16 +510,24 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   void _showSuccess(String id) {
     showDialog(
       context: context, barrierDismissible: false,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(36),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Lottie.asset('assets/lottie/celebration.json', width: 120, height: 120,
-                repeat: false, errorBuilder: (_,__,___) => Container(width:80,height:80,
+      builder: (dialogCtx) {
+        final screenH = MediaQuery.sizeOf(dialogCtx).height;
+        final isShort = screenH < 700;
+        final lottieSize = isShort ? 72.0 : 120.0;
+        final outerPad = isShort ? 20.0 : 36.0;
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: screenH - 48, maxWidth: 460),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(outerPad),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Lottie.asset('assets/lottie/celebration.json', width: lottieSize, height: lottieSize,
+                repeat: false, errorBuilder: (_,__,___) => Container(width:lottieSize * .67,height:lottieSize * .67,
                     decoration: BoxDecoration(color:_green.withOpacity(.1),shape:BoxShape.circle),
                     child: const Icon(Icons.check_circle_rounded,color:_green,size:48))),
-            const SizedBox(height: 20),
+            SizedBox(height: isShort ? 12 : 20),
             const Text('École créée avec succès !', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
             const SizedBox(height: 12),
@@ -571,13 +579,15 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             const SizedBox(height: 8),
             Text('ID école : ${id.substring(0, 8)}…', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: _muted)),
-            const SizedBox(height: 24),
+            SizedBox(height: isShort ? 14 : 24),
             SizedBox(width: double.infinity,
               child: _PrimaryBtn(label: 'Aller à la connexion', loading: false,
                   onTap: () { Navigator.pop(context); context.go('/login'); })),
-          ]),
-        ),
-      ),
+              ]),
+            ),
+          ),
+        );
+      },
     );
   }
 
