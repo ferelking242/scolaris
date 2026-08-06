@@ -5064,6 +5064,14 @@ class SupabaseDbSource {
     await _db.from('classes').delete().eq('id', id).friendly();
   }
 
+  /// Supprime TOUTES les classes de l'école (bouton « Supprimer toutes les
+  /// classes » de la page Classes). Les élèves affectés perdent juste leur
+  /// affectation (`students.class_id` en base ne bloque pas la suppression),
+  /// ils ne sont pas supprimés eux-mêmes.
+  static Future<void> deleteAllClasses(String schoolId) async {
+    await _db.from('classes').delete().eq('school_id', schoolId).friendly();
+  }
+
   /// Supprime un compte, via l'Edge Function `delete-account` : supprime la
   /// fiche `public.users` (motif transporté jusqu'au trigger d'audit des
   /// notes — la suppression cascade sur `grades` ; une note en période
