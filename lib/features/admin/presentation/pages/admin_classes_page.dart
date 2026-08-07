@@ -375,12 +375,15 @@ class AdminClassesPage extends ConsumerWidget {
       BuildContext context, WidgetRef ref, Set<String> selected) async {
     final schoolId = ref.read(currentSchoolIdProvider);
     if (schoolId == null) return;
-    final year =
-        ref.read(schoolProvider).valueOrNull?.academicYear ?? '2025-2026';
+    final school = ref.read(schoolProvider).valueOrNull;
+    final year = school?.academicYear ?? '2025-2026';
     final messenger = ScaffoldMessenger.of(context);
     try {
       final n = await SupabaseDbSource.importRegistrationClasses(
-          schoolId: schoolId, academicYear: year, only: selected);
+          schoolId: schoolId,
+          academicYear: year,
+          only: selected,
+          system: school?.levelSystemType ?? 'francophone_africa');
       ref.invalidate(classesProvider);
       ref.invalidate(registrationClassesProvider(schoolId));
       // Le programme généré peuple matières et cours : sans ça, ces deux

@@ -4876,9 +4876,9 @@ class SupabaseDbSource {
   }
 
   /// Nom de série (`school_classes.level`, ex. "Terminale", "Junior Secondary")
-  /// → cycle du catalogue des niveaux (`class_levels.cycle`). Sert à générer
-  /// le programme par défaut des classes importées de l'inscription — cf.
-  /// [importRegistrationClasses]. Couvre les catalogues francophone,
+  /// → cycle du catalogue des niveaux (`class_levels.cycle`), utilisé comme
+  /// repli si aucune fiche [SbClassLevel] ne correspond au nom de la classe
+  /// (cf. [importRegistrationClasses]). Couvre les catalogues francophone,
   /// anglophone, LMD et filières techniques de [_defaultSeries] côté
   /// inscription (school_registration_screen.dart).
   static const _seriesToCycle = <String, String>{
@@ -4892,10 +4892,30 @@ class SupabaseDbSource {
   };
 
   /// Filière déduite du dernier mot du nom de classe (ex. "Tle A" → "A"),
-  /// pour cibler le bon sous-catalogue de matières (cf. subject_catalog.series).
+  /// pour cibler le bon sous-catalogue de matières (cf. subject_catalog.series)
+  /// quand aucune fiche [SbClassLevel] exacte n'a été trouvée.
   static String? _seriesLetterOf(String className) {
     final last = className.trim().split(RegExp(r'\s+')).last;
     return RegExp(r'^[A-H]$').hasMatch(last) ? last : null;
+  }
+
+  /// Fait correspondre un nom de classe généré à l'inscription (ex. "2nde A",
+  /// "1re C", "Tle D") à sa fiche exacte du catalogue (`class_levels.short_name`,
+  /// ex. "2A", "1C", "TleD") — pour hériter de son `id` (`level_id`), son
+  /// `order_num` (restrictions par niveau, ex. Anglais à partir du CM1) et sa
+  /// filière. Retourne null si rien ne correspond (repli sur [_seriesToCycle]).
+  static SbClassLevel? _matchRegistrationClassLevel(
+      List<SbClassLevel> levels, String className) {
+    final tokens = className.trim().split(RegExp(r'\s+'));
+    if (tokens.isEmpty) return null;
+    const prefixMap = {'2nde': '2', '1re': '1', '1ère': '1', 'Tle': 'Tle'};
+    final prefix = prefixMap[tokens.first] ?? tokens.first;
+    final suffix = tokens.length > 1 ? tokens.sublist(1).join() : '';
+    final target = '$prefix$suffix'.toLowerCase();
+    for (final l in levels) {
+      if (l.shortName.toLowerCase() == target) return l;
+    }
+    return null;
   }
 
   /// Reporte les classes de l'inscription (`school_classes`) dans la vraie table
@@ -4903,14 +4923,19 @@ class SupabaseDbSource {
   /// tournait sous le compte anonyme, avant connexion). Idempotent : on saute
   /// toute classe dont le nom existe déjà. [only] restreint l'import à ces
   /// noms de classe (sélection manuelle dans l'admin) ; null = tout importer.
+  /// [system] est le `class_levels.system_type` de l'école (cf.
+  /// `SbSchool.levelSystemType`), pour retrouver la bonne fiche de niveau.
+  ///
   /// Génère aussi le programme par défaut (matières + cours) de chaque classe
-  /// créée, comme la création manuelle — une erreur de génération n'annule
-  /// pas l'import, la classe reste créée sans programme.
-  /// Renvoie le nombre de classes importées.
+  /// créée, comme la création manuelle — avec les mêmes restrictions par
+  /// niveau (ex. Anglais à partir du CM1 seulement) quand la fiche exacte est
+  /// trouvée. Une erreur de génération n'annule pas l'import, la classe reste
+  /// créée sans programme. Renvoie le nombre de classes importées.
   static Future<int> importRegistrationClasses({
     required String schoolId,
     required String academicYear,
     Set<String>? only,
+    String system = 'francophone_africa',
   }) async {
     final reg = await getRegistrationClasses(schoolId);
     if (reg.isEmpty) return 0;
@@ -4924,7 +4949,15 @@ class SupabaseDbSource {
         ((e['name'] as String?) ?? '').trim().toLowerCase(),
     };
 
+    // Tout le catalogue de niveaux de l'école, pour matcher chaque classe
+    // importée à sa fiche exacte (cf. _matchRegistrationClassLevel).
+    final levels = await getClassLevels(system: system, cycles: const [
+      'prescolaire', 'primaire', 'college', 'lycee',
+      'universite_l', 'universite_m', 'universite_d', 'prepa',
+    ]);
+
     final rows = <Map<String, dynamic>>[];
+    final matched = <String, SbClassLevel>{}; // id de classe → fiche niveau
     final seen = <String>{};
     for (final r in reg) {
       final name = ((r['name'] as String?) ?? '').trim();
@@ -4932,11 +4965,19 @@ class SupabaseDbSource {
       if (only != null && !only.contains(name)) continue;
       final key = name.toLowerCase();
       if (taken.contains(key) || !seen.add(key)) continue;
+      final id = const Uuid().v4();
+      final level = _matchRegistrationClassLevel(levels, name);
+      if (level != null) matched[id] = level;
       rows.add({
-        'id': const Uuid().v4(),
+        'id': id,
         'school_id': schoolId,
         'name': name,
-        if (r['level'] != null) 'level': r['level'],
+        // Fiche trouvée : `level` suit la convention du reste de l'app
+        // (le cycle, pas le libellé de série — cf. createClass) et
+        // `level_id` pointe la fiche exacte, comme une classe créée à la
+        // main. Sinon repli sur le libellé brut de l'inscription.
+        'level': level?.cycle ?? r['level'],
+        if (level != null) 'level_id': level.id,
         'max_students': 35,
         'academic_year': academicYear,
         'is_active': true,
@@ -4946,16 +4987,23 @@ class SupabaseDbSource {
     await _db.from('classes').insert(rows).friendly();
 
     for (final row in rows) {
-      final level = row['level'] as String?;
-      final cycle = level == null ? null : _seriesToCycle[level];
+      final id = row['id'] as String;
+      final level = matched[id];
+      final cycle = level?.cycle ?? _seriesToCycle[row['level'] as String?];
       if (cycle == null) continue;
-      final series = _seriesLetterOf(row['name'] as String);
+      final series = level?.series != null
+          ? [level!.series!]
+          : (() {
+              final s = _seriesLetterOf(row['name'] as String);
+              return s != null ? [s] : null;
+            })();
       try {
         await generateDefaultProgramForClass(
           schoolId: schoolId,
-          classId: row['id'] as String,
+          classId: id,
           cycle: cycle,
-          series: series != null ? [series] : null,
+          series: series,
+          levelOrderNum: level?.orderNum,
         );
       } catch (_) {
         // Le programme est un bonus : une erreur ici ne doit pas faire
