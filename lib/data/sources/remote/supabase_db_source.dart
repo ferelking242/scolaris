@@ -2682,6 +2682,13 @@ class SupabaseDbSource {
     await _db.from('subjects').delete().eq('id', id).friendly();
   }
 
+  /// Supprime TOUTES les matières de l'école (bouton « Tout supprimer » de
+  /// la page Matières). Les cours qui en dépendaient perdent leur rattachement,
+  /// comme une suppression une par une.
+  static Future<void> deleteAllSubjects(String schoolId) async {
+    await _db.from('subjects').delete().eq('school_id', schoolId).friendly();
+  }
+
   /// Génère le programme par défaut d'une classe à partir du catalogue de
   /// matières types (`subject_catalog`) du cycle (+ séries lycée). Garantit
   /// d'abord que ces matières existent dans le catalogue de l'école (comme

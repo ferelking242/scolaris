@@ -86,6 +86,77 @@ class AdminSubjectsPage extends ConsumerWidget {
     }
   }
 
+  Future<void> _deleteAllSubjects(
+      BuildContext context, WidgetRef ref, int count) async {
+    final confirmCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          icon: const Icon(Icons.warning_amber_rounded, color: _terra, size: 32),
+          title: const Text('Supprimer toutes les matières ?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Les $count matières de l\'établissement seront supprimées '
+                'définitivement. Les cours qui en dépendaient perdront leur '
+                'rattachement. Cette action est irréversible.',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              const Text('Tapez SUPPRIMER pour confirmer :',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: confirmCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(isDense: true),
+                onChanged: (_) => setDialogState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: confirmCtrl.text.trim() == 'SUPPRIMER'
+                  ? () => Navigator.pop(dialogContext, true)
+                  : null,
+              style: FilledButton.styleFrom(backgroundColor: _terra),
+              child: const Text('Tout supprimer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.deleteAllSubjects(schoolId);
+      ref.invalidate(subjectsProvider);
+      ref.invalidate(coursesForSchoolProvider);
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Toutes les matières ont été supprimées.'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Suppression impossible : $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _terra,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subjectsAsync = ref.watch(subjectsProvider);
@@ -128,6 +199,12 @@ class AdminSubjectsPage extends ConsumerWidget {
         subtitle: '${subjects.length} matière(s) dans l\'établissement',
         onRefresh: refresh,
         actions: [
+          if (subjects.isNotEmpty && ref.watch(canProvider('classes.supprimer')))
+            ActionButton(
+              label: 'Tout supprimer',
+              icon: Icons.delete_sweep_outlined,
+              onTap: () => _deleteAllSubjects(context, ref, subjects.length),
+            ),
           if (canCreate)
             ActionButton(
               label: 'Charger les matières types',
