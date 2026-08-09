@@ -87,6 +87,16 @@ class PlatformPendingPayment {
   final String? provider; // 'mtn' | 'airtel'
   final String? reference;
   final DateTime createdAt;
+
+  /// 'plan_change' (défaut, active une offre à la confirmation) ou
+  /// 'addon_slot' (achat à la carte d'un emplacement de module — la
+  /// confirmation n'active AUCUNE offre, cf.
+  /// `platform_confirm_subscription_payment` / 20260809_module_slot_addon.sql).
+  final String paymentType;
+  final int quantity;
+
+  bool get isAddonSlot => paymentType == 'addon_slot';
+
   const PlatformPendingPayment({
     required this.id,
     required this.schoolName,
@@ -97,6 +107,8 @@ class PlatformPendingPayment {
     this.provider,
     this.reference,
     required this.createdAt,
+    this.paymentType = 'plan_change',
+    this.quantity = 1,
   });
 }
 

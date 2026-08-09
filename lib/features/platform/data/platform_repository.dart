@@ -304,7 +304,7 @@ class PlatformRepository {
     final data = await _db
         .from('subscription_payments')
         .select('id, school_id, plan_code, period, amount, currency, provider, '
-            'reference, created_at, schools(name)')
+            'reference, created_at, payment_type, quantity, schools(name)')
         .eq('status', 'pending')
         .order('created_at', ascending: true);
     return (data as List).map((r) {
@@ -320,6 +320,12 @@ class PlatformRepository {
         provider: row['provider'] as String?,
         reference: row['reference'] as String?,
         createdAt: _parseDate(row['created_at']) ?? DateTime.now(),
+        // 'addon_slot' = achat d'emplacement de module à la carte — n'active
+        // PAS une offre, cf. platform_confirm_subscription_payment. Distinct
+        // affichage requis pour ne pas afficher « Offre ADDON_SLOT » au
+        // super-admin (cf. 20260809_module_slot_addon.sql).
+        paymentType: row['payment_type'] as String? ?? 'plan_change',
+        quantity: row['quantity'] as int? ?? 1,
       );
     }).toList();
   }

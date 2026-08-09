@@ -27,7 +27,10 @@ class PlatformPaymentsPage extends ConsumerWidget {
             'Vérifiez d\'abord sur le relevé marchand Scolaris que '
             '${groupThousands(p.amount.round())} ${p.currency} de « ${p.schoolName} » '
             'est bien arrivé (réf. ${p.reference ?? "—"}) avant de confirmer — '
-            'ça active immédiatement leur offre ${p.planCode.toUpperCase()}.'),
+            '${p.isAddonSlot
+                ? 'ça ajoute immédiatement ${p.quantity} emplacement(s) de module '
+                    'supplémentaire(s) à leur offre en cours (aucun changement d\'offre).'
+                : 'ça active immédiatement leur offre ${p.planCode.toUpperCase()}.'}'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
               child: const Text('Annuler')),
@@ -156,8 +159,8 @@ class _PendingPaymentRow extends StatelessWidget {
             style: TextStyle(color: context.cInk, fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 3),
         Text(
-            'Offre ${p.planCode.toUpperCase()} · $periodLabel · '
-            '${groupThousands(p.amount.round())} ${p.currency} · $providerLabel',
+            '${p.isAddonSlot ? 'Emplacement de module ×${p.quantity}' : 'Offre ${p.planCode.toUpperCase()}'}'
+            ' · $periodLabel · ${groupThousands(p.amount.round())} ${p.currency} · $providerLabel',
             style: TextStyle(fontSize: 12, color: context.cMuted)),
         const SizedBox(height: 2),
         Text('Réf. ${p.reference ?? "—"}',

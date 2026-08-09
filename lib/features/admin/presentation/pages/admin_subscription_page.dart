@@ -109,6 +109,26 @@ class AdminSubscriptionPage extends ConsumerWidget {
         ? null
         : surcharges.where((s) => s.planCode == currentPlan && s.matches(count)).firstOrNull;
     final fmt = NumberFormat.decimalPattern('fr');
+    final currency = prices.isNotEmpty ? prices.first.currency : 'XAF';
+
+    // Quota EFFECTIF = ce qu'inclut l'offre + les emplacements achetés à la
+    // carte (`subscriptions.extra_module_slots`), cf. 20260809_module_slot_addon.sql.
+    final moduleQuota = (currentPlanObj?.maxModules ?? 0) + (sub?.extraModuleSlots ?? 0);
+
+    // Offre juste au-dessus de l'offre en cours (pour le CTA "Passer à
+    // l'offre supérieure" du catalogue de modules quand le quota est atteint).
+    final currentIndex = plans.indexWhere((p) => p.code == currentPlan);
+    final nextPlan = currentIndex >= 0 && currentIndex < plans.length - 1
+        ? plans[currentIndex + 1]
+        : null;
+
+    // Prix de l'emplacement à la carte (pseudo-offre cachée 'addon_slot').
+    double? addonSlotPrice(String period) {
+      for (final p in prices) {
+        if (p.planCode == 'addon_slot' && p.period == period) return p.price;
+      }
+      return null;
+    }
 
     return PageScaffold(
       onRefresh: refresh,
@@ -132,8 +152,26 @@ class AdminSubscriptionPage extends ConsumerWidget {
         DataPanel(
           title: 'Catalogue de modules',
           child: _ModulesPanel(
-            quota: currentPlanObj?.maxModules ?? 0,
+            quota: moduleQuota,
             planName: currentPlanObj?.name ?? currentPlan?.toUpperCase() ?? '—',
+            addonMonthlyPrice: addonSlotPrice('monthly'),
+            addonAnnualPrice: addonSlotPrice('annual'),
+            currency: currency,
+            onBuySlot: sub == null
+                ? null
+                : () => showDialog(
+                      context: context,
+                      builder: (_) => _BuySlotDialog(
+                        sub: sub,
+                        monthly: addonSlotPrice('monthly'),
+                        annual: addonSlotPrice('annual'),
+                        currency: currency,
+                      ),
+                    ),
+            nextPlanName: nextPlan?.name,
+            onUpgrade: nextPlan == null
+                ? null
+                : () => _onChoose(context, ref, nextPlan, monthlyPrice(nextPlan.code), currency, sub),
           ),
         ),
         const SizedBox(height: 14),
@@ -726,7 +764,22 @@ class _SizeSurchargeRow extends StatelessWidget {
 class _ModulesPanel extends ConsumerStatefulWidget {
   final int quota;
   final String planName;
-  const _ModulesPanel({required this.quota, required this.planName});
+  final double? addonMonthlyPrice;
+  final double? addonAnnualPrice;
+  final String currency;
+  final VoidCallback? onBuySlot;
+  final String? nextPlanName;
+  final VoidCallback? onUpgrade;
+  const _ModulesPanel({
+    required this.quota,
+    required this.planName,
+    this.addonMonthlyPrice,
+    this.addonAnnualPrice,
+    this.currency = 'XAF',
+    this.onBuySlot,
+    this.nextPlanName,
+    this.onUpgrade,
+  });
   @override
   ConsumerState<_ModulesPanel> createState() => _ModulesPanelState();
 }
@@ -827,7 +880,7 @@ class _ModulesPanelState extends ConsumerState<_ModulesPanel> {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             'Votre offre ${widget.planName} n\'inclut aucun module complémentaire. '
-            'Passez à une offre supérieure pour en installer.',
+            'Achetez un emplacement à la carte ou passez à une offre supérieure pour en installer.',
             style: TextStyle(fontSize: 11.5, color: context.cMuted),
           ),
         )
@@ -835,11 +888,37 @@ class _ModulesPanelState extends ConsumerState<_ModulesPanel> {
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            'Quota atteint pour votre offre ${widget.planName}. Désinstallez un module '
-            'ou passez à une offre supérieure pour en ajouter.',
+            'Quota atteint pour votre offre ${widget.planName}. Désinstallez un module, '
+            'achetez un emplacement à la carte, ou passez à une offre supérieure pour en ajouter.',
             style: const TextStyle(fontSize: 11.5, color: Color(0xFFC17F24), fontWeight: FontWeight.w600),
           ),
         ),
+
+      if (atQuota && (widget.onBuySlot != null || widget.onUpgrade != null)) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (widget.onBuySlot != null)
+            OutlinedButton.icon(
+              onPressed: widget.onBuySlot,
+              icon: const Icon(Icons.add_box_outlined, size: 15, color: Color(0xFF0E7490)),
+              label: Text(
+                widget.addonMonthlyPrice != null
+                    ? 'Acheter un emplacement (+${NumberFormat.decimalPattern('fr').format(widget.addonMonthlyPrice)} ${widget.currency}/mois)'
+                    : 'Acheter un emplacement',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF0E7490)),
+              ),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF0E7490))),
+            ),
+          if (widget.onUpgrade != null)
+            ElevatedButton.icon(
+              onPressed: widget.onUpgrade,
+              icon: const Icon(Icons.upgrade_rounded, size: 15, color: Colors.white),
+              label: Text("Passer à ${widget.nextPlanName ?? "l'offre supérieure"}",
+                  style: const TextStyle(fontSize: 11.5, color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8B1A00), elevation: 0),
+            ),
+        ]),
+      ],
     ]);
   }
 }
@@ -962,7 +1041,12 @@ class _BillingHistory extends ConsumerWidget {
   }
 
   Widget _row(BuildContext context, SbSubscriptionPayment p, SbSchool? school) {
-    final planName = planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase();
+    // 'addon_slot' est une pseudo-offre cachée (jamais dans planNameByCode,
+    // qui ne liste que les offres publiques) — libellé dédié plutôt que
+    // d'afficher « Offre ADDON_SLOT » à l'école.
+    final planName = p.isAddonSlot
+        ? 'Emplacement de module ×${p.quantity}'
+        : (planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase());
     final periodLabel = p.isYearly ? 'annuel' : 'mensuel';
 
     // Un versement Mobile Money soumis par l'école reste `pending` tant que le
@@ -990,7 +1074,7 @@ class _BillingHistory extends ConsumerWidget {
     final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Flexible(
-          child: Text('Offre $planName · $periodLabel',
+          child: Text('${p.isAddonSlot ? planName : 'Offre $planName'} · $periodLabel',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
@@ -1059,6 +1143,201 @@ class _BillingHistory extends ConsumerWidget {
         downloadBtn,
       ]);
     });
+  }
+}
+
+/// Dialogue d'achat à la carte d'un EMPLACEMENT de module supplémentaire —
+/// pas un module précis (cf. `_ModulesPanel`). Même mécanique de paiement
+/// manuel que `_ChoosePlanDialog` (Mobile Money, référence saisie à la main,
+/// activé par le super-admin après vérification) mais sans prorata/crédit :
+/// c'est un ajout de capacité, pas un changement d'offre.
+class _BuySlotDialog extends ConsumerStatefulWidget {
+  final SbSubscription sub;
+  final double? monthly;
+  final double? annual;
+  final String currency;
+  const _BuySlotDialog({required this.sub, required this.monthly, required this.annual, required this.currency});
+
+  @override
+  ConsumerState<_BuySlotDialog> createState() => _BuySlotDialogState();
+}
+
+class _BuySlotDialogState extends ConsumerState<_BuySlotDialog> {
+  bool _yearly = false;
+  bool _processing = false;
+  String _operator = 'mtn';
+  final _reference = TextEditingController();
+  final _fmt = NumberFormat.decimalPattern('fr');
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    super.dispose();
+  }
+
+  double? get _price => _yearly ? widget.annual : widget.monthly;
+
+  Future<void> _pay() async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final price = _price;
+    final ref_ = _reference.text.trim();
+    if (schoolId == null || price == null || widget.sub.id.isEmpty || ref_.isEmpty) return;
+    setState(() => _processing = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.submitSubscriptionPayment(
+        subscriptionId: widget.sub.id,
+        schoolId: schoolId,
+        planCode: 'addon_slot',
+        period: _yearly ? 'annual' : 'monthly',
+        amount: price,
+        currency: widget.currency,
+        reference: ref_,
+        provider: _operator,
+        paymentType: 'addon_slot',
+        quantity: 1,
+      );
+      ref.invalidate(subscriptionPaymentsProvider);
+      if (mounted) navigator.pop();
+      messenger.showSnackBar(const SnackBar(
+        backgroundColor: Color(0xFFC17F24),
+        behavior: SnackBarBehavior.floating,
+        content: Text('Versement enregistré — en attente de vérification. '
+            'Votre emplacement supplémentaire s\'active dès que le paiement est confirmé.'),
+        duration: Duration(seconds: 4),
+      ));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        messenger.showSnackBar(SnackBar(
+            content: Text('Échec : $e'), backgroundColor: const Color(0xFF8B1A00)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const c = Color(0xFF0E7490);
+    final momoSettings = ref.watch(platformPaymentSettingsProvider).valueOrNull ?? const [];
+    SbPlatformPaymentSetting? momoFor(String provider) =>
+        momoSettings.where((m) => m.provider == provider).firstOrNull;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Acheter un emplacement de module',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+                'Cet emplacement s\'ajoute à votre offre en cours — il ne remplace '
+                'rien. Vous choisissez ensuite quel module y installer depuis le '
+                'catalogue (Finances, Présences ou Inscriptions).',
+                style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
+            const SizedBox(width: 10),
+            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
+          ]),
+          const SizedBox(height: 18),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, children: [
+            Text(_price != null ? _fmt.format(_price) : '—',
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: c)),
+            const SizedBox(width: 6),
+            Text('${widget.currency} ${_yearly ? "/an" : "/mois"}',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+          ]),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', momoFor('mtn')?.phoneNumber ?? '—', c)),
+            const SizedBox(width: 10),
+            Expanded(child: _operatorBtn('airtel', 'Airtel Money', momoFor('airtel')?.phoneNumber ?? '—', c)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reference,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Référence de transaction (reçue par SMS)',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _processing ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _processing || _price == null || _reference.text.trim().isEmpty ? null : _pay,
+          style: FilledButton.styleFrom(backgroundColor: c),
+          child: _processing
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Confirmer mon versement'),
+        ),
+      ],
+    );
+  }
+
+  Widget _operatorBtn(String value, String label, String number, Color c) {
+    final sel = _operator == value;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _operator = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Column(children: [
+            Text(label,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: sel ? c : context.cInk)),
+            const SizedBox(height: 2),
+            Text(number, style: TextStyle(fontSize: 11, color: context.cMuted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _periodBtn(String label, bool sel, Color c, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: sel ? c : context.cInk,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+        ),
+      ),
+    );
   }
 }
 
