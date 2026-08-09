@@ -131,9 +131,14 @@ pw.Page _receiptPage({
   final start = payment.date;
   final end = _coverageEnd(start, payment.isYearly);
   final coverage = '${dfShort.format(start)} – ${dfShort.format(end)}';
-  final periodLabel = payment.isYearly ? 'Abonnement annuel' : 'Abonnement mensuel';
+  final periodLabel = payment.isAddonSlot
+      ? (payment.isYearly ? 'Emplacement annuel' : 'Emplacement mensuel')
+      : (payment.isYearly ? 'Abonnement annuel' : 'Abonnement mensuel');
   final hasCredit = payment.creditApplied > 0.01;
-  final isPlanChange = payment.isPlanChange && previousPlanName != null;
+  final isPlanChange = !payment.isAddonSlot && payment.isPlanChange && previousPlanName != null;
+  final lineDescription = payment.isAddonSlot
+      ? 'Emplacement de module Scolaris ×${payment.quantity}'
+      : 'Offre Scolaris $planName';
 
   final schoolLoc = [
     school?.city,
@@ -212,7 +217,7 @@ pw.Page _receiptPage({
         _itemsHeader(),
         pw.Divider(color: _line, thickness: 1, height: 14),
         _itemRow(
-          description: 'Offre Scolaris $planName',
+          description: lineDescription,
           subtitle: '$periodLabel · $coverage',
           qty: '1',
           unit: money(payment.fullPrice),
@@ -251,7 +256,10 @@ pw.Page _receiptPage({
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('Ce reçu atteste du règlement de votre abonnement Scolaris.',
+            pw.Text(
+                payment.isAddonSlot
+                    ? 'Ce reçu atteste du règlement de votre emplacement de module Scolaris.'
+                    : 'Ce reçu atteste du règlement de votre abonnement Scolaris.',
                 style: const pw.TextStyle(fontSize: 8.5, color: _muted)),
             pw.Text('Page 1 sur 1',
                 style: const pw.TextStyle(fontSize: 8.5, color: _muted)),

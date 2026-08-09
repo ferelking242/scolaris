@@ -5378,12 +5378,16 @@ class SupabaseDbSource {
     if (sub?.planCode != null) {
       final plans = await getPlans();
       final plan = plans.where((p) => p.code == sub!.planCode).firstOrNull;
-      final quota = plan?.maxModules;
-      if (quota != null && chosenCount > quota) {
+      // Quota EFFECTIF = ce qu'inclut l'offre + les emplacements achetés à la
+      // carte (`subscriptions.extra_module_slots`, confirmés par le
+      // super-admin) — oublier ce +extra faisait échouer l'installation
+      // juste après un achat d'emplacement pourtant confirmé.
+      final quota = (plan?.maxModules ?? 0) + (sub?.extraModuleSlots ?? 0);
+      if (chosenCount > quota) {
         throw Exception(
             'Quota de modules dépassé : votre offre ${plan?.name ?? sub!.planCode} '
             'autorise $quota module(s) complémentaire(s), $chosenCount sélectionné(s). '
-            'Passez à une offre supérieure pour en installer davantage.');
+            'Passez à une offre supérieure ou achetez un emplacement pour en installer davantage.');
       }
     }
     final row = await _db.from('schools').select('metadata').eq('id', schoolId).maybeSingle();
