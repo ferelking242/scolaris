@@ -129,12 +129,10 @@ class StaffPermissions {
       icon: Icons.settings_outlined,
       sensitive: true,
     ),
-    StaffPermission(
-      key: library,
-      label: 'Bibliothèque',
-      description: 'Soumettre un livre/annale/support au catalogue partagé',
-      icon: Icons.local_library_outlined,
-    ),
+    // Bibliothèque retirée de la liste assignable : la lecture côté élève
+    // n'est pas branchée (mock_library_data.dart, cf. audit du site vitrine).
+    // La clé `library` reste définie (RbacMapping s'appuie dessus) mais
+    // n'apparaît plus comme case à cocher dans l'écran Rôles & Permissions.
   ];
 
   static StaffPermission? byKey(String key) {

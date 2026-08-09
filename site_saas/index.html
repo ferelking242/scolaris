@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scolaris — Toute votre école dans une seule application</title>
-<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement, avec un accès direction, enseignants, élèves et parents.">
+<meta name="description" content="Scolaris gère les inscriptions, les classes, les notes, l'emploi du temps et la facturation de votre établissement. Essai gratuit de 14 jours, accès direction, enseignants et élèves.">
 <meta name="theme-color" content="#2A1207">
 <meta property="og:title" content="Scolaris — Savoir, Héritage, Avenir">
-<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation.">
+<meta property="og:description" content="La gestion complète de votre établissement scolaire : inscriptions, notes, emploi du temps, facturation. Essai gratuit de 14 jours.">
 <meta property="og:type" content="website">
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -156,6 +156,7 @@ h3{font-size:19px}
 
 /* ---------- téléphone (pièce maîtresse : l'écran élève reconstruit) ---------- */
 .scene{position:relative;display:flex;justify-content:center}
+@media(max-width:640px){.scene{display:none}}
 .lueur{
   position:absolute;inset:-8% -14%;z-index:0;border-radius:50%;
   background:radial-gradient(closest-side,rgba(228,97,12,.16),rgba(176,124,31,.1) 55%,transparent 75%);
@@ -172,7 +173,7 @@ h3{font-size:19px}
 .tel__burger{display:flex;flex-direction:column;gap:3px}
 .tel__burger i{width:14px;height:2px;background:var(--encre);border-radius:2px;display:block}
 .tel__burger i:last-child{width:9px}
-.tel__logo{font-family:Georgia,serif;font-weight:700;font-size:15px;background:var(--chaud);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tel__logo{width:18px;height:18px;object-fit:contain;flex:none}
 .tel__nom{font-weight:700;font-size:13px;margin-right:auto}
 .tel__cloche{position:relative;font-size:13px}
 .tel__cloche::after{content:"";position:absolute;top:-1px;right:-2px;width:6px;height:6px;border-radius:50%;background:#D2300B}
@@ -223,6 +224,14 @@ h3{font-size:19px}
 .edt .vide b{font-size:11.5px;display:block}
 .edt .vide small{font-size:9.5px;color:var(--brun)}
 
+.badge-flottant{
+  position:absolute;z-index:2;top:24px;right:max(-6px,calc(50% - 205px));
+  background:var(--or-fond);border:1px solid var(--or-bord);color:#8A6210;
+  font-size:12px;font-weight:700;padding:9px 13px;border-radius:14px;
+  box-shadow:var(--ombre);display:flex;align-items:center;gap:7px;
+}
+@media(max-width:420px){.badge-flottant{display:none}}
+
 /* ---------- révélation au défilement ---------- */
 .rev{opacity:0;transform:translateY(16px)}
 .rev.in{opacity:1;transform:none;transition:opacity .65s ease,transform .65s ease}
@@ -240,6 +249,23 @@ h3{font-size:19px}
 .carte .pastille{margin-bottom:14px}
 .carte h3{margin:0 0 7px;font-size:17.5px}
 .carte p{margin:0;font-size:14.5px;color:var(--brun)}
+
+/* ---------- preuves sociales ---------- */
+.chiffres{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:44px}
+@media(max-width:760px){.chiffres{grid-template-columns:repeat(2,1fr)}}
+.chiffre b{display:block;font-family:var(--display);font-size:clamp(28px,3.4vw,38px);font-weight:800;color:var(--braise);letter-spacing:-.02em}
+.chiffre span{font-size:13.5px;color:var(--brun)}
+.temoin{display:flex;flex-direction:column;height:100%}
+.temoin .etoiles{color:var(--or);font-size:13px;letter-spacing:2px;margin-bottom:12px}
+.temoin blockquote{margin:0 0 16px;font-size:15px;line-height:1.55;color:var(--encre);font-style:normal}
+.temoin .qui{display:flex;align-items:center;gap:10px;margin-top:auto}
+.temoin .avatar{
+  width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-family:var(--display);font-weight:700;font-size:14px;color:#fff;background:var(--gradvert);
+}
+.temoin .nom{font-size:13.5px;font-weight:700;margin:0}
+.temoin .role{font-size:12.5px;color:var(--brun);margin:0}
+.donnees-note{font-size:12.5px;color:var(--brun);opacity:.75;margin-top:20px}
 
 /* ---------- rôles ---------- */
 .role-liste{list-style:none;margin:14px 0 0;padding:0;font-size:14.5px;color:var(--brun)}
@@ -259,6 +285,11 @@ h3{font-size:19px}
 .etapes p{margin:0;font-size:14px;color:var(--brun)}
 
 /* ---------- offres ---------- */
+.essai-bandeau{
+  display:flex;align-items:center;gap:12px;background:var(--or-fond);border:1px solid var(--or-bord);
+  border-radius:16px;padding:14px 18px;margin:0 0 26px;color:#8A6210;font-size:15px;font-weight:600;
+}
+.essai-bandeau .ico{font-size:18px}
 .offre{position:relative;display:flex;flex-direction:column}
 .offre--phare{border:2px solid var(--braise);box-shadow:0 14px 36px rgba(228,97,12,.14)}
 .offre .badge{
@@ -353,8 +384,9 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
       <a href="#roles">Pour qui</a>
       <a href="#offres">Offres</a>
       <a href="#installer">Installer</a>
+      <a class="lien-inscription" href="#inscription">Inscrire mon école</a>
     </nav>
-    <a class="btn btn--vert btn--petit lien-inscription" href="#inscription">Inscrire mon école</a>
+    <a id="lienConnexion" class="btn btn--vert btn--petit" href="#" target="_blank" rel="noopener">Se connecter</a>
     <button type="button" class="burger" id="burger" aria-expanded="false" aria-controls="navPrincipale" aria-label="Ouvrir le menu">
       <span></span><span></span><span></span>
     </button>
@@ -374,6 +406,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
         <a class="btn btn--vert lien-inscription" href="#inscription">Inscrire mon école</a>
       </div>
       <ul class="rassure">
+        <li>Essai gratuit de 14 jours</li>
         <li>Sans carte bancaire</li>
         <li>Web, Android et iPhone</li>
       </ul>
@@ -382,11 +415,12 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <!-- L'écran élève de Scolaris, reconstruit à l'identique -->
     <div class="scene">
       <div class="lueur" aria-hidden="true"></div>
+      <p class="badge-flottant" aria-hidden="true">🕐 Essai gratuit · 14 jours</p>
       <div class="tel" role="img" aria-label="Aperçu de l'application Scolaris : tableau de bord d'un élève avec sa moyenne, ses notes, ses absences et son emploi du temps">
         <div class="tel__ecran">
           <div class="tel__barre">
             <span class="tel__burger" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="tel__logo">S</span>
+            <img class="tel__logo" src="logo.png" alt="" width="18" height="18">
             <span class="tel__nom">Scolaris</span>
             <span class="tel__cloche" aria-hidden="true">🔔</span>
             <span class="tel__avatar" aria-hidden="true">FO</span>
@@ -455,8 +489,6 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
       <article class="carte rev"><span class="pastille pastille--rouge">📅</span><h3>Emploi du temps</h3><p>La semaine de chaque classe et de chaque enseignant, visible par les élèves depuis leur téléphone.</p></article>
       <article class="carte rev"><span class="pastille pastille--vert">▣</span><h3>Absences</h3><p>Appel quotidien, suivi par élève et par classe, total des jours d'absence sur le tableau de bord.</p></article>
       <article class="carte rev"><span class="pastille pastille--orange">💳</span><h3>Facturation &amp; scolarité</h3><p>Frais de scolarité, paiements enregistrés, situation de chaque famille et relances avant les compositions.</p></article>
-      <article class="carte rev"><span class="pastille pastille--or">📚</span><h3>Bibliothèque numérique</h3><p>Livres, supports de cours et sujets d'examens en ligne, avec favoris et suivi de lecture pour chaque élève.</p></article>
-      <article class="carte rev"><span class="pastille pastille--rouge">🏅</span><h3>Cahier de liaison &amp; mérite</h3><p>Mots de la direction aux familles, badges et points de mérite pour valoriser assiduité et bons résultats.</p></article>
     </div>
   </div>
 </section>
@@ -509,6 +541,50 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
   </div>
 </section>
 
+<!-- ============ PREUVES SOCIALES ============ -->
+<section class="section" id="avis" style="padding-top:0">
+  <div class="large">
+    <p class="oeil rev">Ce que dit le terrain</p>
+    <h2 class="rev">Des écoles qui gagnent du temps chaque jour</h2>
+    <p class="chapo rev">Chiffres et retours illustratifs — Scolaris est en phase de déploiement, ces exemples seront remplacés par de vrais témoignages d'écoles clientes.</p>
+
+    <div class="chiffres">
+      <div class="chiffre rev"><b>12+</b><span>écoles équipées</span></div>
+      <div class="chiffre rev"><b>3 000+</b><span>élèves suivis</span></div>
+      <div class="chiffre rev"><b>98%</b><span>satisfaction direction</span></div>
+      <div class="chiffre rev"><b>24h</b><span>délai moyen de mise en route</span></div>
+    </div>
+
+    <div class="grille-3">
+      <article class="carte temoin rev">
+        <p class="etoiles">★★★★★</p>
+        <blockquote>« Avant Scolaris, les bulletins prenaient une semaine. Maintenant c'est réglé en un après-midi, et les parents suivent tout en direct. »</blockquote>
+        <div class="qui">
+          <span class="avatar">N</span>
+          <div><p class="nom">Mme Nkounkou</p><p class="role">Directrice, exemple illustratif</p></div>
+        </div>
+      </article>
+      <article class="carte temoin rev">
+        <p class="etoiles">★★★★★</p>
+        <blockquote>« L'appel se fait en quinze secondes depuis le téléphone. Les parents voient l'absence le jour même. »</blockquote>
+        <div class="qui">
+          <span class="avatar">B</span>
+          <div><p class="nom">M. Bakala</p><p class="role">Enseignant, exemple illustratif</p></div>
+        </div>
+      </article>
+      <article class="carte temoin rev">
+        <p class="etoiles">★★★★★</p>
+        <blockquote>« La gestion des paiements est enfin claire, pour nous comme pour les familles. »</blockquote>
+        <div class="qui">
+          <span class="avatar">L</span>
+          <div><p class="nom">Mme Loubaki</p><p class="role">Économe, exemple illustratif</p></div>
+        </div>
+      </article>
+    </div>
+    <p class="donnees-note rev">⚠️ Données fictives à titre d'illustration — à remplacer par de vrais chiffres et témoignages dès les premiers retours clients.</p>
+  </div>
+</section>
+
 <!-- ============ MISE EN ROUTE ============ -->
 <section class="section" id="marche" style="padding-top:0">
   <div class="large">
@@ -528,6 +604,8 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
     <p class="oeil rev">Abonnement mensuel, sans engagement</p>
     <h2 class="rev">Des offres à la taille de votre établissement</h2>
     <p class="chapo rev">Choisissez seulement les modules dont vous avez besoin — Académique, Présences, Finances, Inscriptions — le prix suit ce que vous utilisez vraiment.</p>
+
+    <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 14 jours — toutes les fonctions, sans carte bancaire.</p>
 
     <div class="grille-3">
       <article class="carte offre rev">
@@ -715,6 +793,7 @@ document.querySelectorAll("[data-app], #btnDemo").forEach(a=>{
 document.querySelectorAll(".lien-inscription").forEach(a=>{
   a.href = CONFIG.LIEN_APP + "#/register-school"; a.target = "_blank"; a.rel = "noopener";
 });
+document.getElementById("lienConnexion").href = CONFIG.LIEN_APP + "#/login";
 if (CONFIG.LIEN_APK){
   document.getElementById("blocApk").hidden = false;
   document.getElementById("lienApk").href = CONFIG.LIEN_APK;
