@@ -44,7 +44,16 @@ class MobileShell extends ConsumerStatefulWidget {
 
 class _MobileShellState extends ConsumerState<MobileShell>
     with SingleTickerProviderStateMixin {
-  int _pageIndex = 0;
+  // Par labelKey, pas par index brut : drawerEntries est filtré par
+  // modules/permissions et peut se réorganiser (ex. install d'un module
+  // depuis la page « Modules »), ce qui décalerait un int vers une autre page.
+  String? _currentLabelKey;
+
+  int _indexFor(List<RoleNavEntry> entries) {
+    if (_currentLabelKey == null) return 0;
+    final idx = entries.indexWhere((e) => e.labelKey == _currentLabelKey);
+    return idx >= 0 ? idx : 0;
+  }
 
   late final AnimationController _menuCtrl;
   late final Animation<double>   _menuAnim;
@@ -95,8 +104,9 @@ class _MobileShellState extends ConsumerState<MobileShell>
   void _toggleMenu() => _menuOpen ? _closeMenu() : _openMenu();
 
   void _navigateTo(String labelKey) {
-    final idx = widget.drawerEntries.indexWhere((e) => e.labelKey == labelKey);
-    if (idx >= 0) setState(() => _pageIndex = idx);
+    if (widget.drawerEntries.any((e) => e.labelKey == labelKey)) {
+      setState(() => _currentLabelKey = labelKey);
+    }
   }
 
   void _onDragStart(DragStartDetails d) {
@@ -143,6 +153,7 @@ class _MobileShellState extends ConsumerState<MobileShell>
         ref.read(navIntentProvider.notifier).state = null;
       }
     });
+    final pageIndex = _indexFor(widget.drawerEntries);
     final size = MediaQuery.sizeOf(context);
     final user = ref.watch(authSessionProvider);
     final accent = Theme.of(context).colorScheme.primary;
@@ -222,12 +233,12 @@ class _MobileShellState extends ConsumerState<MobileShell>
                             user: user,
                             onMenu: _toggleMenu,
                             onAccount: _openAccount,
-                            pageIndex: _pageIndex,
+                            pageIndex: pageIndex,
                             entries: widget.drawerEntries,
                             showTabBar: ref.watch(settingsProvider).afficherBarreOnglets,
                             onTabTap: (i) {
                               if (_menuOpen) _closeMenu();
-                              setState(() => _pageIndex = i);
+                              setState(() => _currentLabelKey = widget.drawerEntries[i].labelKey);
                             },
                           ),
                           // Réservée à l'admin (staff) : seul lui paie et peut
@@ -236,8 +247,8 @@ class _MobileShellState extends ConsumerState<MobileShell>
                             const SubscriptionAlertBanner(),
                           Expanded(
                             child: KeyedSubtree(
-                              key: ValueKey(_pageIndex),
-                              child: widget.drawerEntries[_pageIndex].page,
+                              key: ValueKey(pageIndex),
+                              child: widget.drawerEntries[pageIndex].page,
                             ),
                           ),
                         ]),

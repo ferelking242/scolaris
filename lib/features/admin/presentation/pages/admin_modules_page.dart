@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
@@ -25,15 +26,18 @@ class AdminModulesPage extends ConsumerWidget {
     final subAsync = ref.watch(subscriptionProvider);
     final plansAsync = ref.watch(plansProvider);
     final schoolAsync = ref.watch(schoolProvider);
+    final pricesAsync = ref.watch(planPricesProvider);
 
     Future<void> refresh() async {
       ref.invalidate(subscriptionProvider);
       ref.invalidate(plansProvider);
       ref.invalidate(schoolProvider);
+      ref.invalidate(planPricesProvider);
       await Future.wait([
         ref.read(subscriptionProvider.future),
         ref.read(plansProvider.future),
         ref.read(schoolProvider.future),
+        ref.read(planPricesProvider.future),
       ]);
     }
 
@@ -55,16 +59,33 @@ class AdminModulesPage extends ConsumerWidget {
 
     final sub = subAsync.value;
     final plans = plansAsync.value ?? const <SbPlan>[];
+    final prices = pricesAsync.value ?? const <SbPlanPrice>[];
     final school = schoolAsync.value;
     final currentPlan = plans.where((p) => p.code == sub?.planCode).firstOrNull;
     final planName = currentPlan?.name ?? sub?.planCode?.toUpperCase() ?? '—';
     final quota = (currentPlan?.maxModules ?? 0) + (sub?.extraModuleSlots ?? 0);
 
+    // Prix de l'emplacement à la carte (pseudo-offre cachée 'addon_slot').
+    double? addonSlotPrice(String period) {
+      for (final p in prices) {
+        if (p.planCode == 'addon_slot' && p.period == period) return p.price;
+      }
+      return null;
+    }
+
     return PageScaffold(
       title: 'Modules',
       subtitle: 'Installez les modules complémentaires inclus dans votre offre',
       onRefresh: refresh,
-      child: _ModulesBody(quota: quota, planName: planName, school: school),
+      child: _ModulesBody(
+        quota: quota,
+        planName: planName,
+        school: school,
+        sub: sub,
+        addonMonthly: addonSlotPrice('monthly'),
+        addonAnnual: addonSlotPrice('annual'),
+        currency: prices.isNotEmpty ? prices.first.currency : 'XAF',
+      ),
     );
   }
 }
@@ -75,7 +96,19 @@ class _ModulesBody extends ConsumerStatefulWidget {
   final int quota;
   final String planName;
   final SbSchool? school;
-  const _ModulesBody({required this.quota, required this.planName, required this.school});
+  final SbSubscription? sub;
+  final double? addonMonthly;
+  final double? addonAnnual;
+  final String currency;
+  const _ModulesBody({
+    required this.quota,
+    required this.planName,
+    required this.school,
+    required this.sub,
+    this.addonMonthly,
+    this.addonAnnual,
+    this.currency = 'XAF',
+  });
 
   @override
   ConsumerState<_ModulesBody> createState() => _ModulesBodyState();
@@ -264,16 +297,50 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFC17F24).withValues(alpha: .3)),
           ),
-          child: Row(children: [
-            const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFC17F24)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Quota atteint pour votre offre ${widget.planName}. Retirez un module, achetez un '
-                'emplacement à la carte, ou passez à une offre supérieure depuis « Mon abonnement ».',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8A5A12), fontWeight: FontWeight.w600),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFC17F24)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Quota atteint pour votre offre ${widget.planName}. Retirez un module, achetez un '
+                  'emplacement à la carte, ou passez à une offre supérieure.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A5A12), fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
+            ]),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (school != null)
+                OutlinedButton.icon(
+                  onPressed: widget.sub == null
+                      ? null
+                      : () => showDialog(
+                            context: context,
+                            builder: (_) => _BuySlotDialog(
+                              sub: widget.sub!,
+                              monthly: widget.addonMonthly,
+                              annual: widget.addonAnnual,
+                              currency: widget.currency,
+                            ),
+                          ),
+                  icon: const Icon(Icons.add_box_outlined, size: 15, color: Color(0xFFC17F24)),
+                  label: Text(
+                    widget.addonMonthly != null
+                        ? 'Acheter un emplacement (+${NumberFormat.decimalPattern('fr').format(widget.addonMonthly)} ${widget.currency}/mois)'
+                        : 'Acheter un emplacement',
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF8A5A12)),
+                  ),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFC17F24))),
+                ),
+              OutlinedButton.icon(
+                onPressed: () => ref.read(navIntentProvider.notifier).state = 'nav.subscription',
+                icon: const Icon(Icons.upgrade_rounded, size: 15, color: Color(0xFF8B1A00)),
+                label: const Text("Passer à l'offre supérieure",
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF8B1A00))),
+                style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF8B1A00))),
+              ),
+            ]),
           ]),
         ),
       ],
@@ -412,5 +479,204 @@ class _ModuleCard extends StatelessWidget {
       const SizedBox(width: 8),
       Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
     ]);
+  }
+}
+
+/// Dialogue d'achat à la carte d'un EMPLACEMENT de module supplémentaire —
+/// pas un module précis (celui-ci s'installe ensuite normalement depuis le
+/// catalogue ci-dessus). Même mécanique de paiement manuel que
+/// `_ChoosePlanDialog` (Mobile Money, référence saisie à la main, activé par
+/// le super-admin après vérification) mais sans prorata/crédit : c'est un
+/// ajout de capacité, pas un changement d'offre.
+///
+/// Déplacé depuis `admin_subscription_page.dart` le 09/08/2026 : l'achat
+/// d'emplacement concerne les modules, donc vit désormais avec eux.
+class _BuySlotDialog extends ConsumerStatefulWidget {
+  final SbSubscription sub;
+  final double? monthly;
+  final double? annual;
+  final String currency;
+  const _BuySlotDialog({required this.sub, required this.monthly, required this.annual, required this.currency});
+
+  @override
+  ConsumerState<_BuySlotDialog> createState() => _BuySlotDialogState();
+}
+
+class _BuySlotDialogState extends ConsumerState<_BuySlotDialog> {
+  bool _yearly = false;
+  bool _processing = false;
+  String _operator = 'mtn';
+  final _reference = TextEditingController();
+  final _fmt = NumberFormat.decimalPattern('fr');
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    super.dispose();
+  }
+
+  double? get _price => _yearly ? widget.annual : widget.monthly;
+
+  Future<void> _pay() async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final price = _price;
+    final ref_ = _reference.text.trim();
+    if (schoolId == null || price == null || widget.sub.id.isEmpty || ref_.isEmpty) return;
+    setState(() => _processing = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.submitSubscriptionPayment(
+        subscriptionId: widget.sub.id,
+        schoolId: schoolId,
+        planCode: 'addon_slot',
+        period: _yearly ? 'annual' : 'monthly',
+        amount: price,
+        currency: widget.currency,
+        reference: ref_,
+        provider: _operator,
+        paymentType: 'addon_slot',
+        quantity: 1,
+      );
+      ref.invalidate(subscriptionPaymentsProvider);
+      if (mounted) navigator.pop();
+      messenger.showSnackBar(const SnackBar(
+        backgroundColor: Color(0xFFC17F24),
+        behavior: SnackBarBehavior.floating,
+        content: Text('Versement enregistré — en attente de vérification. '
+            'Votre emplacement supplémentaire s\'active dès que le paiement est confirmé.'),
+        duration: Duration(seconds: 4),
+      ));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        messenger.showSnackBar(SnackBar(
+            content: Text('Échec : $e'), backgroundColor: const Color(0xFF8B1A00)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const c = Color(0xFF0E7490);
+    final momoSettings = ref.watch(platformPaymentSettingsProvider).valueOrNull ?? const [];
+    SbPlatformPaymentSetting? momoFor(String provider) =>
+        momoSettings.where((m) => m.provider == provider).firstOrNull;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Acheter un emplacement de module',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+                'Cet emplacement s\'ajoute à votre offre en cours — il ne remplace '
+                'rien. Vous choisissez ensuite quel module y installer depuis le '
+                'catalogue (Finances, Présences ou Inscriptions).',
+                style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
+            const SizedBox(width: 10),
+            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
+          ]),
+          const SizedBox(height: 18),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, children: [
+            Text(_price != null ? _fmt.format(_price) : '—',
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: c)),
+            const SizedBox(width: 6),
+            Text('${widget.currency} ${_yearly ? "/an" : "/mois"}',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+          ]),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', momoFor('mtn')?.phoneNumber ?? '—', c)),
+            const SizedBox(width: 10),
+            Expanded(child: _operatorBtn('airtel', 'Airtel Money', momoFor('airtel')?.phoneNumber ?? '—', c)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reference,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Référence de transaction (reçue par SMS)',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _processing ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _processing || _price == null || _reference.text.trim().isEmpty ? null : _pay,
+          style: FilledButton.styleFrom(backgroundColor: c),
+          child: _processing
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Confirmer mon versement'),
+        ),
+      ],
+    );
+  }
+
+  Widget _operatorBtn(String value, String label, String number, Color c) {
+    final sel = _operator == value;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _operator = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Column(children: [
+            Text(label,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: sel ? c : context.cInk)),
+            const SizedBox(height: 2),
+            Text(number, style: TextStyle(fontSize: 11, color: context.cMuted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _periodBtn(String label, bool sel, Color c, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: sel ? c : context.cInk,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+        ),
+      ),
+    );
   }
 }

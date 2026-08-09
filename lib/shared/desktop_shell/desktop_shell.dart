@@ -72,12 +72,23 @@ class DesktopShell extends ConsumerStatefulWidget {
 }
 
 class _DesktopShellState extends ConsumerState<DesktopShell> {
-  int _flatIndex = 0;
+  // On ne mémorise plus un index brut : la liste de nav est filtrée par
+  // modules/permissions et peut se réorganiser à tout moment (ex. install
+  // d'un module depuis la page « Modules »), ce qui décalerait un simple
+  // int vers une tout autre page. On mémorise la page par labelKey et on
+  // recalcule l'index correspondant à chaque build.
+  String? _currentLabelKey;
   _SideMode _mode = _SideMode.icons;
   bool _showSettings = false;
 
   List<DesktopNavItem> get _flatItems =>
       [for (final g in widget.groups) ...g.items];
+
+  int _indexFor(List<DesktopNavItem> items) {
+    if (_currentLabelKey == null) return 0;
+    final idx = items.indexWhere((e) => e.labelKey == _currentLabelKey);
+    return idx >= 0 ? idx : 0;
+  }
 
   void _toggle() => setState(() {
     _mode = _mode == _SideMode.full ? _SideMode.icons : _SideMode.full;
@@ -89,10 +100,9 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
   void _goToLabelKey(String labelKey) {
     final items = _flatItems;
-    final idx = items.indexWhere((e) => e.labelKey == labelKey);
-    if (idx >= 0) {
+    if (items.any((e) => e.labelKey == labelKey)) {
       setState(() {
-        _flatIndex = idx;
+        _currentLabelKey = labelKey;
         _showSettings = false;
       });
     }
@@ -107,6 +117,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
         ref.read(navIntentProvider.notifier).state = null;
       }
     });
+    final flatItems = _flatItems;
+    final flatIndex = _indexFor(flatItems);
     final _isDark = Theme.of(context).brightness == Brightness.dark;
     final _accent = Theme.of(context).colorScheme.primary;
     final _side1  = _isDark
@@ -144,8 +156,8 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 _Sidebar(
                   groups: widget.groups,
                   collapsed: _mode == _SideMode.icons,
-                  currentIndex: _flatIndex,
-                  onSelect: (i) => setState(() { _flatIndex = i; _showSettings = false; }),
+                  currentIndex: flatIndex,
+                  onSelect: (i) => setState(() { _currentLabelKey = flatItems[i].labelKey; _showSettings = false; }),
                   onSettings: _openSettings,
                   onHelp: () => showDialog(
                     context: context,
@@ -180,7 +192,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                         color: Theme.of(context).scaffoldBackgroundColor,
                         child: _showSettings
                             ? const AccountPage()
-                            : _flatItems[_flatIndex].page,
+                            : flatItems[flatIndex].page,
                       ),
                     ),
                   ),

@@ -128,18 +128,19 @@ class AdminSubscriptionPage extends ConsumerWidget {
 
     // Offre juste au-dessus de l'offre en cours (pour le CTA "Passer à
     // l'offre supérieure" du catalogue de modules quand le quota est atteint).
-    final currentIndex = plans.indexWhere((p) => p.code == currentPlan);
-    final nextPlan = currentIndex >= 0 && currentIndex < plans.length - 1
-        ? plans[currentIndex + 1]
-        : null;
-
-    // Prix de l'emplacement à la carte (pseudo-offre cachée 'addon_slot').
-    double? addonSlotPrice(String period) {
-      for (final p in prices) {
-        if (p.planCode == 'addon_slot' && p.period == period) return p.price;
-      }
-      return null;
-    }
+    // ⚠️ Ne PAS se fier à l'index dans `plans` : bien que la requête trie par
+    // `sort_order`, un tri par index reste fragile (ordre DB modifié, filtre
+    // ajouté…) et a déjà produit un bug réel où l'offre suggérée à un
+    // abonné « Complet » (3 modules) était « Croissance » (1 module) — une
+    // rétrogradation déguisée en amélioration. On calcule donc la prochaine
+    // offre comme la première offre, dans l'ordre `sort_order`, dont le
+    // quota de modules dépasse strictement le quota actuel.
+    final sortedPlans = [...plans]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final nextPlan = currentPlanObj == null
+        ? null
+        : sortedPlans
+            .where((p) => (p.maxModules ?? 0) > (currentPlanObj.maxModules ?? 0))
+            .firstOrNull;
 
     return PageScaffold(
       onRefresh: refresh,
@@ -165,19 +166,6 @@ class AdminSubscriptionPage extends ConsumerWidget {
           child: _ModulesSummaryCard(
             quota: moduleQuota,
             planName: currentPlanObj?.name ?? currentPlan?.toUpperCase() ?? '—',
-            addonMonthlyPrice: addonSlotPrice('monthly'),
-            currency: currency,
-            onBuySlot: sub == null
-                ? null
-                : () => showDialog(
-                      context: context,
-                      builder: (_) => _BuySlotDialog(
-                        sub: sub,
-                        monthly: addonSlotPrice('monthly'),
-                        annual: addonSlotPrice('annual'),
-                        currency: currency,
-                      ),
-                    ),
             nextPlanName: nextPlan?.name,
             onUpgrade: nextPlan == null
                 ? null
@@ -266,17 +254,11 @@ class AdminSubscriptionPage extends ConsumerWidget {
 class _ModulesSummaryCard extends ConsumerWidget {
   final int quota;
   final String planName;
-  final double? addonMonthlyPrice;
-  final String currency;
-  final VoidCallback? onBuySlot;
   final String? nextPlanName;
   final VoidCallback? onUpgrade;
   const _ModulesSummaryCard({
     required this.quota,
     required this.planName,
-    this.addonMonthlyPrice,
-    this.currency = 'XAF',
-    this.onBuySlot,
     this.nextPlanName,
     this.onUpgrade,
   });
@@ -308,21 +290,9 @@ class _ModulesSummaryCard extends ConsumerWidget {
           style: FilledButton.styleFrom(backgroundColor: c),
         ),
       ]),
-      if (atQuota && (onBuySlot != null || onUpgrade != null)) ...[
+      if (atQuota && onUpgrade != null) ...[
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          if (onBuySlot != null)
-            OutlinedButton.icon(
-              onPressed: onBuySlot,
-              icon: const Icon(Icons.add_box_outlined, size: 15, color: c),
-              label: Text(
-                addonMonthlyPrice != null
-                    ? 'Acheter un emplacement (+${NumberFormat.decimalPattern('fr').format(addonMonthlyPrice)} $currency/mois)'
-                    : 'Acheter un emplacement',
-                style: const TextStyle(fontSize: 11.5, color: c),
-              ),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: c)),
-            ),
           if (onUpgrade != null)
             OutlinedButton.icon(
               onPressed: onUpgrade,
@@ -990,201 +960,6 @@ class _BillingHistory extends ConsumerWidget {
         downloadBtn,
       ]);
     });
-  }
-}
-
-/// Dialogue d'achat à la carte d'un EMPLACEMENT de module supplémentaire —
-/// pas un module précis (cf. `_ModulesPanel`). Même mécanique de paiement
-/// manuel que `_ChoosePlanDialog` (Mobile Money, référence saisie à la main,
-/// activé par le super-admin après vérification) mais sans prorata/crédit :
-/// c'est un ajout de capacité, pas un changement d'offre.
-class _BuySlotDialog extends ConsumerStatefulWidget {
-  final SbSubscription sub;
-  final double? monthly;
-  final double? annual;
-  final String currency;
-  const _BuySlotDialog({required this.sub, required this.monthly, required this.annual, required this.currency});
-
-  @override
-  ConsumerState<_BuySlotDialog> createState() => _BuySlotDialogState();
-}
-
-class _BuySlotDialogState extends ConsumerState<_BuySlotDialog> {
-  bool _yearly = false;
-  bool _processing = false;
-  String _operator = 'mtn';
-  final _reference = TextEditingController();
-  final _fmt = NumberFormat.decimalPattern('fr');
-
-  @override
-  void dispose() {
-    _reference.dispose();
-    super.dispose();
-  }
-
-  double? get _price => _yearly ? widget.annual : widget.monthly;
-
-  Future<void> _pay() async {
-    final schoolId = ref.read(currentSchoolIdProvider);
-    final price = _price;
-    final ref_ = _reference.text.trim();
-    if (schoolId == null || price == null || widget.sub.id.isEmpty || ref_.isEmpty) return;
-    setState(() => _processing = true);
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await SupabaseDbSource.submitSubscriptionPayment(
-        subscriptionId: widget.sub.id,
-        schoolId: schoolId,
-        planCode: 'addon_slot',
-        period: _yearly ? 'annual' : 'monthly',
-        amount: price,
-        currency: widget.currency,
-        reference: ref_,
-        provider: _operator,
-        paymentType: 'addon_slot',
-        quantity: 1,
-      );
-      ref.invalidate(subscriptionPaymentsProvider);
-      if (mounted) navigator.pop();
-      messenger.showSnackBar(const SnackBar(
-        backgroundColor: Color(0xFFC17F24),
-        behavior: SnackBarBehavior.floating,
-        content: Text('Versement enregistré — en attente de vérification. '
-            'Votre emplacement supplémentaire s\'active dès que le paiement est confirmé.'),
-        duration: Duration(seconds: 4),
-      ));
-    } catch (e) {
-      if (mounted) {
-        setState(() => _processing = false);
-        messenger.showSnackBar(SnackBar(
-            content: Text('Échec : $e'), backgroundColor: const Color(0xFF8B1A00)));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const c = Color(0xFF0E7490);
-    final momoSettings = ref.watch(platformPaymentSettingsProvider).valueOrNull ?? const [];
-    SbPlatformPaymentSetting? momoFor(String provider) =>
-        momoSettings.where((m) => m.provider == provider).firstOrNull;
-
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Acheter un emplacement de module',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      content: SizedBox(
-        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: c.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-                'Cet emplacement s\'ajoute à votre offre en cours — il ne remplace '
-                'rien. Vous choisissez ensuite quel module y installer depuis le '
-                'catalogue (Finances, Présences ou Inscriptions).',
-                style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
-            const SizedBox(width: 10),
-            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
-          ]),
-          const SizedBox(height: 18),
-          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic, children: [
-            Text(_price != null ? _fmt.format(_price) : '—',
-                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: c)),
-            const SizedBox(width: 6),
-            Text('${widget.currency} ${_yearly ? "/an" : "/mois"}',
-                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
-          ]),
-          const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', momoFor('mtn')?.phoneNumber ?? '—', c)),
-            const SizedBox(width: 10),
-            Expanded(child: _operatorBtn('airtel', 'Airtel Money', momoFor('airtel')?.phoneNumber ?? '—', c)),
-          ]),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _reference,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Référence de transaction (reçue par SMS)',
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            ),
-          ),
-        ]),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _processing ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          onPressed: _processing || _price == null || _reference.text.trim().isEmpty ? null : _pay,
-          style: FilledButton.styleFrom(backgroundColor: c),
-          child: _processing
-              ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Confirmer mon versement'),
-        ),
-      ],
-    );
-  }
-
-  Widget _operatorBtn(String value, String label, String number, Color c) {
-    final sel = _operator == value;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => setState(() => _operator = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: sel ? c.withValues(alpha: .12) : context.cCard,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
-          ),
-          child: Column(children: [
-            Text(label,
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: sel ? c : context.cInk)),
-            const SizedBox(height: 2),
-            Text(number, style: TextStyle(fontSize: 11, color: context.cMuted)),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _periodBtn(String label, bool sel, Color c, VoidCallback onTap) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: sel ? c.withValues(alpha: .12) : context.cCard,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
-          ),
-          child: Text(label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5, color: sel ? c : context.cInk,
-                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
-        ),
-      ),
-    );
   }
 }
 
