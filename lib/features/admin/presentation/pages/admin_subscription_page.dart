@@ -18,10 +18,19 @@ const _featureLabels = <String, String>{
   '1_module_complementaire_au_choix': '1 module complémentaire au choix (Finances, Présences ou Inscriptions)',
   'tous_modules_complementaires': 'Tous les modules complémentaires (Finances, Présences, Inscriptions)',
   'rapport_premium': 'Rapport Premium (tendances de recouvrement)',
+  'multi_etablissements': 'Multi-établissements (plusieurs écoles d\'un même groupe)',
+  'marque_blanche': 'Marque blanche (logo, couleurs, domaine personnalisés)',
+  'support_dedie': 'Support dédié, un interlocuteur attitré',
+  'export_api': 'Accès API pour vos propres outils',
 };
 
-/// Noms d'offres, alignés sur les modules (cf. 20260801_offer_tiers.sql).
-const _planNames = <String, String>{'simple': 'Essentiel', 'pro': 'Croissance', 'max': 'Complet'};
+/// Noms d'offres, alignés sur les modules (cf. 20260809_new_pricing_entreprise.sql).
+const _planNames = <String, String>{
+  'simple': 'Essentiel',
+  'pro': 'Croissance',
+  'max': 'Complet',
+  'entreprise': 'Entreprise',
+};
 
 /// Numéros marchands Mobile Money DE SCOLARIS (pas de l'école) — où les
 /// écoles envoient leur règlement d'abonnement tant qu'aucun agrégateur n'est
@@ -42,11 +51,13 @@ class AdminSubscriptionPage extends ConsumerWidget {
   static const _green = Color(0xFF15803D);
   static const _cyan = Color(0xFF0E7490);
   static const _violet = Color(0xFF7C3AED);
+  static const _graphite = Color(0xFF111827);
 
   Color _planColor(String code) => switch (code) {
         'simple' => _green,
         'pro' => _cyan,
         'max' => _violet,
+        'entreprise' => _graphite,
         _ => muted,
       };
 
@@ -1381,6 +1392,29 @@ class _PlanCard extends StatelessWidget {
     required this.onChoose,
   });
 
+  bool get _isEnterprise => plan.code == 'entreprise';
+
+  void _showContactDialog(BuildContext context) => showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Offre Entreprise — sur devis',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          content: Text(
+              'Multi-établissements, marque blanche, API et support dédié : '
+              'contactez Scolaris au $_scolarisContactPhone (WhatsApp) pour '
+              'construire une offre adaptée à votre groupe scolaire.',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4)),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(backgroundColor: color),
+              child: const Text('Compris'),
+            ),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1414,14 +1448,18 @@ class _PlanCard extends StatelessWidget {
           Text(plan.tagline!, style: TextStyle(fontSize: 12, color: context.cMuted)),
         ],
         const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(monthly != null ? fmt.format(monthly) : '—',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
-            const SizedBox(width: 4),
-            Text('$currency /mois', style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-          ],
-        ),
+        if (_isEnterprise && monthly == null)
+          Text('Sur devis',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color))
+        else
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(monthly != null ? fmt.format(monthly) : '—',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
+              const SizedBox(width: 4),
+              Text('$currency /mois', style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ],
+          ),
         if (monthly != null) ...[
           const SizedBox(height: 6),
           Container(
@@ -1491,7 +1529,7 @@ class _PlanCard extends StatelessWidget {
                   child: Text('Offre actuelle', style: TextStyle(color: color)),
                 )
               : ElevatedButton(
-                  onPressed: onChoose,
+                  onPressed: _isEnterprise ? () => _showContactDialog(context) : onChoose,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
                     foregroundColor: Colors.white,
@@ -1499,8 +1537,8 @@ class _PlanCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Choisir cette offre',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(_isEnterprise ? 'Nous contacter' : 'Choisir cette offre',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
         ),
       ]),

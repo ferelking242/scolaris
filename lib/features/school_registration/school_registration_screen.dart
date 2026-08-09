@@ -1404,9 +1404,9 @@ class _StepProgressRing extends StatelessWidget {
 /// authentifiés. Reste la SEULE source à mettre à jour si les tarifs
 /// changent côté DB.
 ({String code, String name, int priceMonthly}) _planForModuleCount(int count) {
-  if (count <= 0) return (code: 'simple', name: 'Essentiel', priceMonthly: 8900);
-  if (count <= 1) return (code: 'pro', name: 'Croissance', priceMonthly: 17900);
-  return (code: 'max', name: 'Complet', priceMonthly: 29900);
+  if (count <= 0) return (code: 'simple', name: 'Essentiel', priceMonthly: 15000);
+  if (count <= 1) return (code: 'pro', name: 'Croissance', priceMonthly: 35000);
+  return (code: 'max', name: 'Complet', priceMonthly: 65000);
 }
 
 /// Bandeau d'aperçu tarifaire — se met à jour en direct pendant que l'admin
