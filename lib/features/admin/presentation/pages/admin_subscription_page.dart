@@ -1,24 +1,36 @@
-import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
-import '../../../../shared/data/features_catalog.dart' show kAppModules;
+import '../../../../shared/data/features_catalog.dart' show AppModule, kAppModules;
 import '../../../../shared/pdf/subscription_receipt_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 /// Libellés lisibles des clés de fonctionnalités stockées en base (`plans.features`).
+/// Académique n'est plus « un module parmi d'autres » mais le socle toujours
+/// inclus (cf. 20260809_module_marketplace.sql) — les autres clés décrivent
+/// le quota d'emplacements de modules complémentaires (Finances/Présences/
+/// Inscriptions) débloqués par l'offre.
 const _featureLabels = <String, String>{
-  '1_module_au_choix': '1 module au choix (Académique, Présences, Finances ou Inscriptions)',
-  'jusqu_a_3_modules': 'Jusqu\'à 3 modules au choix',
-  '4_modules': 'Les 4 modules (Académique, Présences, Finances, Inscriptions)',
+  'academique_inclus': 'Académique inclus (notes, bulletins, emploi du temps, statistiques)',
+  '1_module_complementaire_au_choix': '1 module complémentaire au choix (Finances, Présences ou Inscriptions)',
+  'tous_modules_complementaires': 'Tous les modules complémentaires (Finances, Présences, Inscriptions)',
   'rapport_premium': 'Rapport Premium (tendances de recouvrement)',
+  'multi_etablissements': 'Multi-établissements (plusieurs écoles d\'un même groupe)',
+  'marque_blanche': 'Marque blanche (logo, couleurs, domaine personnalisés)',
+  'support_dedie': 'Support dédié, un interlocuteur attitré',
+  'export_api': 'Accès API pour vos propres outils',
 };
 
-/// Noms d'offres, alignés sur les modules (cf. 20260801_offer_tiers.sql).
-const _planNames = <String, String>{'simple': 'Essentiel', 'pro': 'Croissance', 'max': 'Complet'};
+/// Noms d'offres, alignés sur les modules (cf. 20260809_new_pricing_entreprise.sql).
+const _planNames = <String, String>{
+  'simple': 'Essentiel',
+  'pro': 'Croissance',
+  'max': 'Complet',
+  'entreprise': 'Entreprise',
+};
 
 /// Numéros marchands Mobile Money DE SCOLARIS (pas de l'école) — où les
 /// écoles envoient leur règlement d'abonnement tant qu'aucun agrégateur n'est
@@ -39,11 +51,13 @@ class AdminSubscriptionPage extends ConsumerWidget {
   static const _green = Color(0xFF15803D);
   static const _cyan = Color(0xFF0E7490);
   static const _violet = Color(0xFF7C3AED);
+  static const _graphite = Color(0xFF111827);
 
   Color _planColor(String code) => switch (code) {
         'simple' => _green,
         'pro' => _cyan,
         'max' => _violet,
+        'entreprise' => _graphite,
         _ => muted,
       };
 
@@ -106,6 +120,26 @@ class AdminSubscriptionPage extends ConsumerWidget {
         ? null
         : surcharges.where((s) => s.planCode == currentPlan && s.matches(count)).firstOrNull;
     final fmt = NumberFormat.decimalPattern('fr');
+    final currency = prices.isNotEmpty ? prices.first.currency : 'XAF';
+
+    // Quota EFFECTIF = ce qu'inclut l'offre + les emplacements achetés à la
+    // carte (`subscriptions.extra_module_slots`), cf. 20260809_module_slot_addon.sql.
+    final moduleQuota = (currentPlanObj?.maxModules ?? 0) + (sub?.extraModuleSlots ?? 0);
+
+    // Offre juste au-dessus de l'offre en cours (pour le CTA "Passer à
+    // l'offre supérieure" du catalogue de modules quand le quota est atteint).
+    final currentIndex = plans.indexWhere((p) => p.code == currentPlan);
+    final nextPlan = currentIndex >= 0 && currentIndex < plans.length - 1
+        ? plans[currentIndex + 1]
+        : null;
+
+    // Prix de l'emplacement à la carte (pseudo-offre cachée 'addon_slot').
+    double? addonSlotPrice(String period) {
+      for (final p in prices) {
+        if (p.planCode == 'addon_slot' && p.period == period) return p.price;
+      }
+      return null;
+    }
 
     return PageScaffold(
       onRefresh: refresh,
@@ -126,9 +160,30 @@ class AdminSubscriptionPage extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 14),
-        const DataPanel(
-          title: 'Modules actifs',
-          child: _ModulesPanel(),
+        DataPanel(
+          title: 'Catalogue de modules',
+          child: _ModulesPanel(
+            quota: moduleQuota,
+            planName: currentPlanObj?.name ?? currentPlan?.toUpperCase() ?? '—',
+            addonMonthlyPrice: addonSlotPrice('monthly'),
+            addonAnnualPrice: addonSlotPrice('annual'),
+            currency: currency,
+            onBuySlot: sub == null
+                ? null
+                : () => showDialog(
+                      context: context,
+                      builder: (_) => _BuySlotDialog(
+                        sub: sub,
+                        monthly: addonSlotPrice('monthly'),
+                        annual: addonSlotPrice('annual'),
+                        currency: currency,
+                      ),
+                    ),
+            nextPlanName: nextPlan?.name,
+            onUpgrade: nextPlan == null
+                ? null
+                : () => _onChoose(context, ref, nextPlan, monthlyPrice(nextPlan.code), currency, sub),
+          ),
         ),
         const SizedBox(height: 14),
         DataPanel(
@@ -708,71 +763,245 @@ class _SizeSurchargeRow extends StatelessWidget {
   }
 }
 
-/// Modules actifs de l'école — modifiable après l'inscription (décision
-/// utilisateur explicite). Décocher/cocher change ce qui apparaît dans le
-/// tableau de bord de tout le monde (admin/enseignants/parents), cf. la
-/// même logique de filtrage que dans `AdminHome`/`TeacherHome`/`StudentHome`.
+/// Catalogue de modules — remplace l'ancien panneau à cases à cocher par une
+/// logique « app store » (décision du 09/08/2026, cf. conversation business
+/// plan) : Académique est un socle toujours actif (jamais installé/désinstallé
+/// depuis ici), et les modules complémentaires (Finances/Présences/Inscriptions)
+/// s'installent/se désinstallent un par un, dans la limite du quota
+/// d'emplacements de l'offre en cours (`plans.max_modules`). Installer/retirer
+/// change ce qui apparaît dans le tableau de bord de tout le monde
+/// (admin/enseignants/parents), cf. la même logique de filtrage que dans
+/// `AdminHome`/`TeacherHome`/`StudentHome`.
 class _ModulesPanel extends ConsumerStatefulWidget {
-  const _ModulesPanel();
+  final int quota;
+  final String planName;
+  final double? addonMonthlyPrice;
+  final double? addonAnnualPrice;
+  final String currency;
+  final VoidCallback? onBuySlot;
+  final String? nextPlanName;
+  final VoidCallback? onUpgrade;
+  const _ModulesPanel({
+    required this.quota,
+    required this.planName,
+    this.addonMonthlyPrice,
+    this.addonAnnualPrice,
+    this.currency = 'XAF',
+    this.onBuySlot,
+    this.nextPlanName,
+    this.onUpgrade,
+  });
   @override
   ConsumerState<_ModulesPanel> createState() => _ModulesPanelState();
 }
 
 class _ModulesPanelState extends ConsumerState<_ModulesPanel> {
-  Set<String>? _draft;
-  bool _saving = false;
+  String? _busyModuleId;
+
+  Future<void> _toggle(String schoolId, Set<String> saved, String moduleId, bool install) async {
+    setState(() => _busyModuleId = moduleId);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final next = Set<String>.from(saved);
+      if (install) { next.add(moduleId); } else { next.remove(moduleId); }
+      next.add('academic'); // socle toujours actif — conservé en base pour compat élève/prof/parent
+      await SupabaseDbSource.updateSchoolModules(schoolId, next.toList());
+      ref.invalidate(schoolProvider);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('$e'),
+        backgroundColor: const Color(0xFF8B1A00),
+      ));
+    } finally {
+      if (mounted) setState(() => _busyModuleId = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final school = ref.watch(schoolProvider).valueOrNull;
     final saved = (school?.modules.isNotEmpty ?? false) ? school!.modules.toSet() : kAppModules.map((m) => m.id).toSet();
-    final selected = _draft ?? saved;
-    final dirty = _draft != null && !setEquals(_draft, saved);
+    final installed = saved.where((m) => m != 'academic').toSet();
+    final used = installed.length;
+    final quota = widget.quota;
+    final atQuota = used >= quota;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      for (final m in kAppModules)
-        CheckboxListTile(
-          value: selected.contains(m.id),
-          onChanged: school == null ? null : (v) => setState(() {
-            final next = Set<String>.from(selected);
-            if (v == true) { next.add(m.id); } else { next.remove(m.id); }
-            _draft = next;
-          }),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          dense: true,
-          title: Text(m.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
-          subtitle: Text(m.description, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+      // ── Académique — pilule "toujours actif" ────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF15803D).withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF15803D).withValues(alpha: .25)),
         ),
-      if (dirty) ...[
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: Text(
-            selected.isEmpty
-                ? 'Aucun module actif : seules les fonctionnalités essentielles resteront visibles.'
-                : 'Le prix de votre offre peut changer selon le nombre de modules actifs.',
-            style: TextStyle(fontSize: 11.5, color: context.cMuted))),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () => setState(() => _draft = null),
-            child: const Text('Annuler'),
+        child: Row(children: [
+          const Icon(Icons.grade_outlined, size: 20, color: Color(0xFF15803D)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Académique', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
+              Text('Notes, bulletins, emploi du temps, statistiques de classe',
+                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ]),
           ),
-          ElevatedButton(
-            onPressed: _saving || school == null ? null : () async {
-              setState(() => _saving = true);
-              try {
-                await SupabaseDbSource.updateSchoolModules(school.id, selected.toList());
-                ref.invalidate(schoolProvider);
-                if (mounted) setState(() => _draft = null);
-              } finally {
-                if (mounted) setState(() => _saving = false);
-              }
-            },
-            child: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF15803D).withValues(alpha: .15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text('Toujours actif',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
           ),
+        ]),
+      ),
+
+      // ── Quota d'emplacements ─────────────────────────────────────────────
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('Modules complémentaires',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.cInk)),
+        Text(
+          quota == 0 ? 'Aucun emplacement' : '$used / $quota emplacement${quota > 1 ? "s" : ""} utilisé${used > 1 ? "s" : ""}',
+          style: TextStyle(
+              fontSize: 11.5,
+              color: atQuota ? const Color(0xFFC17F24) : context.cMuted,
+              fontWeight: FontWeight.w700),
+        ),
+      ]),
+      const SizedBox(height: 8),
+
+      for (final m in kAppModules)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _ModuleTile(
+            module: m,
+            installed: installed.contains(m.id),
+            busy: _busyModuleId == m.id,
+            blocked: !installed.contains(m.id) && atQuota,
+            onTap: school == null
+                ? null
+                : () => _toggle(school.id, saved, m.id, !installed.contains(m.id)),
+          ),
+        ),
+
+      if (quota == 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Votre offre ${widget.planName} n\'inclut aucun module complémentaire. '
+            'Achetez un emplacement à la carte ou passez à une offre supérieure pour en installer.',
+            style: TextStyle(fontSize: 11.5, color: context.cMuted),
+          ),
+        )
+      else if (atQuota)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Quota atteint pour votre offre ${widget.planName}. Désinstallez un module, '
+            'achetez un emplacement à la carte, ou passez à une offre supérieure pour en ajouter.',
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFFC17F24), fontWeight: FontWeight.w600),
+          ),
+        ),
+
+      if (atQuota && (widget.onBuySlot != null || widget.onUpgrade != null)) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (widget.onBuySlot != null)
+            OutlinedButton.icon(
+              onPressed: widget.onBuySlot,
+              icon: const Icon(Icons.add_box_outlined, size: 15, color: Color(0xFF0E7490)),
+              label: Text(
+                widget.addonMonthlyPrice != null
+                    ? 'Acheter un emplacement (+${NumberFormat.decimalPattern('fr').format(widget.addonMonthlyPrice)} ${widget.currency}/mois)'
+                    : 'Acheter un emplacement',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF0E7490)),
+              ),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF0E7490))),
+            ),
+          if (widget.onUpgrade != null)
+            ElevatedButton.icon(
+              onPressed: widget.onUpgrade,
+              icon: const Icon(Icons.upgrade_rounded, size: 15, color: Colors.white),
+              label: Text("Passer à ${widget.nextPlanName ?? "l'offre supérieure"}",
+                  style: const TextStyle(fontSize: 11.5, color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8B1A00), elevation: 0),
+            ),
         ]),
       ],
     ]);
+  }
+}
+
+/// Tuile « app store » d'un module complémentaire : Installer/Retirer, avec
+/// blocage visuel dès que le quota de l'offre est atteint.
+class _ModuleTile extends StatelessWidget {
+  final AppModule module;
+  final bool installed;
+  final bool busy;
+  final bool blocked;
+  final VoidCallback? onTap;
+  const _ModuleTile({
+    required this.module,
+    required this.installed,
+    required this.busy,
+    required this.blocked,
+    required this.onTap,
+  });
+
+  static const _cyan = Color(0xFF0E7490);
+  static const _red = Color(0xFFDC2626);
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = onTap == null || (blocked && !installed);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: installed ? _cyan.withValues(alpha: .05) : context.cSubtle,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: installed ? _cyan.withValues(alpha: .3) : context.cBorder),
+      ),
+      child: Row(children: [
+        Icon(module.icon, size: 20, color: installed ? _cyan : context.cMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(module.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+            Text(module.description, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 92,
+          height: 32,
+          child: busy
+              ? const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+              : installed
+                  ? OutlinedButton(
+                      onPressed: locked ? null : onTap,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: const BorderSide(color: _red),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Retirer', style: TextStyle(fontSize: 11.5, color: _red)),
+                    )
+                  : ElevatedButton(
+                      onPressed: locked ? null : onTap,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: locked ? context.cBorder : _cyan,
+                        padding: EdgeInsets.zero,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(locked ? 'Verrouillé' : 'Installer',
+                          style: TextStyle(fontSize: 11.5, color: locked ? context.cMuted : Colors.white)),
+                    ),
+        ),
+      ]),
+    );
   }
 }
 
@@ -823,7 +1052,12 @@ class _BillingHistory extends ConsumerWidget {
   }
 
   Widget _row(BuildContext context, SbSubscriptionPayment p, SbSchool? school) {
-    final planName = planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase();
+    // 'addon_slot' est une pseudo-offre cachée (jamais dans planNameByCode,
+    // qui ne liste que les offres publiques) — libellé dédié plutôt que
+    // d'afficher « Offre ADDON_SLOT » à l'école.
+    final planName = p.isAddonSlot
+        ? 'Emplacement de module ×${p.quantity}'
+        : (planNameByCode[p.planCode] ?? (p.planCode ?? '—').toUpperCase());
     final periodLabel = p.isYearly ? 'annuel' : 'mensuel';
 
     // Un versement Mobile Money soumis par l'école reste `pending` tant que le
@@ -851,7 +1085,7 @@ class _BillingHistory extends ConsumerWidget {
     final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Flexible(
-          child: Text('Offre $planName · $periodLabel',
+          child: Text('${p.isAddonSlot ? planName : 'Offre $planName'} · $periodLabel',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
@@ -923,6 +1157,201 @@ class _BillingHistory extends ConsumerWidget {
   }
 }
 
+/// Dialogue d'achat à la carte d'un EMPLACEMENT de module supplémentaire —
+/// pas un module précis (cf. `_ModulesPanel`). Même mécanique de paiement
+/// manuel que `_ChoosePlanDialog` (Mobile Money, référence saisie à la main,
+/// activé par le super-admin après vérification) mais sans prorata/crédit :
+/// c'est un ajout de capacité, pas un changement d'offre.
+class _BuySlotDialog extends ConsumerStatefulWidget {
+  final SbSubscription sub;
+  final double? monthly;
+  final double? annual;
+  final String currency;
+  const _BuySlotDialog({required this.sub, required this.monthly, required this.annual, required this.currency});
+
+  @override
+  ConsumerState<_BuySlotDialog> createState() => _BuySlotDialogState();
+}
+
+class _BuySlotDialogState extends ConsumerState<_BuySlotDialog> {
+  bool _yearly = false;
+  bool _processing = false;
+  String _operator = 'mtn';
+  final _reference = TextEditingController();
+  final _fmt = NumberFormat.decimalPattern('fr');
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    super.dispose();
+  }
+
+  double? get _price => _yearly ? widget.annual : widget.monthly;
+
+  Future<void> _pay() async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final price = _price;
+    final ref_ = _reference.text.trim();
+    if (schoolId == null || price == null || widget.sub.id.isEmpty || ref_.isEmpty) return;
+    setState(() => _processing = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SupabaseDbSource.submitSubscriptionPayment(
+        subscriptionId: widget.sub.id,
+        schoolId: schoolId,
+        planCode: 'addon_slot',
+        period: _yearly ? 'annual' : 'monthly',
+        amount: price,
+        currency: widget.currency,
+        reference: ref_,
+        provider: _operator,
+        paymentType: 'addon_slot',
+        quantity: 1,
+      );
+      ref.invalidate(subscriptionPaymentsProvider);
+      if (mounted) navigator.pop();
+      messenger.showSnackBar(const SnackBar(
+        backgroundColor: Color(0xFFC17F24),
+        behavior: SnackBarBehavior.floating,
+        content: Text('Versement enregistré — en attente de vérification. '
+            'Votre emplacement supplémentaire s\'active dès que le paiement est confirmé.'),
+        duration: Duration(seconds: 4),
+      ));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processing = false);
+        messenger.showSnackBar(SnackBar(
+            content: Text('Échec : $e'), backgroundColor: const Color(0xFF8B1A00)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const c = Color(0xFF0E7490);
+    final momoSettings = ref.watch(platformPaymentSettingsProvider).valueOrNull ?? const [];
+    SbPlatformPaymentSetting? momoFor(String provider) =>
+        momoSettings.where((m) => m.provider == provider).firstOrNull;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Acheter un emplacement de module',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width * 0.92).clamp(0, 380),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+                'Cet emplacement s\'ajoute à votre offre en cours — il ne remplace '
+                'rien. Vous choisissez ensuite quel module y installer depuis le '
+                'catalogue (Finances, Présences ou Inscriptions).',
+                style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
+            const SizedBox(width: 10),
+            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
+          ]),
+          const SizedBox(height: 18),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, children: [
+            Text(_price != null ? _fmt.format(_price) : '—',
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: c)),
+            const SizedBox(width: 6),
+            Text('${widget.currency} ${_yearly ? "/an" : "/mois"}',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+          ]),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: _operatorBtn('mtn', 'MTN MoMo', momoFor('mtn')?.phoneNumber ?? '—', c)),
+            const SizedBox(width: 10),
+            Expanded(child: _operatorBtn('airtel', 'Airtel Money', momoFor('airtel')?.phoneNumber ?? '—', c)),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reference,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Référence de transaction (reçue par SMS)',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _processing ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _processing || _price == null || _reference.text.trim().isEmpty ? null : _pay,
+          style: FilledButton.styleFrom(backgroundColor: c),
+          child: _processing
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Confirmer mon versement'),
+        ),
+      ],
+    );
+  }
+
+  Widget _operatorBtn(String value, String label, String number, Color c) {
+    final sel = _operator == value;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _operator = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Column(children: [
+            Text(label,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: sel ? c : context.cInk)),
+            const SizedBox(height: 2),
+            Text(number, style: TextStyle(fontSize: 11, color: context.cMuted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _periodBtn(String label, bool sel, Color c, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: sel ? c.withValues(alpha: .12) : context.cCard,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: sel ? c : context.cBorder, width: sel ? 2 : 1),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: sel ? c : context.cInk,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProratRow extends StatelessWidget {
   final String label;
   final String value;
@@ -963,6 +1392,29 @@ class _PlanCard extends StatelessWidget {
     required this.onChoose,
   });
 
+  bool get _isEnterprise => plan.code == 'entreprise';
+
+  void _showContactDialog(BuildContext context) => showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Offre Entreprise — sur devis',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          content: Text(
+              'Multi-établissements, marque blanche, API et support dédié : '
+              'contactez Scolaris au $_scolarisContactPhone (WhatsApp) pour '
+              'construire une offre adaptée à votre groupe scolaire.',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4)),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(backgroundColor: color),
+              child: const Text('Compris'),
+            ),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -996,14 +1448,18 @@ class _PlanCard extends StatelessWidget {
           Text(plan.tagline!, style: TextStyle(fontSize: 12, color: context.cMuted)),
         ],
         const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(monthly != null ? fmt.format(monthly) : '—',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
-            const SizedBox(width: 4),
-            Text('$currency /mois', style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-          ],
-        ),
+        if (_isEnterprise && monthly == null)
+          Text('Sur devis',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color))
+        else
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(monthly != null ? fmt.format(monthly) : '—',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
+              const SizedBox(width: 4),
+              Text('$currency /mois', style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ],
+          ),
         if (monthly != null) ...[
           const SizedBox(height: 6),
           Container(
@@ -1073,7 +1529,7 @@ class _PlanCard extends StatelessWidget {
                   child: Text('Offre actuelle', style: TextStyle(color: color)),
                 )
               : ElevatedButton(
-                  onPressed: onChoose,
+                  onPressed: _isEnterprise ? () => _showContactDialog(context) : onChoose,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
                     foregroundColor: Colors.white,
@@ -1081,8 +1537,8 @@ class _PlanCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Choisir cette offre',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(_isEnterprise ? 'Nous contacter' : 'Choisir cette offre',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
         ),
       ]),

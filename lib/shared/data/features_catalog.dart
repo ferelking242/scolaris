@@ -96,21 +96,38 @@ class AppModule {
   final String label;
   final String description;
   final IconData icon;
+
+  /// Socle toujours actif (Académique) : ne se coche pas, ne se compte pas
+  /// dans le quota d'emplacements de l'offre (`plans.max_modules`). Les
+  /// modules non-core sont ceux du « catalogue » installable/désinstallable
+  /// (cf. `AdminSubscriptionPage` → panneau modules).
+  final bool core;
   const AppModule({
     required this.id,
     required this.label,
     required this.description,
     required this.icon,
+    this.core = false,
   });
 }
 
+/// Académique — cœur du produit, toujours actif quelle que soit l'offre.
+/// Décision du 09/08/2026 : ce n'est plus « un module parmi d'autres », donc
+/// il n'est plus compté dans le quota d'emplacements ni proposé au
+/// décochage. Conservé ici (avec `core: true`) uniquement pour l'affichage
+/// (ex. pilule « Toujours actif » dans le catalogue).
+const kCoreModule = AppModule(
+  id: 'academic',
+  label: 'Académique',
+  description: 'Notes, bulletins, emploi du temps, statistiques de classe',
+  icon: Icons.grade_outlined,
+  core: true,
+);
+
+/// Modules complémentaires — installables/désinstallables dans la limite du
+/// quota d'emplacements de l'offre (`plans.max_modules`), cf. catalogue de
+/// modules dans `AdminSubscriptionPage`.
 const List<AppModule> kAppModules = [
-  AppModule(
-    id: 'academic',
-    label: 'Académique',
-    description: 'Notes, bulletins, emploi du temps, statistiques de classe',
-    icon: Icons.grade_outlined,
-  ),
   AppModule(
     id: 'attendance',
     label: 'Présences',

@@ -8,8 +8,8 @@ const _terra = Color(0xFF8B1A00);
 const _ink   = Color(0xFF1A0A00);
 const _muted = Color(0xFF7A5C44);
 
-/// Hiérarchie des plans (simple < pro < max).
-const _planOrder = {'simple': 0, 'pro': 1, 'max': 2};
+/// Hiérarchie des plans (simple < pro < max < entreprise).
+const _planOrder = {'simple': 0, 'pro': 1, 'max': 2, 'entreprise': 3};
 
 bool planMeetsRequirement(String? current, String required) =>
     (_planOrder[current] ?? -1) >= (_planOrder[required] ?? 99);
@@ -17,12 +17,14 @@ bool planMeetsRequirement(String? current, String required) =>
 String _planLabel(String plan) => switch (plan) {
       'pro' => 'Pro',
       'max' => 'Max',
+      'entreprise' => 'Entreprise',
       _ => plan.toUpperCase(),
     };
 
 Color _planColor(String plan) => switch (plan) {
       'pro' => const Color(0xFF0E7490),
       'max' => const Color(0xFF7C3AED),
+      'entreprise' => const Color(0xFF111827),
       _ => _terra,
     };
 

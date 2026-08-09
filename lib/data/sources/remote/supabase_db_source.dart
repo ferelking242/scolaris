@@ -2043,6 +2043,11 @@ class SbCourseTeacher {
     final DateTime? currentPeriodEnd;
     final DateTime? trialEnd;
 
+    /// Emplacements de modules complémentaires achetés à la carte, en plus
+    /// du quota inclus dans l'offre (`plans.max_modules`) — cf.
+    /// `backup/migrations_archive/20260809_module_slot_addon.sql`.
+    final int extraModuleSlots;
+
     const SbSubscription({
       required this.id,
       this.schoolId,
@@ -2054,6 +2059,7 @@ class SbCourseTeacher {
       this.creditBalance = 0,
       this.currentPeriodEnd,
       this.trialEnd,
+      this.extraModuleSlots = 0,
     });
 
     bool get isTrial  => status == 'trial';
@@ -2103,6 +2109,7 @@ class SbCourseTeacher {
           trialEnd: j['trial_end'] != null
               ? DateTime.tryParse(j['trial_end'] as String)
               : null,
+          extraModuleSlots: j['extra_module_slots'] as int? ?? 0,
         );
   }
 
@@ -2129,6 +2136,16 @@ class SbCourseTeacher {
     /// renouvellement (aucun changement de plan).
     final String? previousPlanCode;
 
+    /// 'plan_change' (défaut, renouvellement/upgrade/downgrade d'offre) ou
+    /// 'addon_slot' (achat à la carte d'un emplacement de module — n'écrase
+    /// PAS le plan_code de l'école à la confirmation, cf.
+    /// `platform_confirm_subscription_payment`).
+    final String paymentType;
+
+    /// Nombre d'emplacements achetés — uniquement pertinent si
+    /// [paymentType] == 'addon_slot'.
+    final int quantity;
+
     const SbSubscriptionPayment({
       required this.id,
       this.subscriptionId,
@@ -2145,6 +2162,8 @@ class SbCourseTeacher {
       this.paidAt,
       this.createdAt,
       this.previousPlanCode,
+      this.paymentType = 'plan_change',
+      this.quantity = 1,
     });
 
     double get fullPrice => amount + creditApplied;
@@ -2152,6 +2171,7 @@ class SbCourseTeacher {
     DateTime get date => paidAt ?? createdAt ?? DateTime.now();
     bool get isPlanChange =>
         previousPlanCode != null && previousPlanCode != planCode;
+    bool get isAddonSlot => paymentType == 'addon_slot';
 
     factory SbSubscriptionPayment.fromJson(Map<String, dynamic> j) =>
         SbSubscriptionPayment(
@@ -2174,6 +2194,8 @@ class SbCourseTeacher {
           createdAt: j['created_at'] != null
               ? DateTime.tryParse(j['created_at'] as String)
               : null,
+          paymentType: j['payment_type'] as String? ?? 'plan_change',
+          quantity: j['quantity'] as int? ?? 1,
         );
   }
 
@@ -4304,6 +4326,13 @@ class SupabaseDbSource {
     /// (`null` = renouvellement de la même offre) — affiché sur le reçu une
     /// fois le versement confirmé.
     String? previousPlanCode,
+    /// 'plan_change' (défaut) ou 'addon_slot' — un achat d'emplacement
+    /// utilise `planCode: 'addon_slot'` (pseudo-offre cachée) et NE
+    /// remplace PAS le plan_code de l'école à la confirmation (branché dans
+    /// `platform_confirm_subscription_payment`, cf.
+    /// 20260809_module_slot_addon.sql).
+    String paymentType = 'plan_change',
+    int quantity = 1,
   }) async {
     await _db.from('subscription_payments').insert({
       'subscription_id': subscriptionId,
@@ -4316,6 +4345,8 @@ class SupabaseDbSource {
       'provider': provider,
       'reference': reference,
       'status': 'pending',
+      'payment_type': paymentType,
+      'quantity': quantity,
       if (previousPlanCode != null && previousPlanCode != planCode)
         'previous_plan_code': previousPlanCode,
     }).friendly();
@@ -5331,10 +5362,30 @@ class SupabaseDbSource {
     await _db.from('schools').update(update).eq('id', id).friendly();
   }
 
-  /// Modules choisis (Académique/Présences/Finances/Inscriptions) — modifiable
-  /// après l'inscription, cf. `AdminSubscriptionPage`. Lecture-fusion-écriture
-  /// pour ne pas écraser `types` / `educational_system` déjà présents.
+  /// Modules complémentaires installés (Finances/Présences/Inscriptions) —
+  /// modifiable après l'inscription, cf. `AdminSubscriptionPage`. « Académique »
+  /// n'est plus un module qu'on installe : il est toujours actif et n'est pas
+  /// compté dans le quota (`plans.max_modules`). Lecture-fusion-écriture pour
+  /// ne pas écraser `types` / `educational_system` déjà présents.
+  ///
+  /// Vérifie le quota d'emplacements côté client avant d'écrire (message
+  /// d'erreur clair) — la base a aussi son propre garde-fou serveur
+  /// (`trg_enforce_school_module_quota`) qui refuserait de toute façon un
+  /// dépassement, y compris via un autre chemin d'écriture.
   static Future<void> updateSchoolModules(String schoolId, List<String> modules) async {
+    final chosenCount = modules.where((m) => m != 'academic').length;
+    final sub = await getSubscription(schoolId);
+    if (sub?.planCode != null) {
+      final plans = await getPlans();
+      final plan = plans.where((p) => p.code == sub!.planCode).firstOrNull;
+      final quota = plan?.maxModules;
+      if (quota != null && chosenCount > quota) {
+        throw Exception(
+            'Quota de modules dépassé : votre offre ${plan?.name ?? sub!.planCode} '
+            'autorise $quota module(s) complémentaire(s), $chosenCount sélectionné(s). '
+            'Passez à une offre supérieure pour en installer davantage.');
+      }
+    }
     final row = await _db.from('schools').select('metadata').eq('id', schoolId).maybeSingle();
     final metadata = <String, dynamic>{
       ...?(row?['metadata'] as Map?)?.cast<String, dynamic>(),

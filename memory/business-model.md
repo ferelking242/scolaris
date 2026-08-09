@@ -1,29 +1,28 @@
 ---
 name: business-model
-description: Modèle économique de Scolaris — SaaS B2B abonnements 3 offres (Simple/Pro/Max)
+description: Modèle économique de Scolaris — SaaS B2B, 4 offres (Essentiel/Croissance/Complet/Entreprise), académique inclus + modules complémentaires
 metadata:
   type: project
 ---
 
 Scolaris est commercialisé en **SaaS B2B** : l'**école paie** l'abonnement (usage inclus pour tous ses élèves/parents). Marché initial : **Congo / Afrique centrale (FCFA/XAF)**, avec objectif d'**expansion multi-pays** (garder les mêmes offres, ne varier que la grille de prix par pays/devise → `prix = f(offre, palier, pays)`).
 
-**3 offres = différenciation par fonctionnalités** (pas par taille) :
-- 🟢 **Simple** : socle pédagogique (élèves, classes, matières, notes/bulletins, présences, emploi du temps, rôles Admin+Enseignant).
-- 🔵 **Pro** (offre phare) : Simple + Portail Parents, Messagerie & annonces, Module Finance (factures/paiements/reçus), Bibliothèque, QR, Surveillance, rapports.
-- 🟣 **Max** : Pro + multi-établissements, personnalisation/marque blanche, hors-ligne complet, support dédié, export/API, analytics avancées.
+⚠️ **Modèle refondu le 09/08/2026** (conversation "business plan") — remplace toute version antérieure de ce fichier (l'ancien modèle Simple/Pro/Max à 14 900/29 900/59 900 avec gating par fonctionnalité pure n'a jamais été le modèle final déployé). Voir [[offers-and-gating]].
 
-**Prix = UN forfait fixe par offre** (modèle simplifié — PLUS de paliers S/M/L). Chaque offre a un prix unique + une limite d'élèves unique (FCFA/mois, Congo, indicatif) :
-- Simple : **14 900** — jusqu'à **200** élèves
-- Pro : **29 900** — jusqu'à **1 000** élèves
-- Max : **59 900** — élèves **illimités**
-Annuel = 10 mois payés (2 offerts), + 1 mois d'essai gratuit. (Prix indicatifs, déclinables par pays.)
+**Académique (notes, bulletins, emploi du temps, statistiques de classe) est le socle du produit — toujours inclus dans TOUTES les offres**, plus un module qu'on choisit ou compte. Les offres se distinguent par le nombre d'**emplacements de modules complémentaires** (Finances / Présences / Inscriptions) débloqués, façon catalogue "app store" (installer/désinstaller depuis `AdminSubscriptionPage`).
 
-**Enforcement limite** : au-delà de la limite d'élèves → **passage à l'offre supérieure** (bloquer la création de nouveaux élèves, existants intacts, message d'upsell, +5 % de tolérance possible). Vérif : `nbÉlèves < limiteOffre`, branchée sur le futur module d'abonnement.
+**4 offres** (prix Congo/XAF, mensuel — annuel = ×10, soit 2 mois offerts) :
+- **Essentiel** — 15 000 F/mois, 200 élèves inclus, 0 emplacement de module complémentaire.
+- **Croissance** — 35 000 F/mois, 500 élèves inclus, 1 emplacement au choix (Finances/Présences/Inscriptions).
+- **Complet** — 65 000 F/mois, 1 500 élèves inclus, les 3 emplacements + Rapport Premium.
+- **Entreprise** — sur devis (à partir de ~150 000 F/mois, jamais affiché en dur), illimité, multi-établissements, marque blanche, API, support dédié. Pas de paiement en libre-service : bouton "Nous contacter" (WhatsApp) au lieu du flux Mobile Money habituel.
 
-Infographie des offres : `docs/offres-scolaris.svg` (+ `.png` généré via Edge headless).
+**Achat à la carte d'un emplacement supplémentaire** : 15 000 F/mois (cohérence volontaire avec le prix Essentiel — "un module de plus"), indépendant du plan choisi (même Essentiel peut en acheter, plafonné). N'active PAS un changement d'offre — augmente juste `subscriptions.extra_module_slots`.
 
-**Placement du choix d'offre** : PAS d'étape "offre" dans le wizard d'inscription (zéro friction). L'inscription crée l'école en **essai gratuit** (`schools.plan_type = 'free'` par défaut — colonne déjà présente). Le directeur **choisit/paie son offre plus tard** dans une **page « Abonnement » du dashboard Admin** (à construire après avoir fini l'inscription à 100 %). Note : l'étape 4 du wizard (base `scolaris` centralisé vs base custom) est en réalité une fonctionnalité d'offre Max — à lier au `plan_type` plus tard.
+**Suppléments de taille** au-delà des élèves inclus : paliers par offre dans `plan_size_surcharges`, purement informatifs pour l'instant (facturation manuelle, pas de prélèvement auto).
 
-**Pas d'offre gratuite permanente** (freemium) au lancement : les écoles ont un budget (B2B), le gratuit coûte cher en support/infra, convertit mal et peut dévaloriser. À la place : **essai gratuit 1 mois** (offre **Simple** débloquée — changé de Pro→Simple juin 2026, sans CB) + **offre pilote** pour les 5–10 premières écoles (-50 % la 1ʳᵉ année contre témoignage) + démo accompagnée. Un "Découverte" gratuit très limité (<30 élèves, fonctions Simple) reste envisageable plus tard comme entonnoir d'acquisition, mais pas maintenant.
+**Paiement 100% manuel** (pas d'agrégateur/API) : l'école envoie l'argent via Mobile Money (MTN/Airtel) vers un numéro marchand Scolaris, saisit la référence reçue par SMS, un super-admin vérifie sur le relevé marchand et confirme (`platform_confirm_subscription_payment`) — RIEN ne s'active avant cette vérification. Essai gratuit 14 jours, sans CB.
 
-**Module abonnement (17 juin 2026, en cours)** : `supabase/migrations/20260617_subscriptions.sql` crée `plans` (simple/pro/max, max_students 200/1000/null), `plan_prices` (multi-pays ; Congo XAF mensuel 14900/29900/59900, annuel ×10), `subscriptions` (1/école, statuts trial/active/past_due/canceled/expired), `subscription_payments`. EAD = essai Simple 30 j. Fonctions d'enforcement : `school_student_limit/count/can_add_student` (tolérance +5%). Côté app : modèles `SbPlan`/`SbPlanPrice`/`SbSubscription` + méthodes `getPlans/getPlanPrices/getSubscription/getStudentCount` (`supabase_db_source.dart`), providers `plansProvider/planPricesProvider/subscriptionProvider/studentCountProvider`, page Admin `admin_subscription_page.dart` (bannière statut, barre d'usage X/limite, 3 cartes d'offres) branchée dans `admin_home.dart` (nav `nav.subscription`). ⚠️ **SQL pas encore exécuté**. **Reste : paiement Mobile Money (le bouton "Choisir" est un stub), et le blocage dur à la création d'élève au-delà de la limite (phase 4).** Voir [[backend-state]].
+**Cycle de vie automatisé** (`refresh_subscription_statuses()`, cron horaire pg_cron) : trial→expired à l'échéance, active→past_due à la fin de période, past_due→expired après 7 jours de grâce. Un abonnement hors règle passe en **lecture seule côté serveur** (triggers `enforce_subscription_active*` sur ~40 tables + policies), pas juste à l'affichage.
+
+Toutes les migrations business/pricing de ce chantier : `backup/migrations_archive/20260809_*.sql` (module_marketplace, module_slot_addon, lifecycle_fixes, enforce_subscription_rls[_indirect], new_pricing_entreprise). Détail technique complet dans [[offers-and-gating]].

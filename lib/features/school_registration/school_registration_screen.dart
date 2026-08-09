@@ -417,9 +417,13 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'metadata'    : {
           'types'              : _types.toList(),
           'educational_system' : _s3System,
-          // Modules choisis à l'inscription — décide ce qui apparaît dans le
-          // tableau de bord de l'école (cf. AdminHome, filtrage par module).
-          'modules'            : _modules.toList(),
+          // Modules complémentaires choisis à l'inscription (Finances/
+          // Présences/Inscriptions) — décide ce qui apparaît dans le tableau
+          // de bord de l'école (cf. AdminHome, filtrage par module).
+          // 'academic' est toujours ajouté : socle du produit, jamais un
+          // choix, mais conservé dans la liste pour compat avec les écrans
+          // élève/enseignant/parent qui testent encore sa présence.
+          'modules'            : ['academic', ..._modules],
         },
       });
       schoolCreated = true;
@@ -794,7 +798,9 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
 
             // ── Modules ──────────────────────────────────────────────────────
             _SectionDivider(label: 'Ce que vous voulez gérer', icon: Icons.widgets_outlined,
-                sub: 'Décochez ce dont vous n\'avez pas besoin — modifiable plus tard dans les paramètres.'),
+                sub: 'Notes, bulletins et emploi du temps sont toujours inclus. '
+                    'Décochez les modules complémentaires dont vous n\'avez pas besoin '
+                    '— modifiable plus tard dans les paramètres.'),
             const SizedBox(height: 12),
             _ModulesGrid(
               selected: _modules,
@@ -1390,14 +1396,17 @@ class _StepProgressRing extends StatelessWidget {
 // SCHOOL TYPE GRID — no emoji, pro icons
 // ═════════════════════════════════════════════════════════════════════════════
 /// Déduit l'offre (code DB, nom, prix mensuel XAF) du nombre de modules
-/// cochés — cf. `supabase/migrations/20260801_offer_tiers.sql`. Prix codés en
-/// dur ici (pas de lecture de `plan_prices`) : l'inscription est encore
-/// anonyme à ce stade, or la table n'autorise la lecture qu'aux authentifiés.
-/// Reste la SEULE source à mettre à jour si les tarifs changent côté DB.
+/// COMPLÉMENTAIRES cochés (Académique est désormais un socle toujours actif,
+/// jamais compté — cf. `backup/migrations_archive/20260809_module_marketplace.sql`,
+/// qui applique le même calcul côté trigger `handle_new_school_trial`).
+/// Prix codés en dur ici (pas de lecture de `plan_prices`) : l'inscription
+/// est encore anonyme à ce stade, or la table n'autorise la lecture qu'aux
+/// authentifiés. Reste la SEULE source à mettre à jour si les tarifs
+/// changent côté DB.
 ({String code, String name, int priceMonthly}) _planForModuleCount(int count) {
-  if (count <= 1) return (code: 'simple', name: 'Essentiel', priceMonthly: 8900);
-  if (count <= 3) return (code: 'pro', name: 'Croissance', priceMonthly: 17900);
-  return (code: 'max', name: 'Complet', priceMonthly: 29900);
+  if (count <= 0) return (code: 'simple', name: 'Essentiel', priceMonthly: 15000);
+  if (count <= 1) return (code: 'pro', name: 'Croissance', priceMonthly: 35000);
+  return (code: 'max', name: 'Complet', priceMonthly: 65000);
 }
 
 /// Bandeau d'aperçu tarifaire — se met à jour en direct pendant que l'admin
