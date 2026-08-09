@@ -1,19 +1,22 @@
-import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
-import '../../../../shared/data/features_catalog.dart' show kAppModules;
+import '../../../../shared/data/features_catalog.dart' show AppModule, kAppModules;
 import '../../../../shared/pdf/subscription_receipt_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
 
 /// Libellés lisibles des clés de fonctionnalités stockées en base (`plans.features`).
+/// Académique n'est plus « un module parmi d'autres » mais le socle toujours
+/// inclus (cf. 20260809_module_marketplace.sql) — les autres clés décrivent
+/// le quota d'emplacements de modules complémentaires (Finances/Présences/
+/// Inscriptions) débloqués par l'offre.
 const _featureLabels = <String, String>{
-  '1_module_au_choix': '1 module au choix (Académique, Présences, Finances ou Inscriptions)',
-  'jusqu_a_3_modules': 'Jusqu\'à 3 modules au choix',
-  '4_modules': 'Les 4 modules (Académique, Présences, Finances, Inscriptions)',
+  'academique_inclus': 'Académique inclus (notes, bulletins, emploi du temps, statistiques)',
+  '1_module_complementaire_au_choix': '1 module complémentaire au choix (Finances, Présences ou Inscriptions)',
+  'tous_modules_complementaires': 'Tous les modules complémentaires (Finances, Présences, Inscriptions)',
   'rapport_premium': 'Rapport Premium (tendances de recouvrement)',
 };
 
@@ -126,9 +129,12 @@ class AdminSubscriptionPage extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 14),
-        const DataPanel(
-          title: 'Modules actifs',
-          child: _ModulesPanel(),
+        DataPanel(
+          title: 'Catalogue de modules',
+          child: _ModulesPanel(
+            quota: currentPlanObj?.maxModules ?? 0,
+            planName: currentPlanObj?.name ?? currentPlan?.toUpperCase() ?? '—',
+          ),
         ),
         const SizedBox(height: 14),
         DataPanel(
@@ -708,71 +714,204 @@ class _SizeSurchargeRow extends StatelessWidget {
   }
 }
 
-/// Modules actifs de l'école — modifiable après l'inscription (décision
-/// utilisateur explicite). Décocher/cocher change ce qui apparaît dans le
-/// tableau de bord de tout le monde (admin/enseignants/parents), cf. la
-/// même logique de filtrage que dans `AdminHome`/`TeacherHome`/`StudentHome`.
+/// Catalogue de modules — remplace l'ancien panneau à cases à cocher par une
+/// logique « app store » (décision du 09/08/2026, cf. conversation business
+/// plan) : Académique est un socle toujours actif (jamais installé/désinstallé
+/// depuis ici), et les modules complémentaires (Finances/Présences/Inscriptions)
+/// s'installent/se désinstallent un par un, dans la limite du quota
+/// d'emplacements de l'offre en cours (`plans.max_modules`). Installer/retirer
+/// change ce qui apparaît dans le tableau de bord de tout le monde
+/// (admin/enseignants/parents), cf. la même logique de filtrage que dans
+/// `AdminHome`/`TeacherHome`/`StudentHome`.
 class _ModulesPanel extends ConsumerStatefulWidget {
-  const _ModulesPanel();
+  final int quota;
+  final String planName;
+  const _ModulesPanel({required this.quota, required this.planName});
   @override
   ConsumerState<_ModulesPanel> createState() => _ModulesPanelState();
 }
 
 class _ModulesPanelState extends ConsumerState<_ModulesPanel> {
-  Set<String>? _draft;
-  bool _saving = false;
+  String? _busyModuleId;
+
+  Future<void> _toggle(String schoolId, Set<String> saved, String moduleId, bool install) async {
+    setState(() => _busyModuleId = moduleId);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final next = Set<String>.from(saved);
+      if (install) { next.add(moduleId); } else { next.remove(moduleId); }
+      next.add('academic'); // socle toujours actif — conservé en base pour compat élève/prof/parent
+      await SupabaseDbSource.updateSchoolModules(schoolId, next.toList());
+      ref.invalidate(schoolProvider);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('$e'),
+        backgroundColor: const Color(0xFF8B1A00),
+      ));
+    } finally {
+      if (mounted) setState(() => _busyModuleId = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final school = ref.watch(schoolProvider).valueOrNull;
     final saved = (school?.modules.isNotEmpty ?? false) ? school!.modules.toSet() : kAppModules.map((m) => m.id).toSet();
-    final selected = _draft ?? saved;
-    final dirty = _draft != null && !setEquals(_draft, saved);
+    final installed = saved.where((m) => m != 'academic').toSet();
+    final used = installed.length;
+    final quota = widget.quota;
+    final atQuota = used >= quota;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      for (final m in kAppModules)
-        CheckboxListTile(
-          value: selected.contains(m.id),
-          onChanged: school == null ? null : (v) => setState(() {
-            final next = Set<String>.from(selected);
-            if (v == true) { next.add(m.id); } else { next.remove(m.id); }
-            _draft = next;
-          }),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          dense: true,
-          title: Text(m.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
-          subtitle: Text(m.description, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+      // ── Académique — pilule "toujours actif" ────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF15803D).withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF15803D).withValues(alpha: .25)),
         ),
-      if (dirty) ...[
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: Text(
-            selected.isEmpty
-                ? 'Aucun module actif : seules les fonctionnalités essentielles resteront visibles.'
-                : 'Le prix de votre offre peut changer selon le nombre de modules actifs.',
-            style: TextStyle(fontSize: 11.5, color: context.cMuted))),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () => setState(() => _draft = null),
-            child: const Text('Annuler'),
+        child: Row(children: [
+          const Icon(Icons.grade_outlined, size: 20, color: Color(0xFF15803D)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Académique', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.cInk)),
+              Text('Notes, bulletins, emploi du temps, statistiques de classe',
+                  style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+            ]),
           ),
-          ElevatedButton(
-            onPressed: _saving || school == null ? null : () async {
-              setState(() => _saving = true);
-              try {
-                await SupabaseDbSource.updateSchoolModules(school.id, selected.toList());
-                ref.invalidate(schoolProvider);
-                if (mounted) setState(() => _draft = null);
-              } finally {
-                if (mounted) setState(() => _saving = false);
-              }
-            },
-            child: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF15803D).withValues(alpha: .15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text('Toujours actif',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
           ),
         ]),
-      ],
+      ),
+
+      // ── Quota d'emplacements ─────────────────────────────────────────────
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('Modules complémentaires',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.cInk)),
+        Text(
+          quota == 0 ? 'Aucun emplacement' : '$used / $quota emplacement${quota > 1 ? "s" : ""} utilisé${used > 1 ? "s" : ""}',
+          style: TextStyle(
+              fontSize: 11.5,
+              color: atQuota ? const Color(0xFFC17F24) : context.cMuted,
+              fontWeight: FontWeight.w700),
+        ),
+      ]),
+      const SizedBox(height: 8),
+
+      for (final m in kAppModules)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _ModuleTile(
+            module: m,
+            installed: installed.contains(m.id),
+            busy: _busyModuleId == m.id,
+            blocked: !installed.contains(m.id) && atQuota,
+            onTap: school == null
+                ? null
+                : () => _toggle(school.id, saved, m.id, !installed.contains(m.id)),
+          ),
+        ),
+
+      if (quota == 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Votre offre ${widget.planName} n\'inclut aucun module complémentaire. '
+            'Passez à une offre supérieure pour en installer.',
+            style: TextStyle(fontSize: 11.5, color: context.cMuted),
+          ),
+        )
+      else if (atQuota)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Quota atteint pour votre offre ${widget.planName}. Désinstallez un module '
+            'ou passez à une offre supérieure pour en ajouter.',
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFFC17F24), fontWeight: FontWeight.w600),
+          ),
+        ),
     ]);
+  }
+}
+
+/// Tuile « app store » d'un module complémentaire : Installer/Retirer, avec
+/// blocage visuel dès que le quota de l'offre est atteint.
+class _ModuleTile extends StatelessWidget {
+  final AppModule module;
+  final bool installed;
+  final bool busy;
+  final bool blocked;
+  final VoidCallback? onTap;
+  const _ModuleTile({
+    required this.module,
+    required this.installed,
+    required this.busy,
+    required this.blocked,
+    required this.onTap,
+  });
+
+  static const _cyan = Color(0xFF0E7490);
+  static const _red = Color(0xFFDC2626);
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = onTap == null || (blocked && !installed);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: installed ? _cyan.withValues(alpha: .05) : context.cSubtle,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: installed ? _cyan.withValues(alpha: .3) : context.cBorder),
+      ),
+      child: Row(children: [
+        Icon(module.icon, size: 20, color: installed ? _cyan : context.cMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(module.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.cInk)),
+            Text(module.description, style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 92,
+          height: 32,
+          child: busy
+              ? const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+              : installed
+                  ? OutlinedButton(
+                      onPressed: locked ? null : onTap,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: const BorderSide(color: _red),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Retirer', style: TextStyle(fontSize: 11.5, color: _red)),
+                    )
+                  : ElevatedButton(
+                      onPressed: locked ? null : onTap,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: locked ? context.cBorder : _cyan,
+                        padding: EdgeInsets.zero,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(locked ? 'Verrouillé' : 'Installer',
+                          style: TextStyle(fontSize: 11.5, color: locked ? context.cMuted : Colors.white)),
+                    ),
+        ),
+      ]),
+    );
   }
 }
 

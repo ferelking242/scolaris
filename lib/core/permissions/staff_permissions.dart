@@ -74,12 +74,13 @@ class StaffPermissions {
       description: 'Gérer les classes, niveaux et matières',
       icon: Icons.class_outlined,
     ),
+    // Académique (notes/bulletins, rapports, emploi du temps) est le socle du
+    // produit — toujours actif, plus gaté par module (cf. admin_home.dart).
     StaffPermission(
       key: grades,
       label: 'Notes & bulletins',
       description: 'Consulter/saisir les notes, générer les bulletins',
       icon: Icons.grade_outlined,
-      module: 'academic',
     ),
     StaffPermission(
       key: attendance,
@@ -106,14 +107,12 @@ class StaffPermissions {
       label: 'Rapports',
       description: 'Statistiques et exports',
       icon: Icons.summarize_outlined,
-      module: 'academic',
     ),
     StaffPermission(
       key: timetable,
       label: 'Emploi du temps',
       description: 'Créer et publier les horaires',
       icon: Icons.table_chart_outlined,
-      module: 'academic',
     ),
     StaffPermission(
       key: staffManage,

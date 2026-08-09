@@ -119,10 +119,14 @@ class AdminHome extends ConsumerWidget {
       // Notes, bulletins et génération sont désormais TROIS ONGLETS d'une seule
       // page. Plus deux entrées de menu qui se ressemblent (« Notes »,
       // « Bulletins ») et où le vrai bulletin restait introuvable.
+      // Académique (notes/bulletins, rapports, stats de classe, emploi du
+      // temps) est le socle du produit — toujours actif, plus un « module »
+      // gaté par `enabledModules` (décision du 09/08/2026, cf. conversation
+      // business plan). D'où `module: null` sur les 4 entrées ci-dessous.
       RoleNavEntry(icon: Icons.grade_outlined, activeIcon: Icons.grade_rounded,
           labelKey: 'nav.grades',
           page: PermissionGuard(permission: StaffPermissions.grades, child: AdminGradesPage()),
-          permission: StaffPermissions.grades, module: 'academic'),
+          permission: StaffPermissions.grades),
       RoleNavEntry(icon: Icons.how_to_reg_outlined, activeIcon: Icons.how_to_reg_rounded,
           labelKey: 'Présences',
           page: PermissionGuard(permission: StaffPermissions.attendance, child: AdminAttendancePage()),
@@ -130,15 +134,15 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.summarize_outlined, activeIcon: Icons.summarize_rounded,
           labelKey: 'nav.reports',
           page: PermissionGuard(permission: StaffPermissions.reports, child: AdminReportsPage()),
-          permission: StaffPermissions.reports, module: 'academic'),
+          permission: StaffPermissions.reports),
       RoleNavEntry(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded,
           labelKey: 'Statistiques de classe',
           page: PermissionGuard(permission: StaffPermissions.reports, child: AdminClassStatsPage()),
-          permission: StaffPermissions.reports, module: 'academic'),
+          permission: StaffPermissions.reports),
       RoleNavEntry(icon: Icons.table_chart_outlined, activeIcon: Icons.table_chart_rounded,
           labelKey: 'nav.timetable',
           page: PermissionGuard(permission: StaffPermissions.timetable, child: TimetablePage()),
-          permission: StaffPermissions.timetable, module: 'academic'),
+          permission: StaffPermissions.timetable),
       // "Récompenses" (catalogue de badges) retiré du menu admin pour
       // l'instant — demande explicite, cf. student_home.dart.
       // Bibliothèque désactivée temporairement (demande explicite) — à
