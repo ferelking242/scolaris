@@ -112,6 +112,11 @@ class _RolesPermissionsWorkspaceState extends ConsumerState<RolesPermissionsWork
       final school = ref.read(schoolProvider).valueOrNull;
       final enabledModules = school != null && school.modules.isNotEmpty ? school.modules.toSet() : null;
       final catalog = rawCatalog.where((m) {
+        // Bibliothèque (lecture élève jamais branchée, mock_library_data.dart)
+        // et Cahier de liaison (outil « primaire », hors système de modules
+        // marketplace) ne sont pas des droits assignables — mêmes exclusions
+        // que `StaffPermissions.all` côté écran simplifié.
+        if (m.key == 'bibliotheque' || m.key == 'liaison') return false;
         final module = kPermissionModuleMap[m.key];
         return module == null || enabledModules == null || enabledModules.contains(module);
       }).toList();
