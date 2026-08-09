@@ -81,6 +81,13 @@ class AppUser {
   /// Remplace l'ancienne allowlist d'emails codée en dur.
   final bool isPlatformAdmin;
 
+  /// L'école du compte existe mais n'est pas encore validée par l'équipe
+  /// Scolaris (`schools.is_active = false`) — cas d'une école tout juste
+  /// créée via le self-signup public (`SchoolRegistrationScreen`). Le compte
+  /// reste connecté (l'admin n'a pas besoin de repasser par /login) mais le
+  /// routeur le cantonne à un écran d'attente (cf. `PendingValidationScreen`).
+  final bool isSchoolPendingValidation;
+
   const AppUser({
     required this.id,
     required this.email,
@@ -95,6 +102,7 @@ class AppUser {
     this.createdAt,
     this.lastSeenAt,
     this.isPlatformAdmin = false,
+    this.isSchoolPendingValidation = false,
   });
 
   AppUser copyWith({
@@ -111,6 +119,7 @@ class AppUser {
     DateTime? createdAt,
     DateTime? lastSeenAt,
     bool? isPlatformAdmin,
+    bool? isSchoolPendingValidation,
   }) =>
       AppUser(
         id: id ?? this.id,
@@ -126,6 +135,8 @@ class AppUser {
         createdAt: createdAt ?? this.createdAt,
         lastSeenAt: lastSeenAt ?? this.lastSeenAt,
         isPlatformAdmin: isPlatformAdmin ?? this.isPlatformAdmin,
+        isSchoolPendingValidation:
+            isSchoolPendingValidation ?? this.isSchoolPendingValidation,
       );
 
   String get displayRole => roleTitle ?? role.label;

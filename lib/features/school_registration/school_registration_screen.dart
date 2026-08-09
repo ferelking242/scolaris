@@ -561,8 +561,12 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
                 style: TextStyle(fontSize: 11, color: _muted)),
             SizedBox(height: isShort ? 14 : 24),
             SizedBox(width: double.infinity,
-              child: _PrimaryBtn(label: 'Aller à la connexion', loading: false,
-                  onTap: () { Navigator.pop(context); context.go('/login'); })),
+              // Le compte fondateur est déjà connecté (sb.auth.signUp() a
+              // ouvert la session) — pas besoin de repasser par /login : le
+              // routeur (isSchoolPendingValidation) l'envoie directement sur
+              // l'écran d'attente de validation.
+              child: _PrimaryBtn(label: 'Continuer', loading: false,
+                  onTap: () { Navigator.pop(context); context.go('/'); })),
               ]),
             ),
           ),

@@ -9,7 +9,6 @@ import 'package:lottie/lottie.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/sources/remote/supabase_auth_source.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import 'forgot_password_screen.dart';
 
@@ -132,10 +131,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _emailCtrl.text.trim(), _passCtrl.text);
     } on ArgumentError catch (e) {
       setState(() => _error = (e.message as String).tr());
-    } on SchoolPendingValidationException catch (e) {
-      setState(() => _error = e.schoolName.isEmpty
-          ? 'Votre établissement est en cours de validation par notre équipe.'
-          : '${e.schoolName} est en cours de validation par notre équipe — réessayez sous 24 h.');
     } catch (_) {
       setState(() => _error = 'auth.errors.failed'.tr());
     } finally {

@@ -5,15 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/app_config.dart';
 import '../../../domain/entities/user_entity.dart';
 
-/// Levée quand l'école du compte existe mais n'a pas encore été validée par
-/// l'équipe Scolaris (`schools.is_active = false`) — cas d'une école créée
-/// via le self-signup public (`SchoolRegistrationScreen`), en attente de
-/// validation dans la console plateforme (`platform_schools_page.dart`).
-class SchoolPendingValidationException implements Exception {
-  final String schoolName;
-  const SchoolPendingValidationException(this.schoolName);
-}
-
 class SupabaseAuthSource {
   final _controller = StreamController<AppUser?>.broadcast();
   AppUser? _current;
@@ -102,15 +93,11 @@ class SupabaseAuthSource {
     if (response.user == null) {
       throw ArgumentError('auth.errors.failed');
     }
-    try {
-      return await _fetchProfile(response.user!.id);
-    } on SchoolPendingValidationException {
-      // La session existe côté Supabase mais l'école n'est pas validée :
-      // on la révoque tout de suite plutôt que de laisser un JWT valide
-      // traîner pour un compte qu'on refuse d'utiliser.
-      await Supabase.instance.client.auth.signOut();
-      rethrow;
-    }
+    // Si l'école n'est pas encore validée, `_fetchProfile` renvoie quand même
+    // un AppUser (avec `isSchoolPendingValidation = true`) plutôt que de
+    // lever une exception : la session reste active et le routeur cantonne
+    // le compte à l'écran d'attente (cf. `PendingValidationScreen`).
+    return await _fetchProfile(response.user!.id);
   }
 
   Future<void> signOut() async {
@@ -133,6 +120,7 @@ class SupabaseAuthSource {
     }
 
     final schoolId = data['school_id'] as String?;
+    var isSchoolPendingValidation = false;
     if (schoolId != null) {
       final school = await Supabase.instance.client
           .from('schools')
@@ -140,7 +128,7 @@ class SupabaseAuthSource {
           .eq('id', schoolId)
           .maybeSingle();
       if (school != null && school['is_active'] == false) {
-        throw SchoolPendingValidationException(school['name'] as String? ?? '');
+        isSchoolPendingValidation = true;
       }
     }
 
@@ -191,6 +179,7 @@ class SupabaseAuthSource {
           ? DateTime.tryParse(data['last_seen_at'] as String)
           : null,
       isPlatformAdmin: isPlatformAdmin,
+      isSchoolPendingValidation: isSchoolPendingValidation,
     );
 
     unawaited(_touchLastSeen(data['id'] as String));

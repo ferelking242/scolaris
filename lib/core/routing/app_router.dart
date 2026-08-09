@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../features/admin/presentation/admin_home.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/pending_validation_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/enrollment/presentation/public_enrollment_screen.dart';
 import '../../features/parent/presentation/parent_home.dart';
@@ -25,6 +26,7 @@ class AppRoutes {
   static const staff           = '/staff';
   static const platform        = '/platform';
   static const preRegister     = '/inscription';
+  static const pendingValidation = '/pending-validation';
 }
 
 /// Retourne la route home d'un utilisateur selon son rôle ET son sous-type.
@@ -76,6 +78,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return AppRoutes.login;
       }
 
+      // École pas encore validée par l'équipe Scolaris : cantonné à l'écran
+      // d'attente, quelle que soit la route demandée (pas de dashboard tant
+      // que schools.is_active = false).
+      if (user.isSchoolPendingValidation) {
+        return loc == AppRoutes.pendingValidation
+            ? null
+            : AppRoutes.pendingValidation;
+      }
+
       if (atLogin || atSplash) return roleHome(user);
 
       final home = roleHome(user);
@@ -89,6 +100,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.registerSchool,
           builder: (_, __) => const SchoolRegistrationScreen()),
+      GoRoute(path: AppRoutes.pendingValidation,
+          builder: (_, __) => const PendingValidationScreen()),
       // Pré-inscription publique : sans code → saisie du code ; avec code → form.
       GoRoute(path: AppRoutes.preRegister,
           builder: (_, __) => const PreRegEntryScreen()),
