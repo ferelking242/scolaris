@@ -116,14 +116,15 @@ class _CategoryInfo {
 const _kCategories = [
   _CategoryInfo('classique', 'École classique', 'Garderie, primaire, collège, lycée',
       Icons.school_outlined),
-  // Université et formation pro restent verrouillées tant que le modèle
-  // crédits/UE n'existe pas côté données (cf. plan Phase 2) — les afficher
-  // déjà évite de refaire cet écran plus tard, mais on ne promet rien qui ne
-  // marche pas encore.
+  // Université reste verrouillée tant que le modèle crédits/UE n'existe pas
+  // côté données (inscription individuelle aux cours, calcul ECTS — cf. audit
+  // du 10/08/2026). La formation pro (CAP/BEP/BTS), elle, suit le même modèle
+  // qu'un lycée classique — classe fixe, programme partagé — donc rien ne lui
+  // manque côté données : ouverte.
   _CategoryInfo('universite', 'Université', 'Licence, Master, Doctorat',
       Icons.domain_outlined, comingSoon: true),
   _CategoryInfo('technique', 'Formation professionnelle', 'CAP, BEP, BTS…',
-      Icons.engineering_outlined, comingSoon: true),
+      Icons.engineering_outlined),
 ];
 
 // ── Dial codes ────────────────────────────────────────────────────────────────

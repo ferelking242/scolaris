@@ -543,11 +543,19 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
       TextEditingController(text: widget.existing?.room ?? '');
   late final TextEditingController _capacity = TextEditingController(
       text: (widget.existing?.maxStudents ?? 35).toString());
+  final TextEditingController _customName = TextEditingController();
   SbClassLevel? _level;
   SbBranch? _branch;
   late String? _mainTeacherId = widget.existing?.mainTeacherId;
   bool _loading = false;
   String? _error;
+  // Classe hors catalogue (nom libre) : certaines écoles ont des classes qui
+  // ne correspondent à aucun niveau standard de class_levels (groupes de
+  // soutien, classes bilingues, sections spécialisées…). On ne force plus
+  // le choix dans le catalogue : un cycle (pour le programme/les matières)
+  // suffit, le nom devient libre.
+  bool _customMode = false;
+  String? _customCycle;
   // Génère automatiquement le programme (matières du cycle, via
   // subject_catalog) à la création — évite la classe vide qu'il fallait
   // ensuite remplir matière par matière dans un écran séparé.
@@ -561,13 +569,19 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
     _section.dispose();
     _room.dispose();
     _capacity.dispose();
+    _customName.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (!_isEdit && _level == null) {
+    if (!_isEdit && !_customMode && _level == null) {
       setState(() => _error = 'Choisissez un niveau.');
+      return;
+    }
+    if (!_isEdit && _customMode &&
+        (_customName.text.trim().isEmpty || _customCycle == null)) {
+      setState(() => _error = 'Nom et cycle requis.');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -586,12 +600,30 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
             widget.existing!.id, _mainTeacherId);
       } else {
         final sec = _section.text.trim();
-        final name = sec.isEmpty ? _level!.name : '${_level!.name} $sec';
+        final String name;
+        final String cycle;
+        final String? levelId;
+        final String? series;
+        final int? orderNum;
+        if (_customMode) {
+          final baseName = _customName.text.trim();
+          name = sec.isEmpty ? baseName : '$baseName $sec';
+          cycle = _customCycle!;
+          levelId = null;
+          series = null;
+          orderNum = null;
+        } else {
+          name = sec.isEmpty ? _level!.name : '${_level!.name} $sec';
+          cycle = _level!.cycle;
+          levelId = _level!.id;
+          series = _level!.series;
+          orderNum = _level!.orderNum;
+        }
         final classId = await SupabaseDbSource.createClass(
           schoolId: widget.schoolId,
           name: name,
-          level: _level!.cycle,
-          levelId: _level!.id,
+          level: cycle,
+          levelId: levelId,
           section: sec,
           room: _room.text.trim(),
           maxStudents: cap,
@@ -602,9 +634,9 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
           await SupabaseDbSource.generateDefaultProgramForClass(
             schoolId: widget.schoolId,
             classId: classId,
-            cycle: _level!.cycle,
-            series: _level!.series != null ? [_level!.series!] : null,
-            levelOrderNum: _level!.orderNum,
+            cycle: cycle,
+            series: series != null ? [series] : null,
+            levelOrderNum: orderNum,
           );
         }
       }
@@ -630,28 +662,91 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
         child: Form(
           key: _formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Niveau : dropdown depuis class_levels (création uniquement)
-            if (!_isEdit)
-              levelsAsync.when(
-                loading: () => const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: LinearProgressIndicator()),
-                error: (e, _) => Text('Niveaux indisponibles : $e',
-                    style: const TextStyle(color: _terra, fontSize: 12)),
-                data: (levels) => DropdownButtonFormField<SbClassLevel>(
-                  value: _level,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                      labelText: 'Niveau',
-                      prefixIcon: Icon(Icons.school_outlined)),
-                  items: [
-                    for (final lv in levels)
-                      DropdownMenuItem(value: lv, child: Text(lv.fullLabel)),
-                  ],
-                  onChanged: (v) => setState(() => _level = v),
+            // Niveau : dropdown depuis class_levels, ou classe personnalisée
+            // (nom libre hors catalogue) — création uniquement.
+            if (!_isEdit) ...[
+              CheckboxListTile(
+                value: _customMode,
+                onChanged: (v) => setState(() {
+                  _customMode = v ?? false;
+                  _error = null;
+                }),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Classe personnalisée',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
-              )
-            else
+                subtitle: const Text(
+                  'Nom libre, hors catalogue de niveaux (groupe de soutien, '
+                  'section spécialisée…).',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+              ),
+              if (_customMode) ...[
+                TextFormField(
+                  controller: _customName,
+                  decoration: const InputDecoration(
+                      labelText: 'Nom de la classe',
+                      prefixIcon: Icon(Icons.class_outlined)),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Nom requis'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                levelsAsync.when(
+                  loading: () => const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: LinearProgressIndicator()),
+                  error: (e, _) => Text('Cycles indisponibles : $e',
+                      style: const TextStyle(color: _terra, fontSize: 12)),
+                  data: (levels) {
+                    final cycles = <String, String>{};
+                    for (final lv in levels) {
+                      cycles.putIfAbsent(lv.cycle, () => lv.cycleLabel);
+                    }
+                    if (_customCycle != null &&
+                        !cycles.containsKey(_customCycle)) {
+                      _customCycle = null;
+                    }
+                    return DropdownButtonFormField<String>(
+                      value: _customCycle,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                          labelText: 'Cycle (pour les matières)',
+                          prefixIcon: Icon(Icons.school_outlined)),
+                      items: [
+                        for (final e in cycles.entries)
+                          DropdownMenuItem(
+                              value: e.key, child: Text(e.value)),
+                      ],
+                      onChanged: (v) => setState(() => _customCycle = v),
+                    );
+                  },
+                ),
+              ] else
+                levelsAsync.when(
+                  loading: () => const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: LinearProgressIndicator()),
+                  error: (e, _) => Text('Niveaux indisponibles : $e',
+                      style: const TextStyle(color: _terra, fontSize: 12)),
+                  data: (levels) => DropdownButtonFormField<SbClassLevel>(
+                    value: _level,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Niveau',
+                        prefixIcon: Icon(Icons.school_outlined)),
+                    items: [
+                      for (final lv in levels)
+                        DropdownMenuItem(value: lv, child: Text(lv.fullLabel)),
+                    ],
+                    onChanged: (v) => setState(() => _level = v),
+                  ),
+                ),
+              const SizedBox(height: 12),
+            ] else
               TextFormField(
                 controller: _name,
                 decoration: const InputDecoration(
