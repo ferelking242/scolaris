@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/countries.dart';
-import '../../shared/data/features_catalog.dart' show kAppModules;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
@@ -290,10 +289,12 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   String _s1DialCode = '+242', _s1DialFlag = '🇨🇬';
   Set<String> _types = {'lycee'};
 
-  /// Modules choisis par l'école (cf. `kAppModules`) — décide ce qui apparaît
-  /// dans son tableau de bord ensuite (`AdminHome`). Tout coché par défaut :
-  /// c'est un DÉ-cochage, pas une découverte à l'aveugle.
-  Set<String> _modules = kAppModules.map((m) => m.id).toSet();
+  /// Offre choisie à l'inscription — plus simple à comprendre qu'un choix de
+  /// modules un par un (décision du 09/08/2026) : l'école part sans module
+  /// complémentaire installé (`metadata.modules = ['academic']`), et
+  /// installe elle-même ce qu'elle veut depuis la page « Modules » du
+  /// tableau de bord, dans la limite du quota de l'offre choisie ici.
+  String _planCode = 'simple';
 
   // ── Step 2 — Administrateur ──
   final _s2Form   = GlobalKey<FormState>();
@@ -417,13 +418,16 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
         'metadata'    : {
           'types'              : _types.toList(),
           'educational_system' : _s3System,
-          // Modules complémentaires choisis à l'inscription (Finances/
-          // Présences/Inscriptions) — décide ce qui apparaît dans le tableau
-          // de bord de l'école (cf. AdminHome, filtrage par module).
-          // 'academic' est toujours ajouté : socle du produit, jamais un
-          // choix, mais conservé dans la liste pour compat avec les écrans
-          // élève/enseignant/parent qui testent encore sa présence.
-          'modules'            : ['academic', ..._modules],
+          // Aucun module complémentaire pré-coché à l'inscription — l'école
+          // choisit une OFFRE (chosen_plan ci-dessous), pas des modules un
+          // par un. Elle installera elle-même ce qu'elle veut depuis la
+          // page « Modules » du tableau de bord, dans la limite du quota de
+          // son offre. 'academic' reste toujours présent : socle du produit.
+          'modules'            : ['academic'],
+          // Offre choisie à l'écran précédent — lue par le trigger DB
+          // `handle_new_school_trial` pour créer l'abonnement d'essai sur
+          // la bonne offre (cf. 20260809_signup_chosen_plan.sql).
+          'chosen_plan'        : _planCode,
         },
       });
       schoolCreated = true;
@@ -432,9 +436,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       // L'école existe déjà ci-dessus → le trigger handle_new_user peut créer
       // users + profiles (FK school_id satisfaite) à partir des métadonnées.
       // Le trigger trg_new_school_trial (DB) crée automatiquement la ligne
-      // subscriptions (essai 14j), sur l'offre déduite de metadata.modules —
-      // cf. _planForModuleCount() ci-dessus, même calcul que le bandeau de
-      // prix affiché à l'écran précédent.
+      // subscriptions (essai 14j), sur l'offre choisie à l'écran précédent
+      // (metadata.chosen_plan) — cf. 20260809_signup_chosen_plan.sql.
       await sb.auth.signUp(
         email: _s2Email.text.trim(),
         password: _s2Pass.text,
@@ -796,20 +799,22 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
             ),
             const SizedBox(height: 28),
 
-            // ── Modules ──────────────────────────────────────────────────────
-            _SectionDivider(label: 'Ce que vous voulez gérer', icon: Icons.widgets_outlined,
+            // ── Offre ────────────────────────────────────────────────────────
+            _SectionDivider(label: 'Choisissez votre offre', icon: Icons.workspace_premium_outlined,
                 sub: 'Notes, bulletins et emploi du temps sont toujours inclus. '
-                    'Décochez les modules complémentaires dont vous n\'avez pas besoin '
-                    '— modifiable plus tard dans les paramètres.'),
+                    'Les modules complémentaires (Finances, Présences, Inscriptions) '
+                    's\'installent ensuite depuis le tableau de bord — changez d\'offre à tout moment.'),
             const SizedBox(height: 12),
-            _ModulesGrid(
-              selected: _modules,
-              onToggle: (id) => setState(() {
-                if (_modules.contains(id)) { _modules.remove(id); } else { _modules.add(id); }
-              }),
+            _PlanPicker(
+              selected: _planCode,
+              onSelect: (code) => setState(() => _planCode = code),
             ),
-            const SizedBox(height: 14),
-            _PricePreviewBanner(moduleCount: _modules.length),
+            const SizedBox(height: 10),
+            _InfoBanner(
+              icon: Icons.hourglass_top_rounded, color: _gold,
+              text: 'Essai gratuit de 14 jours, sans engagement — le paiement '
+                  'ne démarre qu\'ensuite.',
+            ),
             const SizedBox(height: 28),
           ]),
         ),
@@ -939,10 +944,6 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildStep3() {
     final isWide = MediaQuery.sizeOf(context).width > 860;
-    final moduleLabels = _modules.isEmpty
-        ? 'Aucun (uniquement les fonctionnalités essentielles)'
-        : _modules.map((id) => kAppModules.firstWhere((m) => m.id == id).label).join(' · ');
-
     final schoolCard = _RecapCard(title: 'Informations école', icon: Icons.business_outlined, color: _terra,
       items: [
         ('Nom', _s1Name.text.trim()),
@@ -953,11 +954,11 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
       ]);
     final typesCard = _RecapCard(title: 'Types d\'établissement', icon: Icons.category_outlined, color: _orange,
       items: [('Types', _types.map((t) => _kSchoolTypes.firstWhere((st) => st.id == t).label).join(' · '))]);
-    final plan = _planForModuleCount(_modules.length);
-    final modulesCard = _RecapCard(title: 'Modules activés', icon: Icons.widgets_outlined, color: _gold,
+    final plan = kSignupPlans.firstWhere((p) => p.code == _planCode);
+    final modulesCard = _RecapCard(title: 'Offre choisie', icon: Icons.workspace_premium_outlined, color: _gold,
       items: [
-        ('Modules', moduleLabels),
         ('Offre', '${plan.name} — ${plan.priceMonthly} F/mois (essai 14j gratuit)'),
+        ('Modules complémentaires', plan.quota),
       ]);
     final adminCard = _RecapCard(title: 'Administrateur', icon: Icons.person_outline_rounded, color: _green,
       items: [
@@ -1395,106 +1396,131 @@ class _StepProgressRing extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 // SCHOOL TYPE GRID — no emoji, pro icons
 // ═════════════════════════════════════════════════════════════════════════════
-/// Déduit l'offre (code DB, nom, prix mensuel XAF) du nombre de modules
-/// COMPLÉMENTAIRES cochés (Académique est désormais un socle toujours actif,
-/// jamais compté — cf. `backup/migrations_archive/20260809_module_marketplace.sql`,
-/// qui applique le même calcul côté trigger `handle_new_school_trial`).
-/// Prix codés en dur ici (pas de lecture de `plan_prices`) : l'inscription
-/// est encore anonyme à ce stade, or la table n'autorise la lecture qu'aux
+/// Catalogue des 3 offres proposées à l'inscription — choix direct d'une
+/// offre plutôt que d'un ensemble de modules (décision du 09/08/2026, plus
+/// simple à comprendre pour une école qui découvre le produit). Prix codés
+/// en dur ici (pas de lecture de `plan_prices`) : l'inscription est encore
+/// anonyme à ce stade, or la table n'autorise la lecture qu'aux
 /// authentifiés. Reste la SEULE source à mettre à jour si les tarifs
-/// changent côté DB.
-({String code, String name, int priceMonthly}) _planForModuleCount(int count) {
-  if (count <= 0) return (code: 'simple', name: 'Essentiel', priceMonthly: 15000);
-  if (count <= 1) return (code: 'pro', name: 'Croissance', priceMonthly: 35000);
-  return (code: 'max', name: 'Complet', priceMonthly: 65000);
-}
-
-/// Bandeau d'aperçu tarifaire — se met à jour en direct pendant que l'admin
-/// coche/décoche des modules, pour que le prix ne soit jamais une surprise à
-/// la fin de l'inscription (décision utilisateur explicite).
-class _PricePreviewBanner extends StatelessWidget {
-  final int moduleCount;
-  const _PricePreviewBanner({required this.moduleCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final plan = _planForModuleCount(moduleCount);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _gold.withOpacity(.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _gold.withOpacity(.25)),
-      ),
-      child: Row(children: [
-        Icon(Icons.sell_outlined, size: 18, color: _gold),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Offre ${plan.name} — ${plan.priceMonthly} F/mois. Essai gratuit de 14 jours, sans engagement.',
-            style: TextStyle(fontSize: 12.5, color: _ink, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ]),
-    );
-  }
-}
+/// changent côté DB — même liste que `plan_prices`/`plans` (cf.
+/// `20260809_new_pricing_entreprise.sql`).
+const kSignupPlans = [
+  (
+    code: 'simple', name: 'Essentiel', priceMonthly: 15000,
+    tagline: 'Académique inclus : notes, bulletins, emploi du temps',
+    quota: 'Aucun module complémentaire inclus (achetable à la carte ensuite)',
+  ),
+  (
+    code: 'pro', name: 'Croissance', priceMonthly: 35000,
+    tagline: 'Académique inclus + 1 module complémentaire au choix',
+    quota: '1 module complémentaire (Finances, Présences ou Inscriptions)',
+  ),
+  (
+    code: 'max', name: 'Complet', priceMonthly: 65000,
+    tagline: 'Académique inclus + tous les modules complémentaires',
+    quota: 'Finances + Présences + Inscriptions inclus',
+  ),
+];
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MODULES GRID — ce que l'école veut gérer (cf. kAppModules)
+// PLAN PICKER — choix direct d'une offre (remplace l'ancien choix de modules)
 // ═════════════════════════════════════════════════════════════════════════════
-class _ModulesGrid extends StatelessWidget {
-  final Set<String> selected;
-  final void Function(String) onToggle;
-  const _ModulesGrid({required this.selected, required this.onToggle});
+class _PlanPicker extends StatelessWidget {
+  final String selected;
+  final void Function(String) onSelect;
+  const _PlanPicker({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final cols = w > 700 ? 2 : 1;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 3.4,
-      ),
-      itemCount: kAppModules.length,
-      itemBuilder: (_, i) {
-        final m = kAppModules[i];
-        final sel = selected.contains(m.id);
-        return MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => onToggle(m.id),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: sel ? _terra.withOpacity(.07) : _white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: sel ? _terra : _border, width: sel ? 1.5 : 1),
-              ),
-              child: Row(children: [
-                Icon(m.icon, size: 20, color: sel ? _terra : _muted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text(m.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
-                        color: sel ? _terra : _ink)),
-                    Text(m.description, style: TextStyle(fontSize: 10.5, color: sel ? _terra.withOpacity(.7) : _muted),
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ]),
-                ),
-                Checkbox(
-                  value: sel,
-                  onChanged: (_) => onToggle(m.id),
-                  activeColor: _terra,
-                ),
-              ]),
-            ),
+    final wide = w > 700;
+    final cards = [
+      for (final p in kSignupPlans)
+        _PlanPickerCard(
+          plan: p,
+          selected: p.code == selected,
+          recommended: p.code == 'pro',
+          onTap: () => onSelect(p.code),
+        ),
+    ];
+    return wide
+        ? IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                Expanded(child: cards[i]),
+                if (i < cards.length - 1) const SizedBox(width: 12),
+              ],
+            ]),
+          )
+        : Column(children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              cards[i],
+              if (i < cards.length - 1) const SizedBox(height: 10),
+            ],
+          ]);
+  }
+}
+
+class _PlanPickerCard extends StatelessWidget {
+  final ({String code, String name, int priceMonthly, String tagline, String quota}) plan;
+  final bool selected;
+  final bool recommended;
+  final VoidCallback onTap;
+  const _PlanPickerCard({
+    required this.plan,
+    required this.selected,
+    required this.recommended,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected ? _terra.withOpacity(.06) : _white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? _terra : _border, width: selected ? 1.5 : 1),
           ),
-        );
-      },
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                child: Text(plan.name, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900,
+                    color: selected ? _terra : _ink)),
+              ),
+              if (recommended)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(color: _gold.withOpacity(.15), borderRadius: BorderRadius.circular(6)),
+                  child: const Text('Le plus choisi', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: _gold)),
+                )
+              else
+                Radio<bool>(
+                  value: true, groupValue: selected ? true : null,
+                  onChanged: (_) => onTap(),
+                  activeColor: _terra,
+                  visualDensity: VisualDensity.compact,
+                ),
+            ]),
+            const SizedBox(height: 2),
+            Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+              Text('${plan.priceMonthly}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                  color: selected ? _terra : _ink)),
+              const SizedBox(width: 4),
+              Text('F / mois', style: TextStyle(fontSize: 11, color: _muted)),
+            ]),
+            const SizedBox(height: 6),
+            Text(plan.tagline, style: TextStyle(fontSize: 11.5, color: selected ? _terra.withOpacity(.85) : _muted, height: 1.3)),
+            const SizedBox(height: 6),
+            Text(plan.quota, style: TextStyle(fontSize: 10.5, color: selected ? _terra.withOpacity(.7) : _muted, height: 1.3)),
+          ]),
+        ),
+      ),
     );
   }
 }
