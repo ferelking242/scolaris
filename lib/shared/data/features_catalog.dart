@@ -102,12 +102,35 @@ class AppModule {
   /// modules non-core sont ceux du « catalogue » installable/désinstallable
   /// (cf. `AdminSubscriptionPage` → panneau modules).
   final bool core;
+
+  /// Documentation affichée dans le panneau détail du catalogue de modules
+  /// (`AdminModulesPage`) — un admin doit pouvoir se renseigner AVANT
+  /// d'installer, pas découvrir après coup. Paragraphe plus complet que
+  /// [description] (qui reste le résumé une ligne des cartes).
+  final String longDescription;
+
+  /// Ce que l'installation débloque concrètement (écrans, capacités) — puces
+  /// affichées telles quelles.
+  final List<String> highlights;
+
+  /// Qui utilise ce module au quotidien (rôles/métiers, pas forcément les
+  /// clés `StaffPermissions` exactes — libellés lisibles pour l'admin).
+  final List<String> roles;
+
+  /// Questions fréquentes courtes (question, réponse) — désamorcent les
+  /// objections avant l'achat d'un emplacement/l'installation.
+  final List<(String, String)> faq;
+
   const AppModule({
     required this.id,
     required this.label,
     required this.description,
     required this.icon,
     this.core = false,
+    this.longDescription = '',
+    this.highlights = const [],
+    this.roles = const [],
+    this.faq = const [],
   });
 }
 
@@ -133,18 +156,94 @@ const List<AppModule> kAppModules = [
     label: 'Présences',
     description: 'Appel numérique, absences, retards',
     icon: Icons.how_to_reg_outlined,
+    longDescription:
+        'Remplace le cahier d\'appel papier par un pointage numérique par '
+        'classe et par créneau. Chaque absence/retard est horodaté, attribué '
+        'à un enseignant, et remonte automatiquement vers les statistiques '
+        'de l\'établissement et le suivi individuel de l\'élève.',
+    highlights: [
+      'Appel numérique par classe et par créneau d\'emploi du temps',
+      'Historique des absences/retards par élève, exportable',
+      'Statistiques d\'assiduité par classe pour la Direction',
+      'Justificatifs enregistrés en marge de l\'absence',
+    ],
+    roles: ['Enseignants (appel)', 'Surveillants', 'Direction (statistiques)'],
+    faq: [
+      (
+        'Est-ce que les parents voient les absences de leur enfant ?',
+        'Oui, dès que ce module est installé, l\'absence apparaît côté '
+            'compte parent sans action supplémentaire.',
+      ),
+      (
+        'Peut-on désinstaller ce module plus tard ?',
+        'Oui, à tout moment — l\'historique déjà enregistré est conservé en '
+            'base, seul l\'accès depuis l\'app est suspendu tant que le '
+            'module n\'est pas réinstallé.',
+      ),
+    ],
   ),
   AppModule(
     id: 'finance',
     label: 'Finances',
     description: 'Facturation, paiements, comptabilité',
     icon: Icons.account_balance_wallet_outlined,
+    longDescription:
+        'Gère les frais de scolarité de bout en bout : structure de frais par '
+        'classe/niveau, génération des factures élève, enregistrement des '
+        'encaissements (espèces, Mobile Money, virement) et suivi des '
+        'impayés. Distinct de l\'abonnement Scolaris — ici c\'est l\'école '
+        'qui facture SES élèves.',
+    highlights: [
+      'Structures de frais par classe/niveau/année scolaire',
+      'Génération et suivi des factures élève',
+      'Enregistrement des paiements et reçus imprimables',
+      'Tableau de bord des impayés et relances',
+    ],
+    roles: ['Comptable', 'Direction (suivi recouvrement)'],
+    faq: [
+      (
+        'Est-ce lié à l\'abonnement Scolaris de l\'école ?',
+        'Non — ce module gère l\'argent que les ÉLÈVES doivent à l\'école. '
+            'L\'abonnement Scolaris (ce que l\'école paie à Scolaris) reste '
+            'entièrement séparé, dans « Mon abonnement ».',
+      ),
+      (
+        'Les paiements sont-ils automatisés (Mobile Money) ?',
+        'Pas encore : les encaissements sont saisis manuellement par le '
+            'comptable après réception du versement, comme pour les frais '
+            'papier actuels — mais centralisés et suivis dans l\'app.',
+      ),
+    ],
   ),
   AppModule(
     id: 'enrollment',
     label: 'Inscriptions',
     description: 'Campagnes d\'inscription, dossiers, pré-inscriptions en ligne',
     icon: Icons.how_to_reg_rounded,
+    longDescription:
+        'Ouvre un lien public de pré-inscription pour les familles (formulaire '
+        'en ligne, sans compte requis), centralise les dossiers reçus et '
+        'permet à l\'école de les valider ou refuser avant de créer les '
+        'comptes élève/parent définitifs.',
+    highlights: [
+      'Lien public de pré-inscription à partager (réseaux, site de l\'école)',
+      'File des dossiers reçus, à valider ou refuser',
+      'Ouverture/fermeture de la campagne en un clic',
+      'Passage direct dossier validé → compte élève créé',
+    ],
+    roles: ['Secrétariat', 'Direction (validation finale)'],
+    faq: [
+      (
+        'Faut-il un compte pour qu\'une famille pré-inscrive son enfant ?',
+        'Non, le formulaire public ne demande aucun compte — seul le '
+            'compte parent est créé après validation du dossier par l\'école.',
+      ),
+      (
+        'Peut-on garder l\'inscription « au guichet », sans ce module ?',
+        'Oui, ce module est optionnel — sans lui, l\'admin continue de '
+            'créer les élèves directement depuis « Élèves & inscriptions ».',
+      ),
+    ],
   ),
 ];
 

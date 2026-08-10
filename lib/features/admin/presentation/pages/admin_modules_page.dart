@@ -150,6 +150,43 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
     }
   }
 
+  /// Panneau documentation avant installation — un admin doit pouvoir se
+  /// renseigner (ce que ça débloque, qui l'utilise, FAQ) avant d'engager un
+  /// emplacement, pas découvrir après coup. Le bouton Installer/Retirer reste
+  /// accessible ici : pas besoin de fermer le panneau pour agir.
+  void _showModuleDetails(
+    BuildContext context, {
+    required AppModule module,
+    required bool installed,
+    required bool blocked,
+    required VoidCallback? onInstall,
+    required VoidCallback? onRemove,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _ModuleDetailsSheet(
+        module: module,
+        installed: installed,
+        blocked: blocked,
+        anim: _anim[module.id] ?? _TileAnim.idle,
+        onInstall: onInstall == null
+            ? null
+            : () {
+                Navigator.pop(sheetContext);
+                onInstall();
+              },
+        onRemove: onRemove == null
+            ? null
+            : () {
+                Navigator.pop(sheetContext);
+                onRemove();
+              },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final school = widget.school;
@@ -282,6 +319,14 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
               blocked: !isInstalled && atQuota,
               onInstall: school == null ? null : () => _toggle(m.id, true, saved),
               onRemove: school == null ? null : () => _toggle(m.id, false, saved),
+              onDetails: () => _showModuleDetails(
+                context,
+                module: m,
+                installed: isInstalled,
+                blocked: !isInstalled && atQuota,
+                onInstall: school == null ? null : () => _toggle(m.id, true, saved),
+                onRemove: school == null ? null : () => _toggle(m.id, false, saved),
+              ),
             );
           },
         );
@@ -357,6 +402,7 @@ class _ModuleCard extends StatelessWidget {
   final bool blocked;
   final VoidCallback? onInstall;
   final VoidCallback? onRemove;
+  final VoidCallback onDetails;
 
   const _ModuleCard({
     required this.module,
@@ -365,6 +411,7 @@ class _ModuleCard extends StatelessWidget {
     required this.blocked,
     required this.onInstall,
     required this.onRemove,
+    required this.onDetails,
   });
 
   static const _cyan = Color(0xFF0E7490);
@@ -410,8 +457,17 @@ class _ModuleCard extends StatelessWidget {
               decoration: BoxDecoration(color: _cyan.withValues(alpha: .15), borderRadius: BorderRadius.circular(6)),
               child: const Text('Installé', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _cyan)),
             ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'En savoir plus',
+            onPressed: onDetails,
+            icon: Icon(Icons.info_outline_rounded, size: 19, color: context.cMuted),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(module.label, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: context.cInk)),
         const SizedBox(height: 4),
         Expanded(
@@ -479,6 +535,174 @@ class _ModuleCard extends StatelessWidget {
       const SizedBox(width: 8),
       Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
     ]);
+  }
+}
+
+/// Panneau documentation d'un module, ouvert depuis l'icône ⓘ d'une carte —
+/// description longue, ce que l'installation débloque concrètement, qui
+/// l'utilise au quotidien, FAQ, puis le même bouton Installer/Retirer que
+/// sur la carte (pas besoin de fermer pour agir).
+class _ModuleDetailsSheet extends StatelessWidget {
+  final AppModule module;
+  final bool installed;
+  final bool blocked;
+  final _TileAnim anim;
+  final VoidCallback? onInstall;
+  final VoidCallback? onRemove;
+
+  const _ModuleDetailsSheet({
+    required this.module,
+    required this.installed,
+    required this.blocked,
+    required this.anim,
+    required this.onInstall,
+    required this.onRemove,
+  });
+
+  static const _cyan = Color(0xFF0E7490);
+  static const _red = Color(0xFFDC2626);
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = anim == _TileAnim.installing || anim == _TileAnim.removing;
+    final locked = blocked && anim == _TileAnim.idle;
+    final maxH = MediaQuery.sizeOf(context).height * 0.86;
+
+    return SafeArea(
+      child: Container(
+        constraints: BoxConstraints(maxHeight: maxH),
+        decoration: BoxDecoration(
+          color: context.cCard,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(color: context.cBorder, borderRadius: BorderRadius.circular(4)),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: _cyan.withValues(alpha: .12), borderRadius: BorderRadius.circular(14)),
+                    child: Icon(module.icon, size: 26, color: _cyan),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(module.label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: context.cInk)),
+                      const SizedBox(height: 2),
+                      Text(module.description, style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+                    ]),
+                  ),
+                ]),
+                if (module.longDescription.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Text(module.longDescription,
+                      style: TextStyle(fontSize: 13, color: context.cInk, height: 1.5)),
+                ],
+                if (module.highlights.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text('Ce que ça débloque',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                  const SizedBox(height: 8),
+                  for (final h in module.highlights)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 7),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.check_circle_rounded, size: 15, color: _cyan),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(h, style: TextStyle(fontSize: 12.5, color: context.cInk, height: 1.35))),
+                      ]),
+                    ),
+                ],
+                if (module.roles.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Qui l\'utilise',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final r in module.roles)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(color: context.cSubtle, borderRadius: BorderRadius.circular(20)),
+                        child: Text(r, style: TextStyle(fontSize: 11.5, color: context.cInk, fontWeight: FontWeight.w600)),
+                      ),
+                  ]),
+                ],
+                if (module.faq.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text('Questions fréquentes',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                  const SizedBox(height: 8),
+                  for (final (q, a) in module.faq)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(q, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.cInk)),
+                        const SizedBox(height: 3),
+                        Text(a, style: TextStyle(fontSize: 12, color: context.cMuted, height: 1.4)),
+                      ]),
+                    ),
+                ],
+                if (locked) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC17F24).withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFC17F24).withValues(alpha: .3)),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.workspace_premium_rounded, size: 16, color: Color(0xFFC17F24)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text('Quota atteint — achetez un emplacement ou passez à une offre '
+                            'supérieure pour installer ce module.',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF8A5A12), fontWeight: FontWeight.w600)),
+                      ),
+                    ]),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: installed
+                      ? OutlinedButton.icon(
+                          onPressed: busy ? null : onRemove,
+                          icon: const Icon(Icons.delete_outline_rounded, size: 17, color: _red),
+                          label: const Text('Retirer ce module', style: TextStyle(color: _red, fontWeight: FontWeight.w700)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: _red),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                          ),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: (locked || busy) ? null : onInstall,
+                          icon: Icon(locked ? Icons.lock_outline_rounded : Icons.download_rounded, size: 17,
+                              color: locked ? context.cMuted : Colors.white),
+                          label: Text(locked ? 'Verrouillé' : 'Installer ce module',
+                              style: TextStyle(fontWeight: FontWeight.w700, color: locked ? context.cMuted : Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: locked ? context.cBorder : _cyan,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                          ),
+                        ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }
 
