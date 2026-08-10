@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/permissions/rbac_mapping.dart';
 import '../../../../core/permissions/staff_permissions.dart';
@@ -196,12 +200,25 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       _enrollConfig = config;
       _enrollClasses = classes;
       _enrollSchoolId = schoolId;
-      // Dossier complet directement — plus d'inscription « rapide » à 4
-      // champs : une fiche élève incomplète (sans tuteur, sans photo, sans
-      // lieu de naissance…) coûte plus cher à rattraper plus tard qu'à
-      // saisir maintenant, pendant que le secrétariat a l'élève en face.
-      _enrolling = true;
     });
+
+    // Popup rapide par défaut (nom, photo, naissance, classe, tuteur…) — le
+    // dossier complet (documents, email, nationalité…) reste accessible via
+    // le lien « Dossier complet » du popup, pour qui veut tout saisir d'un
+    // coup, mais la plupart des inscriptions n'ont besoin que de l'essentiel.
+    if (!mounted) return;
+    final useFullForm = await showDialog<bool>(
+      context: context,
+      builder: (_) => _QuickEnrollDialog(
+        schoolId: schoolId,
+        classes: classes,
+        classCounts: _classCounts(),
+        onSubmit: (data) => _saveStudent(schoolId, data),
+      ),
+    );
+    if (useFullForm == true && mounted) {
+      setState(() => _enrolling = true);
+    }
   }
 
   String? _importSchoolId;
@@ -1798,10 +1815,393 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   }
 }
 
+/// Inscription RAPIDE : nom, photo, sexe, naissance, lieu, classe, tuteur —
+/// pensée pour le secrétariat qui inscrit vite un élève déjà connu
+/// (contrairement au formulaire complet, exhaustif mais lent). Le lien
+/// « Dossier complet » ferme ce popup et bascule vers `_InlineEnroll`
+/// (l'`EnrollmentPage` à catégories multiples) pour qui veut tout saisir
+/// d'un coup (documents, email, nationalité, médical…).
+class _QuickEnrollDialog extends StatefulWidget {
+  final String schoolId;
+  final List<SbClass> classes;
+  final Map<String, int> classCounts;
+  final Future<void> Function(Map<String, dynamic> data) onSubmit;
+  const _QuickEnrollDialog({
+    required this.schoolId,
+    required this.classes,
+    required this.classCounts,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_QuickEnrollDialog> createState() => _QuickEnrollDialogState();
+}
+
+const _boyBlue = Color(0xFF2563EB);
+const _girlPink = Color(0xFFDB2777);
+
+class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
+  final _nameCtrl = TextEditingController();
+  final _matriculeCtrl = TextEditingController();
+  final _birthPlaceCtrl = TextEditingController();
+  final _guardianNameCtrl = TextEditingController();
+  final _guardianPhoneCtrl = TextEditingController();
+  String _gender = 'M';
+  DateTime? _birthDate;
+  String? _classId;
+  bool _saving = false;
+  String? _error;
+
+  // Photo — même bucket public que la photo prise dans le dossier complet
+  // (cf. `_PhotoField` d'`enrollment_page.dart`), juste sans passer par le
+  // formulaire complet.
+  final String _uploadSessionId = const Uuid().v4();
+  Uint8List? _photoBytes;
+  String? _photoUrl;
+  bool _photoUploading = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _matriculeCtrl.dispose();
+    _birthPlaceCtrl.dispose();
+    _guardianNameCtrl.dispose();
+    _guardianPhoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_photoUploading) return;
+    final picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _photoBytes = bytes; _photoUploading = true; });
+    try {
+      final url = await SupabaseDbSource.uploadStudentPhoto(
+        schoolId: widget.schoolId,
+        sessionId: _uploadSessionId,
+        filename: picked.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      setState(() { _photoUrl = url; _photoUploading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _photoUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi de la photo : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 10),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _birthDate = picked);
+  }
+
+  Future<void> _submit() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Le nom complet est requis.');
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
+    final iso = _birthDate == null
+        ? ''
+        : '${_birthDate!.year.toString().padLeft(4, '0')}-'
+          '${_birthDate!.month.toString().padLeft(2, '0')}-'
+          '${_birthDate!.day.toString().padLeft(2, '0')}';
+    await widget.onSubmit({
+      'first_name': name,
+      'last_name': '',
+      'gender': _gender == 'M' ? 'Masculin' : 'Féminin',
+      'birth_date': iso,
+      'birth_place': _birthPlaceCtrl.text.trim(),
+      'class_id': _classId,
+      'matricule': _matriculeCtrl.text.trim(),
+      'photo': _photoUrl ?? '',
+      'guardian_name': _guardianNameCtrl.text.trim(),
+      'guardian_phone': _guardianPhoneCtrl.text.trim(),
+    });
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  InputDecoration _decor(BuildContext context, String hint, {String? label}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+        labelStyle: TextStyle(fontSize: 12.5, color: context.cMuted),
+        isDense: true,
+        filled: true,
+        fillColor: context.cSubtle,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.cBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _terra, width: 1.5),
+        ),
+      );
+
+  Widget _sectionTitle(BuildContext context, IconData icon, String label) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Icon(icon, size: 14, color: context.cMuted),
+          const SizedBox(width: 6),
+          Text(label.toUpperCase(),
+              style: TextStyle(
+                  fontSize: 10.5,
+                  letterSpacing: .4,
+                  fontWeight: FontWeight.w700,
+                  color: context.cMuted)),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final genderColor = _gender == 'M' ? _boyBlue : _girlPink;
+    final initials = _nameCtrl.text.trim().isEmpty
+        ? '?'
+        : _nameCtrl.text
+            .trim()
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((w) => w[0])
+            .join()
+            .toUpperCase();
+
+    return Dialog(
+      backgroundColor: context.cCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── En-tête : photo (ou avatar par défaut) + titre ──────────
+              Row(children: [
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _pickPhoto,
+                    child: Stack(clipBehavior: Clip.none, children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: _photoBytes == null ? genderColor.withValues(alpha: .14) : null,
+                          shape: BoxShape.circle,
+                          image: _photoBytes != null
+                              ? DecorationImage(image: MemoryImage(_photoBytes!), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: _photoUploading
+                            ? const SizedBox(width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : _photoBytes == null
+                                ? Text(initials,
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: genderColor))
+                                : null,
+                      ),
+                      Positioned(
+                        bottom: -2, right: -2,
+                        child: Container(
+                          width: 18, height: 18,
+                          decoration: BoxDecoration(
+                            color: _terra, shape: BoxShape.circle,
+                            border: Border.all(color: context.cCard, width: 1.5),
+                          ),
+                          child: const Icon(Icons.photo_camera_rounded, size: 10, color: Colors.white),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Inscription rapide',
+                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                    Text('L\'essentiel pour créer la fiche tout de suite',
+                        style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                  ]),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                ),
+              ]),
+              const SizedBox(height: 18),
+
+              _sectionTitle(context, Icons.badge_outlined, 'Identité'),
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Ex : Fatou Mbemba', label: 'Nom complet *'),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: SegmentedButton<String>(
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: context.cSubtle,
+                      selectedBackgroundColor: genderColor.withValues(alpha: .12),
+                      selectedForegroundColor: genderColor,
+                      side: BorderSide(color: context.cBorder),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: 'M', label: Text('Garçon'), icon: Icon(Icons.male_rounded, size: 15)),
+                      ButtonSegment(value: 'F', label: Text('Fille'), icon: Icon(Icons.female_rounded, size: 15)),
+                    ],
+                    selected: {_gender},
+                    onSelectionChanged: (s) => setState(() => _gender = s.first),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: _pickBirthDate,
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: context.cSubtle,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: context.cBorder),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.cake_outlined, size: 16, color: context.cMuted),
+                    const SizedBox(width: 10),
+                    Text(
+                      _birthDate == null
+                          ? 'Date de naissance'
+                          : '${_birthDate!.day.toString().padLeft(2, '0')}/'
+                            '${_birthDate!.month.toString().padLeft(2, '0')}/'
+                            '${_birthDate!.year}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: _birthDate == null ? context.cMuted : context.cInk),
+                    ),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _birthPlaceCtrl,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Ville, pays', label: 'Lieu de naissance'),
+              ),
+
+              const SizedBox(height: 18),
+              _sectionTitle(context, Icons.school_outlined, 'Scolarité'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: context.cSubtle,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.cBorder),
+                ),
+                child: DropdownButton<String>(
+                  value: _classId,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  dropdownColor: context.cCard,
+                  hint: Text('Classe (optionnel)', style: TextStyle(fontSize: 13, color: context.cMuted)),
+                  style: TextStyle(fontSize: 13, color: context.cInk),
+                  items: [
+                    DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('— Aucune classe —',
+                            style: TextStyle(color: context.cMuted, fontStyle: FontStyle.italic))),
+                    for (final c in widget.classes)
+                      DropdownMenuItem(
+                        value: c.id,
+                        child: Builder(builder: (_) {
+                          final count = widget.classCounts[c.id] ?? 0;
+                          final full = count >= c.maxStudents;
+                          return Text(
+                            '${c.name} ($count/${c.maxStudents})${full ? ' — complet' : ''}',
+                            style: TextStyle(
+                                color: full ? _terra : context.cInk,
+                                fontWeight: full ? FontWeight.w700 : FontWeight.normal),
+                          );
+                        }),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _classId = v),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _matriculeCtrl,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Auto-généré si vide', label: 'Matricule (optionnel)'),
+              ),
+
+              const SizedBox(height: 18),
+              _sectionTitle(context, Icons.family_restroom_rounded, 'Tuteur (optionnel, à compléter plus tard sinon)'),
+              TextField(
+                controller: _guardianNameCtrl,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _guardianPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(fontSize: 13.5, color: context.cInk),
+                decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
+              ],
+              const SizedBox(height: 20),
+              Row(children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(true),
+                  child: const Text('Dossier complet →'),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  style: FilledButton.styleFrom(backgroundColor: _terra),
+                  icon: _saving
+                      ? const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_rounded, size: 16),
+                  label: Text(_saving ? 'Inscription…' : 'Inscrire'),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Vue d'inscription **inline** : barre de retour + formulaire, dans le shell.
-/// Dossier complet dès l'ouverture (nom, prénom, naissance, photo, tuteur,
-/// documents…) — plus d'inscription « rapide » intermédiaire : une fiche
-/// incomplète coûte plus cher à rattraper plus tard qu'à saisir maintenant.
+/// Ouverte depuis le lien « Dossier complet » du popup rapide, pour qui veut
+/// tout saisir d'un coup (documents, email, nationalité, médical…).
 class _InlineEnroll extends StatelessWidget {
   final EnrollmentConfig config;
   final List<SbClass> classes;
