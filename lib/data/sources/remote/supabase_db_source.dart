@@ -4762,6 +4762,7 @@ class SupabaseDbSource {
     String? title,
     String? staffRoleId,
     String? phone,
+    String? avatarUrl,
   }) async {
     final res = await _db.functions.invoke('create-account', body: {
       'mode': 'create',
@@ -4783,6 +4784,7 @@ class SupabaseDbSource {
       if (title != null && title.isNotEmpty) 'role_title': title.trim(),
       if (staffRoleId != null) 'staff_role_id': staffRoleId,
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (avatarUrl != null && avatarUrl.isNotEmpty) 'avatar_url': avatarUrl,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('auth_uid', authUid).friendly();
 

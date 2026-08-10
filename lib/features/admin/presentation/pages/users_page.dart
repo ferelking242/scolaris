@@ -3703,10 +3703,16 @@ class _RolePicker extends ConsumerWidget {
   /// sur-mesure se crée dans « Rôles & permissions », pas ici).
   final VoidCallback? onCustom;
 
+  /// Offre Essentiel : seul le rôle « Enseignant » reste proposé, les autres
+  /// (secrétaire, comptable…) nécessitent Croissance ou plus — cf.
+  /// `familyAccountsEnabledProvider`.
+  final bool teacherOnly;
+
   const _RolePicker({
     required this.selectedRoleId,
     required this.selectedTemplateId,
     this.custom = false,
+    this.teacherOnly = false,
     required this.onRole,
     required this.onTemplate,
     this.onCustom,
@@ -3725,12 +3731,14 @@ class _RolePicker extends ConsumerWidget {
       );
     }
 
-    final existing = roles.asData?.value ?? const <SbStaffRole>[];
+    var existing = roles.asData?.value ?? const <SbStaffRole>[];
+    if (teacherOnly) existing = existing.where((r) => r.name == 'Enseignant').toList();
     final existingNames = existing.map((r) => r.name).toSet();
     // Un modèle déjà instancié dans l'école est proposé comme rôle, pas en double.
-    final proposals = (templates.asData?.value ?? const <SbRoleTemplate>[])
+    var proposals = (templates.asData?.value ?? const <SbRoleTemplate>[])
         .where((t) => !existingNames.contains(t.name))
         .toList();
+    if (teacherOnly) proposals = proposals.where((t) => t.name == 'Enseignant').toList();
 
     return Wrap(spacing: 8, runSpacing: 8, children: [
       for (final r in existing)
@@ -3782,14 +3790,13 @@ class _InviteMemberDialog extends ConsumerStatefulWidget {
 }
 
 class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _email = TextEditingController();
   final _title = TextEditingController();
   late final TextEditingController _pass =
       TextEditingController(text: _generatePassword());
 
-  bool _isStaff = false; // false = Enseignant, true = Personnel
   // Dernier titre posé automatiquement par une sélection de rôle : permet de
   // distinguer "l'utilisateur a tapé son propre titre" (on ne l'écrase plus)
   // de "le titre vient encore du rôle précédent" (on peut le remplacer).
@@ -3797,6 +3804,14 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   final Set<String> _perms = {};
   bool _loading = false;
   String? _error;
+
+  // Photo — même bucket/chemin que la photo élève (avatars/{schoolId}/…),
+  // même policy `is_member_of` : n'importe quel membre du staff peut y
+  // déposer une photo pour un nouveau compte qu'il crée.
+  final String _uploadSessionId = const Uuid().v4();
+  Uint8List? _photoBytes;
+  String? _photoUrl;
+  bool _photoUploading = false;
 
   /// Modules actifs de l'école — décide quelles permissions proposer
   /// (cf. `StaffPermissions.availableFor`).
@@ -3808,6 +3823,8 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   /// Rôle choisi. Le droit est porté par le RÔLE, pas par la personne : deux
   /// comptables partagent le même rôle, et le modifier plus tard les met à jour
   /// tous les deux. Un rôle sur-mesure se crée dans « Rôles & permissions ».
+  /// « Enseignant » est un rôle comme un autre dans ce sélecteur — pas un type
+  /// à part : il porte lui aussi des permissions (cf. `_pickRole`/`_pickTemplate`).
   SbRoleTemplate? _template; // modèle du catalogue (rôle pas encore créé)
   SbStaffRole? _existingRole; // rôle déjà créé dans l'école
 
@@ -3820,12 +3837,40 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _email.dispose();
     _title.dispose();
     _pass.dispose();
     _staffInfo.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_photoUploading) return;
+    final picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _photoBytes = bytes; _photoUploading = true; });
+    try {
+      final url = await SupabaseDbSource.uploadStudentPhoto(
+        schoolId: widget.schoolId,
+        sessionId: _uploadSessionId,
+        filename: picked.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      setState(() { _photoUrl = url; _photoUploading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _photoUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi de la photo : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   /// Sélection d'un rôle existant de l'école.
@@ -3859,74 +3904,66 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_isStaff && _perms.isEmpty) {
+    final lastName = _lastNameCtrl.text.trim();
+    final firstName = _firstNameCtrl.text.trim();
+    final email = _email.text.trim();
+    if (lastName.isEmpty || firstName.isEmpty) {
+      setState(() => _error = 'Nom et prénom sont requis.');
+      return;
+    }
+    if (!email.contains('@')) {
+      setState(() => _error = 'Email invalide.');
+      return;
+    }
+    if (_pass.text.length < 6) {
+      setState(() => _error = 'Mot de passe : 6 caractères minimum.');
+      return;
+    }
+    if (_existingRole == null && _template == null) {
       setState(() => _error = 'Choisissez un rôle pour ce membre.');
       return;
     }
     setState(() { _loading = true; _error = null; });
     final messenger = ScaffoldMessenger.of(context);
+    final fullName = '$firstName $lastName';
     try {
-      String? staffRoleId;
-      var permissions = const <String>[];
+      final schoolId = ref.read(currentSchoolIdProvider);
+      if (schoolId == null) throw Exception('École introuvable.');
 
-      if (!_isStaff) {
-        // Un ENSEIGNANT porte lui aussi un rôle, comme le reste du personnel.
-        // Sans rôle, il n'a aucune permission — et depuis que les notes sont
-        // verrouillées en base (20260722), il ne pourrait plus en saisir une
-        // seule. Cf. 20260721_teachers_get_a_role.sql.
-        final schoolId = ref.read(currentSchoolIdProvider);
-        final templates = await ref.read(roleTemplatesProvider.future);
-        final t = templates.where((t) => t.name == 'Enseignant').firstOrNull;
-        if (schoolId != null && t != null) {
-          final role = await StaffRolesSource.ensureRoleFromTemplate(
-            schoolId: schoolId,
-            template: t,
-          );
-          staffRoleId = role.id;
-          permissions = RbacMapping.toLegacyPermissions(role.grants);
-        }
+      SbStaffRole role;
+      if (_existingRole != null) {
+        role = _existingRole!;
+      } else {
+        // Création paresseuse : le rôle n'existe dans l'école qu'à la première
+        // embauche qui en a besoin. La suivante le réutilise.
+        role = await StaffRolesSource.ensureRoleFromTemplate(
+          schoolId: schoolId,
+          template: _template!,
+        );
       }
 
-      if (_isStaff) {
-        final schoolId = ref.read(currentSchoolIdProvider);
-        if (schoolId == null) throw Exception('École introuvable.');
-
-        SbStaffRole role;
-        if (_existingRole != null) {
-          role = _existingRole!;
-        } else if (_template != null) {
-          // Création paresseuse : le rôle n'existe dans l'école qu'à la première
-          // embauche qui en a besoin. La suivante le réutilise.
-          role = await StaffRolesSource.ensureRoleFromTemplate(
-            schoolId: schoolId,
-            template: _template!,
-          );
-        } else {
-          // Aucun rôle choisi : on n'invente plus de rôle « sur-mesure » ici. Un
-          // rôle taillé à la main se crée dans « Rôles & permissions ».
-          throw Exception('Choisissez un rôle pour ce membre.');
-        }
-
-        staffRoleId = role.id;
-        permissions = RbacMapping.toLegacyPermissions(role.grants,
-            isAdminRole: role.isAdminRole);
-      }
+      final staffRoleId = role.id;
+      final permissions = RbacMapping.toLegacyPermissions(role.grants,
+          isAdminRole: role.isAdminRole);
+      // Le rôle « Enseignant » (catalogue ou déjà créé dans l'école) donne
+      // encore accès aux écrans réservés aux profs (saisie de notes, classes
+      // enseignées…) via `users.role == 'teacher'` — cf. 20260721_teachers_get_a_role.sql.
+      final isTeacher = role.name == 'Enseignant';
 
       final userId = await SupabaseDbSource.createMemberAccount(
-        email: _email.text.trim(),
+        email: email,
         password: _pass.text,
-        fullName: _name.text.trim(),
-        role: _isStaff ? 'staff_custom' : 'teacher',
+        fullName: fullName,
+        role: isTeacher ? 'teacher' : 'staff_custom',
         permissions: permissions,
-        title: _isStaff ? _title.text.trim() : null,
+        title: _title.text.trim().isEmpty ? role.name : _title.text.trim(),
         staffRoleId: staffRoleId,
         phone: _staffInfo.phone.text,
+        avatarUrl: _photoUrl,
       );
 
       // Fiche du personnel (matricule, sexe, naissance, embauche, contrat).
-      final schoolId = ref.read(currentSchoolIdProvider);
-      if (userId != null && schoolId != null) {
+      if (userId != null) {
         await SupabaseDbSource.upsertStaffProfile(
           userId: userId,
           schoolId: schoolId,
@@ -3943,8 +3980,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
       if (!mounted) return;
       Navigator.pop(context);
       messenger.showSnackBar(SnackBar(
-        content: Text(
-            '${_name.text.trim()} créé(e). Mot de passe : ${_pass.text}'),
+        content: Text('$fullName créé(e). Mot de passe : ${_pass.text}'),
         backgroundColor: _green,
         duration: const Duration(seconds: 8),
         behavior: SnackBarBehavior.floating,
@@ -3956,70 +3992,170 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     }
   }
 
+  InputDecoration _decor(BuildContext context, String hint, {String? label}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+        labelStyle: TextStyle(fontSize: 12.5, color: context.cMuted),
+        isDense: true,
+        filled: true,
+        fillColor: context.cSubtle,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.cBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _terra, width: 1.5),
+        ),
+      );
+
+  /// La photo comme un CHAMP à part entière (carré, labellisé) — même
+  /// présentation que « Inscrire un élève ».
+  Widget _photoField(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text('PHOTO',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.cMuted)),
+          ),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                width: 132, height: 132,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: context.cSubtle,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: _photoBytes != null ? _terra.withValues(alpha: .4) : context.cBorder),
+                  image: _photoBytes != null
+                      ? DecorationImage(image: MemoryImage(_photoBytes!), fit: BoxFit.cover)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: _photoUploading
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : _photoBytes == null
+                        ? Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.add_a_photo_rounded, size: 22, color: context.cMuted),
+                            const SizedBox(height: 6),
+                            Text('Ajouter',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 11, color: context.cMuted)),
+                          ])
+                        : null,
+              ),
+            ),
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final familiesEnabled =
         ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
-    // En offre Simple, le personnel personnalisé est verrouillé → seul Enseignant.
-    if (_isStaff && !familiesEnabled) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => setState(() => _isStaff = false));
-    }
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Inviter un membre',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      content: SizedBox(
-        width: 400,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(
-                    labelText: 'Nom complet',
-                    prefixIcon: Icon(Icons.person_outline)),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Nom requis' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                    labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Email requis';
-                  if (!v.contains('@')) return 'Email invalide';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-
-              // ── Type : Enseignant vs Personnel ─────────────────────────
+    return Dialog(
+      backgroundColor: context.cCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── En-tête ──────────────────────────────────────────────────
               Row(children: [
                 Expanded(
-                  child: _TypeChoice(
-                    label: 'Enseignant',
-                    icon: Icons.co_present_outlined,
-                    selected: !_isStaff,
-                    onTap: () => setState(() => _isStaff = false),
-                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Ajouter un membre du personnel',
+                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                    Text('Enseignant ou personnel administratif — le rôle choisi ci-dessous décide de tout',
+                        style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                  ]),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _TypeChoice(
-                    label: 'Personnel',
-                    icon: Icons.badge_outlined,
-                    selected: _isStaff,
-                    onTap: () => setState(() => _isStaff = true),
-                  ),
+                IconButton(
+                  icon: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 30, height: 30),
                 ),
               ]),
+              const SizedBox(height: 18),
 
-              // ── Offre Simple : personnel verrouillé ────────────────────
+              // ── Deux colonnes : photo à gauche, identité à droite ───────
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _photoField(context),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _lastNameCtrl,
+                          autofocus: true,
+                          style: TextStyle(fontSize: 13.5, color: context.cInk),
+                          decoration: _decor(context, 'Ex : Mbemba', label: 'Nom *'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _firstNameCtrl,
+                          style: TextStyle(fontSize: 13.5, color: context.cInk),
+                          decoration: _decor(context, 'Ex : Grâce', label: 'Prénom *'),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      style: TextStyle(fontSize: 13.5, color: context.cInk),
+                      decoration: _decor(context, 'membre@ecole.cg', label: 'Email *'),
+                    ),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 14),
+
+              // ── Fiche : téléphone, matricule, sexe, naissance, embauche,
+              //    contrat. Vaut aussi pour un enseignant : lui non plus n'avait
+              //    ni téléphone ni date d'embauche.
+              _StaffInfoFields(info: _staffInfo),
+              const SizedBox(height: 14),
+
+              // ── Rôle : Enseignant est une entrée du même sélecteur, plus
+              //    de bascule séparée « Enseignant / Personnel ». ─────────
+              TextFormField(
+                controller: _title,
+                decoration: const InputDecoration(
+                    labelText: 'Titre (ex. Secrétaire, Enseignant)',
+                    prefixIcon: Icon(Icons.work_outline)),
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Rôle',
+                    style: TextStyle(
+                        fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 6),
+              _RolePicker(
+                selectedRoleId: _existingRole?.id,
+                selectedTemplateId: _template?.id,
+                teacherOnly: !familiesEnabled,
+                onRole: _pickRole,
+                onTemplate: _pickTemplate,
+              ),
+
+              // ── Offre Essentiel : seul le rôle Enseignant est proposé ───
               if (!familiesEnabled) ...[
                 const SizedBox(height: 12),
                 const PlanGateBanner(
@@ -4036,34 +4172,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 ),
               ],
 
-              // ── Fiche : téléphone, matricule, sexe, naissance, embauche,
-              //    contrat. Vaut aussi pour un enseignant : lui non plus n'avait
-              //    ni téléphone ni date d'embauche.
-              _StaffInfoFields(info: _staffInfo),
-
-              // ── Personnel : rôle + titre + aperçu des accès ────────────
-              if (_isStaff && familiesEnabled) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _title,
-                  decoration: const InputDecoration(
-                      labelText: 'Titre (ex. Secrétaire)',
-                      prefixIcon: Icon(Icons.work_outline)),
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Rôle',
-                      style: TextStyle(
-                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: 6),
-                _RolePicker(
-                  selectedRoleId: _existingRole?.id,
-                  selectedTemplateId: _template?.id,
-                  onRole: _pickRole,
-                  onTemplate: _pickTemplate,
-                ),
+              if (_existingRole != null || _template != null) ...[
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -4115,8 +4224,6 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                         setState(() => _pass.text = _generatePassword()),
                   ),
                 ),
-                validator: (v) =>
-                    (v == null || v.length < 6) ? '6 caractères minimum' : null,
               ),
               const SizedBox(height: 12),
               Container(
@@ -4143,67 +4250,30 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                 Text(_error!,
                     style: const TextStyle(color: _terra, fontSize: 12.5)),
               ],
+              const SizedBox(height: 20),
+              Row(children: [
+                const Spacer(),
+                TextButton(
+                  onPressed: _loading ? null : () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _loading ? null : _submit,
+                  style: FilledButton.styleFrom(backgroundColor: _terra),
+                  icon: _loading
+                      ? const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_rounded, size: 16),
+                  label: Text(_loading ? 'Création…' : 'Créer le compte'),
+                ),
+              ]),
             ]),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _loading ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          onPressed: _loading ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: _terra),
-          child: _loading
-              ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : const Text('Créer le compte'),
-        ),
-      ],
     );
   }
-}
-
-// ── Choix de type (Enseignant / Personnel) ───────────────────────────────────
-class _TypeChoice extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _TypeChoice(
-      {required this.label,
-      required this.icon,
-      required this.selected,
-      required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: selected ? _terra.withValues(alpha: .08) : context.cCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: selected ? _terra : context.cBorder, width: selected ? 2 : 1),
-            ),
-            child: Column(children: [
-              Icon(icon, size: 20, color: selected ? _terra : context.cMuted),
-              const SizedBox(height: 5),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      color: selected ? _terra : context.cInk,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-            ]),
-          ),
-        ),
-      );
 }
 
 // ── Activer l'accès (donner un login à une fiche élève/parent) ───────────────
