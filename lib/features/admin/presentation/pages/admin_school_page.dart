@@ -14,15 +14,18 @@ const _green  = Color(0xFF2D6A4F);
 /// Types d'établissement (`schools.metadata.types`). Les clés sont celles que
 /// [SchoolTaxonomy] traduit en cycles du catalogue des niveaux — ne pas les
 /// renommer sans mettre la taxonomie à jour.
-// Université, lycée technique, enseignement supérieur et établissement
-// spécialisé sont marqués `comingSoon` à l'inscription (school_registration
-// _screen.dart) : pas de logique métier dédiée derrière. On ne les propose
-// donc pas ici non plus tant qu'ils ne sont pas développés.
+// Université, enseignement supérieur et établissement spécialisé restent
+// `comingSoon` à l'inscription (school_registration_screen.dart) : pas de
+// logique métier dédiée derrière (cf. audit crédits/UE du 10/08/2026). On ne
+// les propose donc pas ici non plus. La formation professionnelle (`technique`),
+// elle, a été ouverte le 10/08/2026 : même modèle qu'un lycée classique
+// (SchoolLevel.fromSchoolType la fait déjà pointer vers `lycee`).
 const _kTypes = <String, String>{
   'garderie': 'Garderie / Maternelle',
   'primaire': 'Primaire',
   'college': 'Collège',
   'lycee': 'Lycée',
+  'technique': 'Formation professionnelle',
 };
 
 /// Systèmes éducatifs (`schools.metadata.educational_system`). Combinés au pays,
