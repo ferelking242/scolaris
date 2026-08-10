@@ -811,7 +811,7 @@ class _BuySlotDialogState extends ConsumerState<_BuySlotDialog> {
           Row(children: [
             Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
             const SizedBox(width: 10),
-            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
+            Expanded(child: _periodBtn('Annuel · 3 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
           ]),
           const SizedBox(height: 18),
           Row(crossAxisAlignment: CrossAxisAlignment.baseline,

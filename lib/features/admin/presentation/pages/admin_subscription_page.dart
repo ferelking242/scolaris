@@ -214,7 +214,7 @@ class AdminSubscriptionPage extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            'Paiement annuel = 2 mois offerts. Essai gratuit 1 mois. '
+            'Paiement annuel = 3 mois offerts. Essai gratuit 1 mois. '
             'Prix indicatifs (FCFA), déclinables par pays.',
             style: TextStyle(fontSize: 11.5, color: context.cMuted),
           ),
@@ -459,7 +459,7 @@ class _ChoosePlanDialogState extends ConsumerState<_ChoosePlanDialog> {
           Row(children: [
             Expanded(child: _periodBtn('Mensuel', !_yearly, c, () => setState(() => _yearly = false))),
             const SizedBox(width: 10),
-            Expanded(child: _periodBtn('Annuel · 2 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
+            Expanded(child: _periodBtn('Annuel · 3 mois offerts', _yearly, c, () => setState(() => _yearly = true))),
           ]),
           const SizedBox(height: 18),
 
@@ -1082,13 +1082,13 @@ class _PlanCard extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.savings_rounded, size: 13, color: Color(0xFF15803D)),
               const SizedBox(width: 5),
-              Text('${fmt.format(monthly! * 10)} $currency /an',
+              Text('${fmt.format(monthly! * 9)} $currency /an',
                   style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF15803D))),
               const SizedBox(width: 5),
-              const Text('· 2 mois offerts',
+              const Text('· 3 mois offerts',
                   style: TextStyle(fontSize: 10.5, color: Color(0xFF15803D))),
             ]),
           ),

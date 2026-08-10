@@ -95,6 +95,9 @@ h3{font-size:19px}
 .sombre .btn--vide{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
 .btn--petit{padding:10px 18px;font-size:14px;border-radius:13px}
 .btn[disabled]{opacity:.55;cursor:not-allowed}
+.periode-toggle{display:inline-flex;gap:4px;margin:22px auto 8px;padding:4px;background:#F1E7DB;border-radius:14px}
+.periode-btn{font-family:var(--texte);font-size:14.5px;font-weight:700;padding:9px 18px;border-radius:11px;border:none;background:transparent;color:var(--brun);cursor:pointer;transition:background .15s ease,color .15s ease}
+.periode-btn.actif{background:#fff;color:var(--encre);box-shadow:0 2px 8px rgba(0,0,0,.08)}
 :focus-visible{outline:2.5px solid var(--braise);outline-offset:3px;border-radius:6px}
 
 /* ---------- pastilles d'icônes (reprises des cartes de l'app) ---------- */
@@ -601,16 +604,21 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 <!-- ============ OFFRES ============ -->
 <section class="section" id="offres" style="padding-top:0">
   <div class="large">
-    <p class="oeil rev">Abonnement mensuel, sans engagement</p>
+    <p class="oeil rev">Mensuel ou annuel, sans engagement</p>
     <h2 class="rev">Des offres à la taille de votre établissement</h2>
     <p class="chapo rev">Notes, bulletins et emploi du temps sont inclus dans toutes les offres. Ajoutez les modules complémentaires dont vous avez besoin — Finances, Présences, Inscriptions — le prix suit ce que vous utilisez vraiment.</p>
 
     <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 14 jours — toutes les fonctions, sans carte bancaire.</p>
 
+    <div class="periode-toggle rev" role="group" aria-label="Période de facturation">
+      <button type="button" id="btnMensuel" class="periode-btn actif" aria-pressed="true">Mensuel</button>
+      <button type="button" id="btnAnnuel" class="periode-btn" aria-pressed="false">Annuel · 3 mois offerts</button>
+    </div>
+
     <div class="grille-3">
       <article class="carte offre rev">
         <h3>Essentiel</h3>
-        <p class="prix">15 000 F <small>/ mois</small></p>
+        <p class="prix"><span data-prix-mensuel>15 000 F</span><span data-prix-annuel hidden>135 000 F</span> <small data-unite>/ mois</small></p>
         <p class="pour">Académique inclus : notes, bulletins, emploi du temps</p>
         <ul>
           <li>Notes, bulletins, emploi du temps, statistiques de classe</li>
@@ -624,7 +632,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
       <article class="carte offre offre--phare rev">
         <span class="badge">Le plus choisi</span>
         <h3>Croissance</h3>
-        <p class="prix">35 000 F <small>/ mois</small></p>
+        <p class="prix"><span data-prix-mensuel>35 000 F</span><span data-prix-annuel hidden>315 000 F</span> <small data-unite>/ mois</small></p>
         <p class="pour">Académique inclus + 1 module complémentaire au choix</p>
         <ul>
           <li>Notes, bulletins, emploi du temps, statistiques de classe</li>
@@ -637,7 +645,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 
       <article class="carte offre rev">
         <h3>Complet</h3>
-        <p class="prix">65 000 F <small>/ mois</small></p>
+        <p class="prix"><span data-prix-mensuel>65 000 F</span><span data-prix-annuel hidden>585 000 F</span> <small data-unite>/ mois</small></p>
         <p class="pour">Académique inclus + tous les modules complémentaires</p>
         <ul>
           <li>Notes, bulletins, emploi du temps, statistiques de classe</li>
@@ -649,7 +657,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
         <a class="btn btn--vide lien-inscription" href="#inscription">Inscrire mon école</a>
       </article>
     </div>
-    <p class="offres-note rev">Tarifs en francs CFA. Au-delà des élèves inclus dans votre offre, un supplément par tranche s'applique. Modules complémentaires et offre modifiables à tout moment depuis l'application — un emplacement de module supplémentaire peut aussi s'acheter à la carte. Paiement par mobile money ou virement.</p>
+    <p class="offres-note rev">Tarifs en francs CFA. En annuel, vous payez 9 mois — 3 mois offerts. Au-delà des élèves inclus dans votre offre, un supplément par tranche s'applique. Modules complémentaires et offre modifiables à tout moment depuis l'application — un emplacement de module supplémentaire peut aussi s'acheter à la carte. Paiement par mobile money ou virement.</p>
   </div>
 </section>
 
@@ -795,6 +803,23 @@ document.querySelectorAll(".lien-inscription").forEach(a=>{
   a.href = CONFIG.LIEN_APP + "#/register-school"; a.target = "_blank"; a.rel = "noopener";
 });
 document.getElementById("lienConnexion").href = CONFIG.LIEN_APP + "#/login";
+
+/* ============================================================
+   3bis. Toggle Mensuel / Annuel sur les offres
+   ============================================================ */
+const btnMensuel = document.getElementById("btnMensuel");
+const btnAnnuel = document.getElementById("btnAnnuel");
+function setPeriode(annuel){
+  btnMensuel.classList.toggle("actif", !annuel);
+  btnAnnuel.classList.toggle("actif", annuel);
+  btnMensuel.setAttribute("aria-pressed", String(!annuel));
+  btnAnnuel.setAttribute("aria-pressed", String(annuel));
+  document.querySelectorAll("[data-prix-mensuel]").forEach(el => el.hidden = annuel);
+  document.querySelectorAll("[data-prix-annuel]").forEach(el => el.hidden = !annuel);
+  document.querySelectorAll("[data-unite]").forEach(el => el.textContent = annuel ? "/ an" : "/ mois");
+}
+btnMensuel.addEventListener("click", () => setPeriode(false));
+btnAnnuel.addEventListener("click", () => setPeriode(true));
 if (CONFIG.LIEN_APK){
   document.getElementById("blocApk").hidden = false;
   document.getElementById("lienApk").href = CONFIG.LIEN_APK;
