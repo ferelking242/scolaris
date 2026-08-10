@@ -188,6 +188,10 @@ class SbStudent {
   final String? allergies;
   final String? vulnerability;
 
+  /// Lieu de naissance — même raison qu'au-dessus : pas de colonne dédiée,
+  /// vit dans `metadata`.
+  final String? birthPlace;
+
   /// Suivi de conformité documentaire post-inscription (clé → fourni ou non),
   /// distinct de l'upload fait à la pré-inscription — vit aussi dans `metadata`.
   final Map<String, bool> documents;
@@ -211,6 +215,7 @@ class SbStudent {
     this.bloodGroup,
     this.allergies,
     this.vulnerability,
+    this.birthPlace,
     this.documents = const {},
   });
 
@@ -259,6 +264,7 @@ class SbStudent {
       bloodGroup: metaMap['blood_group'] as String?,
       allergies: metaMap['allergies'] as String?,
       vulnerability: metaMap['vulnerability'] as String?,
+      birthPlace: metaMap['birth_place'] as String?,
       documents: docs,
     );
   }
@@ -4394,8 +4400,10 @@ class SupabaseDbSource {
     String? classId,
     String? matricule,
     String? birthDate, // ISO yyyy-MM-dd
+    String? birthPlace,
     String? gender,
     String? nationality,
+    String? avatarUrl,
     String academicYear = '2025-2026',
   }) async {
     final id = const Uuid().v4();
@@ -4414,6 +4422,7 @@ class SupabaseDbSource {
       'full_name': fullName,
       'email': mail,
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (avatarUrl != null && avatarUrl.trim().isNotEmpty) 'avatar_url': avatarUrl.trim(),
       'role': 'student',
       'status': 'active',
     }).friendly();
@@ -4425,6 +4434,10 @@ class SupabaseDbSource {
       if (birthDate != null && birthDate.isNotEmpty) 'date_of_birth': birthDate,
       if (gender != null && gender.isNotEmpty) 'gender': gender,
       if (nationality != null && nationality.isNotEmpty) 'nationality': nationality,
+      // Pas de colonne dédiée (cf. `student_profiles`) : le lieu de naissance
+      // rejoint `metadata`, comme groupe sanguin/allergies/vulnérabilité.
+      if (birthPlace != null && birthPlace.trim().isNotEmpty)
+        'metadata': {'birth_place': birthPlace.trim()},
       'academic_year': academicYear,
     }).friendly();
     // Sans cette ligne, is_member_of() (donc toute la RLS) ne voit jamais cet
@@ -4685,6 +4698,51 @@ class SupabaseDbSource {
   /// à l'inscription. Le bucket est privé : jamais d'URL publique permanente.
   static Future<String> getEnrollmentDocumentUrl(String path) =>
       _db.storage.from('enrollment-documents').createSignedUrl(path, 3600);
+
+  /// Dépose la photo de profil choisie à l'étape 2 (Administrateur) de
+  /// l'inscription d'une école, dans le bucket public `avatars`, préfixe
+  /// `pending/` (seul autorisé sans authentification — cf.
+  /// 20260810_registration_avatar_storage.sql, ni l'école ni le compte auth
+  /// n'existent encore à ce stade). [uploadId] est un UUID généré côté
+  /// client au chargement de l'étape, PAS le futur school_id.
+  /// Retourne l'URL publique, à transmettre telle quelle dans les métadonnées
+  /// `avatar_url` de `auth.signUp` (lue par `handle_new_user`).
+  static Future<String> uploadRegistrationAvatar({
+    required String uploadId,
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final safeName = filename.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path = 'pending/$uploadId-$safeName';
+    await _db.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return _db.storage.from('avatars').getPublicUrl(path);
+  }
+
+  /// Dépose la photo d'identité d'un élève (champ « Photo » du formulaire
+  /// d'inscription, cf. EnrollmentFields), dans le bucket public `avatars`,
+  /// préfixe `{schoolId}/` — cf. 20260811_avatars_student_photo.sql.
+  /// Contrairement à `uploadEnrollmentDocument` (bucket privé, URL signée à
+  /// chaque affichage), l'URL retournée est publique et permanente : c'est
+  /// elle qui devient `users.avatar_url`, affichée dans les listes et fiches.
+  static Future<String> uploadStudentPhoto({
+    required String schoolId,
+    required String sessionId,
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final safeName = filename.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path = '$schoolId/$sessionId-$safeName';
+    await _db.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return _db.storage.from('avatars').getPublicUrl(path);
+  }
 
   // ── Création de comptes (via Edge Function `create-account`) ────────────────
   /// Crée un nouveau compte (prof / staff) côté serveur, déjà confirmé.

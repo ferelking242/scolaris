@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/countries.dart';
+import '../../data/sources/remote/supabase_db_source.dart';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _terra  = Color(0xFF8B1A00);
@@ -88,6 +90,40 @@ const _kSchoolTypes = [
   _SchoolTypeInfo('technique',  'Formation Pro.',    'CAP, BEP, BTS…',    Icons.engineering_outlined,       comingSoon: true),
   _SchoolTypeInfo('superieur',  'Grandes Écoles',    'CPGE, Écoles…',     Icons.workspace_premium_outlined, comingSoon: true),
   _SchoolTypeInfo('special',    'Éducation Spéc.',   'Besoins spéciaux',  Icons.accessibility_new_outlined, comingSoon: true),
+];
+
+/// Cycles d'une « École classique » — le seul sous-choix qui reste après la
+/// catégorie (cf. `_CategoryInfo` ci-dessous). Sous-ensemble de
+/// `_kSchoolTypes`, réutilise le même widget `_SchoolTypeGrid`.
+const _kClassicCycles = [
+  _SchoolTypeInfo('garderie', 'Garderie', '0-6 ans',          Icons.child_friendly_outlined),
+  _SchoolTypeInfo('primaire', 'Primaire', 'CP → CM2',         Icons.auto_stories_outlined),
+  _SchoolTypeInfo('college',  'Collège',  '6ème → 3ème',      Icons.school_outlined),
+  _SchoolTypeInfo('lycee',    'Lycée',    '2nde → Terminale', Icons.account_balance_outlined),
+];
+
+/// Grande catégorie d'établissement — le premier choix à l'inscription.
+/// Volontairement réduit à 3 (au lieu des 8 types bruts d'avant) : une école
+/// ne se pense pas en cochant une grille de niveaux, elle sait déjà si elle
+/// est une école classique, une université, ou un centre de formation pro.
+class _CategoryInfo {
+  final String id, label, sub;
+  final IconData icon;
+  final bool comingSoon;
+  const _CategoryInfo(this.id, this.label, this.sub, this.icon, {this.comingSoon = false});
+}
+
+const _kCategories = [
+  _CategoryInfo('classique', 'École classique', 'Garderie, primaire, collège, lycée',
+      Icons.school_outlined),
+  // Université et formation pro restent verrouillées tant que le modèle
+  // crédits/UE n'existe pas côté données (cf. plan Phase 2) — les afficher
+  // déjà évite de refaire cet écran plus tard, mais on ne promet rien qui ne
+  // marche pas encore.
+  _CategoryInfo('universite', 'Université', 'Licence, Master, Doctorat',
+      Icons.domain_outlined, comingSoon: true),
+  _CategoryInfo('technique', 'Formation professionnelle', 'CAP, BEP, BTS…',
+      Icons.engineering_outlined, comingSoon: true),
 ];
 
 // ── Dial codes ────────────────────────────────────────────────────────────────
@@ -287,7 +323,20 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   final _s1Email   = TextEditingController();
   final _s1Phone   = TextEditingController();
   String _s1DialCode = '+242', _s1DialFlag = '🇨🇬';
-  Set<String> _types = {'lycee'};
+
+  /// Catégorie d'établissement — voir `_kCategories`. Seule « classique »
+  /// est sélectionnable pour l'instant (université/technique = comingSoon).
+  String _category = 'classique';
+  /// Cycles cochés pour une école classique — sans objet pour université/
+  /// technique, qui n'ont qu'un seul « type » (elles-mêmes).
+  Set<String> _classicCycles = {'lycee'};
+
+  /// Les types au sens `schools.metadata.types` / `SchoolTaxonomy` — dérivés
+  /// de la catégorie, jamais assignés directement (tout le reste du fichier,
+  /// génération des séries et soumission compris, continue de lire `_types`
+  /// sans rien savoir de la catégorie).
+  Set<String> get _types =>
+      _category == 'classique' ? _classicCycles : {_category};
 
   /// Offre choisie à l'inscription — plus simple à comprendre qu'un choix de
   /// modules un par un (décision du 09/08/2026) : l'école part sans module
@@ -306,6 +355,47 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   String _s2DialCode = '+242', _s2DialFlag = '🇨🇬';
   bool _s2Obscure = true;
   bool _s2ObscureConfirm = true;
+
+  // Photo de profil du fondateur — déposée tout de suite (bucket public
+  // `avatars`, préfixe `pending/`) sous un id généré ici, PAS le school_id
+  // qui n'existe pas encore à cette étape (cf. uploadRegistrationAvatar).
+  // `_s2AvatarUrl` est ensuite transmis dans les métadonnées de `auth.signUp`
+  // à la soumission (étape 3).
+  final String _s2AvatarUploadId = const Uuid().v4();
+  Uint8List? _s2AvatarBytes;
+  String? _s2AvatarUrl;
+  bool _s2AvatarUploading = false;
+
+  Future<void> _pickAvatar() async {
+    if (_s2AvatarUploading) return;
+    final XFile? picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _s2AvatarBytes = bytes; _s2AvatarUploading = true; });
+    try {
+      final url = await SupabaseDbSource.uploadRegistrationAvatar(
+        uploadId: _s2AvatarUploadId,
+        filename: picked.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      setState(() { _s2AvatarUrl = url; _s2AvatarUploading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      // L'upload a échoué : on garde l'aperçu local pour ne pas perdre le
+      // choix de l'utilisateur, mais _s2AvatarUrl reste null — la photo ne
+      // sera simplement pas jointe au compte à la soumission.
+      setState(() => _s2AvatarUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Échec de l\'envoi de la photo : $e'),
+        backgroundColor: _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  void _removeAvatar() => setState(() { _s2AvatarBytes = null; _s2AvatarUrl = null; });
 
   // Système éducatif et structure de classes ne sont plus des étapes : on
   // prend le défaut francophone et on génère les séries en silence à la
@@ -366,7 +456,8 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
   void _fillTestData() {
     final n = DateTime.now().millisecondsSinceEpoch % 100000;
     setState(() {
-      _types = {'lycee'};
+      _category = 'classique';
+      _classicCycles = {'lycee'};
       _s1Name.text    = 'École Test $n';
       _s1Country.text = 'Congo';
       _s1City.text    = 'Brazzaville';
@@ -445,6 +536,10 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           'full_name' : _s2Name.text.trim(),
           'role'      : 'admin',
           'school_id' : schoolId,
+          // Lu par `handle_new_user` (cf. 20260810b_handle_new_user_avatar.sql).
+          // Déjà uploadée à l'étape 2 (bucket public `avatars`) — null si
+          // l'utilisateur n'a pas choisi de photo, ou si l'envoi a échoué.
+          if (_s2AvatarUrl != null) 'avatar_url' : _s2AvatarUrl,
         },
       );
 
@@ -734,17 +829,33 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           key: _s1Form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // ── Types d'établissement ───────────────────────────────────────
-            _SectionDivider(label: 'Type(s) d\'établissement', icon: Icons.category_outlined,
-                sub: 'Sélection multiple — ex : Collège + Lycée'),
+            // ── Catégorie d'établissement ────────────────────────────────────
+            _SectionDivider(label: 'Type d\'établissement', icon: Icons.category_outlined,
+                sub: 'Que gérez-vous ?'),
             const SizedBox(height: 12),
-            _SchoolTypeGrid(
-              selected: _types,
-              onToggle: (id) => setState(() {
-                if (_types.contains(id)) { if (_types.length > 1) _types.remove(id); }
-                else { _types.add(id); }
-              }),
+            _CategoryGrid(
+              selected: _category,
+              onSelect: (id) => setState(() => _category = id),
             ),
+            // Sous-choix : uniquement pour une école classique — université et
+            // formation pro n'ont qu'un seul « niveau », elles-mêmes.
+            if (_category == 'classique') ...[
+              const SizedBox(height: 16),
+              _SectionDivider(label: 'Cycles', icon: Icons.stairs_outlined,
+                  sub: 'Sélection multiple — ex : Collège + Lycée'),
+              const SizedBox(height: 12),
+              _SchoolTypeGrid(
+                types: _kClassicCycles,
+                selected: _classicCycles,
+                onToggle: (id) => setState(() {
+                  if (_classicCycles.contains(id)) {
+                    if (_classicCycles.length > 1) _classicCycles.remove(id);
+                  } else {
+                    _classicCycles.add(id);
+                  }
+                }),
+              ),
+            ],
             if (_globalError != null && _types.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -846,15 +957,12 @@ class _SchoolRegistrationScreenState extends State<SchoolRegistrationScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
             Center(
-              child: Container(
-                width: 84, height: 84,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_terra, _orange]),
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 12)],
-                ),
-                child: Center(child: Text(dispInitials,
-                    style: const TextStyle(color: _white, fontSize: 28, fontWeight: FontWeight.w900))),
+              child: _AvatarPicker(
+                initials: dispInitials,
+                bytes: _s2AvatarBytes,
+                uploading: _s2AvatarUploading,
+                onTap: _pickAvatar,
+                onRemove: _s2AvatarBytes != null ? _removeAvatar : null,
               ),
             ),
             const SizedBox(height: 20),
@@ -1528,7 +1636,8 @@ class _PlanPickerCard extends StatelessWidget {
 class _SchoolTypeGrid extends StatelessWidget {
   final Set<String> selected;
   final void Function(String) onToggle;
-  const _SchoolTypeGrid({required this.selected, required this.onToggle});
+  final List<_SchoolTypeInfo> types;
+  const _SchoolTypeGrid({required this.selected, required this.onToggle, this.types = _kSchoolTypes});
 
   @override
   Widget build(BuildContext context) {
@@ -1540,9 +1649,9 @@ class _SchoolTypeGrid extends StatelessWidget {
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.5,
       ),
-      itemCount: _kSchoolTypes.length,
+      itemCount: types.length,
       itemBuilder: (_, i) {
-        final t = _kSchoolTypes[i];
+        final t = types[i];
         if (t.comingSoon) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1609,6 +1718,186 @@ class _SchoolTypeGrid extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// Les 3 grandes catégories d'établissement — sélection UNIQUE, contrairement
+/// à `_SchoolTypeGrid` (cycles, sélection multiple). Université et formation
+/// pro sont affichées mais verrouillées (`comingSoon`) : le modèle
+/// crédits/UE qui les rendrait réellement utilisables n'existe pas encore
+/// côté données (cf. plan Phase 2).
+class _CategoryGrid extends StatelessWidget {
+  final String selected;
+  final void Function(String) onSelect;
+  const _CategoryGrid({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final cols = w > 560 ? 3 : 1;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.4,
+      ),
+      itemCount: _kCategories.length,
+      itemBuilder: (_, i) {
+        final c = _kCategories[i];
+        if (c.comingSoon) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F0EB),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(c.icon, size: 20, color: _muted.withOpacity(.45)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _muted.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Bientôt disponible', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _muted.withOpacity(.6))),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Text(c.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800,
+                  color: _muted.withOpacity(.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(c.sub, style: TextStyle(fontSize: 11, color: _muted.withOpacity(.4)),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ]),
+          );
+        }
+        final sel = selected == c.id;
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => onSelect(c.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: sel ? _terra.withOpacity(.07) : _white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: sel ? _terra : _border, width: sel ? 1.5 : 1),
+                boxShadow: sel ? [BoxShadow(color: _terra.withOpacity(.1), blurRadius: 8)] : [BoxShadow(color: _ink.withOpacity(.03), blurRadius: 4)],
+              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(c.icon, size: 20, color: sel ? _terra : _muted),
+                  const Spacer(),
+                  Radio<bool>(
+                    value: true, groupValue: sel ? true : null,
+                    onChanged: (_) => onSelect(c.id),
+                    activeColor: _terra,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Text(c.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800,
+                    color: sel ? _terra : _ink), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(c.sub, style: TextStyle(fontSize: 11, color: sel ? _terra.withOpacity(.7) : _muted),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Photo de profil du fondateur, étape 2 — cercle dégradé + initiales par
+/// défaut (comme avant), tapotable pour choisir une photo depuis la galerie.
+/// Un badge appareil-photo en bas à droite signale que c'est cliquable ; un
+/// petit bouton « retirer » apparaît une fois une photo choisie.
+class _AvatarPicker extends StatelessWidget {
+  final String initials;
+  final Uint8List? bytes;
+  final bool uploading;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+  const _AvatarPicker({
+    required this.initials,
+    required this.bytes,
+    required this.uploading,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(clipBehavior: Clip.none, children: [
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 84, height: 84,
+            decoration: BoxDecoration(
+              gradient: bytes == null ? const LinearGradient(colors: [_terra, _orange]) : null,
+              color: bytes != null ? _white : null,
+              shape: BoxShape.circle,
+              image: bytes != null
+                  ? DecorationImage(image: MemoryImage(bytes!), fit: BoxFit.cover)
+                  : null,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 12)],
+            ),
+            child: uploading
+                ? Container(
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(.35), shape: BoxShape.circle),
+                    child: const Center(
+                        child: SizedBox(width: 22, height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: _white))),
+                  )
+                : bytes == null
+                    ? Center(child: Text(initials,
+                        style: const TextStyle(color: _white, fontSize: 28, fontWeight: FontWeight.w900)))
+                    : null,
+          ),
+        ),
+      ),
+      Positioned(
+        bottom: -2, right: -2,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: _terra, shape: BoxShape.circle,
+                border: Border.all(color: _white, width: 2),
+              ),
+              child: const Icon(Icons.photo_camera_rounded, size: 14, color: _white),
+            ),
+          ),
+        ),
+      ),
+      if (onRemove != null)
+        Positioned(
+          top: -2, right: -2,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  color: _muted, shape: BoxShape.circle,
+                  border: Border.all(color: _white, width: 2),
+                ),
+                child: const Icon(Icons.close_rounded, size: 12, color: _white),
+              ),
+            ),
+          ),
+        ),
+    ]);
   }
 }
 

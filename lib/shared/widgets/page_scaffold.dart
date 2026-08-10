@@ -713,13 +713,18 @@ class Avatar extends StatelessWidget {
   final String name;
   final Color? color;
   final double size;
-  const Avatar({super.key, required this.name, this.color, this.size = 28});
+  /// URL de la photo (ex. `users.avatar_url`) — si fournie et chargeable,
+  /// remplace les initiales. Un échec de chargement (réseau, URL cassée)
+  /// retombe silencieusement sur les initiales plutôt que de casser l'écran.
+  final String? imageUrl;
+  const Avatar({super.key, required this.name, this.color, this.size = 28, this.imageUrl});
   @override
   Widget build(BuildContext context) {
     final initial = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
     final c = color ??
         _palette[
             name.codeUnits.fold<int>(0, (a, b) => a + b) % _palette.length];
+    final url = imageUrl;
     return Container(
       width: size,
       height: size,
@@ -732,11 +737,28 @@ class Avatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(size / 3.5),
       ),
       alignment: Alignment.center,
-      child: Text(initial,
-          style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: size * .42)),
+      clipBehavior: url != null && url.isNotEmpty ? Clip.antiAlias : Clip.none,
+      child: url != null && url.isNotEmpty
+          ? Image.network(
+              url,
+              width: size, height: size, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Text(initial,
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: size * .42)),
+              loadingBuilder: (_, child, progress) =>
+                  progress == null ? child : Text(initial,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: size * .42)),
+            )
+          : Text(initial,
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: size * .42)),
     );
   }
 

@@ -66,20 +66,29 @@ class AdminHome extends ConsumerWidget {
     RoleNavGroup(labelKey: 'sections.setup', entries: [
       RoleNavEntry(icon: Icons.home_rounded, activeIcon: Icons.home_rounded,
           labelKey: 'nav.dashboard', page: _AdminDashboard()),
-      // Deux populations, deux écrans. Le PERSONNEL se recrute et porte un rôle ;
-      // les ÉLÈVES s'inscrivent et appartiennent à une classe. Les mélanger dans
-      // « Utilisateurs » obligeait à filtrer pour retrouver quelqu'un.
+      // Trois populations, trois écrans. Le PERSONNEL se recrute et porte un
+      // rôle ; les ÉLÈVES s'inscrivent et appartiennent à une classe ; les
+      // PARENTS suivent un ou plusieurs élèves mais n'ont ni classe ni rôle.
+      // Les mélanger dans « Utilisateurs » obligeait à filtrer pour retrouver
+      // quelqu'un — élèves et parents étaient déjà séparés du personnel, ils
+      // le sont maintenant aussi l'un de l'autre.
       RoleNavEntry(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded,
           labelKey: 'Personnel',
           page: PermissionGuard(
               permission: StaffPermissions.staffManage,
               child: UsersPage(scope: UsersScope.staff)),
           permission: StaffPermissions.staffManage),
-      RoleNavEntry(icon: Icons.group_outlined, activeIcon: Icons.group_rounded,
-          labelKey: 'Élèves & familles',
+      RoleNavEntry(icon: Icons.school_outlined, activeIcon: Icons.school_rounded,
+          labelKey: 'Élèves',
           page: PermissionGuard(
               permission: StaffPermissions.students,
-              child: UsersPage(scope: UsersScope.families)),
+              child: UsersPage(scope: UsersScope.students)),
+          permission: StaffPermissions.students),
+      RoleNavEntry(icon: Icons.family_restroom_outlined, activeIcon: Icons.family_restroom_rounded,
+          labelKey: 'Parents',
+          page: PermissionGuard(
+              permission: StaffPermissions.students,
+              child: UsersPage(scope: UsersScope.parents)),
           permission: StaffPermissions.students),
       RoleNavEntry(icon: Icons.class_outlined, activeIcon: Icons.class_rounded,
           labelKey: 'nav.classes',

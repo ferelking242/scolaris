@@ -34,8 +34,13 @@ enum UsersScope {
   /// Direction, secrétariat, comptabilité, surveillance, enseignants.
   staff,
 
-  /// Élèves et parents.
-  families,
+  /// Élèves — écran dédié, séparé des parents (deux pages distinctes :
+  /// on cherche rarement les deux à la fois, et chacune a ses propres
+  /// actions : « Inscrire un élève » n'a pas de sens côté parents).
+  students,
+
+  /// Parents — voir `students` ci-dessus pour la raison de la séparation.
+  parents,
 }
 
 class UsersPage extends ConsumerStatefulWidget {
@@ -52,18 +57,41 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   // de la vue par défaut, comme une classe active ne montre pas ses anciens.
   bool _showExited = false;
   /// Filtre classe, uniquement pertinent côté élèves (un parent n'a pas de
-  /// classe propre) — null = toutes les classes.
+  /// classe propre) — null = toutes les classes, [_kNoClassId] = élèves sans
+  /// classe affectée (distinct de null, qui veut dire « pas de filtre »).
   String? _classId;
+  static const _kNoClassId = '__no_class__';
 
-  bool get _isFamilies => widget.scope == UsersScope.families;
+  /// Tri alphabétique de la liste — asc (A→Z, défaut, déjà l'ordre renvoyé
+  /// par la base) ou desc (Z→A).
+  bool _sortAsc = true;
+
+  /// Vrai pour les deux écrans « famille » (élèves ET parents), par
+  /// opposition au personnel — utilisé partout où le comportement ne dépend
+  /// que de cette distinction (droits fins, fiche détaillée, impression…).
+  bool get _isFamilyScope => widget.scope != UsersScope.staff;
+  bool get _isStudentsScope => widget.scope == UsersScope.students;
+  bool get _isParentsScope => widget.scope == UsersScope.parents;
+
+  String get _pageTitle => switch (widget.scope) {
+        UsersScope.staff => 'Personnel',
+        UsersScope.students => 'Élèves',
+        UsersScope.parents => 'Parents',
+      };
 
   /// Les rôles de cet écran. Tout ce qui n'est ni élève ni parent est du
   /// personnel — y compris les rôles historiques (`finance`, `surveillance`),
   /// qu'on ne veut pas voir disparaître de la liste parce qu'on aurait oublié de
   /// les énumérer.
   bool _inScope(String role) {
-    final isFamily = role == 'student' || role == 'parent';
-    return _isFamilies ? isFamily : !isFamily;
+    switch (widget.scope) {
+      case UsersScope.staff:
+        return role != 'student' && role != 'parent';
+      case UsersScope.students:
+        return role == 'student';
+      case UsersScope.parents:
+        return role == 'parent';
+    }
   }
 
   // Inscription inline (au lieu d'une route plein écran).
@@ -164,24 +192,12 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       _enrollConfig = config;
       _enrollClasses = classes;
       _enrollSchoolId = schoolId;
+      // Dossier complet directement — plus d'inscription « rapide » à 4
+      // champs : une fiche élève incomplète (sans tuteur, sans photo, sans
+      // lieu de naissance…) coûte plus cher à rattraper plus tard qu'à
+      // saisir maintenant, pendant que le secrétariat a l'élève en face.
+      _enrolling = true;
     });
-
-    // Inscription RAPIDE par défaut (nom, sexe, naissance, classe — 4 champs) :
-    // le dossier complet (documents, tuteur, médical…) reste disponible via
-    // le lien « Dossier complet » du dialogue, mais la plupart des
-    // inscriptions faites par le secrétariat n'ont besoin que de l'essentiel.
-    if (!mounted) return;
-    final useFullForm = await showDialog<bool>(
-      context: context,
-      builder: (_) => _QuickEnrollDialog(
-        classes: classes,
-        classCounts: _classCounts(),
-        onSubmit: (data) => _saveStudent(schoolId, data),
-      ),
-    );
-    if (useFullForm == true && mounted) {
-      setState(() => _enrolling = true);
-    }
   }
 
   /// Enregistre réellement la fiche élève (users + student_profiles).
@@ -208,8 +224,12 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         classId: classId,
         matricule: s('matricule').isEmpty ? null : s('matricule'),
         birthDate: s('birth_date').isEmpty ? null : s('birth_date'),
+        birthPlace: s('birth_place').isEmpty ? null : s('birth_place'),
         gender: s('gender').isEmpty ? null : s('gender'),
         nationality: s('nationality').isEmpty ? null : s('nationality'),
+        // Déjà uploadée dans le bucket public `avatars` par `_PhotoField`
+        // (champ « Photo d'identité ») — c'est directement l'URL publique.
+        avatarUrl: s('photo').isEmpty ? null : s('photo'),
       );
       // Parent/tuteur saisi → on crée (ou réutilise) sa fiche et on la relie.
       // Réservé Pro/Max : en Simple, aucun compte parent (cf. gating par offre).
@@ -265,14 +285,14 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   /// fait EduNet avec ses boutons Imprimer/Exporter.
   Future<void> _printUsers(List<SbUser> users) async {
     await printUsersListPdf(
-      title: _isFamilies ? 'Élèves & familles' : 'Personnel',
+      title: _pageTitle,
       users: users,
     );
   }
 
   Future<void> _exportUsers(List<SbUser> users) async {
     await exportUsersListPdf(
-      title: _isFamilies ? 'Élèves & familles' : 'Personnel',
+      title: _pageTitle,
       users: users,
     );
   }
@@ -486,7 +506,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
         // En-tête.
         Row(children: [
-          Avatar(name: u.fullName, size: 54),
+          Avatar(name: u.fullName, size: 54, imageUrl: u.avatarUrl),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -532,6 +552,27 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ),
         ]),
         const SizedBox(height: 16),
+
+        // Offre Simple : la fiche élève existe (l'école la gère en interne),
+        // mais aucun compte de connexion n'est proposé — on l'explique au
+        // lieu de simplement faire disparaître le bouton « Activer l'accès »
+        // (cf. guard_family_portal côté base).
+        if (!familiesEnabled && u.authUid == null) ...[
+          const PlanGateBanner(
+            minPlan: 'pro',
+            featureLabel: 'Portail des familles',
+            description:
+                'Donnez un accès de connexion à l\'élève pour qu\'il consulte '
+                'ses notes, son emploi du temps et ses documents.',
+            icon: Icons.family_restroom_rounded,
+            bullets: [
+              'Connexion dédiée pour l\'élève',
+              'Notes, emploi du temps et bulletins en direct',
+              'Bibliothèque, cahier de liaison et documents',
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
 
         TextField(
           onChanged: (v) => setState(() => _profileSearch = v),
@@ -802,7 +843,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
         // En-tête.
         Row(children: [
-          Avatar(name: u.fullName, size: 54),
+          Avatar(name: u.fullName, size: 54, imageUrl: u.avatarUrl),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -844,6 +885,27 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ),
         ]),
         const SizedBox(height: 16),
+
+        // Offre Simple : la fiche existe (l'école gère bien ses parents en
+        // interne), mais aucun compte de connexion n'est proposé — on
+        // l'explique au lieu de simplement faire disparaître le bouton
+        // « Activer l'accès » (cf. guard_family_portal côté base).
+        if (!familiesEnabled && u.authUid == null) ...[
+          const PlanGateBanner(
+            minPlan: 'pro',
+            featureLabel: 'Portail des familles',
+            description:
+                'Donnez un accès de connexion aux parents pour qu\'ils suivent '
+                'notes, présences et paiements de leur enfant.',
+            icon: Icons.family_restroom_rounded,
+            bullets: [
+              'Connexion dédiée pour chaque parent',
+              'Notes, présences et bulletins en direct',
+              'Paiements et reçus consultables en ligne',
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
 
         // Contact.
         DataPanel(
@@ -969,6 +1031,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         onSaved: () {
           ref.invalidate(usersProvider);
           ref.invalidate(teachersProvider);
+          ref.invalidate(studentsProvider);
         },
       ),
     );
@@ -1240,7 +1303,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       );
     }
 
-    final pageTitle = _isFamilies ? 'Élèves & familles' : 'Personnel';
+    final pageTitle = _pageTitle;
 
     final usersAsync = ref.watch(usersProvider);
     return usersAsync.when(
@@ -1255,7 +1318,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         child: Center(child: Text('Erreur : $e')),
       ),
       data: (everyone) {
-        if (_isFamilies && !_canSeeStudents()) {
+        if (_isFamilyScope && !_canSeeStudents()) {
           return PageScaffold(
             onRefresh: _refreshUsers,
             title: pageTitle,
@@ -1290,7 +1353,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         final selfId = ref.watch(authSessionProvider)?.id;
         final allUsers = everyone.where((u) {
           if (_inScope(u.role) == false) return false;
-          if (_isFamilies) return true;
+          if (_isFamilyScope) return true;
           if (platformAdminIds.contains(u.id)) return false;
           if (u.id == selfId) return false;
           return true;
@@ -1323,38 +1386,46 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ref.watch(studentsProvider).valueOrNull ?? const <SbStudent>[];
         final classIdByStudent = {for (final s in classStudents) s.id: s.classId};
         final allClasses = ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
+        final classNameById = {for (final c in allClasses) c.id: c.name};
         final classIdsInUse = classIdByStudent.values.whereType<String>().toSet();
+        final hasUnassignedStudent = classIdByStudent.values.any((id) => id == null);
         final filterableClasses = allClasses
             .where((c) => classIdsInUse.contains(c.id))
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
+        // `_classId == _kNoClassId` : élève sans classe affectée. Distinct de
+        // `_classId == null` (pas de filtre du tout).
+        bool matchesClassFilter(SbUser u) {
+          if (_classId == null) return true;
+          if (u.role == 'parent') return true;
+          if (_classId == _kNoClassId) return classIdByStudent[u.id] == null;
+          return classIdByStudent[u.id] == _classId;
+        }
+
         // Compteurs (bandeau + sous-titre) : reflètent le filtre CLASSE choisi,
         // mais pas le filtre de rôle lui-même (ce sont les boutons qui pilotent
         // ce filtre — ils doivent rester des totaux, sinon cliquer « Élèves »
         // ferait disparaître son propre chiffre).
-        final classScopedUsers = _classId == null
-            ? allUsers
-            : allUsers
-                .where((u) => u.role == 'parent' || classIdByStudent[u.id] == _classId)
-                .toList();
+        final classScopedUsers =
+            _classId == null ? allUsers : allUsers.where(matchesClassFilter).toList();
 
-        final options = <_FilterOption>[
-          (key: 'all', label: 'Tous'),
-          if (_isFamilies) ...[
-            (key: 'student', label: 'Élèves'),
-            (key: 'parent', label: 'Parents'),
-          ] else ...[
-            for (final r in schoolRoles) (key: r.id, label: r.name),
-            (key: 'none', label: 'Sans rôle'),
-          ],
-        ];
+        // Élèves et parents sont maintenant deux écrans séparés (le scope fixe
+        // déjà le rôle) : plus besoin d'onglet Élèves/Parents ici, seul le
+        // personnel garde un filtre par rôle.
+        final options = _isFamilyScope
+            ? const <_FilterOption>[]
+            : <_FilterOption>[
+                (key: 'all', label: 'Tous'),
+                for (final r in schoolRoles) (key: r.id, label: r.name),
+                (key: 'none', label: 'Sans rôle'),
+              ];
 
         const founders = {'admin', 'direction', 'directeur', 'dg'};
 
         final users = allUsers.where((u) {
           if (_filter == 'all') return true;
-          if (_isFamilies) return u.role == _filter;
+          if (_isFamilyScope) return true;
           // « Sans rôle » signale les comptes à configurer. Le FONDATEUR n'en
           // fait pas partie : il n'a pas de rôle du personnel, et c'est normal —
           // son accès vient de son `users.role`.
@@ -1369,21 +1440,24 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           if (q.isEmpty) return true;
           return u.fullName.toLowerCase().contains(q) ||
               u.email.toLowerCase().contains(q);
-        }).where((u) {
-          if (_classId == null) return true;
-          if (u.role == 'parent') return true;
-          return classIdByStudent[u.id] == _classId;
-        }).where((u) => _showExited || !u.hasExited).toList();
+        }).where(matchesClassFilter)
+            .where((u) => _showExited || !u.hasExited)
+            .toList()
+          ..sort((a, b) => _sortAsc
+              ? a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase())
+              : b.fullName.toLowerCase().compareTo(a.fullName.toLowerCase()));
         final familiesEnabled =
             ref.watch(familyAccountsEnabledProvider).valueOrNull ?? false;
         return PageScaffold(
           onRefresh: _refreshUsers,
           title: pageTitle,
-          subtitle: _isFamilies
-              ? '${classScopedUsers.length} élèves et parents'
-              : '${allUsers.length} membres du personnel',
+          subtitle: switch (widget.scope) {
+            UsersScope.staff => '${allUsers.length} membres du personnel',
+            UsersScope.students => '${classScopedUsers.length} élèves',
+            UsersScope.parents => '${classScopedUsers.length} parents',
+          },
           actions: [
-            if (_isFamilies) ...[
+            if (_isFamilyScope) ...[
               ActionButton(
                   label: 'Imprimer',
                   icon: Icons.print_outlined,
@@ -1394,14 +1468,15 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                   onTap: () => _exportUsers(users)),
             ],
             // Chaque écran n'offre que le geste qui lui correspond : on
-            // n'INVITE pas un élève, on l'INSCRIT.
-            if (_isFamilies && _canAddStudent())
+            // n'INVITE pas un élève, on l'INSCRIT — et un parent ne
+            // s'inscrit jamais seul, il arrive avec son enfant.
+            if (_isStudentsScope && _canAddStudent())
               ActionButton(
                   label: 'Inscrire un élève',
                   icon: Icons.person_add_alt_1_rounded,
                   primary: true,
                   onTap: _openEnrollment)
-            else if (!_isFamilies && ref.watch(canProvider('utilisateurs.creer')))
+            else if (!_isFamilyScope && ref.watch(canProvider('utilisateurs.creer')))
               ActionButton(
                   label: 'Inviter',
                   icon: Icons.send_outlined,
@@ -1409,66 +1484,81 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                   onTap: _openInvite),
           ],
           child: Column(children: [
-            if (_isFamilies) ...[
+            if (_isFamilyScope) ...[
               _FamilyStatsRow(
                 total: classScopedUsers.length,
-                students: classScopedUsers.where((u) => u.role == 'student').length,
-                parents: classScopedUsers.where((u) => u.role == 'parent').length,
                 exited: classScopedUsers.where((u) => u.hasExited).length,
-                onTapTotal: () => setState(() => _filter = 'all'),
-                onTapStudents: () => setState(() => _filter = 'student'),
-                onTapParents: () => setState(() => _filter = 'parent'),
-                onTapExited: () => setState(() {
-                  _filter = 'all';
-                  _showExited = true;
-                }),
+                showExited: _isStudentsScope,
+                onTapTotal: () => setState(() {}),
+                onTapExited: () => setState(() => _showExited = true),
               ),
               const SizedBox(height: 12),
             ],
-            Row(children: [
-              Expanded(
-                child: _FilterRow(
-                  current: _filter,
-                  options: options,
-                  onChange: (v) => setState(() => _filter = v),
-                ),
-              ),
-              if (_isFamilies && filterableClasses.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: context.cSubtle,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: context.cBorder),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: _classId,
-                      isDense: true,
-                      dropdownColor: context.cCard,
-                      style: TextStyle(fontSize: 12, color: context.cInk),
-                      hint: Text('Toutes les classes',
-                          style: TextStyle(fontSize: 12, color: context.cMuted)),
-                      items: [
-                        DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Toutes les classes',
-                                style: TextStyle(fontSize: 12, color: context.cMuted))),
-                        for (final c in filterableClasses)
-                          DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
-                      ],
-                      onChanged: (v) => setState(() => _classId = v),
+            if (!_isParentsScope) ...[
+              Row(children: [
+                if (!_isFamilyScope)
+                  Expanded(
+                    child: _FilterRow(
+                      current: _filter,
+                      options: options,
+                      onChange: (v) => setState(() => _filter = v),
                     ),
                   ),
-                ),
-              ],
-            ]),
-            const SizedBox(height: 12),
+                if (_isStudentsScope &&
+                    (filterableClasses.isNotEmpty || hasUnassignedStudent)) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: context.cSubtle,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: context.cBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _classId,
+                        isDense: true,
+                        dropdownColor: context.cCard,
+                        style: TextStyle(fontSize: 12, color: context.cInk),
+                        hint: Text('Toutes les classes',
+                            style: TextStyle(fontSize: 12, color: context.cMuted)),
+                        items: [
+                          DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Toutes les classes',
+                                  style: TextStyle(fontSize: 12, color: context.cMuted))),
+                          if (hasUnassignedStudent)
+                            const DropdownMenuItem<String?>(
+                                value: _kNoClassId, child: Text('Sans classe')),
+                          for (final c in filterableClasses)
+                            DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                        ],
+                        onChanged: (v) => setState(() => _classId = v),
+                      ),
+                    ),
+                  ),
+                ],
+                if (_isStudentsScope) ...[
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: _sortAsc
+                        ? 'Ordre alphabétique A → Z (cliquer pour inverser)'
+                        : 'Ordre alphabétique Z → A (cliquer pour inverser)',
+                    child: IconButton.filledTonal(
+                      onPressed: () => setState(() => _sortAsc = !_sortAsc),
+                      icon: Icon(_sortAsc
+                          ? Icons.arrow_downward_rounded
+                          : Icons.arrow_upward_rounded),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ]),
+              const SizedBox(height: 12),
+            ],
             DataPanel(
               title: 'Comptes',
               headerActions: [
-                if (_isFamilies) ...[
+                if (_isStudentsScope) ...[
                   FilterChip(
                     label: const Text('Élèves sortis'),
                     selected: _showExited,
@@ -1502,6 +1592,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                             _UserCard(
                               user: u,
                               familiesEnabled: familiesEnabled,
+                              classLabel: _isStudentsScope
+                                  ? (classNameById[classIdByStudent[u.id]] ?? 'Sans classe')
+                                  : null,
                               onOpen: _canOpenDossier(u)
                                   ? () => setState(() => _viewId = u.id)
                                   : null,
@@ -1515,9 +1608,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                         ]);
                       }
                       return DataTablePanel(
-                      columns: const [
+                      columns: [
                         'Nom',
-                        'Email',
+                        _isStudentsScope ? 'Classe' : 'Email',
                         'Rôle',
                         'Statut',
                         'Dernière connexion',
@@ -1542,7 +1635,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                     ? () => setState(() => _viewId = u.id)
                                     : null,
                                 child: Row(children: [
-                                  Avatar(name: u.fullName, size: 24),
+                                  Avatar(name: u.fullName, size: 24, imageUrl: u.avatarUrl),
                                   const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(u.fullName,
@@ -1563,7 +1656,10 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                 ),
                               );
                             }),
-                            Text(u.email,
+                            Text(
+                                _isStudentsScope
+                                    ? (classNameById[classIdByStudent[u.id]] ?? 'Sans classe')
+                                    : u.email,
                                 overflow: TextOverflow.ellipsis,
                                 style:
                                     TextStyle(fontSize: 12, color: context.cMuted)),
@@ -1658,314 +1754,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 }
 
 /// Vue d'inscription **inline** : barre de retour + formulaire, dans le shell.
-/// Inscription RAPIDE : nom, sexe, naissance, classe — pensée pour le
-/// secrétariat qui inscrit vite un élève déjà connu (contrairement au
-/// formulaire public de pré-inscription, complet mais lent). Le lien
-/// « Dossier complet » ferme ce dialogue et bascule vers `_InlineEnroll`
-/// (l'`EnrollmentPage` à catégories multiples) pour qui veut tout saisir
-/// d'un coup (documents, tuteur, médical…).
-class _QuickEnrollDialog extends StatefulWidget {
-  final List<SbClass> classes;
-  final Map<String, int> classCounts;
-  final Future<void> Function(Map<String, dynamic> data) onSubmit;
-  const _QuickEnrollDialog({
-    required this.classes,
-    required this.classCounts,
-    required this.onSubmit,
-  });
-
-  @override
-  State<_QuickEnrollDialog> createState() => _QuickEnrollDialogState();
-}
-
-const _boyBlue = Color(0xFF2563EB);
-const _girlPink = Color(0xFFDB2777);
-
-class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
-  final _nameCtrl = TextEditingController();
-  final _matriculeCtrl = TextEditingController();
-  final _guardianNameCtrl = TextEditingController();
-  final _guardianPhoneCtrl = TextEditingController();
-  String _gender = 'M';
-  DateTime? _birthDate;
-  String? _classId;
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _matriculeCtrl.dispose();
-    _guardianNameCtrl.dispose();
-    _guardianPhoneCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickBirthDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(now.year - 10),
-      firstDate: DateTime(now.year - 100),
-      lastDate: now,
-    );
-    if (picked != null) setState(() => _birthDate = picked);
-  }
-
-  Future<void> _submit() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Le nom complet est requis.');
-      return;
-    }
-    setState(() { _saving = true; _error = null; });
-    final iso = _birthDate == null
-        ? ''
-        : '${_birthDate!.year.toString().padLeft(4, '0')}-'
-          '${_birthDate!.month.toString().padLeft(2, '0')}-'
-          '${_birthDate!.day.toString().padLeft(2, '0')}';
-    await widget.onSubmit({
-      'first_name': name,
-      'last_name': '',
-      'gender': _gender == 'M' ? 'Masculin' : 'Féminin',
-      'birth_date': iso,
-      'class_id': _classId,
-      'matricule': _matriculeCtrl.text.trim(),
-      'guardian_name': _guardianNameCtrl.text.trim(),
-      'guardian_phone': _guardianPhoneCtrl.text.trim(),
-    });
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  InputDecoration _decor(BuildContext context, String hint, {String? label}) => InputDecoration(
-        labelText: label,
-        hintText: hint,
-        hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
-        labelStyle: TextStyle(fontSize: 12.5, color: context.cMuted),
-        isDense: true,
-        filled: true,
-        fillColor: context.cSubtle,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: context.cBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _terra, width: 1.5),
-        ),
-      );
-
-  Widget _sectionTitle(BuildContext context, IconData icon, String label) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(children: [
-          Icon(icon, size: 14, color: context.cMuted),
-          const SizedBox(width: 6),
-          Text(label.toUpperCase(),
-              style: TextStyle(
-                  fontSize: 10.5,
-                  letterSpacing: .4,
-                  fontWeight: FontWeight.w700,
-                  color: context.cMuted)),
-        ]),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final genderColor = _gender == 'M' ? _boyBlue : _girlPink;
-    final initials = _nameCtrl.text.trim().isEmpty
-        ? '?'
-        : _nameCtrl.text
-            .trim()
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((w) => w[0])
-            .join()
-            .toUpperCase();
-
-    return Dialog(
-      backgroundColor: context.cCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // ── En-tête : avatar en direct + titre ──────────────────────
-              Row(children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(color: genderColor.withValues(alpha: .14), shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: Text(initials,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: genderColor)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Inscription rapide',
-                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
-                    Text('L\'essentiel pour créer la fiche tout de suite',
-                        style: TextStyle(fontSize: 11.5, color: context.cMuted)),
-                  ]),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
-                  onPressed: () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                ),
-              ]),
-              const SizedBox(height: 18),
-
-              _sectionTitle(context, Icons.badge_outlined, 'Identité'),
-              TextField(
-                controller: _nameCtrl,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Ex : Fatou Mbemba', label: 'Nom complet *'),
-              ),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: SegmentedButton<String>(
-                    style: SegmentedButton.styleFrom(
-                      backgroundColor: context.cSubtle,
-                      selectedBackgroundColor: genderColor.withValues(alpha: .12),
-                      selectedForegroundColor: genderColor,
-                      side: BorderSide(color: context.cBorder),
-                    ),
-                    segments: const [
-                      ButtonSegment(value: 'M', label: Text('Garçon'), icon: Icon(Icons.male_rounded, size: 15)),
-                      ButtonSegment(value: 'F', label: Text('Fille'), icon: Icon(Icons.female_rounded, size: 15)),
-                    ],
-                    selected: {_gender},
-                    onSelectionChanged: (s) => setState(() => _gender = s.first),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 10),
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: _pickBirthDate,
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: context.cSubtle,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: context.cBorder),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.cake_outlined, size: 16, color: context.cMuted),
-                    const SizedBox(width: 10),
-                    Text(
-                      _birthDate == null
-                          ? 'Date de naissance'
-                          : '${_birthDate!.day.toString().padLeft(2, '0')}/'
-                            '${_birthDate!.month.toString().padLeft(2, '0')}/'
-                            '${_birthDate!.year}',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: _birthDate == null ? context.cMuted : context.cInk),
-                    ),
-                  ]),
-                ),
-              ),
-
-              const SizedBox(height: 18),
-              _sectionTitle(context, Icons.school_outlined, 'Scolarité'),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: context.cSubtle,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: context.cBorder),
-                ),
-                child: DropdownButton<String>(
-                  value: _classId,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  dropdownColor: context.cCard,
-                  hint: Text('Classe (optionnel)', style: TextStyle(fontSize: 13, color: context.cMuted)),
-                  style: TextStyle(fontSize: 13, color: context.cInk),
-                  items: [
-                    DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('— Aucune classe —',
-                            style: TextStyle(color: context.cMuted, fontStyle: FontStyle.italic))),
-                    for (final c in widget.classes)
-                      DropdownMenuItem(
-                        value: c.id,
-                        child: Builder(builder: (_) {
-                          final count = widget.classCounts[c.id] ?? 0;
-                          final full = count >= c.maxStudents;
-                          return Text(
-                            '${c.name} ($count/${c.maxStudents})${full ? ' — complet' : ''}',
-                            style: TextStyle(
-                                color: full ? _terra : context.cInk,
-                                fontWeight: full ? FontWeight.w700 : FontWeight.normal),
-                          );
-                        }),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _classId = v),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _matriculeCtrl,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Auto-généré si vide', label: 'Matricule (optionnel)'),
-              ),
-
-              const SizedBox(height: 18),
-              _sectionTitle(context, Icons.family_restroom_rounded, 'Tuteur (optionnel, à compléter plus tard sinon)'),
-              TextField(
-                controller: _guardianNameCtrl,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _guardianPhoneCtrl,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
-              ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
-              ],
-              const SizedBox(height: 20),
-              Row(children: [
-                TextButton(
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(true),
-                  child: const Text('Dossier complet →'),
-                ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _saving ? null : _submit,
-                  style: FilledButton.styleFrom(backgroundColor: _terra),
-                  icon: _saving
-                      ? const SizedBox(width: 14, height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check_rounded, size: 16),
-                  label: Text(_saving ? 'Inscription…' : 'Inscrire'),
-                ),
-              ]),
-            ]),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// Dossier complet dès l'ouverture (nom, prénom, naissance, photo, tuteur,
+/// documents…) — plus d'inscription « rapide » intermédiaire : une fiche
+/// incomplète coûte plus cher à rattraper plus tard qu'à saisir maintenant.
 class _InlineEnroll extends StatelessWidget {
   final EnrollmentConfig config;
   final List<SbClass> classes;
@@ -2317,7 +2108,7 @@ class _ChildRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
-          Avatar(name: student.fullName, size: 34),
+          Avatar(name: student.fullName, size: 34, imageUrl: student.avatarUrl),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2366,21 +2157,17 @@ class _TinyTag extends StatelessWidget {
 /// (cliquer « Filles » filtre la liste sans passer par le menu déroulant).
 class _FamilyStatsRow extends StatelessWidget {
   final int total;
-  final int students;
-  final int parents;
   final int exited;
+  /// Le détail Élèves/Sortis n'a de sens que sur l'écran Élèves — la page
+  /// Parents n'a pas de notion de « sortie ».
+  final bool showExited;
   final VoidCallback onTapTotal;
-  final VoidCallback onTapStudents;
-  final VoidCallback onTapParents;
   final VoidCallback onTapExited;
   const _FamilyStatsRow({
     required this.total,
-    required this.students,
-    required this.parents,
     required this.exited,
+    required this.showExited,
     required this.onTapTotal,
-    required this.onTapStudents,
-    required this.onTapParents,
     required this.onTapExited,
   });
 
@@ -2390,20 +2177,17 @@ class _FamilyStatsRow extends StatelessWidget {
       final stats = <Widget>[
         _StatChip(icon: Icons.groups_rounded, label: 'Total', value: total,
             color: _terra, onTap: onTapTotal),
-        _StatChip(icon: Icons.school_rounded, label: 'Élèves', value: students,
-            color: _green, onTap: onTapStudents),
-        _StatChip(icon: Icons.family_restroom_rounded, label: 'Parents',
-            value: parents, color: _gold, onTap: onTapParents),
-        _StatChip(icon: Icons.logout_rounded, label: 'Sortis', value: exited,
-            color: context.cMuted, onTap: onTapExited),
+        if (showExited)
+          _StatChip(icon: Icons.logout_rounded, label: 'Sortis', value: exited,
+              color: context.cMuted, onTap: onTapExited),
       ];
-      final narrow = c.maxWidth < 560;
+      final perRow = stats.length == 1 ? 1 : (c.maxWidth < 560 ? 2 : stats.length);
+      final width = (c.maxWidth - (perRow - 1) * 10) / perRow;
       return Wrap(
         spacing: 10,
         runSpacing: 10,
         children: [
-          for (final s in stats)
-            SizedBox(width: narrow ? (c.maxWidth - 10) / 2 : (c.maxWidth - 30) / 4, child: s),
+          for (final s in stats) SizedBox(width: width, child: s),
         ],
       );
     });
@@ -2743,6 +2527,9 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
 class _UserCard extends ConsumerWidget {
   final SbUser user;
   final bool familiesEnabled;
+  /// Nom de la classe — non nul seulement sur l'écran Élèves, où il remplace
+  /// l'email (peu utile, souvent synthétique — cf. `createStudent`).
+  final String? classLabel;
   final VoidCallback? onOpen;
   final VoidCallback onEnableAccess;
   final VoidCallback onEdit;
@@ -2753,6 +2540,7 @@ class _UserCard extends ConsumerWidget {
   const _UserCard({
     required this.user,
     required this.familiesEnabled,
+    this.classLabel,
     required this.onOpen,
     required this.onEnableAccess,
     required this.onEdit,
@@ -2810,7 +2598,7 @@ class _UserCard extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Avatar(name: u.fullName, size: 38),
+              Avatar(name: u.fullName, size: 38, imageUrl: u.avatarUrl),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -2838,7 +2626,7 @@ class _UserCard extends ConsumerWidget {
                       ],
                     ]),
                     const SizedBox(height: 3),
-                    Text(u.email.isEmpty ? '—' : u.email,
+                    Text(classLabel ?? (u.email.isEmpty ? '—' : u.email),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11.5, color: context.cMuted)),
                     const SizedBox(height: 6),
@@ -2945,10 +2733,24 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   final _staffInfo = _StaffInfo();
   bool _profileLoaded = false;
 
+  /// Classe affiliée à cet élève — `null` = sans classe. Distinct de
+  /// `_UsersPageState._kNoClassId` (ce sentinel-là ne sert qu'au filtre de
+  /// liste) : ici l'absence de classe se représente simplement par `null`,
+  /// exactement ce qu'attend `assignStudentToClass`/`unassignStudentFromClass`.
+  String? _classId;
+
   @override
   void initState() {
     super.initState();
     _staffInfo.phone.text = widget.user.phone ?? '';
+    if (_isStudent) {
+      _classId = ref
+          .read(studentsProvider)
+          .valueOrNull
+          ?.where((s) => s.id == widget.user.id)
+          .firstOrNull
+          ?.classId;
+    }
     _loadProfile();
   }
 
@@ -2975,6 +2777,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   // Élève ou parent : pas de fiche employé, pas de rôle du personnel.
   bool get _isFamily =>
       widget.user.role == 'student' || widget.user.role == 'parent';
+  bool get _isStudent => widget.user.role == 'student';
 
   Set<String> _initPerms() {
     final p = widget.user.permissions;
@@ -3086,6 +2889,14 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         // fiche `staff_profiles` — l'y écrire créerait un employé fantôme.
         await SupabaseDbSource.updateUserPhone(
             id: widget.user.id, phone: _staffInfo.phone.text);
+        if (_isStudent) {
+          if (_classId == null) {
+            await SupabaseDbSource.unassignStudentFromClass(widget.user.id);
+          } else {
+            await SupabaseDbSource.assignStudentToClass(
+                userId: widget.user.id, classId: _classId!);
+          }
+        }
       } else if (schoolId != null && _profileLoaded) {
         await SupabaseDbSource.updateUserPhone(
             id: widget.user.id, phone: _staffInfo.phone.text);
@@ -3193,10 +3004,35 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                         labelText: 'Téléphone',
                         prefixIcon: Icon(Icons.phone_outlined)),
                   ),
-                )
-              else if (_profileLoaded)
+                ),
+              // Affiliation à une classe — seulement pour un élève (un
+              // parent n'a pas de classe propre).
+              if (_isStudent)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Builder(builder: (context) {
+                    final classes =
+                        ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
+                    final sorted = [...classes]
+                      ..sort((a, b) => a.name.compareTo(b.name));
+                    return DropdownButtonFormField<String?>(
+                      initialValue: _classId,
+                      decoration: const InputDecoration(
+                          labelText: 'Classe',
+                          prefixIcon: Icon(Icons.class_outlined)),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('Sans classe')),
+                        for (final c in sorted)
+                          DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                      ],
+                      onChanged: (v) => setState(() => _classId = v),
+                    );
+                  }),
+                ),
+              if (!_isFamily && _profileLoaded)
                 _StaffInfoFields(info: _staffInfo)
-              else
+              else if (!_isFamily)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: SizedBox(

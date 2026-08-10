@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -765,7 +767,7 @@ class _PhotoField extends StatefulWidget {
 
 class _PhotoFieldState extends State<_PhotoField> {
   bool _uploading = false;
-  String? _fileName; // nom local affiché ; la valeur transmise est le chemin storage
+  Uint8List? _bytes; // aperçu immédiat
 
   Future<void> _pick() async {
     final schoolId = widget.schoolId;
@@ -773,21 +775,22 @@ class _PhotoFieldState extends State<_PhotoField> {
     final XFile? picked =
         await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked == null) return;
-    setState(() => _uploading = true);
+    final bytes = await picked.readAsBytes();
+    setState(() { _uploading = true; _bytes = bytes; });
     try {
-      final bytes = await picked.readAsBytes();
-      final path = await SupabaseDbSource.uploadEnrollmentDocument(
+      final url = await SupabaseDbSource.uploadStudentPhoto(
         schoolId: schoolId,
         sessionId: widget.uploadSessionId,
-        fieldId: widget.field.id,
         filename: picked.name,
         bytes: bytes,
       );
       if (!mounted) return;
-      setState(() { _uploading = false; _fileName = picked.name; });
-      widget.onChanged(path);
+      setState(() => _uploading = false);
+      widget.onChanged(url);
     } catch (e) {
       if (!mounted) return;
+      // L'aperçu local reste affiché, mais _url reste null : la photo ne
+      // sera pas jointe à la fiche tant que l'envoi n'a pas réussi.
       setState(() => _uploading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Échec de l\'envoi de la photo : $e'),
@@ -799,7 +802,7 @@ class _PhotoFieldState extends State<_PhotoField> {
 
   @override
   Widget build(BuildContext context) {
-    final selected = _fileName != null;
+    final selected = _bytes != null;
     return _FieldShell(
       field: widget.field,
       required: widget.required,
@@ -809,34 +812,41 @@ class _PhotoFieldState extends State<_PhotoField> {
         onTap: _pick,
         child: Container(
           height: 100,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: selected ? _terra.withValues(alpha: .06) : context.cSubtle,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
                 color: selected ? _terra.withValues(alpha: .3) : context.cBorder),
           ),
-          child: _uploading
-              ? const Center(
-                  child: SizedBox(
-                      height: 22, width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2)))
-              : selected
-                  ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.check_circle_rounded, color: _green, size: 24),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(_fileName!,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: _green,
-                                fontWeight: FontWeight.w700, fontSize: 13)),
-                      ),
-                    ])
-                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add_a_photo_rounded, color: context.cMuted, size: 28),
-                      const SizedBox(height: 8),
-                      Text('Cliquez pour ajouter une photo',
-                          style: TextStyle(color: context.cMuted, fontSize: 12)),
-                    ]),
+          child: selected
+              ? Row(children: [
+                  SizedBox(
+                    width: 100, height: 100,
+                    child: Image.memory(_bytes!, fit: BoxFit.cover),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: _uploading
+                          ? const SizedBox(
+                              height: 22, width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Column(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.check_circle_rounded, color: _green, size: 22),
+                              const SizedBox(height: 4),
+                              Text('Photo ajoutée',
+                                  style: const TextStyle(color: _green,
+                                      fontWeight: FontWeight.w700, fontSize: 12.5)),
+                            ]),
+                    ),
+                  ),
+                ])
+              : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.add_a_photo_rounded, color: context.cMuted, size: 28),
+                  const SizedBox(height: 8),
+                  Text('Cliquez pour ajouter une photo',
+                      style: TextStyle(color: context.cMuted, fontSize: 12)),
+                ]),
         ),
         ),
       ),
