@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/errors/friendly_db_error.dart';
 import '../../../../core/permissions/rbac_mapping.dart';
 import '../../../../core/permissions/staff_permissions.dart';
 import '../../../../data/sources/remote/staff_roles_source.dart';
@@ -285,11 +286,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         _showLimitReached();
         return;
       }
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec de l\'inscription : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec de l\'inscription');
     }
   }
 
@@ -317,11 +314,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ref.invalidate(studentsProvider);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec');
     }
   }
 
@@ -400,11 +393,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ref.invalidate(studentsProvider);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec');
     }
   }
 
@@ -1103,29 +1092,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           await SupabaseDbSource.deleteUser(u.id, reason: reason);
         } catch (e2) {
           if (!mounted) return;
-          messenger.showSnackBar(SnackBar(
-            content: Text('Suppression impossible : $e2'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: _terra,
-          ));
+          showDbErrorSnackBar(context, ref, e2, prefix: 'Suppression impossible');
           return;
         }
       } else {
         if (!mounted) return;
-        messenger.showSnackBar(SnackBar(
-          content: Text('Suppression impossible : $e'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: _terra,
-        ));
+        showDbErrorSnackBar(context, ref, e, prefix: 'Suppression impossible');
         return;
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('Suppression impossible : $e'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _terra,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Suppression impossible');
       return;
     }
     ref.invalidate(usersProvider);
@@ -1213,11 +1190,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _terra,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec');
       return;
     }
     ref.invalidate(usersProvider);
@@ -1252,16 +1225,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ),
     );
     if (confirmed != true) return;
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await SupabaseDbSource.reactivateStudent(studentId: u.id);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _terra,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec');
       return;
     }
     ref.invalidate(usersProvider);
@@ -1281,11 +1249,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('Échec : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec');
     }
   }
 
@@ -1331,7 +1295,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       error: (e, _) => PageScaffold(
         onRefresh: _refreshUsers,
         title: pageTitle,
-        child: Center(child: Text('Erreur : $e')),
+        child: Center(child: Text('Erreur : ${friendlyDbError(e)}')),
       ),
       data: (everyone) {
         if (_isFamilyScope && !_canSeeStudents()) {
@@ -1851,7 +1815,7 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
       if (!mounted) return;
       setState(() => _photoUploading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec de l\'envoi de la photo : $e'),
+        content: Text('Échec de l\'envoi de la photo : ${friendlyDbError(e)}'),
         backgroundColor: _terra,
         behavior: SnackBarBehavior.floating,
       ));
@@ -3329,7 +3293,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
       widget.onSaved();
       if (mounted) navigator.pop();
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyDbError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -3865,11 +3829,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _photoUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Échec de l\'envoi de la photo : $e'),
-        backgroundColor: _terra,
-        behavior: SnackBarBehavior.floating,
-      ));
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec de l\'envoi de la photo');
     }
   }
 
@@ -3986,7 +3946,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = friendlyDbError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -4328,7 +4288,7 @@ class _EnableAccessDialogState extends State<_EnableAccessDialog> {
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = friendlyDbError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
