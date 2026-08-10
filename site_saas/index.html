@@ -607,7 +607,7 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
 
     <p class="essai-bandeau rev"><span class="ico">🕐</span> Chaque école commence par un essai gratuit de 14 jours — toutes les fonctions, sans carte bancaire.</p>
 
-    <div class="grille-4">
+    <div class="grille-3">
       <article class="carte offre rev">
         <h3>Essentiel</h3>
         <p class="prix">15 000 F <small>/ mois</small></p>
@@ -647,19 +647,6 @@ details p{margin:0;padding:0 22px 20px;color:var(--brun);font-size:15px;max-widt
           <li>Accompagnement de rentrée sur place</li>
         </ul>
         <a class="btn btn--vide lien-inscription" href="#inscription">Inscrire mon école</a>
-      </article>
-
-      <article class="carte offre rev">
-        <h3>Entreprise</h3>
-        <p class="prix">Sur devis</p>
-        <p class="pour">Groupes scolaires, diocèses, réseaux multi-établissements</p>
-        <ul>
-          <li>Tout Complet, sans limite d'élèves</li>
-          <li>Multi-établissements : plusieurs écoles d'un même groupe, un seul compte</li>
-          <li>Marque blanche : logo, couleurs et domaine personnalisés</li>
-          <li>Accès API et support dédié</li>
-        </ul>
-        <a class="btn btn--vide" id="offreEntrepriseContact" href="#">Nous contacter</a>
       </article>
     </div>
     <p class="offres-note rev">Tarifs en francs CFA. Au-delà des élèves inclus dans votre offre, un supplément par tranche s'applique. Modules complémentaires et offre modifiables à tout moment depuis l'application — un emplacement de module supplémentaire peut aussi s'acheter à la carte. Paiement par mobile money ou virement.</p>
@@ -814,10 +801,6 @@ if (CONFIG.LIEN_APK){
 }
 document.getElementById("piedWhatsapp").href = "https://wa.me/" + CONFIG.WHATSAPP;
 document.getElementById("piedEmail").href = "mailto:" + CONFIG.EMAIL;
-document.getElementById("offreEntrepriseContact").href =
-  "https://wa.me/" + CONFIG.WHATSAPP + "?text=" + encodeURIComponent("Bonjour, je souhaite en savoir plus sur l'offre Entreprise Scolaris.");
-document.getElementById("offreEntrepriseContact").target = "_blank";
-document.getElementById("offreEntrepriseContact").rel = "noopener";
 
 /* ============================================================
    3. Anneau de moyenne : 13,5 / 20 → 67,5 % du cercle
