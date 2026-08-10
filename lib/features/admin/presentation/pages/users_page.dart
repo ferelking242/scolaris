@@ -14,8 +14,6 @@ import '../../../../presentation/providers/auth_providers.dart';
 import '../../../../core/permissions/my_grants.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../presentation/providers/nav_providers.dart';
-import '../../../../shared/data/enrollment_config.dart';
-import '../../../../shared/pages/enrollment_page.dart';
 import '../../../../shared/pdf/student_card_pdf.dart';
 import '../../../../shared/pdf/users_list_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
@@ -99,13 +97,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     }
   }
 
-  // Inscription inline (au lieu d'une route plein écran).
-  bool _enrolling = false;
-  EnrollmentConfig? _enrollConfig;
-  List<SbClass> _enrollClasses = const [];
-  String? _enrollSchoolId;
-
-  // Import en masse depuis un fichier (même shell inline que l'inscription).
+  // Import en masse depuis un fichier (shell inline, remplace la liste).
   bool _importing = false;
 
   // Fiche élève inline (id de l'utilisateur consulté).
@@ -166,6 +158,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     return !onFineRbac;
   }
 
+  /// Inscription officielle depuis le tableau de bord — le popup EST le
+  /// formulaire, pas une version « rapide » d'autre chose. Le formulaire
+  /// exhaustif (`EnrollmentPage`, documents/nationalité/médical…) reste
+  /// réservé à la pré-inscription en ligne (le parent qui s'inscrit seul,
+  /// cf. `public_enrollment_screen.dart`) : pas de lien vers lui ici.
   Future<void> _openEnrollment() async {
     final schoolId = ref.read(authSessionProvider)?.schoolId;
     if (schoolId == null) {
@@ -182,43 +179,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       _showLimitReached();
       return;
     }
-
-    // Charger la config admin + la liste des classes en parallèle.
-    final results = await Future.wait([
-      ref.read(enrollmentConfigProvider.future),
-      ref.read(classesProvider.future),
-    ]);
+    final classes = await ref.read(classesProvider.future);
     if (!mounted) return;
-
-    final configJson = results[0] as Map<String, dynamic>?;
-    final classes = results[1] as List<SbClass>;
-    final config = configJson != null
-        ? EnrollmentConfig.fromJson(configJson)
-        : EnrollmentConfig.defaults();
-
-    setState(() {
-      _enrollConfig = config;
-      _enrollClasses = classes;
-      _enrollSchoolId = schoolId;
-    });
-
-    // Popup rapide par défaut (nom, photo, naissance, classe, tuteur…) — le
-    // dossier complet (documents, email, nationalité…) reste accessible via
-    // le lien « Dossier complet » du popup, pour qui veut tout saisir d'un
-    // coup, mais la plupart des inscriptions n'ont besoin que de l'essentiel.
-    if (!mounted) return;
-    final useFullForm = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => _QuickEnrollDialog(
+      builder: (_) => _EnrollStudentDialog(
         schoolId: schoolId,
         classes: classes,
         classCounts: _classCounts(),
         onSubmit: (data) => _saveStudent(schoolId, data),
       ),
     );
-    if (useFullForm == true && mounted) {
-      setState(() => _enrolling = true);
-    }
   }
 
   String? _importSchoolId;
@@ -294,7 +265,6 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       ref.invalidate(studentsProvider);
       ref.invalidate(studentCountProvider);
       if (!mounted) return;
-      setState(() => _enrolling = false); // referme l'inscription inline
       messenger.showSnackBar(SnackBar(
         content: Row(children: [
           const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
@@ -1334,19 +1304,8 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Inscription inline : remplace la liste par le formulaire (shell conservé).
-    if (_enrolling && _enrollConfig != null && _enrollSchoolId != null) {
-      return _InlineEnroll(
-        config: _enrollConfig!,
-        classes: _enrollClasses,
-        classCounts: _classCounts(),
-        schoolId: _enrollSchoolId!,
-        onBack: () => setState(() => _enrolling = false),
-        onSubmit: (data) => _saveStudent(_enrollSchoolId!, data),
-      );
-    }
-
-    // Import en masse : même principe, remplace la liste par l'assistant.
+    // Import en masse : remplace la liste par l'assistant (même principe
+    // qu'utilisait l'ancien formulaire d'inscription inline).
     if (_importing && _importSchoolId != null) {
       return StudentsImportPage(
         schoolId: _importSchoolId!,
@@ -1816,17 +1775,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
 }
 
 /// Inscription RAPIDE : nom, photo, sexe, naissance, lieu, classe, tuteur —
-/// pensée pour le secrétariat qui inscrit vite un élève déjà connu
-/// (contrairement au formulaire complet, exhaustif mais lent). Le lien
-/// « Dossier complet » ferme ce popup et bascule vers `_InlineEnroll`
-/// (l'`EnrollmentPage` à catégories multiples) pour qui veut tout saisir
-/// d'un coup (documents, email, nationalité, médical…).
-class _QuickEnrollDialog extends StatefulWidget {
+/// pensée pour le secrétariat qui inscrit un élève au tableau de bord — CE
+/// popup EST le formulaire officiel, pas une version « rapide » d'autre
+/// chose. Le formulaire exhaustif (`EnrollmentPage`, documents/nationalité/
+/// médical…) reste réservé à la pré-inscription en ligne, où le parent
+/// s'inscrit seul (cf. `public_enrollment_screen.dart`).
+class _EnrollStudentDialog extends StatefulWidget {
   final String schoolId;
   final List<SbClass> classes;
   final Map<String, int> classCounts;
   final Future<void> Function(Map<String, dynamic> data) onSubmit;
-  const _QuickEnrollDialog({
+  const _EnrollStudentDialog({
     required this.schoolId,
     required this.classes,
     required this.classCounts,
@@ -1834,14 +1793,15 @@ class _QuickEnrollDialog extends StatefulWidget {
   });
 
   @override
-  State<_QuickEnrollDialog> createState() => _QuickEnrollDialogState();
+  State<_EnrollStudentDialog> createState() => _EnrollStudentDialogState();
 }
 
 const _boyBlue = Color(0xFF2563EB);
 const _girlPink = Color(0xFFDB2777);
 
-class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
-  final _nameCtrl = TextEditingController();
+class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
+  final _lastNameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _matriculeCtrl = TextEditingController();
   final _birthPlaceCtrl = TextEditingController();
   final _guardianNameCtrl = TextEditingController();
@@ -1862,7 +1822,8 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _matriculeCtrl.dispose();
     _birthPlaceCtrl.dispose();
     _guardianNameCtrl.dispose();
@@ -1909,9 +1870,10 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
   }
 
   Future<void> _submit() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Le nom complet est requis.');
+    final lastName = _lastNameCtrl.text.trim();
+    final firstName = _firstNameCtrl.text.trim();
+    if (lastName.isEmpty || firstName.isEmpty) {
+      setState(() => _error = 'Nom et prénom sont requis.');
       return;
     }
     setState(() { _saving = true; _error = null; });
@@ -1921,8 +1883,8 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
           '${_birthDate!.month.toString().padLeft(2, '0')}-'
           '${_birthDate!.day.toString().padLeft(2, '0')}';
     await widget.onSubmit({
-      'first_name': name,
-      'last_name': '',
+      'first_name': firstName,
+      'last_name': lastName,
       'gender': _gender == 'M' ? 'Masculin' : 'Féminin',
       'birth_date': iso,
       'birth_place': _birthPlaceCtrl.text.trim(),
@@ -1968,73 +1930,74 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
         ]),
       );
 
+  Widget _labeled(BuildContext context, String label, Widget field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text(label,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.cMuted)),
+          ),
+          field,
+        ],
+      );
+
+  /// La photo comme un CHAMP à part entière (carré, labellisé) — pas un
+  /// avatar décoratif dans l'en-tête.
+  Widget _photoField(BuildContext context) => _labeled(context, 'PHOTO',
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _pickPhoto,
+          child: Container(
+            width: 132, height: 132,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: context.cSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: _photoBytes != null ? _terra.withValues(alpha: .4) : context.cBorder),
+              image: _photoBytes != null
+                  ? DecorationImage(image: MemoryImage(_photoBytes!), fit: BoxFit.cover)
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: _photoUploading
+                ? const SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : _photoBytes == null
+                    ? Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.add_a_photo_rounded, size: 22, color: context.cMuted),
+                        const SizedBox(height: 6),
+                        Text('Ajouter',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, color: context.cMuted)),
+                      ])
+                    : null,
+          ),
+        ),
+      ));
+
   @override
   Widget build(BuildContext context) {
     final genderColor = _gender == 'M' ? _boyBlue : _girlPink;
-    final initials = _nameCtrl.text.trim().isEmpty
-        ? '?'
-        : _nameCtrl.text
-            .trim()
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((w) => w[0])
-            .join()
-            .toUpperCase();
 
     return Dialog(
       backgroundColor: context.cCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
+        constraints: const BoxConstraints(maxWidth: 640),
         child: Padding(
           padding: const EdgeInsets.all(22),
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // ── En-tête : photo (ou avatar par défaut) + titre ──────────
+              // ── En-tête ──────────────────────────────────────────────────
               Row(children: [
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: _pickPhoto,
-                    child: Stack(clipBehavior: Clip.none, children: [
-                      Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(
-                          color: _photoBytes == null ? genderColor.withValues(alpha: .14) : null,
-                          shape: BoxShape.circle,
-                          image: _photoBytes != null
-                              ? DecorationImage(image: MemoryImage(_photoBytes!), fit: BoxFit.cover)
-                              : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: _photoUploading
-                            ? const SizedBox(width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : _photoBytes == null
-                                ? Text(initials,
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: genderColor))
-                                : null,
-                      ),
-                      Positioned(
-                        bottom: -2, right: -2,
-                        child: Container(
-                          width: 18, height: 18,
-                          decoration: BoxDecoration(
-                            color: _terra, shape: BoxShape.circle,
-                            border: Border.all(color: context.cCard, width: 1.5),
-                          ),
-                          child: const Icon(Icons.photo_camera_rounded, size: 10, color: Colors.white),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Inscription rapide',
+                    Text('Inscrire un élève',
                         style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
-                    Text('L\'essentiel pour créer la fiche tout de suite',
+                    Text('Créez la fiche de l\'élève',
                         style: TextStyle(fontSize: 11.5, color: context.cMuted)),
                   ]),
                 ),
@@ -2047,128 +2010,171 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
               ]),
               const SizedBox(height: 18),
 
-              _sectionTitle(context, Icons.badge_outlined, 'Identité'),
-              TextField(
-                controller: _nameCtrl,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Ex : Fatou Mbemba', label: 'Nom complet *'),
-              ),
-              const SizedBox(height: 10),
-              Row(children: [
+              // ── Deux colonnes : photo à gauche, identité à droite ───────
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _photoField(context),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: SegmentedButton<String>(
-                    style: SegmentedButton.styleFrom(
-                      backgroundColor: context.cSubtle,
-                      selectedBackgroundColor: genderColor.withValues(alpha: .12),
-                      selectedForegroundColor: genderColor,
-                      side: BorderSide(color: context.cBorder),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _sectionTitle(context, Icons.badge_outlined, 'Identité'),
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _lastNameCtrl,
+                          autofocus: true,
+                          onChanged: (_) => setState(() {}),
+                          style: TextStyle(fontSize: 13.5, color: context.cInk),
+                          decoration: _decor(context, 'Ex : Mbemba', label: 'Nom *'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _firstNameCtrl,
+                          onChanged: (_) => setState(() {}),
+                          style: TextStyle(fontSize: 13.5, color: context.cInk),
+                          decoration: _decor(context, 'Ex : Fatou', label: 'Prénom *'),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(
+                        child: SegmentedButton<String>(
+                          style: SegmentedButton.styleFrom(
+                            backgroundColor: context.cSubtle,
+                            selectedBackgroundColor: genderColor.withValues(alpha: .12),
+                            selectedForegroundColor: genderColor,
+                            side: BorderSide(color: context.cBorder),
+                          ),
+                          segments: const [
+                            ButtonSegment(value: 'M', label: Text('Garçon'), icon: Icon(Icons.male_rounded, size: 15)),
+                            ButtonSegment(value: 'F', label: Text('Fille'), icon: Icon(Icons.female_rounded, size: 15)),
+                          ],
+                          selected: {_gender},
+                          onSelectionChanged: (s) => setState(() => _gender = s.first),
+                        ),
+                      ),
+                    ]),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 14),
+
+              // ── Le reste : deux colonnes égales ─────────────────────────
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: _pickBirthDate,
+                    child: Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: context.cSubtle,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: context.cBorder),
+                      ),
+                      child: Row(children: [
+                        Icon(Icons.cake_outlined, size: 16, color: context.cMuted),
+                        const SizedBox(width: 10),
+                        Text(
+                          _birthDate == null
+                              ? 'Date de naissance'
+                              : '${_birthDate!.day.toString().padLeft(2, '0')}/'
+                                '${_birthDate!.month.toString().padLeft(2, '0')}/'
+                                '${_birthDate!.year}',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: _birthDate == null ? context.cMuted : context.cInk),
+                        ),
+                      ]),
                     ),
-                    segments: const [
-                      ButtonSegment(value: 'M', label: Text('Garçon'), icon: Icon(Icons.male_rounded, size: 15)),
-                      ButtonSegment(value: 'F', label: Text('Fille'), icon: Icon(Icons.female_rounded, size: 15)),
-                    ],
-                    selected: {_gender},
-                    onSelectionChanged: (s) => setState(() => _gender = s.first),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _birthPlaceCtrl,
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, 'Ville, pays', label: 'Lieu de naissance'),
                   ),
                 ),
               ]),
-              const SizedBox(height: 10),
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: _pickBirthDate,
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: context.cSubtle,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: context.cBorder),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.cake_outlined, size: 16, color: context.cMuted),
-                    const SizedBox(width: 10),
-                    Text(
-                      _birthDate == null
-                          ? 'Date de naissance'
-                          : '${_birthDate!.day.toString().padLeft(2, '0')}/'
-                            '${_birthDate!.month.toString().padLeft(2, '0')}/'
-                            '${_birthDate!.year}',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: _birthDate == null ? context.cMuted : context.cInk),
-                    ),
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _birthPlaceCtrl,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Ville, pays', label: 'Lieu de naissance'),
-              ),
+              const SizedBox(height: 14),
 
-              const SizedBox(height: 18),
               _sectionTitle(context, Icons.school_outlined, 'Scolarité'),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: context.cSubtle,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: context.cBorder),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: context.cSubtle,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: context.cBorder),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _classId,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      dropdownColor: context.cCard,
+                      hint: Text('Classe (optionnel)', style: TextStyle(fontSize: 13, color: context.cMuted)),
+                      style: TextStyle(fontSize: 13, color: context.cInk),
+                      items: [
+                        DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('— Aucune classe —',
+                                style: TextStyle(color: context.cMuted, fontStyle: FontStyle.italic))),
+                        for (final c in widget.classes)
+                          DropdownMenuItem(
+                            value: c.id,
+                            child: Builder(builder: (_) {
+                              final count = widget.classCounts[c.id] ?? 0;
+                              final full = count >= c.maxStudents;
+                              return Text(
+                                '${c.name} ($count/${c.maxStudents})${full ? ' — complet' : ''}',
+                                style: TextStyle(
+                                    color: full ? _terra : context.cInk,
+                                    fontWeight: full ? FontWeight.w700 : FontWeight.normal),
+                              );
+                            }),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _classId = v),
+                    ),
+                  ),
                 ),
-                child: DropdownButton<String>(
-                  value: _classId,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  dropdownColor: context.cCard,
-                  hint: Text('Classe (optionnel)', style: TextStyle(fontSize: 13, color: context.cMuted)),
-                  style: TextStyle(fontSize: 13, color: context.cInk),
-                  items: [
-                    DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('— Aucune classe —',
-                            style: TextStyle(color: context.cMuted, fontStyle: FontStyle.italic))),
-                    for (final c in widget.classes)
-                      DropdownMenuItem(
-                        value: c.id,
-                        child: Builder(builder: (_) {
-                          final count = widget.classCounts[c.id] ?? 0;
-                          final full = count >= c.maxStudents;
-                          return Text(
-                            '${c.name} ($count/${c.maxStudents})${full ? ' — complet' : ''}',
-                            style: TextStyle(
-                                color: full ? _terra : context.cInk,
-                                fontWeight: full ? FontWeight.w700 : FontWeight.normal),
-                          );
-                        }),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _classId = v),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _matriculeCtrl,
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, 'Auto-généré si vide', label: 'Matricule (optionnel)'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _matriculeCtrl,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Auto-généré si vide', label: 'Matricule (optionnel)'),
-              ),
+              ]),
+              const SizedBox(height: 14),
 
-              const SizedBox(height: 18),
               _sectionTitle(context, Icons.family_restroom_rounded, 'Tuteur (optionnel, à compléter plus tard sinon)'),
-              TextField(
-                controller: _guardianNameCtrl,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _guardianPhoneCtrl,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(fontSize: 13.5, color: context.cInk),
-                decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
-              ),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _guardianNameCtrl,
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _guardianPhoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
+                  ),
+                ),
+              ]),
 
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -2176,10 +2182,6 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
               ],
               const SizedBox(height: 20),
               Row(children: [
-                TextButton(
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(true),
-                  child: const Text('Dossier complet →'),
-                ),
                 const Spacer(),
                 FilledButton.icon(
                   onPressed: _saving ? null : _submit,
@@ -2195,74 +2197,6 @@ class _QuickEnrollDialogState extends State<_QuickEnrollDialog> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Vue d'inscription **inline** : barre de retour + formulaire, dans le shell.
-/// Ouverte depuis le lien « Dossier complet » du popup rapide, pour qui veut
-/// tout saisir d'un coup (documents, email, nationalité, médical…).
-class _InlineEnroll extends StatelessWidget {
-  final EnrollmentConfig config;
-  final List<SbClass> classes;
-  final Map<String, int> classCounts;
-  final String schoolId;
-  final VoidCallback onBack;
-  final Future<void> Function(Map<String, dynamic>) onSubmit;
-  const _InlineEnroll({
-    required this.config,
-    required this.classes,
-    required this.classCounts,
-    required this.schoolId,
-    required this.onBack,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: context.cPage,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Barre de retour (reste dans la page Utilisateurs).
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Material(
-              color: context.cSubtle,
-              borderRadius: BorderRadius.circular(9),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(9),
-                onTap: onBack,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.arrow_back_rounded,
-                        size: 15, color: context.cMuted),
-                    const SizedBox(width: 6),
-                    Text('Retour aux utilisateurs',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: context.cMuted,
-                            fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: EnrollmentPage(
-            isAdminMode: true,
-            config: config,
-            adminClasses: classes,
-            classStudentCounts: classCounts,
-            schoolId: schoolId,
-            onSubmit: onSubmit,
-          ),
-        ),
-      ]),
     );
   }
 }
