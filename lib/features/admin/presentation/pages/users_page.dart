@@ -18,6 +18,7 @@ import '../../../../shared/widgets/page_scaffold.dart';
 import '../../../../shared/widgets/plan_gate.dart';
 import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
 import '../widgets/tuition_account.dart';
+import 'students_import_page.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
@@ -99,6 +100,9 @@ class _UsersPageState extends ConsumerState<UsersPage> {
   EnrollmentConfig? _enrollConfig;
   List<SbClass> _enrollClasses = const [];
   String? _enrollSchoolId;
+
+  // Import en masse depuis un fichier (même shell inline que l'inscription).
+  bool _importing = false;
 
   // Fiche élève inline (id de l'utilisateur consulté).
   String? _viewId;
@@ -198,6 +202,28 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       // saisir maintenant, pendant que le secrétariat a l'élève en face.
       _enrolling = true;
     });
+  }
+
+  String? _importSchoolId;
+
+  Future<void> _openImport() async {
+    final schoolId = ref.read(authSessionProvider)?.schoolId;
+    if (schoolId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Aucune école associée à votre compte.'),
+        backgroundColor: _terra,
+      ));
+      return;
+    }
+    // Même garde-fou qu'une inscription au clavier — pas la peine de laisser
+    // choisir un fichier si l'offre n'accepte déjà plus aucun élève.
+    final canAdd = await SupabaseDbSource.canAddStudent(schoolId);
+    if (!mounted) return;
+    if (!canAdd) {
+      _showLimitReached();
+      return;
+    }
+    setState(() { _importSchoolId = schoolId; _importing = true; });
   }
 
   /// Enregistre réellement la fiche élève (users + student_profiles).
@@ -1303,6 +1329,20 @@ class _UsersPageState extends ConsumerState<UsersPage> {
       );
     }
 
+    // Import en masse : même principe, remplace la liste par l'assistant.
+    if (_importing && _importSchoolId != null) {
+      return StudentsImportPage(
+        schoolId: _importSchoolId!,
+        classes: ref.watch(classesProvider).valueOrNull ?? const <SbClass>[],
+        onBack: () => setState(() => _importing = false),
+        onImported: () {
+          ref.invalidate(usersProvider);
+          ref.invalidate(studentsProvider);
+          ref.invalidate(studentCountProvider);
+        },
+      );
+    }
+
     final pageTitle = _pageTitle;
 
     final usersAsync = ref.watch(usersProvider);
@@ -1467,6 +1507,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                   icon: Icons.ios_share_rounded,
                   onTap: () => _exportUsers(users)),
             ],
+            if (_isStudentsScope && _canAddStudent())
+              ActionButton(
+                  label: 'Importer',
+                  icon: Icons.upload_file_outlined,
+                  onTap: _openImport),
             // Chaque écran n'offre que le geste qui lui correspond : on
             // n'INVITE pas un élève, on l'INSCRIT — et un parent ne
             // s'inscrit jamais seul, il arrive avec son enfant.
@@ -3016,7 +3061,10 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                     final sorted = [...classes]
                       ..sort((a, b) => a.name.compareTo(b.name));
                     return DropdownButtonFormField<String?>(
-                      initialValue: _classId,
+                      // `initialValue` n'existe que depuis Flutter ≥ 3.33 —
+                      // le projet est épinglé sur 3.32.0 (cf. .fvmrc/CI) : le
+                      // build web échoue sinon (dart2js, pas juste un lint).
+                      value: _classId,
                       decoration: const InputDecoration(
                           labelText: 'Classe',
                           prefixIcon: Icon(Icons.class_outlined)),
