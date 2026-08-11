@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       // La fiche doit appartenir à l'école de l'appelant et ne pas déjà avoir un login.
       const { data: target } = await admin
         .from("users")
-        .select("id, auth_uid, school_id")
+        .select("id, auth_uid, school_id, role")
         .eq("id", linkUserId)
         .maybeSingle();
       if (!target || target.school_id !== schoolId) {
@@ -144,6 +144,20 @@ Deno.serve(async (req) => {
         await admin.auth.admin.deleteUser(newAuthId);
         return json({ error: upErr.message }, 400);
       }
+
+      // Sans cette ligne, is_member_of() (donc toute la RLS) ne voit jamais
+      // cette personne dès qu'elle obtient un login — elle s'authentifie côté
+      // Supabase Auth mais ne peut plus lire sa propre fiche `users` ensuite
+      // (échec de connexion silencieux et trompeur, cf. 20260811 Grace Loko).
+      // Fiche créée avant que school_members ne soit systématique côté client
+      // (`createStudent`) → on comble ici, pour TOUT rôle lié via ce mode.
+      await admin.from("school_members").upsert({
+        user_id: linkUserId,
+        school_id: schoolId,
+        role: target.role,
+        status: "active",
+      }, { onConflict: "user_id,school_id" });
+
       return json({ ok: true, userId: linkUserId, authUid: newAuthId });
     }
 
