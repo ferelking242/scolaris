@@ -517,7 +517,6 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
   late int _hours;
   late int _chapters;
   late String _color;
-  late Set<String> _days;
 
   /// Les enseignants du cours — **plusieurs** possibles (co-enseignement).
   /// C'est ici, et nulle part ailleurs, qu'un prof gagne l'accès à la classe :
@@ -544,7 +543,6 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
     _hours    = e?.hoursWeek ?? 3;
     _chapters = e?.chapterCount ?? 6;
     _color    = e?.color ?? _courseColors.first;
-    _days     = Set<String>.from(e?.daysOfWeek ?? []);
     _teacherIds = [
       for (final t in (e?.teachers ?? const <SbCourseTeacher>[])) t.teacherId,
     ];
@@ -576,7 +574,6 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           color: _color,
           programSummary: _program.text.isEmpty ? null : _program.text,
           chapterCount: _chapters,
-          daysOfWeek: _days.toList(),
           room: _room.text.isEmpty ? null : _room.text,
         );
       } else {
@@ -591,7 +588,6 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           color: _color,
           programSummary: _program.text,
           chapterCount: _chapters,
-          daysOfWeek: _days.toList(),
           room: _room.text.isEmpty ? null : _room.text,
         );
         await SupabaseDbSource.setCourseTeachers(
@@ -732,35 +728,11 @@ class _CourseFormContentState extends ConsumerState<_CourseFormContent> {
           ]),
           const SizedBox(height: 16),
 
-          // ── Jours de cours ────────────────────────────────────────
-          Text('Jours de cours', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(_daysFr.length, (i) {
-              final key = _daysKey[i];
-              final sel = _days.contains(key);
-              return Expanded(
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: () => setState(() => sel ? _days.remove(key) : _days.add(key)),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: EdgeInsets.only(right: i < _daysFr.length - 1 ? 4 : 0),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? selectedColor : cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: sel ? selectedColor : cs.outlineVariant),
-                      ),
-                      child: Center(child: Text(_daysFr[i], style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : cs.onSurfaceVariant))),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 16),
+          // Jours de cours : retiré du formulaire — l'horaire (schedules,
+          // page Emploi du temps) est la seule source fiable des jours d'un
+          // cours ; ce champ manuel sur `courses` pouvait diverger de ce qui
+          // est réellement placé dans la semaine. daysOfWeek reste lu en
+          // affichage (données historiques) mais n'est plus saisi ici.
 
           // ── Programme scolaire ────────────────────────────────────
           _Field(
