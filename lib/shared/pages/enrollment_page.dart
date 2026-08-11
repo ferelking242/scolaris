@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/sources/remote/supabase_db_source.dart';
 import '../data/enrollment_config.dart';
 import '../widgets/page_scaffold.dart';
+import '../widgets/phone_field.dart';
 
 // Accents de marque — constants dans les deux thèmes (cf. convention thème).
 const _terra  = Color(0xFF8B1A00);
@@ -512,6 +513,22 @@ class _TextInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Téléphone : sélecteur d'indicatif plutôt qu'une saisie libre — même
+    // widget que partout ailleurs dans l'app, et surtout un format normalisé
+    // qui fiabilise le rapprochement d'un parent déjà en fiche par téléphone
+    // (cf. `createOrLinkGuardian`).
+    if (field.type == FieldType.phone) {
+      return _FieldShell(
+        field: field,
+        required: required,
+        child: _PhoneChangeAdapter(
+          controller: controller,
+          label: field.placeholder,
+          required: required,
+          onChanged: onChanged,
+        ),
+      );
+    }
     return _FieldShell(
       field: field,
       required: required,
@@ -520,11 +537,9 @@ class _TextInputField extends StatelessWidget {
         onChanged: onChanged,
         keyboardType: field.type == FieldType.email
             ? TextInputType.emailAddress
-            : field.type == FieldType.phone
-                ? TextInputType.phone
-                : field.type == FieldType.number
-                    ? TextInputType.number
-                    : TextInputType.text,
+            : field.type == FieldType.number
+                ? TextInputType.number
+                : TextInputType.text,
         decoration: _decor(context, field.placeholder),
         style: TextStyle(fontSize: 13, color: context.cInk),
         validator: required
@@ -535,6 +550,47 @@ class _TextInputField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Relaie les changements de [PhoneField] (qui écrit dans [controller] sans
+/// callback dédié) vers le `onChanged` attendu par le formulaire dynamique.
+class _PhoneChangeAdapter extends StatefulWidget {
+  final TextEditingController controller;
+  final String? label;
+  final bool required;
+  final ValueChanged<dynamic> onChanged;
+  const _PhoneChangeAdapter({
+    required this.controller,
+    required this.label,
+    required this.required,
+    required this.onChanged,
+  });
+
+  @override
+  State<_PhoneChangeAdapter> createState() => _PhoneChangeAdapterState();
+}
+
+class _PhoneChangeAdapterState extends State<_PhoneChangeAdapter> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_notify);
+  }
+
+  void _notify() => widget.onChanged(widget.controller.text);
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_notify);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PhoneField(
+        controller: widget.controller,
+        label: widget.label ?? 'Téléphone',
+        required: widget.required,
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import '../../../../presentation/providers/nav_providers.dart';
 import '../../../../shared/pdf/student_card_pdf.dart';
 import '../../../../shared/pdf/users_list_pdf.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../../../../shared/widgets/phone_field.dart';
 import '../../../../shared/widgets/plan_gate.dart';
 import '../../roles/workspace/role_workspace_models.dart' show colorFromHex;
 import '../widgets/tuition_account.dart';
@@ -182,12 +183,17 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     }
     final classes = await ref.read(classesProvider.future);
     if (!mounted) return;
+    final existingGuardians = (await ref.read(usersProvider.future))
+        .where((u) => u.role == 'parent')
+        .toList();
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (_) => _EnrollStudentDialog(
         schoolId: schoolId,
         classes: classes,
         classCounts: _classCounts(),
+        existingGuardians: existingGuardians,
         onSubmit: (data) => _saveStudent(schoolId, data),
       ),
     );
@@ -260,6 +266,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           email: s('guardian_email').isEmpty ? null : s('guardian_email'),
           relationship:
               s('guardian_relation').isEmpty ? 'Parent' : s('guardian_relation'),
+          existingParentId: s('guardian_id').isEmpty ? null : s('guardian_id'),
         );
       }
       ref.invalidate(usersProvider);
@@ -777,6 +784,13 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                 final guardians = ref.watch(guardiansForStudentProvider(u.id));
                 return DataPanel(
                   title: 'Parent / Tuteur',
+                  headerActions: [
+                    TextButton.icon(
+                      onPressed: () => _linkExistingGuardian(u.id),
+                      icon: const Icon(Icons.person_add_alt_1_rounded, size: 14),
+                      label: const Text('Lier un parent', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
                   child: guardians.when(
                     loading: () => const Padding(
                       padding: EdgeInsets.all(12),
@@ -790,7 +804,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                         style: TextStyle(fontSize: 12, color: context.cMuted)),
                     data: (list) => list.isEmpty
                         ? Text(
-                            'Aucun parent lié. Ajoutez-en un à l\'inscription de l\'élève.',
+                            'Aucun parent lié — bouton « Lier un parent » ci-dessus.',
                             style: TextStyle(fontSize: 12.5, color: context.cMuted))
                         : Column(
                             children: [
@@ -1034,6 +1048,34 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           ref.invalidate(usersProvider);
           ref.invalidate(teachersProvider);
           ref.invalidate(studentsProvider);
+        },
+      ),
+    );
+  }
+
+  /// Lie un parent DÉJÀ en fiche à cet élève, sans passer par l'inscription —
+  /// comble le trou signalé sur la fiche élève ("Aucun parent lié") quand la
+  /// correspondance téléphone/email de [createOrLinkGuardian] a raté au
+  /// moment de l'inscription, ou que le lien a simplement été oublié.
+  Future<void> _linkExistingGuardian(String studentId) async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    if (schoolId == null) return;
+    final guardians =
+        (await ref.read(usersProvider.future)).where((u) => u.role == 'parent').toList();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _LinkGuardianDialog(
+        guardians: guardians,
+        onLink: (guardian, relationship) async {
+          await SupabaseDbSource.createOrLinkGuardian(
+            schoolId: schoolId,
+            studentId: studentId,
+            guardianName: guardian.fullName,
+            existingParentId: guardian.id,
+            relationship: relationship,
+          );
+          ref.invalidate(guardiansForStudentProvider(studentId));
         },
       ),
     );
@@ -1765,11 +1807,15 @@ class _EnrollStudentDialog extends StatefulWidget {
   final String schoolId;
   final List<SbClass> classes;
   final Map<String, int> classCounts;
+  /// Parents déjà en fiche dans l'école — proposés en recherche pour lier un
+  /// 2e (3e…) enfant sans dépendre d'un téléphone/email retapé à l'identique.
+  final List<SbUser> existingGuardians;
   final Future<void> Function(Map<String, dynamic> data) onSubmit;
   const _EnrollStudentDialog({
     required this.schoolId,
     required this.classes,
     required this.classCounts,
+    this.existingGuardians = const [],
     required this.onSubmit,
   });
 
@@ -1792,6 +1838,10 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
   String? _classId;
   bool _saving = false;
   String? _error;
+
+  // Parent déjà existant choisi via la recherche — si posé, on lie
+  // directement cette fiche au lieu d'en créer une nouvelle (cf. _submit).
+  SbUser? _linkedGuardian;
 
   // Photo — même bucket public que la photo prise dans le dossier complet
   // (cf. `_PhotoField` d'`enrollment_page.dart`), juste sans passer par le
@@ -1872,6 +1922,7 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
       'class_id': _classId,
       'matricule': _matriculeCtrl.text.trim(),
       'photo': _photoUrl ?? '',
+      'guardian_id': _linkedGuardian?.id ?? '',
       'guardian_name': _guardianNameCtrl.text.trim(),
       'guardian_phone': _guardianPhoneCtrl.text.trim(),
     });
@@ -2138,22 +2189,79 @@ class _EnrollStudentDialogState extends State<_EnrollStudentDialog> {
               const SizedBox(height: 14),
 
               _sectionTitle(context, Icons.family_restroom_rounded, 'Tuteur (optionnel, à compléter plus tard sinon)'),
+              // Un frère/une sœur déjà inscrit·e a probablement le même
+              // parent : chercher plutôt que retaper (et risquer un doublon
+              // si le téléphone/email diffère un peu de la 1re saisie).
+              if (widget.existingGuardians.isNotEmpty) ...[
+                if (_linkedGuardian == null)
+                  Autocomplete<SbUser>(
+                    displayStringForOption: (u) => u.fullName,
+                    optionsBuilder: (v) {
+                      if (v.text.trim().length < 2) return const Iterable.empty();
+                      final q = v.text.trim().toLowerCase();
+                      return widget.existingGuardians.where((u) =>
+                          u.fullName.toLowerCase().contains(q) ||
+                          (u.phone ?? '').contains(q));
+                    },
+                    fieldViewBuilder: (context, ctrl, focus, onSubmit) => TextField(
+                      controller: ctrl,
+                      focusNode: focus,
+                      style: TextStyle(fontSize: 13.5, color: context.cInk),
+                      decoration: _decor(context, 'Nom ou téléphone déjà en fiche…',
+                          label: 'Parent déjà inscrit ? (frère/sœur)'),
+                    ),
+                    onSelected: (u) => setState(() {
+                      _linkedGuardian = u;
+                      _guardianNameCtrl.text = u.fullName;
+                      _guardianPhoneCtrl.text = u.phone ?? '';
+                    }),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: context.cSubtle,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _terra.withValues(alpha: .4)),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.link_rounded, size: 16, color: _terra),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Lié à ${_linkedGuardian!.fullName} (parent existant)',
+                          style: TextStyle(fontSize: 12.5, color: context.cInk, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, size: 16, color: context.cMuted),
+                        onPressed: () => setState(() {
+                          _linkedGuardian = null;
+                          _guardianNameCtrl.clear();
+                          _guardianPhoneCtrl.clear();
+                        }),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                      ),
+                    ]),
+                  ),
+                const SizedBox(height: 10),
+              ],
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: _guardianNameCtrl,
+                    enabled: _linkedGuardian == null,
                     style: TextStyle(fontSize: 13.5, color: context.cInk),
                     decoration: _decor(context, 'Nom du parent/tuteur', label: 'Nom du tuteur'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: TextField(
-                    controller: _guardianPhoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    style: TextStyle(fontSize: 13.5, color: context.cInk),
-                    decoration: _decor(context, '+242 06 000 00 00', label: 'Téléphone du tuteur'),
-                  ),
+                  child: PhoneField(
+                      controller: _guardianPhoneCtrl,
+                      label: 'Téléphone du tuteur',
+                      enabled: _linkedGuardian == null),
                 ),
               ]),
 
@@ -3506,12 +3614,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                 // Élève/parent : seul le téléphone. Le personnel a la fiche
                 // complète (matricule, sexe, naissance, embauche, contrat).
                 if (_isFamily)
-                  TextFormField(
-                    controller: _staffInfo.phone,
-                    keyboardType: TextInputType.phone,
-                    style: TextStyle(fontSize: 13.5, color: context.cInk),
-                    decoration: _decor(context, label: 'Téléphone', prefixIcon: const Icon(Icons.phone_outlined)),
-                  ),
+                  PhoneField(controller: _staffInfo.phone),
                 // Affiliation à une classe — seulement pour un élève (un
                 // parent n'a pas de classe propre).
                 if (_isStudent)
@@ -3769,12 +3872,7 @@ class _StaffInfoFieldsState extends State<_StaffInfoFields> {
 
     return Column(children: [
       const SizedBox(height: 12),
-      TextFormField(
-        controller: i.phone,
-        keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(
-            labelText: 'Téléphone', prefixIcon: Icon(Icons.phone_outlined)),
-      ),
+      PhoneField(controller: i.phone),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
@@ -3959,6 +4057,106 @@ class _RolePicker extends ConsumerWidget {
           side: BorderSide(color: context.cBorder),
         ),
     ]);
+  }
+}
+
+/// Lie un parent déjà en fiche à un élève — sans passer par l'inscription
+/// (cf. `_linkExistingGuardian`). Recherche par nom/téléphone, pas de champ
+/// libre : le but est justement d'éviter de recréer un doublon.
+class _LinkGuardianDialog extends StatefulWidget {
+  final List<SbUser> guardians;
+  final Future<void> Function(SbUser guardian, String relationship) onLink;
+  const _LinkGuardianDialog({required this.guardians, required this.onLink});
+
+  @override
+  State<_LinkGuardianDialog> createState() => _LinkGuardianDialogState();
+}
+
+class _LinkGuardianDialogState extends State<_LinkGuardianDialog> {
+  SbUser? _selected;
+  String _relationship = 'Parent';
+  bool _loading = false;
+  String? _error;
+
+  static const _relations = ['Parent', 'Père', 'Mère', 'Tuteur', 'Autre'];
+
+  Future<void> _submit() async {
+    if (_selected == null) {
+      setState(() => _error = 'Choisissez un parent.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await widget.onLink(_selected!, _relationship);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _error = friendlyDbError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Lier un parent existant',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 380,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Autocomplete<SbUser>(
+            displayStringForOption: (u) => u.fullName,
+            optionsBuilder: (v) {
+              if (v.text.trim().isEmpty) return widget.guardians;
+              final q = v.text.trim().toLowerCase();
+              return widget.guardians.where((u) =>
+                  u.fullName.toLowerCase().contains(q) ||
+                  (u.phone ?? '').contains(q));
+            },
+            fieldViewBuilder: (context, ctrl, focus, onSubmit) => TextField(
+              controller: ctrl,
+              focusNode: focus,
+              decoration: const InputDecoration(
+                  labelText: 'Parent',
+                  hintText: 'Nom ou téléphone…',
+                  prefixIcon: Icon(Icons.search_rounded)),
+            ),
+            onSelected: (u) => setState(() => _selected = u),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _relationship,
+            decoration: const InputDecoration(
+                labelText: 'Lien de parenté',
+                prefixIcon: Icon(Icons.family_restroom_rounded)),
+            items: [
+              for (final r in _relations) DropdownMenuItem(value: r, child: Text(r)),
+            ],
+            onChanged: (v) => setState(() => _relationship = v ?? 'Parent'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          style: FilledButton.styleFrom(backgroundColor: _terra),
+          child: _loading
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Lier'),
+        ),
+      ],
+    );
   }
 }
 

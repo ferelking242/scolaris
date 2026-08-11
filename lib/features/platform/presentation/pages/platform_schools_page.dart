@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/config/countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../../../../shared/widgets/phone_field.dart';
 import '../../data/platform_mock_data.dart';
 import '../../data/platform_repository.dart';
 import '../../data/platform_school_aggregates.dart';
@@ -482,11 +483,7 @@ class _CreateSchoolFormState extends State<_CreateSchoolForm> {
                     return null;
                   },
                 ),
-                _Field(
-                    controller: _phone,
-                    label: 'Téléphone',
-                    hint: '+242 06 000 00 00',
-                    keyboardType: TextInputType.phone),
+                PhoneField(controller: _phone, label: 'Téléphone'),
               ),
               _Field(
                 controller: _password,

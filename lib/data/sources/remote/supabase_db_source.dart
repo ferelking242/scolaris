@@ -4497,7 +4497,10 @@ class SupabaseDbSource {
   /// Crée (ou réutilise) un parent et le relie à un élève via `parent_student`.
   /// Réutilise un parent existant de la même école si le téléphone ou l'email
   /// correspond (évite les doublons quand plusieurs enfants ont le même parent).
-  /// Renvoie le `user_id` du parent.
+  /// [existingParentId] court-circuite cette recherche quand l'appelant a déjà
+  /// désigné explicitement le parent (recherche/autocomplete côté UI) — plus
+  /// fiable qu'une correspondance téléphone/email qui peut rater une simple
+  /// faute de frappe. Renvoie le `user_id` du parent.
   static Future<String> createOrLinkGuardian({
     required String schoolId,
     required String studentId,
@@ -4505,13 +4508,16 @@ class SupabaseDbSource {
     String? phone,
     String? email,
     String relationship = 'Parent',
+    String? existingParentId,
   }) async {
-    String? parentId;
+    String? parentId = (existingParentId != null && existingParentId.isNotEmpty)
+        ? existingParentId
+        : null;
 
     // 1. Réutilisation : chercher un parent existant par téléphone puis email.
     final cleanPhone = phone?.trim();
     final cleanEmail = email?.trim();
-    if (cleanPhone != null && cleanPhone.isNotEmpty) {
+    if (parentId == null && cleanPhone != null && cleanPhone.isNotEmpty) {
       final m = await _db
           .from('users')
           .select('id')

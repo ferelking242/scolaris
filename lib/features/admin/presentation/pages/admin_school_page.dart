@@ -7,6 +7,7 @@ import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/data/features_catalog.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../../../../shared/widgets/phone_field.dart';
 
 const _terra  = Color(0xFF8B1A00);
 const _green  = Color(0xFF2D6A4F);
@@ -381,12 +382,7 @@ class _AdminSchoolPageState extends ConsumerState<AdminSchoolPage> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _Field(
-                          controller: _contactPhone,
-                          label: 'Téléphone',
-                          icon: Icons.call_outlined,
-                          keyboardType: TextInputType.phone,
-                        ),
+                        child: PhoneField(controller: _contactPhone, label: 'Téléphone'),
                       ),
                     ]),
                   ]),

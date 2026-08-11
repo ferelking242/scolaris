@@ -13,6 +13,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../presentation/providers/auth_providers.dart';
 import '../../presentation/providers/db_providers.dart';
 import '../widgets/page_scaffold.dart';
+import '../widgets/phone_field.dart';
 
 const _terra  = ScolarisPalette.terracotta;
 const _orange = ScolarisPalette.orange;
@@ -1040,15 +1041,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _phone,
-          keyboardType: TextInputType.phone,
-          decoration: InputDecoration(
-            labelText: 'profile.phone'.tr(),
-            prefixIcon: const Icon(Icons.phone_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
+        PhoneField(controller: _phone, label: 'profile.phone'.tr()),
         const SizedBox(height: 6),
         Text(
           'profile.edit.password_hint'.tr(),
