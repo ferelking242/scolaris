@@ -549,6 +549,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ActionButton(
                 label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
                 onTap: () => _enableAccess(u)),
+          if (u.authUid != null && _canEditUser(u))
+            ActionButton(
+                label: 'Réinitialiser le mot de passe',
+                icon: Icons.lock_reset_rounded,
+                onTap: () => _resetPassword(u)),
           // Suspendre un compte touche `users.status` : la base exige
           // `utilisateurs.gerer_roles` (cf. guard_user_privileges).
           if (ref.watch(canProvider('utilisateurs.gerer_roles')))
@@ -891,6 +896,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
             ActionButton(
                 label: 'Activer l\'accès', icon: Icons.vpn_key_outlined,
                 onTap: () => _enableAccess(u)),
+          if (u.authUid != null && _canEditUser(u))
+            ActionButton(
+                label: 'Réinitialiser le mot de passe',
+                icon: Icons.lock_reset_rounded,
+                onTap: () => _resetPassword(u)),
           if (ref.watch(canProvider('utilisateurs.gerer_roles')))
             ActionButton(
               label: u.isActive ? 'Bloquer' : 'Réactiver',
@@ -1078,6 +1088,16 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           ref.invalidate(guardiansForStudentProvider(studentId));
         },
       ),
+    );
+  }
+
+  /// Repose un mot de passe sur un compte déjà connecté — le seul recours
+  /// quand la connexion échoue sans qu'on sache si c'est le mot de passe :
+  /// l'admin ne peut jamais lire l'ancien (haché côté Supabase Auth).
+  void _resetPassword(SbUser u) {
+    showDialog(
+      context: context,
+      builder: (_) => _ResetPasswordDialog(user: u),
     );
   }
 
@@ -1708,12 +1728,18 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                               // connexion malgré tout, qu'on laisse quand même
                               // activer (pas de restriction d'offre pour eux).
                               if (u.authUid != null)
-                                const Tooltip(
-                                  message: 'Connexion active',
-                                  child: Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(Icons.lock_open_rounded,
-                                        size: 16, color: Color(0xFF15803D)),
+                                Tooltip(
+                                  message: _canEditUser(u)
+                                      ? 'Connexion active — cliquer pour réinitialiser le mot de passe'
+                                      : 'Connexion active',
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(6),
+                                    onTap: _canEditUser(u) ? () => _resetPassword(u) : null,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(Icons.lock_open_rounded,
+                                          size: 16, color: Color(0xFF15803D)),
+                                    ),
                                   ),
                                 )
                               else if (u.role == 'student' || u.role == 'parent')
@@ -4637,6 +4663,110 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
 }
 
 // ── Activer l'accès (donner un login à une fiche élève/parent) ───────────────
+/// Repose un mot de passe sur un compte déjà lié. Pas de champ email (déjà
+/// fixé) — juste un nouveau mot de passe généré, régénérable, à communiquer.
+class _ResetPasswordDialog extends StatefulWidget {
+  final SbUser user;
+  const _ResetPasswordDialog({required this.user});
+  @override
+  State<_ResetPasswordDialog> createState() => _ResetPasswordDialogState();
+}
+
+class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
+  late final TextEditingController _pass =
+      TextEditingController(text: 'Scolaris-${DateTime.now().microsecondsSinceEpoch % 10000}');
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _pass.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_pass.text.length < 6) {
+      setState(() => _error = '6 caractères minimum.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      await SupabaseDbSource.resetUserPassword(
+        userId: widget.user.id,
+        password: _pass.text,
+      );
+      if (!mounted) return;
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text('Mot de passe réinitialisé pour ${widget.user.fullName}. '
+            'Nouveau mot de passe : ${_pass.text}'),
+        backgroundColor: _green,
+        duration: const Duration(seconds: 10),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      setState(() => _error = friendlyDbError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Réinitialiser le mot de passe',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 380,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                'Remplace le mot de passe de ${widget.user.fullName}. '
+                'L\'ancien ne sera plus valide — communiquez le nouveau.',
+                style: TextStyle(fontSize: 12.5, color: context.cMuted)),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _pass,
+            decoration: InputDecoration(
+              labelText: 'Nouveau mot de passe',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => setState(() => _pass.text =
+                    'Scolaris-${DateTime.now().microsecondsSinceEpoch % 10000}'),
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: _terra, fontSize: 12.5)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          style: FilledButton.styleFrom(backgroundColor: _terra),
+          child: _loading
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Réinitialiser'),
+        ),
+      ],
+    );
+  }
+}
+
 class _EnableAccessDialog extends StatefulWidget {
   final SbUser user;
   final VoidCallback onDone;

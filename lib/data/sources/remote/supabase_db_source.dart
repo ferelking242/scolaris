@@ -4929,6 +4929,22 @@ class SupabaseDbSource {
     _throwIfFnError(res);
   }
 
+  /// Repose un mot de passe sur un compte déjà lié (login actif). L'admin ne
+  /// peut pas "changer" un mot de passe qu'il ne connaît pas (haché côté
+  /// Supabase Auth) : ceci le remplace directement, sans email — l'admin
+  /// communique le nouveau à la personne concernée.
+  static Future<void> resetUserPassword({
+    required String userId,
+    required String password,
+  }) async {
+    final res = await _db.functions.invoke('create-account', body: {
+      'mode': 'reset',
+      'linkUserId': userId,
+      'password': password,
+    });
+    _throwIfFnError(res);
+  }
+
   static void _throwIfFnError(FunctionResponse res) {
     if (res.status >= 400) {
       final data = res.data;

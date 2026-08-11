@@ -2,7 +2,7 @@
 // Edge Function : create-account  (Phase A2)
 //
 // Création de comptes côté SERVEUR via l'API admin. La clé `service_role` ne vit
-// QUE dans cette fonction (jamais dans l'app). Deux modes :
+// QUE dans cette fonction (jamais dans l'app). Trois modes :
 //
 //  • mode "create" : nouveau compte (prof / staff / élève avec login dès le
 //    départ). On passe school_id+role dans les métadonnées → le trigger
@@ -13,6 +13,11 @@
 //    compte auth SANS school_id (le trigger ne fait rien → pas de doublon) puis
 //    on pose `auth_uid` sur la fiche existante. L'app/RLS résolvent l'utilisateur
 //    par `users.auth_uid = auth.uid()`.
+//
+//  • mode "reset" : repose un mot de passe sur un compte déjà lié — l'admin ne
+//    connaît jamais l'ancien mot de passe (haché), donc pas de "changer" possible
+//    autrement. Cf. le login qui échoue silencieusement sans indiquer si c'est le
+//    mot de passe ou autre chose (20260811, ticket Grace Loko).
 //
 // Sécurité : l'appelant doit être admin/staff de l'école ; la nouvelle ligne est
 // forcément rattachée à SON école (school_id pris du profil appelant, jamais du
@@ -65,9 +70,37 @@ Deno.serve(async (req) => {
 
     // 3. Lire la requête.
     const body = await req.json().catch(() => ({}));
-    const mode = body.mode === "link" ? "link" : "create";
-    const email = (body.email ?? "").toString().trim();
+    const mode = body.mode === "link" ? "link" : body.mode === "reset" ? "reset" : "create";
     const password = (body.password ?? "").toString();
+
+    if (mode === "reset") {
+      // Repose un mot de passe sur une fiche déjà liée (auth_uid non nul).
+      if (password.length < 6) {
+        return json({ error: "Mot de passe invalide (min. 6)." }, 400);
+      }
+      const targetUserId = (body.linkUserId ?? "").toString();
+      if (!targetUserId) return json({ error: "linkUserId manquant." }, 400);
+
+      const { data: target } = await admin
+        .from("users")
+        .select("id, auth_uid, school_id")
+        .eq("id", targetUserId)
+        .maybeSingle();
+      if (!target || target.school_id !== schoolId) {
+        return json({ error: "Fiche introuvable dans votre école." }, 404);
+      }
+      if (!target.auth_uid) {
+        return json({ error: "Cette personne n'a pas encore de connexion." }, 409);
+      }
+
+      const { error } = await admin.auth.admin.updateUserById(target.auth_uid, {
+        password,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, userId: targetUserId });
+    }
+
+    const email = (body.email ?? "").toString().trim();
     const fullName = (body.fullName ?? "").toString().trim();
     if (!email || password.length < 6) {
       return json({ error: "Email ou mot de passe invalide (min. 6)." }, 400);
