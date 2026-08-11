@@ -168,6 +168,8 @@ class SbStudent {
   final String? classId;
   final String? matricule;
   final DateTime? dateOfBirth;
+  final String? gender;
+  final String? nationality;
   final String? avatarUrl;
   final bool actif;
 
@@ -206,6 +208,8 @@ class SbStudent {
     this.classId,
     this.matricule,
     this.dateOfBirth,
+    this.gender,
+    this.nationality,
     this.avatarUrl,
     this.actif = true,
     this.enrollmentStatus = 'active',
@@ -253,6 +257,8 @@ class SbStudent {
       dateOfBirth: sp?['date_of_birth'] != null
           ? DateTime.tryParse(sp!['date_of_birth'] as String)
           : null,
+      gender: sp?['gender'] as String?,
+      nationality: sp?['nationality'] as String?,
       avatarUrl: j['avatar_url'] as String?,
       actif: (j['status'] as String? ?? 'active') == 'active',
       enrollmentStatus: sp?['enrollment_status'] as String? ?? 'active',
@@ -2251,7 +2257,8 @@ class SupabaseDbSource {
   static const String _studentSelect =
       'id, full_name, email, avatar_url, status, '
       'student_profiles(matricule, class_id, enrollment_status, exit_reason, '
-      'exit_date, date_of_birth, metadata, classes(name, level, main_teacher_id))';
+      'exit_date, date_of_birth, gender, nationality, metadata, '
+      'classes(name, level, main_teacher_id))';
 
   /// [includeExited] : par défaut, seuls les élèves ACTIFS (`enrollment_status
   /// = 'active'`) — un transféré/diplômé/radié ne doit pas polluer les listes
@@ -2317,6 +2324,42 @@ class SupabaseDbSource {
       'decided_by': actorId,
       'decided_by_name': actorId == null ? null : await _actorName(actorId),
     }).friendly();
+  }
+
+  /// Met à jour l'identité scolaire d'un élève déjà inscrit — le pendant en
+  /// modification des champs saisis à [createStudent] (matricule, sexe,
+  /// naissance, nationalité). Lecture-fusion-écriture sur `metadata` pour ne
+  /// pas écraser groupe sanguin/allergies/documents déjà posés ailleurs.
+  static Future<void> updateStudentProfile({
+    required String studentId,
+    String? matricule,
+    String? gender,
+    DateTime? dateOfBirth,
+    String? birthPlace,
+    String? nationality,
+  }) async {
+    final row = await _db
+        .from('student_profiles')
+        .select('metadata')
+        .eq('user_id', studentId)
+        .maybeSingle();
+    final current = row?['metadata'];
+    final metadata = <String, dynamic>{
+      if (current is Map<String, dynamic>) ...current,
+      if (birthPlace != null)
+        'birth_place': birthPlace.trim().isEmpty ? null : birthPlace.trim(),
+    };
+    await _db.from('student_profiles').update({
+      if (matricule != null && matricule.trim().isNotEmpty)
+        'matricule': matricule.trim(),
+      if (gender != null) 'gender': gender.isEmpty ? null : gender,
+      if (dateOfBirth != null)
+        'date_of_birth': dateOfBirth.toIso8601String().substring(0, 10),
+      if (nationality != null)
+        'nationality': nationality.trim().isEmpty ? null : nationality.trim(),
+      'metadata': metadata,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('user_id', studentId).friendly();
   }
 
   /// Met à jour les champs médicaux structurés (groupe sanguin, allergies,

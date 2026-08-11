@@ -3083,17 +3083,30 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   /// exactement ce qu'attend `assignStudentToClass`/`unassignStudentFromClass`.
   String? _classId;
 
+  // Identité scolaire — les mêmes champs qu'à l'inscription (cf.
+  // _EnrollStudentDialog), pré-remplis depuis la fiche déjà en base.
+  final _matriculeCtrl = TextEditingController();
+  final _birthPlaceCtrl = TextEditingController();
+  final _nationalityCtrl = TextEditingController();
+  String _gender = 'M';
+  DateTime? _birthDate;
+
   @override
   void initState() {
     super.initState();
     _staffInfo.phone.text = widget.user.phone ?? '';
     if (_isStudent) {
-      _classId = ref
+      final s = ref
           .read(studentsProvider)
           .valueOrNull
           ?.where((s) => s.id == widget.user.id)
-          .firstOrNull
-          ?.classId;
+          .firstOrNull;
+      _classId = s?.classId;
+      _matriculeCtrl.text = s?.matricule ?? '';
+      _birthPlaceCtrl.text = s?.birthPlace ?? '';
+      _nationalityCtrl.text = s?.nationality ?? '';
+      _gender = s?.gender ?? 'M';
+      _birthDate = s?.dateOfBirth;
     }
     _loadProfile();
   }
@@ -3225,8 +3238,22 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _matriculeCtrl.dispose();
+    _birthPlaceCtrl.dispose();
+    _nationalityCtrl.dispose();
     _staffInfo.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(now.year - 10),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _birthDate = picked);
   }
 
   Future<void> _submit() async {
@@ -3258,6 +3285,14 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
             await SupabaseDbSource.assignStudentToClass(
                 userId: widget.user.id, classId: _classId!);
           }
+          await SupabaseDbSource.updateStudentProfile(
+            studentId: widget.user.id,
+            matricule: _matriculeCtrl.text,
+            gender: _gender,
+            dateOfBirth: _birthDate,
+            birthPlace: _birthPlaceCtrl.text,
+            nationality: _nationalityCtrl.text,
+          );
         }
       } else if (schoolId != null && _profileLoaded) {
         await SupabaseDbSource.updateUserPhone(
@@ -3486,6 +3521,67 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                       );
                     }),
                   ),
+                // Identité scolaire — mêmes champs qu'à l'inscription
+                // (cf. _EnrollStudentDialog) : matricule, sexe, naissance,
+                // nationalité. Le tuteur/parent se gère depuis la fiche élève
+                // (parent_student), pas ici.
+                if (_isStudent) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _matriculeCtrl,
+                        style: TextStyle(fontSize: 13.5, color: context.cInk),
+                        decoration: _decor(context, label: 'Matricule', prefixIcon: const Icon(Icons.badge_outlined)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _gender,
+                        decoration: _decor(context, label: 'Sexe', prefixIcon: const Icon(Icons.wc_outlined)),
+                        items: const [
+                          DropdownMenuItem(value: 'M', child: Text('Masculin')),
+                          DropdownMenuItem(value: 'F', child: Text('Féminin')),
+                        ],
+                        onChanged: (v) => setState(() => _gender = v ?? 'M'),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _pickBirthDate,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InputDecorator(
+                          decoration: _decor(context, label: 'Date de naissance', prefixIcon: const Icon(Icons.calendar_today_outlined)),
+                          child: Text(
+                            _birthDate == null
+                                ? '—'
+                                : '${_birthDate!.day.toString().padLeft(2, '0')}/'
+                                  '${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}',
+                            style: TextStyle(fontSize: 13.5, color: context.cInk),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _birthPlaceCtrl,
+                        style: TextStyle(fontSize: 13.5, color: context.cInk),
+                        decoration: _decor(context, label: 'Lieu de naissance', prefixIcon: const Icon(Icons.place_outlined)),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _nationalityCtrl,
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, label: 'Nationalité', prefixIcon: const Icon(Icons.public_outlined)),
+                  ),
+                ],
                 if (!_isFamily && _profileLoaded)
                   _StaffInfoFields(info: _staffInfo)
                 else if (!_isFamily)
