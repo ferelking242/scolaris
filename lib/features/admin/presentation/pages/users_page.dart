@@ -757,7 +757,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                 ('Niveau', st?.niveau ?? '—'),
                 ('Classe', classLabel ?? 'Sans classe'),
                 ('Titulaire', titulaireLabel),
-                ('Email', u.email.isEmpty ? '—' : u.email),
+                ('Email', _displayEmail(u.email) ?? 'Pas d\'email'),
               ]),
               _kvPanel('Compte & accès', [
                 ('Rôle', 'Élève'),
@@ -1706,7 +1706,7 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                             Text(
                                 _isStudentsScope
                                     ? (classNameById[classIdByStudent[u.id]] ?? 'Sans classe')
-                                    : u.email,
+                                    : (_displayEmail(u.email) ?? 'Pas d\'email'),
                                 overflow: TextOverflow.ellipsis,
                                 style:
                                     TextStyle(fontSize: 12, color: context.cMuted)),
@@ -2518,13 +2518,19 @@ class _StudentCardSidebar extends StatelessWidget {
   }
 }
 
-/// Les fiches parent créées à l'inscription reçoivent un email de substitution
-/// `parent.xxxx@parent.scolaris.local` (aucun email fourni). Ne pas l'afficher :
-/// ce n'est pas un vrai contact.
+/// Les fiches élève/parent créées sans email reçoivent un email de
+/// substitution (`eleve.xxxx@eleve.scolaris.local`, `parent.xxxx@parent.
+/// scolaris.local` — `users.email` est `NOT NULL`, cf. `createStudent`/
+/// `createOrLinkGuardian`). Ce n'est pas un vrai contact : ne jamais
+/// l'afficher tel quel.
+bool _isRealEmail(String? email) {
+  final e = email?.trim() ?? '';
+  return e.contains('@') && !e.endsWith('.scolaris.local');
+}
+
 String? _displayEmail(String? email) {
   final e = email?.trim();
-  if (e == null || e.isEmpty) return null;
-  if (e.endsWith('@parent.scolaris.local')) return null;
+  if (e == null || e.isEmpty || !_isRealEmail(e)) return null;
   return e;
 }
 
@@ -3120,7 +3126,7 @@ class _UserCard extends ConsumerWidget {
                       ],
                     ]),
                     const SizedBox(height: 3),
-                    Text(classLabel ?? (u.email.isEmpty ? '—' : u.email),
+                    Text(classLabel ?? (_displayEmail(u.email) ?? 'Pas d\'email'),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11.5, color: context.cMuted)),
                     const SizedBox(height: 6),
@@ -3206,8 +3212,13 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name =
       TextEditingController(text: widget.user.fullName);
+  // Vide si l'email en fiche est un placeholder de substitution
+  // (`eleve.xxxx@eleve.scolaris.local`…) : ne jamais le réafficher comme si
+  // c'était un vrai contact saisi. Laisser vide reste valide pour élève/
+  // parent (cf. validator plus bas) — updateUser() ne touche alors pas à
+  // l'email en base.
   late final TextEditingController _email =
-      TextEditingController(text: widget.user.email);
+      TextEditingController(text: _displayEmail(widget.user.email) ?? '');
   late final Set<String> _perms = _initPerms();
   bool _loading = false;
   String? _error;
@@ -3625,9 +3636,18 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         style: TextStyle(fontSize: 13.5, color: context.cInk),
-                        decoration: _decor(context, label: 'Email *', prefixIcon: const Icon(Icons.mail_outline)),
+                        // Facultatif pour élève/parent : beaucoup n'ont pas
+                        // d'email tant que l'accès n'est pas activé (à ce
+                        // moment-là un vrai email sera exigé, cf.
+                        // _EnableAccessDialog). Le personnel, lui, a toujours
+                        // un login dès la création : son email reste requis.
+                        decoration: _decor(context,
+                            label: _isFamily ? 'Email' : 'Email *',
+                            prefixIcon: const Icon(Icons.mail_outline)),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Email requis';
+                          if (v == null || v.trim().isEmpty) {
+                            return _isFamily ? null : 'Email requis';
+                          }
                           if (!v.contains('@')) return 'Email invalide';
                           return null;
                         },
@@ -4783,10 +4803,6 @@ class _EnableAccessDialogState extends State<_EnableAccessDialog> {
       TextEditingController(text: 'Scolaris-${DateTime.now().microsecondsSinceEpoch % 10000}');
   bool _loading = false;
   String? _error;
-
-  // Les fiches sans email réel ont un email synthétique @*.scolaris.local.
-  static bool _isRealEmail(String e) =>
-      e.contains('@') && !e.endsWith('.scolaris.local');
 
   @override
   void dispose() {
