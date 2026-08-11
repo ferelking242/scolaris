@@ -1660,8 +1660,11 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                   TextStyle(fontSize: 12, color: context.cMuted),
                             ),
                             Row(mainAxisSize: MainAxisSize.min, children: [
-                              // Accès : login déjà actif, ou activable (Pro/Max,
-                              // élève/parent encore en fiche sans connexion).
+                              // Accès : login déjà actif, activable (élève/
+                              // parent, si l'offre inclut le portail familles),
+                              // ou — cas normalement rare — personnel sans
+                              // connexion malgré tout, qu'on laisse quand même
+                              // activer (pas de restriction d'offre pour eux).
                               if (u.authUid != null)
                                 const Tooltip(
                                   message: 'Connexion active',
@@ -1671,8 +1674,22 @@ class _UsersPageState extends ConsumerState<UsersPage> {
                                         size: 16, color: Color(0xFF15803D)),
                                   ),
                                 )
-                              else if (familiesEnabled &&
-                                  (u.role == 'student' || u.role == 'parent'))
+                              else if (u.role == 'student' || u.role == 'parent')
+                                familiesEnabled
+                                    ? _IconBtn(
+                                        icon: Icons.vpn_key_outlined,
+                                        onTap: () => _enableAccess(u))
+                                    : Tooltip(
+                                        message:
+                                            'Connexion non incluse dans l\'offre actuelle '
+                                            '— nécessite le portail familles (Pro/Max)',
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(Icons.lock_outline_rounded,
+                                              size: 16, color: context.cMuted),
+                                        ),
+                                      )
+                              else
                                 _IconBtn(
                                     icon: Icons.vpn_key_outlined,
                                     onTap: () => _enableAccess(u)),
@@ -4479,9 +4496,15 @@ class _EnableAccessDialogState extends State<_EnableAccessDialog> {
     }
   }
 
+  static const _roleLabels = {
+    'student': 'élève',
+    'parent': 'parent',
+    'teacher': 'enseignant',
+  };
+
   @override
   Widget build(BuildContext context) {
-    final isStudent = widget.user.role == 'student';
+    final roleLabel = _roleLabels[widget.user.role] ?? 'membre du personnel';
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       title: const Text('Activer la connexion',
@@ -4494,8 +4517,8 @@ class _EnableAccessDialogState extends State<_EnableAccessDialog> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                  'Donne un identifiant de connexion à ${widget.user.fullName}'
-                  '${isStudent ? " (élève)" : " (parent)"}.',
+                  'Donne un identifiant de connexion à ${widget.user.fullName} '
+                  '($roleLabel).',
                   style: TextStyle(fontSize: 12.5, color: context.cMuted)),
             ),
             const SizedBox(height: 14),
