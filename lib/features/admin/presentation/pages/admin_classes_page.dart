@@ -563,6 +563,18 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
 
   bool get _isEdit => widget.existing != null;
 
+  // Titulaire = un seul prof pour toute la classe : modèle primaire/préscolaire
+  // uniquement. Au collège/lycée, "professeur principal" est un rôle de suivi
+  // administratif, pas un enseignant de toutes les matières — réutiliser ce
+  // champ là-bas affecterait silencieusement le prof à tout le programme via
+  // setClassMainTeacher. Cf. mémoire [[titulaire-scope]].
+  bool get _cycleAllowsTitulaire {
+    final cycle = _isEdit
+        ? widget.existing!.level
+        : (_customMode ? _customCycle : _level?.cycle);
+    return cycle == 'primaire' || cycle == 'prescolaire';
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -670,6 +682,7 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                 onChanged: (v) => setState(() {
                   _customMode = v ?? false;
                   _error = null;
+                  if (!_cycleAllowsTitulaire) _mainTeacherId = null;
                 }),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
@@ -721,7 +734,10 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                           DropdownMenuItem(
                               value: e.key, child: Text(e.value)),
                       ],
-                      onChanged: (v) => setState(() => _customCycle = v),
+                      onChanged: (v) => setState(() {
+                        _customCycle = v;
+                        if (!_cycleAllowsTitulaire) _mainTeacherId = null;
+                      }),
                     );
                   },
                 ),
@@ -742,7 +758,10 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
                       for (final lv in levels)
                         DropdownMenuItem(value: lv, child: Text(lv.fullLabel)),
                     ],
-                    onChanged: (v) => setState(() => _level = v),
+                    onChanged: (v) => setState(() {
+                      _level = v;
+                      if (!_cycleAllowsTitulaire) _mainTeacherId = null;
+                    }),
                   ),
                 ),
               const SizedBox(height: 12),
@@ -808,27 +827,29 @@ class _ClassDialogState extends ConsumerState<_ClassDialog> {
             const SizedBox(height: 12),
             // Titulaire : enseigne toute la classe (modèle primaire). Voit son
             // carnet/ses présences pour cette classe (cf. teacherAssignments).
-            ref.watch(teachersProvider).when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (teachers) => DropdownButtonFormField<String?>(
-                value: teachers.any((t) => t.id == _mainTeacherId)
-                    ? _mainTeacherId
-                    : null,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Titulaire (optionnel)',
-                  prefixIcon: Icon(Icons.person_outline),
+            // Masqué hors primaire/préscolaire — cf. _cycleAllowsTitulaire.
+            if (_cycleAllowsTitulaire)
+              ref.watch(teachersProvider).when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (teachers) => DropdownButtonFormField<String?>(
+                  value: teachers.any((t) => t.id == _mainTeacherId)
+                      ? _mainTeacherId
+                      : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Titulaire (optionnel)',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('Aucun titulaire')),
+                    for (final t in teachers)
+                      DropdownMenuItem(value: t.id, child: Text(t.fullName)),
+                  ],
+                  onChanged: (v) => setState(() => _mainTeacherId = v),
                 ),
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Aucun titulaire')),
-                  for (final t in teachers)
-                    DropdownMenuItem(value: t.id, child: Text(t.fullName)),
-                ],
-                onChanged: (v) => setState(() => _mainTeacherId = v),
               ),
-            ),
             if (!_isEdit) ...[
               const SizedBox(height: 4),
               CheckboxListTile(
