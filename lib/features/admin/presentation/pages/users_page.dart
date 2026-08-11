@@ -3757,14 +3757,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   final _lastNameCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _email = TextEditingController();
-  final _title = TextEditingController();
   late final TextEditingController _pass =
       TextEditingController(text: _generatePassword());
 
-  // Dernier titre posé automatiquement par une sélection de rôle : permet de
-  // distinguer "l'utilisateur a tapé son propre titre" (on ne l'écrase plus)
-  // de "le titre vient encore du rôle précédent" (on peut le remplacer).
-  String? _lastAutoTitle;
   final Set<String> _perms = {};
   bool _loading = false;
   String? _error;
@@ -3804,7 +3799,6 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     _lastNameCtrl.dispose();
     _firstNameCtrl.dispose();
     _email.dispose();
-    _title.dispose();
     _pass.dispose();
     _staffInfo.dispose();
     super.dispose();
@@ -3842,9 +3836,6 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(role.grants,
             isAdminRole: role.isAdminRole));
-      final text = _title.text.trim();
-      if (text.isEmpty || text == _lastAutoTitle) _title.text = role.name;
-      _lastAutoTitle = role.name;
     });
   }
 
@@ -3857,9 +3848,6 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(t.grants,
             isAdminRole: t.level == 'Direction'));
-      final text = _title.text.trim();
-      if (text.isEmpty || text == _lastAutoTitle) _title.text = t.name;
-      _lastAutoTitle = t.name;
     });
   }
 
@@ -3916,7 +3904,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         fullName: fullName,
         role: isTeacher ? 'teacher' : 'staff_custom',
         permissions: permissions,
-        title: _title.text.trim().isEmpty ? role.name : _title.text.trim(),
+        title: role.name,
         staffRoleId: staffRoleId,
         phone: _staffInfo.phone.text,
         avatarUrl: _photoUrl,
@@ -4092,14 +4080,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
               const SizedBox(height: 14),
 
               // ── Rôle : Enseignant est une entrée du même sélecteur, plus
-              //    de bascule séparée « Enseignant / Personnel ». ─────────
-              TextFormField(
-                controller: _title,
-                decoration: const InputDecoration(
-                    labelText: 'Titre (ex. Secrétaire, Enseignant)',
-                    prefixIcon: Icon(Icons.work_outline)),
-              ),
-              const SizedBox(height: 14),
+              //    de bascule séparée « Enseignant / Personnel ». Le champ
+              //    "Titre" a été retiré : il faisait doublon avec le nom du
+              //    rôle choisi ci-dessous (auquel il retombait déjà si vide).
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Rôle',
