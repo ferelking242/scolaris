@@ -4897,11 +4897,13 @@ class SupabaseDbSource {
     String? fullName,
     String? email,
     String? phone,
+    String? avatarUrl,
   }) async {
     final patch = <String, dynamic>{'updated_at': DateTime.now().toIso8601String()};
     if (fullName != null) patch['full_name'] = fullName.trim();
     if (email != null && email.trim().isNotEmpty) patch['email'] = email.trim();
     if (phone != null) patch['phone'] = phone.trim();
+    if (avatarUrl != null) patch['avatar_url'] = avatarUrl;
     await _db.from('users').update(patch).eq('id', id).friendly();
   }
 

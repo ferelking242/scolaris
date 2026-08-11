@@ -3057,15 +3057,16 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
       TextEditingController(text: widget.user.fullName);
   late final TextEditingController _email =
       TextEditingController(text: widget.user.email);
-  late final TextEditingController _title =
-      TextEditingController(text: widget.user.roleTitle ?? '');
-  // Dernier titre posé automatiquement par une sélection de rôle : permet de
-  // distinguer "l'utilisateur a tapé son propre titre" (on ne l'écrase plus)
-  // de "le titre vient encore du rôle précédent" (on peut le remplacer).
-  String? _lastAutoTitle;
   late final Set<String> _perms = _initPerms();
   bool _loading = false;
   String? _error;
+
+  // Photo — mêmes bucket/policy que l'invitation ; pré-remplie avec l'avatar
+  // déjà en fiche.
+  final String _uploadSessionId = const Uuid().v4();
+  Uint8List? _photoBytes;
+  late String? _photoUrl = widget.user.avatarUrl;
+  bool _photoUploading = false;
 
   // Même mécanique que l'invitation : le droit est porté par le RÔLE.
   SbRoleTemplate? _template;
@@ -3095,6 +3096,30 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
           ?.classId;
     }
     _loadProfile();
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_photoUploading) return;
+    final picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _photoBytes = bytes; _photoUploading = true; });
+    try {
+      final schoolId = ref.read(currentSchoolIdProvider) ?? '';
+      final url = await SupabaseDbSource.uploadStudentPhoto(
+        schoolId: schoolId,
+        sessionId: _uploadSessionId,
+        filename: picked.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      setState(() { _photoUrl = url; _photoUploading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _photoUploading = false);
+      showDbErrorSnackBar(context, ref, e, prefix: 'Échec de l\'envoi de la photo');
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -3161,9 +3186,6 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(role.grants,
             isAdminRole: role.isAdminRole));
-      final text = _title.text.trim();
-      if (text.isEmpty || text == _lastAutoTitle) _title.text = role.name;
-      _lastAutoTitle = role.name;
     });
   }
 
@@ -3176,9 +3198,6 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         ..clear()
         ..addAll(RbacMapping.toLegacyPermissions(t.grants,
             isAdminRole: t.level == 'Direction'));
-      final text = _title.text.trim();
-      if (text.isEmpty || text == _lastAutoTitle) _title.text = t.name;
-      _lastAutoTitle = t.name;
     });
   }
 
@@ -3206,7 +3225,6 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
   void dispose() {
     _name.dispose();
     _email.dispose();
-    _title.dispose();
     _staffInfo.dispose();
     super.dispose();
   }
@@ -3224,6 +3242,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         id: widget.user.id,
         fullName: _name.text.trim(),
         email: _email.text.trim(),
+        avatarUrl: _photoUrl,
       );
 
       final schoolId = ref.read(currentSchoolIdProvider);
@@ -3266,9 +3285,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
         } else {
           final catalog = await ref.read(permissionCatalogProvider.future);
           final grants = _grantsFromModules(catalog);
-          final name = _title.text.trim().isEmpty
-              ? _name.text.trim()
-              : _title.text.trim();
+          final name = _name.text.trim();
           final roleId = await StaffRolesSource.createStaffRole(
             schoolId: schoolId,
             name: name,
@@ -3285,7 +3302,7 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
           id: widget.user.id,
           permissions: RbacMapping.toLegacyPermissions(role.grants,
               isAdminRole: role.isAdminRole),
-          title: _title.text.trim(),
+          title: role.name,
           staffRoleId: role.id,
         );
         ref.invalidate(staffRolesProvider);
@@ -3299,185 +3316,274 @@ class _EditUserDialogState extends ConsumerState<_EditUserDialog> {
     }
   }
 
+  InputDecoration _decor(BuildContext context, {required String label, String? hint, Widget? prefixIcon}) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: context.cMuted),
+        labelStyle: TextStyle(fontSize: 12.5, color: context.cMuted),
+        prefixIcon: prefixIcon,
+        isDense: true,
+        filled: true,
+        fillColor: context.cSubtle,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.cBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _terra, width: 1.5),
+        ),
+      );
+
+  /// Même présentation que « Ajouter un membre du personnel » : la photo est
+  /// un champ à part entière, carré, labellisé.
+  Widget _photoField(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text('PHOTO',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: context.cMuted)),
+          ),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                width: 132, height: 132,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: context.cSubtle,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: (_photoBytes != null || _photoUrl != null)
+                          ? _terra.withValues(alpha: .4)
+                          : context.cBorder),
+                  image: _photoBytes != null
+                      ? DecorationImage(image: MemoryImage(_photoBytes!), fit: BoxFit.cover)
+                      : (_photoUrl != null
+                          ? DecorationImage(image: NetworkImage(_photoUrl!), fit: BoxFit.cover)
+                          : null),
+                ),
+                alignment: Alignment.center,
+                child: _photoUploading
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : (_photoBytes == null && _photoUrl == null)
+                        ? Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.add_a_photo_rounded, size: 22, color: context.cMuted),
+                            const SizedBox(height: 6),
+                            Text('Ajouter',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 11, color: context.cMuted)),
+                          ])
+                        : null,
+              ),
+            ),
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     // Présélectionne le rôle déjà porté, dès que la liste des rôles est arrivée.
     final roles = ref.watch(staffRolesProvider).asData?.value;
     if (_isStaff && roles != null) _resolveCurrentRole(roles);
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Modifier l\'utilisateur',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      content: SizedBox(
-        width: 400,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(
-                    labelText: 'Nom complet',
-                    prefixIcon: Icon(Icons.person_outline)),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Nom requis' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                    labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Email requis';
-                  if (!v.contains('@')) return 'Email invalide';
-                  return null;
-                },
-              ),
-              // Élève/parent : seul le téléphone. Le personnel a la fiche
-              // complète (matricule, sexe, naissance, embauche, contrat).
-              if (_isFamily)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: TextFormField(
+    return Dialog(
+      backgroundColor: context.cCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // ── En-tête ────────────────────────────────────────────
+                Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Modifier le membre',
+                          style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.cInk)),
+                      Text('Les champs sont pré-remplis — modifiez ce qui a changé',
+                          style: TextStyle(fontSize: 11.5, color: context.cMuted)),
+                    ]),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 18, color: context.cMuted),
+                    onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+                  ),
+                ]),
+                const SizedBox(height: 18),
+
+                // ── Deux colonnes : photo à gauche, identité à droite ───
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _photoField(context),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      TextFormField(
+                        controller: _name,
+                        style: TextStyle(fontSize: 13.5, color: context.cInk),
+                        decoration: _decor(context, label: 'Nom complet *', prefixIcon: const Icon(Icons.person_outline)),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Nom requis' : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(fontSize: 13.5, color: context.cInk),
+                        decoration: _decor(context, label: 'Email *', prefixIcon: const Icon(Icons.mail_outline)),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Email requis';
+                          if (!v.contains('@')) return 'Email invalide';
+                          return null;
+                        },
+                      ),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+
+                // Élève/parent : seul le téléphone. Le personnel a la fiche
+                // complète (matricule, sexe, naissance, embauche, contrat).
+                if (_isFamily)
+                  TextFormField(
                     controller: _staffInfo.phone,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                        labelText: 'Téléphone',
-                        prefixIcon: Icon(Icons.phone_outlined)),
+                    style: TextStyle(fontSize: 13.5, color: context.cInk),
+                    decoration: _decor(context, label: 'Téléphone', prefixIcon: const Icon(Icons.phone_outlined)),
                   ),
-                ),
-              // Affiliation à une classe — seulement pour un élève (un
-              // parent n'a pas de classe propre).
-              if (_isStudent)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Builder(builder: (context) {
-                    final classes =
-                        ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
-                    final sorted = [...classes]
-                      ..sort((a, b) => a.name.compareTo(b.name));
-                    return DropdownButtonFormField<String?>(
-                      // `initialValue` n'existe que depuis Flutter ≥ 3.33 —
-                      // le projet est épinglé sur 3.32.0 (cf. .fvmrc/CI) : le
-                      // build web échoue sinon (dart2js, pas juste un lint).
-                      value: _classId,
-                      decoration: const InputDecoration(
-                          labelText: 'Classe',
-                          prefixIcon: Icon(Icons.class_outlined)),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                            value: null, child: Text('Sans classe')),
-                        for (final c in sorted)
-                          DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
-                      ],
-                      onChanged: (v) => setState(() => _classId = v),
-                    );
-                  }),
-                ),
-              if (!_isFamily && _profileLoaded)
-                _StaffInfoFields(info: _staffInfo)
-              else if (!_isFamily)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                ),
+                // Affiliation à une classe — seulement pour un élève (un
+                // parent n'a pas de classe propre).
+                if (_isStudent)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Builder(builder: (context) {
+                      final classes =
+                          ref.watch(classesProvider).valueOrNull ?? const <SbClass>[];
+                      final sorted = [...classes]
+                        ..sort((a, b) => a.name.compareTo(b.name));
+                      return DropdownButtonFormField<String?>(
+                        // `initialValue` n'existe que depuis Flutter ≥ 3.33 —
+                        // le projet est épinglé sur 3.32.0 (cf. .fvmrc/CI) : le
+                        // build web échoue sinon (dart2js, pas juste un lint).
+                        value: _classId,
+                        decoration: _decor(context, label: 'Classe', prefixIcon: const Icon(Icons.class_outlined)),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                              value: null, child: Text('Sans classe')),
+                          for (final c in sorted)
+                            DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
+                        ],
+                        onChanged: (v) => setState(() => _classId = v),
+                      );
+                    }),
+                  ),
+                if (!_isFamily && _profileLoaded)
+                  _StaffInfoFields(info: _staffInfo)
+                else if (!_isFamily)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
 
-              if (_isStaff) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _title,
-                  decoration: const InputDecoration(
-                      labelText: 'Titre (ex. Secrétaire)',
-                      prefixIcon: Icon(Icons.work_outline)),
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Rôle',
-                      style: TextStyle(
-                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: 6),
-                _RolePicker(
-                  selectedRoleId: _existingRole?.id,
-                  selectedTemplateId: _template?.id,
-                  custom: _custom,
-                  onRole: _pickRole,
-                  onTemplate: _pickTemplate,
-                  onCustom: _pickCustom,
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(_custom ? 'Accès accordés' : 'Accès de ce rôle',
-                      style: TextStyle(
-                          fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(height: 6),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final p in StaffPermissions.availableFor(_enabledModules))
-                    FilterChip(
-                      label: Text(p.label, style: const TextStyle(fontSize: 12)),
-                      avatar: Icon(p.icon,
-                          size: 15,
-                          color: _perms.contains(p.key) ? _terra : context.cMuted),
-                      selected: _perms.contains(p.key),
-                      // Hors « accès personnalisé », les accès sont ceux du rôle :
-                      // les modifier pour une seule personne romprait le modèle.
-                      onSelected: _custom
-                          ? (v) => setState(() {
-                                if (v) {
-                                  _perms.add(p.key);
-                                } else {
-                                  _perms.remove(p.key);
-                                }
-                              })
-                          : null,
-                      selectedColor: _terra.withValues(alpha: .12),
-                      checkmarkColor: _terra,
-                      backgroundColor: context.cCard,
-                      side: BorderSide(color: context.cBorder),
-                    ),
-                ]),
-                if (!_custom && _existingRole != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ces accès viennent du rôle « ${_existingRole!.name} ». Les '
-                    'modifier dans « Rôles & permissions » les changera pour tous '
-                    'les membres qui le portent.',
-                    style: TextStyle(fontSize: 11, color: context.cMuted),
+                if (_isStaff) ...[
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Rôle',
+                        style: TextStyle(
+                            fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
                   ),
+                  const SizedBox(height: 6),
+                  _RolePicker(
+                    selectedRoleId: _existingRole?.id,
+                    selectedTemplateId: _template?.id,
+                    custom: _custom,
+                    onRole: _pickRole,
+                    onTemplate: _pickTemplate,
+                    onCustom: _pickCustom,
+                  ),
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(_custom ? 'Accès accordés' : 'Accès de ce rôle',
+                        style: TextStyle(
+                            fontSize: 12, color: context.cMuted, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final p in StaffPermissions.availableFor(_enabledModules))
+                      FilterChip(
+                        label: Text(p.label, style: const TextStyle(fontSize: 12)),
+                        avatar: Icon(p.icon,
+                            size: 15,
+                            color: _perms.contains(p.key) ? _terra : context.cMuted),
+                        selected: _perms.contains(p.key),
+                        // Hors « accès personnalisé », les accès sont ceux du rôle :
+                        // les modifier pour une seule personne romprait le modèle.
+                        onSelected: _custom
+                            ? (v) => setState(() {
+                                  if (v) {
+                                    _perms.add(p.key);
+                                  } else {
+                                    _perms.remove(p.key);
+                                  }
+                                })
+                            : null,
+                        selectedColor: _terra.withValues(alpha: .12),
+                        checkmarkColor: _terra,
+                        backgroundColor: context.cCard,
+                        side: BorderSide(color: context.cBorder),
+                      ),
+                  ]),
+                  if (!_custom && _existingRole != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Ces accès viennent du rôle « ${_existingRole!.name} ». Les '
+                      'modifier dans « Rôles & permissions » les changera pour tous '
+                      'les membres qui le portent.',
+                      style: TextStyle(fontSize: 11, color: context.cMuted),
+                    ),
+                  ],
                 ],
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!,
-                    style: const TextStyle(color: _terra, fontSize: 12.5)),
-              ],
-            ]),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_error!,
+                      style: const TextStyle(color: _terra, fontSize: 12.5)),
+                ],
+                const SizedBox(height: 18),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(
+                    onPressed: _loading ? null : () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    style: FilledButton.styleFrom(backgroundColor: _terra),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Enregistrer'),
+                  ),
+                ]),
+              ]),
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _loading ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          onPressed: _loading ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: _terra),
-          child: _loading
-              ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Enregistrer'),
-        ),
-      ],
     );
   }
 }
