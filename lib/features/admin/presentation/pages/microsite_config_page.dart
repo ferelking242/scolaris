@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/sources/remote/supabase_db_source.dart';
 import '../../../../presentation/providers/db_providers.dart';
 import '../../../../shared/widgets/page_scaffold.dart';
+import '../../../../shared/widgets/plan_gate.dart';
 
 const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
@@ -36,6 +37,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   final _phone = TextEditingController();
   final _email = TextEditingController();
   final _address = TextEditingController();
+  final _photos = TextEditingController();
+  final _customDomain = TextEditingController();
 
   bool _loading = true;
   bool _saving = false;
@@ -43,6 +46,7 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   bool _hasSite = false;
   bool _published = false;
   bool _publishing = false;
+  String _templateId = 'basique';
 
   @override
   void initState() {
@@ -52,7 +56,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
 
   @override
   void dispose() {
-    for (final c in [_slug, _tagline, _description, _hours, _phone, _email, _address]) {
+    for (final c in [_slug, _tagline, _description, _hours, _phone, _email,
+        _address, _photos, _customDomain]) {
       c.dispose();
     }
     super.dispose();
@@ -71,6 +76,7 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       if (site != null) {
         _hasSite = true;
         _published = site.published;
+        _templateId = site.templateId;
         _slug.text = site.slug;
         _tagline.text = site.tagline ?? '';
         _description.text = site.description ?? '';
@@ -78,6 +84,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         _phone.text = site.contactPhone ?? '';
         _email.text = site.contactEmail ?? '';
         _address.text = site.address ?? '';
+        _photos.text = site.photos.join('\n');
+        _customDomain.text = site.customDomain ?? '';
       } else if (school != null) {
         // Pré-remplissage depuis les infos déjà connues de l'école — ne pas
         // faire ressaisir ce qui est déjà en base.
@@ -104,11 +112,29 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       ));
       return;
     }
+    final planCode = ref.read(currentPlanCodeProvider).valueOrNull;
+    final isComplet = planMeetsRequirement(planCode, 'max');
+    final maxPhotos = isComplet ? 12 : 3;
+    final photos = _photos.text
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .take(maxPhotos)
+        .toList();
+    // Un modèle payant (Complet) reste actif si déjà choisi avant un
+    // rétrogradage, mais ne peut plus être sélectionné à nouveau — cf.
+    // `_TemplatePicker`. Ici on protège juste l'écriture directe.
+    final template = kMicrositeTemplates.firstWhere(
+        (t) => t.$1 == _templateId, orElse: () => kMicrositeTemplates.first);
+    final templateId =
+        planMeetsRequirement(planCode, template.$3) ? _templateId : 'basique';
+
     setState(() => _saving = true);
     try {
       await SupabaseDbSource.saveSchoolMicrosite(
         schoolId: schoolId,
         slug: slug,
+        templateId: templateId,
         tagline: _tagline.text.trim().isEmpty ? null : _tagline.text.trim(),
         description:
             _description.text.trim().isEmpty ? null : _description.text.trim(),
@@ -116,6 +142,10 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         contactPhone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         contactEmail: _email.text.trim().isEmpty ? null : _email.text.trim(),
         address: _address.text.trim().isEmpty ? null : _address.text.trim(),
+        photos: photos,
+        customDomain: isComplet && _customDomain.text.trim().isNotEmpty
+            ? _customDomain.text.trim()
+            : null,
       );
       ref.invalidate(schoolMicrositeProvider);
       if (!mounted) return;
@@ -184,6 +214,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
+    final planCode = ref.watch(currentPlanCodeProvider).valueOrNull;
+    final isComplet = planMeetsRequirement(planCode, 'max');
     return PageScaffold(
       title: 'Mini-site école',
       subtitle: _published
@@ -216,12 +248,29 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
                 hint: 'ex. Former les leaders de demain'),
           ]),
           const SizedBox(height: 16),
+          _Section(title: 'Modèle de site', children: [
+            _TemplatePicker(
+              current: _templateId,
+              isComplet: isComplet,
+              onChanged: (id) => setState(() => _templateId = id),
+            ),
+          ]),
+          const SizedBox(height: 16),
           _Section(title: 'Présentation', children: [
             _Field(label: 'Description', controller: _description, maxLines: 5,
                 hint: 'Présentez votre établissement en quelques phrases…'),
             const SizedBox(height: 12),
             _Field(label: 'Horaires', controller: _hours,
                 hint: 'ex. Lun–Ven, 7h30–16h30'),
+            const SizedBox(height: 12),
+            _Field(
+              label: isComplet
+                  ? 'Photos (une URL par ligne, jusqu\'à 12)'
+                  : 'Photos (une URL par ligne, jusqu\'à 3 — Complet débloque jusqu\'à 12)',
+              controller: _photos,
+              maxLines: 4,
+              hint: 'https://…',
+            ),
           ]),
           const SizedBox(height: 16),
           _Section(title: 'Contact', children: [
@@ -231,6 +280,25 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
             const SizedBox(height: 12),
             _Field(label: 'Adresse', controller: _address),
           ]),
+          const SizedBox(height: 16),
+          isComplet
+              ? _Section(title: 'Domaine personnalisé', children: [
+                  _Field(label: 'Votre domaine', controller: _customDomain,
+                      hint: 'ex. www.mon-ecole.cg'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Une fois enregistré, contactez le support Scolaris pour '
+                    'brancher le domaine (pas encore automatisé).',
+                    style: TextStyle(fontSize: 11.5, color: context.cMuted),
+                  ),
+                ])
+              : PlanGateBanner(
+                  minPlan: 'max',
+                  featureLabel: 'Domaine personnalisé',
+                  description:
+                      'Utilisez votre propre nom de domaine pour le mini-site '
+                      'de votre école.',
+                ),
           const SizedBox(height: 24),
         ],
       ),
@@ -339,6 +407,71 @@ class _PublishPanel extends StatelessWidget {
           ),
         ],
       ]),
+    );
+  }
+}
+
+class _TemplatePicker extends StatelessWidget {
+  final String current;
+  final bool isComplet;
+  final ValueChanged<String> onChanged;
+
+  const _TemplatePicker({
+    required this.current,
+    required this.isComplet,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: kMicrositeTemplates.map((t) {
+        final (id, label, minPlan) = t;
+        final locked = minPlan == 'max' && !isComplet;
+        final selected = current == id;
+        return InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: locked ? null : () => onChanged(id),
+          child: Container(
+            width: 140,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected ? _terra.withOpacity(.08) : context.cSubtle,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: selected ? _terra : context.cBorder,
+                  width: selected ? 1.5 : 1),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(
+                    locked
+                        ? Icons.lock_outline_rounded
+                        : (selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded),
+                    size: 16,
+                    color: locked
+                        ? context.cMuted
+                        : (selected ? _terra : context.cMuted)),
+              ]),
+              const SizedBox(height: 8),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: locked ? context.cMuted : context.cInk)),
+              if (locked) ...[
+                const SizedBox(height: 2),
+                Text('Offre Complet',
+                    style: TextStyle(fontSize: 10.5, color: context.cMuted)),
+              ],
+            ]),
+          ),
+        );
+      }).toList(),
     );
   }
 }

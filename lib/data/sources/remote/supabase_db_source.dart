@@ -127,6 +127,10 @@ class SbSchoolMicrosite {
   final String? address;
   final List<String> photos;
   final bool published;
+  /// Domaine perso (ex. `ecole.cg`) — palier Complet, cf. Phase 3
+  /// (18/08/2026). Stocké seulement, aucun branchement DNS automatisé.
+  final String? customDomain;
+  final bool customDomainVerified;
 
   const SbSchoolMicrosite({
     required this.id,
@@ -143,6 +147,8 @@ class SbSchoolMicrosite {
     this.address,
     this.photos = const [],
     this.published = false,
+    this.customDomain,
+    this.customDomainVerified = false,
   });
 
   factory SbSchoolMicrosite.fromJson(Map<String, dynamic> j) =>
@@ -161,8 +167,18 @@ class SbSchoolMicrosite {
         address: j['address'] as String?,
         photos: (j['photos'] as List?)?.cast<String>() ?? const [],
         published: j['published'] as bool? ?? false,
+        customDomain: j['custom_domain'] as String?,
+        customDomainVerified: j['custom_domain_verified'] as bool? ?? false,
       );
 }
+
+/// Modèles de mini-site disponibles. `basique` = Croissance+, les 2 autres
+/// = Complet uniquement (cf. memory/business-model.md, Phase 3 18/08/2026).
+const kMicrositeTemplates = <(String id, String label, String minPlan)>[
+  ('basique', 'Basique', 'pro'),
+  ('moderne', 'Moderne', 'max'),
+  ('classique', 'Classique', 'max'),
+];
 
 /// Une demande de pré-inscription publique (`enrollment_requests`). `payload`
 /// suit les clés d'[EnrollmentFields] (`first_name`, `guardian_phone`…) —
@@ -4718,6 +4734,7 @@ class SupabaseDbSource {
     String? contactEmail,
     String? address,
     List<String> photos = const [],
+    String? customDomain,
   }) async {
     await _db.from('school_microsites').upsert({
       'school_id': schoolId,
@@ -4732,6 +4749,7 @@ class SupabaseDbSource {
       'contact_email': contactEmail,
       'address': address,
       'photos': photos,
+      'custom_domain': customDomain,
     }, onConflict: 'school_id').friendly();
   }
 

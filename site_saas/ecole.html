@@ -24,6 +24,17 @@
   .ms-info-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;font-size:14px}
   .ms-info-row b{min-width:88px;color:var(--brun)}
   @media (max-width:760px){.ms-grid{grid-template-columns:1fr}}
+
+  /* Modèle « moderne » (Phase 3, palier Complet) — héros sombre plein cadre. */
+  body.tpl-moderne .ms-hero{background:var(--chaud);color:#fff;border-radius:0 0 28px 28px;padding-bottom:56px}
+  body.tpl-moderne .ms-hero .intro{color:rgba(255,255,255,.85)}
+  body.tpl-moderne .ms-badge{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff}
+  body.tpl-moderne .ms-logo{box-shadow:0 8px 28px rgba(0,0,0,.35)}
+
+  /* Modèle « classique » (Phase 3, palier Complet) — sobre, centré, encadré. */
+  body.tpl-classique .ms-hero{border-bottom:1px solid var(--bord)}
+  body.tpl-classique .ms-grid{grid-template-columns:1fr;max-width:720px;margin-inline:auto}
+  body.tpl-classique .carte{border-width:2px}
 </style>
 </head>
 <body>
@@ -137,6 +148,12 @@ function escapeHtml(s) {
   if (error || !site) { introuvable.hidden = false; return; }
 
   document.title = `${site.school_name} — Scolaris`;
+  // 3 modèles (Phase 3, 18/08/2026) : basique (défaut), moderne, classique —
+  // même structure HTML, variation par classe CSS. `template_id` non reconnu
+  // (ex. valeur bidon) retombe silencieusement sur le basique.
+  if (site.template_id === "moderne" || site.template_id === "classique") {
+    document.body.classList.add("tpl-" + site.template_id);
+  }
 
   if (site.logo_url) {
     const logo = document.getElementById("msLogo");
