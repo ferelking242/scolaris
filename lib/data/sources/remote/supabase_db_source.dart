@@ -121,6 +121,12 @@ class SbSchoolMicrosite {
   final String? accentColor;
   final String? tagline;
   final String? description;
+  /// Mission de l'école — section « À propos » enrichie (18/08/2026, refonte
+  /// qualité). Optionnel, section masquée côté rendu public si vide.
+  final String? mission;
+  /// Jusqu'à 3 piliers de valeurs (ex. "Excellence" / texte). Section
+  /// masquée côté rendu public si vide.
+  final List<(String title, String text)> valuesPillars;
   final String? hoursText;
   final String? contactPhone;
   final String? contactEmail;
@@ -141,6 +147,8 @@ class SbSchoolMicrosite {
     this.accentColor,
     this.tagline,
     this.description,
+    this.mission,
+    this.valuesPillars = const [],
     this.hoursText,
     this.contactPhone,
     this.contactEmail,
@@ -161,6 +169,14 @@ class SbSchoolMicrosite {
         accentColor: j['accent_color'] as String?,
         tagline: j['tagline'] as String?,
         description: j['description'] as String?,
+        mission: j['mission'] as String?,
+        valuesPillars: ((j['values_pillars'] as List?) ?? const [])
+            .map((v) => (
+                  (v as Map)['title'] as String? ?? '',
+                  v['text'] as String? ?? '',
+                ))
+            .where((p) => p.$1.isNotEmpty)
+            .toList(),
         hoursText: j['hours_text'] as String?,
         contactPhone: j['contact_phone'] as String?,
         contactEmail: j['contact_email'] as String?,
@@ -4729,6 +4745,8 @@ class SupabaseDbSource {
     String? accentColor,
     String? tagline,
     String? description,
+    String? mission,
+    List<(String title, String text)> valuesPillars = const [],
     String? hoursText,
     String? contactPhone,
     String? contactEmail,
@@ -4744,6 +4762,10 @@ class SupabaseDbSource {
       'accent_color': accentColor,
       'tagline': tagline,
       'description': description,
+      'mission': mission,
+      'values_pillars': valuesPillars
+          .map((p) => {'title': p.$1, 'text': p.$2})
+          .toList(),
       'hours_text': hoursText,
       'contact_phone': contactPhone,
       'contact_email': contactEmail,

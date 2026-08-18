@@ -33,6 +33,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   final _slug = TextEditingController();
   final _tagline = TextEditingController();
   final _description = TextEditingController();
+  final _mission = TextEditingController();
+  final _values = TextEditingController();
   final _hours = TextEditingController();
   final _phone = TextEditingController();
   final _email = TextEditingController();
@@ -57,8 +59,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
 
   @override
   void dispose() {
-    for (final c in [_slug, _tagline, _description, _hours, _phone, _email,
-        _address, _photos, _customDomain]) {
+    for (final c in [_slug, _tagline, _description, _mission, _values, _hours,
+        _phone, _email, _address, _photos, _customDomain]) {
       c.dispose();
     }
     super.dispose();
@@ -81,6 +83,10 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         _slug.text = site.slug;
         _tagline.text = site.tagline ?? '';
         _description.text = site.description ?? '';
+        _mission.text = site.mission ?? '';
+        _values.text = site.valuesPillars
+            .map((p) => '${p.$1} | ${p.$2}')
+            .join('\n');
         _hours.text = site.hoursText ?? '';
         _phone.text = site.contactPhone ?? '';
         _email.text = site.contactEmail ?? '';
@@ -130,6 +136,15 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         (t) => t.$1 == _templateId, orElse: () => kMicrositeTemplates.first);
     final templateId =
         planMeetsRequirement(planCode, template.$3) ? _templateId : 'basique';
+    // « Titre | Texte » une ligne par pilier, jusqu'à 3 — lignes mal formées
+    // (pas de « | ») ignorées plutôt que de planter l'enregistrement.
+    final valuesPillars = _values.text
+        .split('\n')
+        .map((line) => line.split('|'))
+        .where((parts) => parts.length >= 2 && parts[0].trim().isNotEmpty)
+        .map((parts) => (parts[0].trim(), parts.sublist(1).join('|').trim()))
+        .take(3)
+        .toList();
 
     setState(() => _saving = true);
     try {
@@ -140,6 +155,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         tagline: _tagline.text.trim().isEmpty ? null : _tagline.text.trim(),
         description:
             _description.text.trim().isEmpty ? null : _description.text.trim(),
+        mission: _mission.text.trim().isEmpty ? null : _mission.text.trim(),
+        valuesPillars: valuesPillars,
         hoursText: _hours.text.trim().isEmpty ? null : _hours.text.trim(),
         contactPhone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         contactEmail: _email.text.trim().isEmpty ? null : _email.text.trim(),
@@ -245,12 +262,20 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
           ),
           const SizedBox(height: 10),
           AnimatedBuilder(
-            animation: Listenable.merge([_tagline, _description, _hours,
-                _phone, _email, _address, _photos]),
+            animation: Listenable.merge([_tagline, _description, _mission,
+                _values, _hours, _phone, _email, _address, _photos]),
             builder: (_, __) => _LivePreview(
               schoolName: _schoolName.isEmpty ? 'Votre école' : _schoolName,
               tagline: _tagline.text,
               description: _description.text,
+              mission: _mission.text,
+              valuesPillars: _values.text
+                  .split('\n')
+                  .map((line) => line.split('|'))
+                  .where((p) => p.length >= 2 && p[0].trim().isNotEmpty)
+                  .map((p) => (p[0].trim(), p.sublist(1).join('|').trim()))
+                  .take(3)
+                  .toList(),
               hours: _hours.text,
               phone: _phone.text,
               email: _email.text,
@@ -291,6 +316,16 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
           _Section(title: 'Présentation', children: [
             _Field(label: 'Description', controller: _description, maxLines: 5,
                 hint: 'Présentez votre établissement en quelques phrases…'),
+            const SizedBox(height: 12),
+            _Field(label: 'Mission (optionnel)', controller: _mission, maxLines: 3,
+                hint: 'Ce que votre école cherche à transmettre aux élèves…'),
+            const SizedBox(height: 12),
+            _Field(
+              label: 'Valeurs (optionnel — « Titre | Texte », une par ligne, jusqu\'à 3)',
+              controller: _values,
+              maxLines: 3,
+              hint: 'Excellence | Un accompagnement exigeant vers la réussite',
+            ),
             const SizedBox(height: 12),
             _Field(label: 'Horaires', controller: _hours,
                 hint: 'ex. Lun–Ven, 7h30–16h30'),
@@ -452,6 +487,8 @@ class _LivePreview extends StatelessWidget {
   final String schoolName;
   final String tagline;
   final String description;
+  final String mission;
+  final List<(String, String)> valuesPillars;
   final String hours;
   final String phone;
   final String email;
@@ -463,6 +500,8 @@ class _LivePreview extends StatelessWidget {
     required this.schoolName,
     required this.tagline,
     required this.description,
+    required this.mission,
+    required this.valuesPillars,
     required this.hours,
     required this.phone,
     required this.email,
@@ -540,6 +579,34 @@ class _LivePreview extends StatelessWidget {
                   style: TextStyle(fontSize: 12.5, color: context.cMuted, height: 1.4)),
               const SizedBox(height: 14),
             ],
+            if (mission.trim().isNotEmpty) ...[
+              Text('Notre mission',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.cInk)),
+              const SizedBox(height: 6),
+              Text(mission,
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted, height: 1.4, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 14),
+            ],
+            if (valuesPillars.isNotEmpty) ...[
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: valuesPillars.map((p) => Container(
+                  width: 150,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _terra.withOpacity(.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _terra.withOpacity(.15)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.$1, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: _terra)),
+                    const SizedBox(height: 3),
+                    Text(p.$2, style: TextStyle(fontSize: 10.5, color: context.cMuted), maxLines: 3, overflow: TextOverflow.ellipsis),
+                  ]),
+                )).toList(),
+              ),
+              const SizedBox(height: 14),
+            ],
             if (photos.isNotEmpty) ...[
               SizedBox(
                 height: 64,
@@ -565,7 +632,7 @@ class _LivePreview extends StatelessWidget {
             if (address.trim().isNotEmpty) _PreviewRow(Icons.location_on_outlined, address),
             if (phone.trim().isNotEmpty) _PreviewRow(Icons.call_outlined, phone),
             if (email.trim().isNotEmpty) _PreviewRow(Icons.mail_outline_rounded, email),
-            if ([description, hours, address, phone, email].every((s) => s.trim().isEmpty) && photos.isEmpty)
+            if ([description, mission, hours, address, phone, email].every((s) => s.trim().isEmpty) && photos.isEmpty && valuesPillars.isEmpty)
               Text('Remplissez le formulaire ci-dessous pour voir apparaître le contenu ici.',
                   style: TextStyle(fontSize: 12, color: context.cMuted, fontStyle: FontStyle.italic)),
           ]),
