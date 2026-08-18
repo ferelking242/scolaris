@@ -47,6 +47,7 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   bool _published = false;
   bool _publishing = false;
   String _templateId = 'basique';
+  String _schoolName = '';
 
   @override
   void initState() {
@@ -92,6 +93,7 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         _phone.text = school.contactPhone ?? '';
         _email.text = school.contactEmail ?? '';
       }
+      if (school != null) _schoolName = school.name;
     } catch (_) {
       // garde le formulaire vide si la lecture échoue
     } finally {
@@ -232,6 +234,36 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Aperçu en direct',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: context.cInk)),
+          const SizedBox(height: 3),
+          Text(
+            'À quoi ressemblera votre mini-site — se met à jour au fur et à '
+            'mesure que vous remplissez le formulaire ci-dessous.',
+            style: TextStyle(fontSize: 12, color: context.cMuted),
+          ),
+          const SizedBox(height: 10),
+          AnimatedBuilder(
+            animation: Listenable.merge([_tagline, _description, _hours,
+                _phone, _email, _address, _photos]),
+            builder: (_, __) => _LivePreview(
+              schoolName: _schoolName.isEmpty ? 'Votre école' : _schoolName,
+              tagline: _tagline.text,
+              description: _description.text,
+              hours: _hours.text,
+              phone: _phone.text,
+              email: _email.text,
+              address: _address.text,
+              photos: _photos.text
+                  .split('\n')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList(),
+              templateId: _templateId,
+            ),
+          ),
+          const SizedBox(height: 20),
           _PublishPanel(
             hasSite: _hasSite,
             published: _published,
@@ -406,6 +438,156 @@ class _PublishPanel extends StatelessWidget {
             ),
           ),
         ],
+      ]),
+    );
+  }
+}
+
+/// Rendu Flutter (pas un WebView — l'app tourne aussi en desktop, où les
+/// WebView natifs ne sont pas fiables) qui imite l'apparence de
+/// `ecole.html` pour les 3 modèles. Pas pixel-parfait avec la vraie page
+/// publiée, mais donne une idée fidèle et immédiate SANS quitter l'app —
+/// ajouté le 18/08/2026 en réponse directe à « je ne vois rien » lors du test.
+class _LivePreview extends StatelessWidget {
+  final String schoolName;
+  final String tagline;
+  final String description;
+  final String hours;
+  final String phone;
+  final String email;
+  final String address;
+  final List<String> photos;
+  final String templateId;
+
+  const _LivePreview({
+    required this.schoolName,
+    required this.tagline,
+    required this.description,
+    required this.hours,
+    required this.phone,
+    required this.email,
+    required this.address,
+    required this.photos,
+    required this.templateId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final moderne = templateId == 'moderne';
+    final classique = templateId == 'classique';
+    final heroBg = moderne
+        ? const LinearGradient(colors: [Color(0xFF7E2205), Color(0xFFE4610C)])
+        : null;
+    final heroColor = moderne ? null : context.cSubtle;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.cBorder, width: classique ? 2 : 1),
+        color: context.cCard,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Héros ──
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          decoration: BoxDecoration(gradient: heroBg, color: heroBg == null ? heroColor : null),
+          child: Column(children: [
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                color: moderne ? Colors.white.withOpacity(.15) : _terra.withOpacity(.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.school_rounded, size: 24,
+                  color: moderne ? Colors.white : _terra),
+            ),
+            const SizedBox(height: 12),
+            Text(schoolName,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 19, fontWeight: FontWeight.w800,
+                    color: moderne ? Colors.white : context.cInk)),
+            if (tagline.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(tagline,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13,
+                      color: moderne ? Colors.white.withOpacity(.85) : context.cMuted)),
+            ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: _green,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Text('S\'inscrire en ligne →',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+        ),
+        // ── Corps ──
+        Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (description.trim().isNotEmpty) ...[
+              Text('À propos',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: context.cInk)),
+              const SizedBox(height: 6),
+              Text(description,
+                  style: TextStyle(fontSize: 12.5, color: context.cMuted, height: 1.4)),
+              const SizedBox(height: 14),
+            ],
+            if (photos.isNotEmpty) ...[
+              SizedBox(
+                height: 64,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: photos.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(photos[i], width: 84, height: 64, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                              width: 84, height: 64,
+                              color: context.cSubtle,
+                              child: Icon(Icons.image_not_supported_outlined,
+                                  size: 18, color: context.cMuted),
+                            )),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (hours.trim().isNotEmpty) _PreviewRow(Icons.access_time_rounded, hours),
+            if (address.trim().isNotEmpty) _PreviewRow(Icons.location_on_outlined, address),
+            if (phone.trim().isNotEmpty) _PreviewRow(Icons.call_outlined, phone),
+            if (email.trim().isNotEmpty) _PreviewRow(Icons.mail_outline_rounded, email),
+            if ([description, hours, address, phone, email].every((s) => s.trim().isEmpty) && photos.isEmpty)
+              Text('Remplissez le formulaire ci-dessous pour voir apparaître le contenu ici.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted, fontStyle: FontStyle.italic)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PreviewRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _PreviewRow(this.icon, this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 14, color: context.cMuted),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 12.5, color: context.cMuted))),
       ]),
     );
   }
