@@ -40,6 +40,14 @@ final schoolProvider = FutureProvider<SbSchool?>((ref) async {
   return SupabaseDbSource.getSchool(schoolId);
 });
 
+/// Config du mini-site école (`school_microsites`) — null si l'école n'a
+/// encore rien enregistré.
+final schoolMicrositeProvider = FutureProvider<SbSchoolMicrosite?>((ref) async {
+  final schoolId = ref.watch(currentSchoolIdProvider);
+  if (schoolId == null) return null;
+  return SupabaseDbSource.getSchoolMicrosite(schoolId);
+});
+
 /// Devise et barème de l'école courante.
 ///
 /// À utiliser PARTOUT où l'on affiche un montant ou une note. Ne jamais écrire

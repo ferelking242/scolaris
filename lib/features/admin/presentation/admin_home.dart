@@ -9,6 +9,7 @@ import '../../../presentation/providers/db_providers.dart';
 import '../../../presentation/providers/nav_providers.dart';
 import '../roles/roles_permissions_page.dart';
 import 'pages/enrollment_config_page.dart';
+import 'pages/microsite_config_page.dart';
 import 'pages/prereg_queue_page.dart';
 import 'pages/timetable_page.dart';
 import '../../../shared/widgets/permission_guard.dart';
@@ -109,6 +110,13 @@ class AdminHome extends ConsumerWidget {
       RoleNavEntry(icon: Icons.fact_check_outlined, activeIcon: Icons.fact_check_rounded,
           labelKey: 'Pré-inscriptions',
           page: PermissionGuard(permission: StaffPermissions.students, child: PreRegQueuePage()),
+          permission: StaffPermissions.students, module: 'enrollment'),
+      // Mini-site école (18/08/2026) — même module que le lien public
+      // d'inscription, donc même palier (Croissance+) sans nouveau gating à
+      // écrire. Contenu uniquement, pas encore de diffusion publique.
+      RoleNavEntry(icon: Icons.language_outlined, activeIcon: Icons.language_rounded,
+          labelKey: 'Mini-site école',
+          page: PermissionGuard(permission: StaffPermissions.students, child: MicrositeConfigPage()),
           permission: StaffPermissions.students, module: 'enrollment'),
       // Fin d'année : passage de classe ET sortie d'élève (transfert/diplôme/
       // radiation) — la même décision annuelle, cf. class_promotion_page.dart.

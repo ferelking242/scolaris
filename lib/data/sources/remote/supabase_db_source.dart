@@ -109,6 +109,61 @@ class SbProgression {
   }
 }
 
+/// Config du mini-site école (`school_microsites`) — module Inscriptions,
+/// palier Croissance+. Contenu uniquement pour l'instant, `published` reste
+/// affiché comme "à venir" côté UI tant que l'hébergement n'est pas décidé.
+class SbSchoolMicrosite {
+  final String id;
+  final String schoolId;
+  final String slug;
+  final String templateId;
+  final String? logoUrl;
+  final String? accentColor;
+  final String? tagline;
+  final String? description;
+  final String? hoursText;
+  final String? contactPhone;
+  final String? contactEmail;
+  final String? address;
+  final List<String> photos;
+  final bool published;
+
+  const SbSchoolMicrosite({
+    required this.id,
+    required this.schoolId,
+    required this.slug,
+    required this.templateId,
+    this.logoUrl,
+    this.accentColor,
+    this.tagline,
+    this.description,
+    this.hoursText,
+    this.contactPhone,
+    this.contactEmail,
+    this.address,
+    this.photos = const [],
+    this.published = false,
+  });
+
+  factory SbSchoolMicrosite.fromJson(Map<String, dynamic> j) =>
+      SbSchoolMicrosite(
+        id: j['id'] as String,
+        schoolId: j['school_id'] as String,
+        slug: j['slug'] as String,
+        templateId: j['template_id'] as String? ?? 'basique',
+        logoUrl: j['logo_url'] as String?,
+        accentColor: j['accent_color'] as String?,
+        tagline: j['tagline'] as String?,
+        description: j['description'] as String?,
+        hoursText: j['hours_text'] as String?,
+        contactPhone: j['contact_phone'] as String?,
+        contactEmail: j['contact_email'] as String?,
+        address: j['address'] as String?,
+        photos: (j['photos'] as List?)?.cast<String>() ?? const [],
+        published: j['published'] as bool? ?? false,
+      );
+}
+
 /// Une demande de pré-inscription publique (`enrollment_requests`). `payload`
 /// suit les clés d'[EnrollmentFields] (`first_name`, `guardian_phone`…) —
 /// jsonb libre côté base, non typé colonne par colonne.
@@ -4629,6 +4684,55 @@ class SupabaseDbSource {
         .update({'enrollment_api_key': key})
         .eq('id', schoolId).friendly();
     return key;
+  }
+
+  // ── Mini-site école (`school_microsites`) ───────────────────────────────────
+  // Configuration du contenu uniquement (18/08/2026) — pas de rendu public
+  // branché tant que l'hébergement/domaine n'est pas décidé. `published`
+  // reste toujours false côté UI pour l'instant (bouton désactivé).
+
+  static Future<SbSchoolMicrosite?> getSchoolMicrosite(String schoolId) async {
+    final row = await _db
+        .from('school_microsites')
+        .select()
+        .eq('school_id', schoolId)
+        .maybeSingle();
+    return row == null ? null : SbSchoolMicrosite.fromJson(row);
+  }
+
+  /// Crée ou met à jour la config du mini-site de l'école (upsert sur
+  /// `school_id`, unique). [slug] doit être unique globalement (index
+  /// `school_microsites_school_unique` couvre school_id, pas slug — la
+  /// contrainte `unique` sur `slug` renvoie une erreur Postgres exploitable
+  /// via `.friendly()` si déjà pris par une autre école).
+  static Future<void> saveSchoolMicrosite({
+    required String schoolId,
+    required String slug,
+    String templateId = 'basique',
+    String? logoUrl,
+    String? accentColor,
+    String? tagline,
+    String? description,
+    String? hoursText,
+    String? contactPhone,
+    String? contactEmail,
+    String? address,
+    List<String> photos = const [],
+  }) async {
+    await _db.from('school_microsites').upsert({
+      'school_id': schoolId,
+      'slug': slug,
+      'template_id': templateId,
+      'logo_url': logoUrl,
+      'accent_color': accentColor,
+      'tagline': tagline,
+      'description': description,
+      'hours_text': hoursText,
+      'contact_phone': contactPhone,
+      'contact_email': contactEmail,
+      'address': address,
+      'photos': photos,
+    }, onConflict: 'school_id').friendly();
   }
 
   /// Suivi d'une demande par une famille sans compte, via sa référence exacte
