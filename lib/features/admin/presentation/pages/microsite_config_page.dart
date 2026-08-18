@@ -403,7 +403,7 @@ class _PublishPanel extends StatelessWidget {
             Switch(
               value: published,
               onChanged: publishing ? null : onToggle,
-              activeThumbColor: _green,
+              activeColor: _green,
             ),
         ]),
         if (published) ...[
