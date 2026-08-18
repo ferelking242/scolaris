@@ -224,12 +224,17 @@ const List<AppModule> kAppModules = [
         'Ouvre un lien public de pré-inscription pour les familles (formulaire '
         'en ligne, sans compte requis), centralise les dossiers reçus et '
         'permet à l\'école de les valider ou refuser avant de créer les '
-        'comptes élève/parent définitifs.',
+        'comptes élève/parent définitifs. Inclut aussi un mini-site vitrine '
+        'que l\'école remplit elle-même (logo, présentation, photos) pour que '
+        'le lien de pré-inscription mène à une vraie page, pas juste un '
+        'formulaire nu.',
     highlights: [
       'Lien public de pré-inscription à partager (réseaux, site de l\'école)',
+      'Mini-site vitrine généré automatiquement (1 modèle inclus)',
       'File des dossiers reçus, à valider ou refuser',
       'Ouverture/fermeture de la campagne en un clic',
       'Passage direct dossier validé → compte élève créé',
+      'Offre Complet : plusieurs modèles de mini-site + domaine personnalisé',
     ],
     roles: ['Secrétariat', 'Direction (validation finale)'],
     faq: [
