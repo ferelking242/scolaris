@@ -12,11 +12,28 @@ const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 
 /// URL provisoire du mini-site publié, tant qu'aucun domaine n'est acheté :
-/// sert `site_saas/ecole.html`, hébergé sur le même GitHub Pages que le site
-/// vitrine (cf. `PreRegStore.baseUrl`, corrigé le 18/08/2026). À remplacer
-/// par un sous-domaine `<slug>.scolaris.app` le jour où le domaine existe —
-/// juste ce constant à changer, rien d'autre côté app.
+/// sert `ecole.html` du repo GitHub SÉPARÉ `boveldy/scolaris-site` (PAS le
+/// repo `scolaris` — cf. memory/business-model.md pour le piège des deux
+/// repos). À remplacer par un sous-domaine `<slug>.scolaris.app` le jour où
+/// le domaine existe — juste ce constant à changer, rien d'autre côté app.
 const _micrositeBaseUrl = 'https://boveldy.github.io/scolaris-site/ecole.html';
+
+/// Normalise un slug saisi librement : minuscules, sans accents, espaces →
+/// tirets, uniquement [a-z0-9-]. Un slug invalide (espaces, majuscules,
+/// accents) casse l'URL publique `?slug=...` sans qu'aucune erreur ne le
+/// signale à la saisie — découvert le 18/08/2026 (mini-site jamais
+/// accessible malgré une config enregistrée avec succès).
+String _slugify(String input) {
+  const accents = 'àâäáãåéèêëíìîïóòôöõúùûüçñ';
+  const plain   = 'aaaaaaeeeeiiiiooooouuuucn';
+  var s = input.trim().toLowerCase();
+  for (var i = 0; i < accents.length; i++) {
+    s = s.replaceAll(accents[i], plain[i]);
+  }
+  s = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+  s = s.replaceAll(RegExp(r'-+'), '-');
+  return s.replaceAll(RegExp(r'^-|-$'), '');
+}
 
 /// Config du mini-site école — module Inscriptions, palier Croissance+.
 /// La publication (Phase 2, 18/08/2026) sert une URL provisoire du type
@@ -111,7 +128,11 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
     final schoolId = ref.read(currentSchoolIdProvider);
     final messenger = ScaffoldMessenger.of(context);
     if (schoolId == null) return;
-    final slug = _slug.text.trim();
+    // Nettoyage obligatoire — un slug avec espaces/accents/majuscules casse
+    // l'URL publique (`?slug=...`) sans qu'aucune erreur ne le signale à la
+    // saisie. Découvert le 18/08/2026 : une école avait enregistré
+    // « Lumière du savoir » tel quel, page jamais accessible en pratique.
+    final slug = _slugify(_slug.text);
     if (slug.isEmpty) {
       messenger.showSnackBar(const SnackBar(
         content: Text('L\'identifiant du site est obligatoire.'),
@@ -119,6 +140,9 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
         behavior: SnackBarBehavior.floating,
       ));
       return;
+    }
+    if (slug != _slug.text.trim()) {
+      _slug.text = slug; // reflète ce qui sera réellement enregistré/publié
     }
     final planCode = ref.read(currentPlanCodeProvider).valueOrNull;
     final isComplet = planMeetsRequirement(planCode, 'max');
