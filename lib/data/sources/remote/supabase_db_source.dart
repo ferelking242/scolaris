@@ -4735,6 +4735,16 @@ class SupabaseDbSource {
     }, onConflict: 'school_id').friendly();
   }
 
+  /// Publie/dépublie le mini-site — `published = true` le rend visible sur
+  /// `public_school_microsites` (donc `site_saas/ecole.html?slug=...`).
+  static Future<void> setSchoolMicrositePublished(
+      String schoolId, bool published) async {
+    await _db
+        .from('school_microsites')
+        .update({'published': published})
+        .eq('school_id', schoolId).friendly();
+  }
+
   /// Suivi d'une demande par une famille sans compte, via sa référence exacte
   /// (fonction `security definer`, ne liste jamais les autres demandes).
   static Future<Map<String, dynamic>?> trackEnrollmentRequest(

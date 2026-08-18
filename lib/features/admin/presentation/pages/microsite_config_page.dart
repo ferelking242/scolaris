@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../data/sources/remote/supabase_db_source.dart';
@@ -9,11 +10,17 @@ const _terra = Color(0xFF8B1A00);
 const _green = Color(0xFF2D6A4F);
 const _gold  = Color(0xFFC17F24);
 
+/// URL provisoire du mini-site publié, tant qu'aucun domaine n'est acheté :
+/// sert `site_saas/ecole.html`, hébergé sur le même GitHub Pages que le site
+/// vitrine (cf. `PreRegStore.baseUrl`, corrigé le 18/08/2026). À remplacer
+/// par un sous-domaine `<slug>.scolaris.app` le jour où le domaine existe —
+/// juste ce constant à changer, rien d'autre côté app.
+const _micrositeBaseUrl = 'https://boveldy.github.io/scolaris-site/ecole.html';
+
 /// Config du mini-site école — module Inscriptions, palier Croissance+.
-/// Contenu uniquement : pas de rendu public branché tant que l'hébergement
-/// (nom de domaine, sous-domaine par école) n'est pas décidé. Le bouton
-/// « Publier » reste désactivé avec un message explicite plutôt que de
-/// promettre une fonctionnalité qui ne fait rien.
+/// La publication (Phase 2, 18/08/2026) sert une URL provisoire du type
+/// `.../ecole.html?slug=...` — pas encore le sous-domaine par école prévu à
+/// terme (Phase 3, réservé à Complet), qui demande un vrai nom de domaine.
 class MicrositeConfigPage extends ConsumerStatefulWidget {
   const MicrositeConfigPage({super.key});
   @override
@@ -33,6 +40,9 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   bool _loading = true;
   bool _saving = false;
   bool _saved = false;
+  bool _hasSite = false;
+  bool _published = false;
+  bool _publishing = false;
 
   @override
   void initState() {
@@ -59,6 +69,8 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       final school = await ref.read(schoolProvider.future);
       if (!mounted) return;
       if (site != null) {
+        _hasSite = true;
+        _published = site.published;
         _slug.text = site.slug;
         _tagline.text = site.tagline ?? '';
         _description.text = site.description ?? '';
@@ -107,7 +119,7 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       );
       ref.invalidate(schoolMicrositeProvider);
       if (!mounted) return;
-      setState(() => _saved = true);
+      setState(() { _saved = true; _hasSite = true; });
       messenger.showSnackBar(SnackBar(
         content: const Row(children: [
           Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
@@ -134,6 +146,36 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
     }
   }
 
+  Future<void> _togglePublish(bool value) async {
+    final schoolId = ref.read(currentSchoolIdProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (schoolId == null) return;
+    setState(() => _publishing = true);
+    try {
+      await SupabaseDbSource.setSchoolMicrositePublished(schoolId, value);
+      ref.invalidate(schoolMicrositeProvider);
+      if (!mounted) return;
+      setState(() => _published = value);
+      messenger.showSnackBar(SnackBar(
+        content: Text(value
+            ? 'Mini-site publié — visible publiquement.'
+            : 'Mini-site dépublié — plus visible en ligne.'),
+        backgroundColor: value ? _green : _terra,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Échec : $e'),
+          backgroundColor: _terra,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _publishing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -144,7 +186,9 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
     }
     return PageScaffold(
       title: 'Mini-site école',
-      subtitle: 'Vitrine publique de pré-inscription — contenu, pas encore diffusé',
+      subtitle: _published
+          ? 'Vitrine publique — actuellement en ligne'
+          : 'Vitrine publique de pré-inscription',
       actions: [
         ActionButton(
           label: _saving ? 'Enregistrement…' : (_saved ? 'Enregistré !' : 'Enregistrer'),
@@ -156,7 +200,13 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _NotYetHostedBanner(),
+          _PublishPanel(
+            hasSite: _hasSite,
+            published: _published,
+            publishing: _publishing,
+            slug: _slug.text.trim(),
+            onToggle: _hasSite ? _togglePublish : null,
+          ),
           const SizedBox(height: 16),
           _Section(title: 'Identité', children: [
             _Field(label: 'Identifiant du site (slug)', controller: _slug,
@@ -188,42 +238,106 @@ class _MicrositeConfigPageState extends ConsumerState<MicrositeConfigPage> {
   }
 }
 
-class _NotYetHostedBanner extends StatelessWidget {
+class _PublishPanel extends StatelessWidget {
+  final bool hasSite;
+  final bool published;
+  final bool publishing;
+  final String slug;
+  final ValueChanged<bool>? onToggle;
+
+  const _PublishPanel({
+    required this.hasSite,
+    required this.published,
+    required this.publishing,
+    required this.slug,
+    required this.onToggle,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final link = '$_micrositeBaseUrl?slug=$slug';
+    final color = published ? _green : _gold;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _gold.withOpacity(.08),
+        color: color.withOpacity(.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _gold.withOpacity(.25)),
+        border: Border.all(color: color.withOpacity(.25)),
       ),
-      child: Row(children: [
-        Container(
-          width: 36, height: 36,
-          decoration: BoxDecoration(
-              color: _gold.withOpacity(.15),
-              borderRadius: BorderRadius.circular(9)),
-          child: const Icon(Icons.rocket_launch_outlined, color: _gold, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('La diffusion publique arrive bientôt',
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
-              const SizedBox(height: 3),
-              Text(
-                'Préparez dès maintenant le contenu de votre mini-site — la mise '
-                'en ligne (adresse publique) sera activée dès que l\'hébergement '
-                'sera en place. Rien n\'est perdu, tout est déjà enregistré.',
-                style: TextStyle(fontSize: 12, color: context.cMuted),
-              ),
-            ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+                color: color.withOpacity(.15),
+                borderRadius: BorderRadius.circular(9)),
+            child: Icon(
+                published ? Icons.public_rounded : Icons.rocket_launch_outlined,
+                color: color, size: 18),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(published ? 'Mini-site en ligne' : 'Mini-site non publié',
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: context.cInk)),
+                const SizedBox(height: 3),
+                Text(
+                  hasSite
+                      ? (published
+                          ? 'Visible publiquement. Adresse provisoire : le vrai '
+                              'sous-domaine par école arrivera avec l\'achat d\'un '
+                              'nom de domaine.'
+                          : 'Le contenu est enregistré mais pas encore visible. '
+                              'Publiez quand vous êtes prêt.')
+                      : 'Enregistrez d\'abord le contenu ci-dessous avant de '
+                          'pouvoir publier.',
+                  style: TextStyle(fontSize: 12, color: context.cMuted),
+                ),
+              ],
+            ),
+          ),
+          if (hasSite)
+            Switch(
+              value: published,
+              onChanged: publishing ? null : onToggle,
+              activeThumbColor: _green,
+            ),
+        ]),
+        if (published) ...[
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: link));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Lien copié.'),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: _green,
+              ));
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.cCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: context.cBorder),
+              ),
+              child: Row(children: [
+                Icon(Icons.link_rounded, size: 14, color: context.cMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(link,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: context.cMuted)),
+                ),
+                Icon(Icons.copy_rounded, size: 14, color: context.cMuted),
+              ]),
+            ),
+          ),
+        ],
       ]),
     );
   }

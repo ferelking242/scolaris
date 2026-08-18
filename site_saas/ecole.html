@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>École — Scolaris</title>
+<meta name="theme-color" content="#2A1207">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vitrine.css">
+<style>
+  /* Mini-site école — modèle « basique » (18/08/2026). Un seul modèle pour
+     l'instant, cf. memory/business-model.md (Croissance = 1 modèle,
+     Complet = plusieurs + domaine perso, pas encore construit). */
+  .ms-hero{padding:56px 0 40px;text-align:center}
+  .ms-logo{width:76px;height:76px;border-radius:20px;object-fit:cover;margin:0 auto 16px;display:block;box-shadow:0 8px 24px rgba(42,18,7,.15)}
+  .ms-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;background:var(--or-fond);border:1px solid var(--or-bord);color:var(--or);font-size:12.5px;font-weight:700;margin-bottom:14px}
+  .ms-section{padding:32px 0}
+  .ms-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:24px}
+  .ms-photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
+  .ms-photos img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;border:1px solid var(--bord)}
+  .ms-info-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;font-size:14px}
+  .ms-info-row b{min-width:88px;color:var(--brun)}
+  @media (max-width:760px){.ms-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="entete">
+  <div class="large">
+    <a class="logo" href="index.html"><b><img src="logo.png" alt="Scolaris" width="38" height="38"></b><i>Scolaris</i></a>
+    <nav class="nav" id="navPrincipale">
+      <a href="index.html#fonctions">Fonctions</a>
+      <a href="index.html#offres">Offres</a>
+      <a href="ecoles.html">Trouver une école</a>
+      <a href="suivi.html">Suivre mon dossier</a>
+    </nav>
+    <a class="btn btn--vert btn--petit" href="index.html#inscription">Inscrire mon école</a>
+    <button type="button" class="burger" id="burger" aria-expanded="false" aria-controls="navPrincipale" aria-label="Ouvrir le menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div id="etatChargement" class="section" style="text-align:center"><p class="chapo">Chargement…</p></div>
+
+  <div id="introuvable" class="section" style="text-align:center" hidden>
+    <div class="large" style="max-width:520px">
+      <h1 class="titre" style="font-size:28px">École introuvable</h1>
+      <p class="intro" style="margin-top:8px">Ce mini-site n'existe pas ou n'est plus publié.</p>
+      <a class="btn btn--vert btn--petit" style="margin-top:18px" href="ecoles.html">Voir toutes les écoles</a>
+    </div>
+  </div>
+
+  <div id="contenu" hidden>
+    <section class="ms-hero">
+      <div class="large" style="max-width:640px">
+        <img id="msLogo" class="ms-logo" alt="" hidden>
+        <p id="msBadge" class="ms-badge" hidden>📍 <span id="msLieu"></span></p>
+        <h1 id="msNom" class="titre" style="font-size:clamp(28px,4.4vw,42px)"></h1>
+        <p id="msTagline" class="intro" style="margin-top:6px"></p>
+        <a id="msInscrire" class="btn btn--vert" style="margin-top:20px" href="#" hidden>S'inscrire en ligne →</a>
+      </div>
+    </section>
+
+    <section class="ms-section">
+      <div class="large ms-grid">
+        <div>
+          <div id="msDescriptionWrap" hidden>
+            <h2 style="font-size:19px;font-weight:800;margin-bottom:8px">À propos</h2>
+            <p id="msDescription" class="chapo" style="text-align:left"></p>
+          </div>
+          <div id="msPhotosWrap" hidden>
+            <div id="msPhotos" class="ms-photos"></div>
+          </div>
+        </div>
+        <div class="carte">
+          <h2 style="font-size:16px;font-weight:800;margin-bottom:14px">Informations</h2>
+          <div id="msHorairesRow" class="ms-info-row" hidden><b>Horaires</b><span id="msHoraires"></span></div>
+          <div id="msAdresseRow" class="ms-info-row" hidden><b>Adresse</b><span id="msAdresse"></span></div>
+          <div id="msTelRow" class="ms-info-row" hidden><b>Téléphone</b><span id="msTel"></span></div>
+          <div id="msEmailRow" class="ms-info-row" hidden><b>Email</b><span id="msEmail"></span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="pied sombre">
+  <div class="large">
+    <div class="bas">
+      <span>© <span id="annee"></span> Scolaris — Savoir, Héritage, Avenir.</span>
+      <span>Site propulsé par <a href="index.html" style="color:inherit">Scolaris</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="scolaris-config.js"></script>
+<script>
+document.getElementById("annee").textContent = new Date().getFullYear();
+
+const burger = document.getElementById("burger");
+const navPrincipale = document.getElementById("navPrincipale");
+burger.addEventListener("click", () => {
+  const ouvert = navPrincipale.classList.toggle("ouvert");
+  burger.setAttribute("aria-expanded", String(ouvert));
+});
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+(async function () {
+  const params = new URLSearchParams(location.search);
+  const slug = params.get("slug");
+  const chargement = document.getElementById("etatChargement");
+  const introuvable = document.getElementById("introuvable");
+  const contenu = document.getElementById("contenu");
+
+  if (!slug) { chargement.hidden = true; introuvable.hidden = false; return; }
+
+  const sb = window.supabase.createClient(SCOLARIS_CONFIG.SUPABASE_URL, SCOLARIS_CONFIG.SUPABASE_ANON_KEY);
+  const { data: site, error } = await sb
+    .from("public_school_microsites")
+    .select("*")
+    .eq("site_slug", slug)
+    .maybeSingle();
+
+  chargement.hidden = true;
+
+  if (error || !site) { introuvable.hidden = false; return; }
+
+  document.title = `${site.school_name} — Scolaris`;
+
+  if (site.logo_url) {
+    const logo = document.getElementById("msLogo");
+    logo.src = site.logo_url; logo.alt = site.school_name; logo.hidden = false;
+  }
+  const lieu = [site.city, site.country].filter(Boolean).join(", ");
+  if (lieu) {
+    document.getElementById("msLieu").textContent = lieu;
+    document.getElementById("msBadge").hidden = false;
+  }
+  document.getElementById("msNom").textContent = site.school_name;
+  if (site.tagline) document.getElementById("msTagline").textContent = site.tagline;
+
+  if (site.preregistration_open && site.school_slug) {
+    const btn = document.getElementById("msInscrire");
+    btn.href = `${SCOLARIS_CONFIG.APP_URL || "https://ferelking242.github.io/scolaris"}/#/inscription/${site.school_slug}`;
+    btn.hidden = false;
+  }
+
+  if (site.description) {
+    document.getElementById("msDescription").textContent = site.description;
+    document.getElementById("msDescriptionWrap").hidden = false;
+  }
+  if (Array.isArray(site.photos) && site.photos.length) {
+    const wrap = document.getElementById("msPhotos");
+    for (const url of site.photos) {
+      const img = document.createElement("img");
+      img.src = url; img.alt = site.school_name; img.loading = "lazy";
+      wrap.appendChild(img);
+    }
+    document.getElementById("msPhotosWrap").hidden = false;
+  }
+  if (site.hours_text) {
+    document.getElementById("msHoraires").textContent = site.hours_text;
+    document.getElementById("msHorairesRow").hidden = false;
+  }
+  if (site.address) {
+    document.getElementById("msAdresse").textContent = site.address;
+    document.getElementById("msAdresseRow").hidden = false;
+  }
+  if (site.contact_phone) {
+    document.getElementById("msTel").textContent = site.contact_phone;
+    document.getElementById("msTelRow").hidden = false;
+  }
+  if (site.contact_email) {
+    document.getElementById("msEmail").textContent = site.contact_email;
+    document.getElementById("msEmailRow").hidden = false;
+  }
+
+  contenu.hidden = false;
+})();
+</script>
+</body>
+</html>

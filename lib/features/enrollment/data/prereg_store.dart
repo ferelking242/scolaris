@@ -5,9 +5,16 @@
 class PreRegStore {
   PreRegStore._();
 
-  /// Domaine public (à ajuster quand le web sera déployé).
-  static const String baseUrl = 'https://scolaris.app';
+  /// App web réellement déployée aujourd'hui (GitHub Pages, cf.
+  /// `site_saas/scolaris-config.js` LIEN_APP). ⚠️ Avant le 18/08/2026 ce champ
+  /// pointait vers `https://scolaris.app`, un domaine jamais acheté — le lien
+  /// public de pré-inscription était mort en pratique. À remplacer par le
+  /// vrai domaine le jour où il sera acheté ET pointé vers cette app.
+  static const String baseUrl = 'https://ferelking242.github.io/scolaris';
 
-  /// URL publique de pré-inscription pour le slug d'une école.
-  static String linkFor(String slug) => '$baseUrl/inscription/$slug';
+  /// URL publique de pré-inscription pour le slug d'une école. `#/` car
+  /// go_router utilise la stratégie hash par défaut (pas de `setUrlStrategy`
+  /// dans main.dart) — indispensable sur un hébergement statique GitHub
+  /// Pages sans réécriture d'URL côté serveur.
+  static String linkFor(String slug) => '$baseUrl/#/inscription/$slug';
 }
